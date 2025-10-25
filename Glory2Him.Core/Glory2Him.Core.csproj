@@ -1,0 +1,69 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Title>Glory2Him.Core</Title>
+		<Authors>Glory 2 Him</Authors>
+		<Description>A Standardized .NET library for Glory 2 Him core functionality.</Description>
+		<Copyright>Copyright (c) 2025 Glory 2 Him</Copyright>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+		<PackageIcon>Glory2Him-Square.png</PackageIcon>
+		<Version>0.1.0.0</Version>
+		<AssemblyVersion>0.1.0.0</AssemblyVersion>
+		<FileVersion>0.1.0.0</FileVersion>
+		<NeutralLanguage>en-US</NeutralLanguage>
+		<PackageProjectUrl>https://github.com/Glory2Him/Glory2Him.Core</PackageProjectUrl>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/Glory2Him/Glory2Him.Core</RepositoryUrl>
+		<RepositoryType>Github</RepositoryType>
+		<PackageTags>Glory 2 Him; G2H; C#; .NET; The Standard</PackageTags>
+		<PackageReleaseNotes>
+			Beta release for the PeerLLM chat feature.
+		</PackageReleaseNotes>
+		<NoWarn>CS1998,CS8632</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Content Include="..\LICENSE.txt">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</Content>
+		<Content Include="..\README.md">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</Content>
+		<Content Include="..\G2HSL.md">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</Content>
+		<None Include="..\Resources\Images\Glory2Him-Banner.png">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="..\Resources\Images\Glory2Him-Square.png">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+		<None Include="..\Resources\Images\Glory2Him.ico">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Unit" />
+		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Acceptance" />
+		<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+	</ItemGroup>
+
+</Project>

@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Glory2Him.Core.Infrastructure/Glory2Him.Core.Infrastructure.csproj" />
+  <Project Path="Glory2Him.Core.Tests.Acceptance/Glory2Him.Core.Tests.Acceptance.csproj" />
+  <Project Path="Glory2Him.Core.Tests.Integration/Glory2Him.Core.Tests.Integration.csproj" />
+  <Project Path="Glory2Him.Core.Tests.Unit/Glory2Him.Core.Tests.Unit.csproj" />
+  <Project Path="Glory2Him.Core/Glory2Him.Core.csproj" />
+</Solution>
