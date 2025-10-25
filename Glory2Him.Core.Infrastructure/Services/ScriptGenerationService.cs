@@ -83,13 +83,28 @@ namespace Glory2Him.Core.Infrastructure.Services
                                 new TestTask
                                 {
                                     Name = "Run Unit Tests",
-                                    Run = "dotnet test **/*Tests.Unit.csproj --no-build --verbosity normal"
+                                    Shell = "pwsh",
+                                    Run =
+                                        """
+                                        $projects = Get-ChildItem -Path . -Filter "*Tests.Unit*.csproj" -Recurse
+                                        foreach ($project in $projects) {
+                                          Write-Host "Running tests for: $($project.FullName)"
+                                          dotnet test $project.FullName --no-build --verbosity normal
+                                        }
+                                        """
                                 },
 
                                 new TestTask
                                 {
                                     Name = "Run Acceptance Tests",
-                                    Run = "dotnet test **/*Tests.Acceptance.csproj --no-build --verbosity normal"
+                                    Run =
+                                        """
+                                        $projects = Get-ChildItem -Path . -Filter "*Tests.Acceptance*.csproj" -Recurse
+                                        foreach ($project in $projects) {
+                                          Write-Host "Running tests for: $($project.FullName)"
+                                          dotnet test $project.FullName --no-build --verbosity normal
+                                        }
+                                        """
                                 }
                             }
                         }
