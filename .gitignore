@@ -416,4 +416,5 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
-/Documentation/.$Glory 2 Him.drawio.bkp
+*.bkp
+*.dtmp

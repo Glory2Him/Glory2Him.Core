@@ -7,7 +7,7 @@ guidelines = 120
 #### Core EditorConfig Options ####
 
 #Formatting - header template
-file_header_template = --------------------------------------------------------------------------------\nCopyright (c) Glory 2 Him. All rights reserved.\nLicensed under the Glory 2 Him Software License (G2HSL).\nSee License.txt in the project root for full license information.\nFREE TO USE TO HELP SHARE THE GOSPEL\nMark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."\nhttps://mark.bible/mark-16-15\n--------------------------------------------------------------------------------
+file_header_template = ────────────────────────────────────────────────────────────────────────────────\nCopyright (c) Glory 2 Him. All rights reserved.\nLicensed under the Glory 2 Him Software License (G2HSL).\nSee License.txt in the project root for full license information.\nFREE TO USE TO HELP SHARE THE GOSPEL\nMark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."\nhttps://mark.bible/mark-16-15\n────────────────────────────────────────────────────────────────────────────────
 
 #sort System.* using directives alphabetically, and place them before other usings
 dotnet_sort_system_directives_first = true
