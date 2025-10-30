@@ -15,7 +15,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial class StorageBroker
     {
-        private static void AddConsumerAccessConfigurations(EntityTypeBuilder<ContentItem> model)
+        private static void AddContentItemConfigurations(EntityTypeBuilder<ContentItem> model)
         {
             model
                 .ToTable("ContentItems");
@@ -43,15 +43,27 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .HasDefaultValue(1)
                 .IsRequired();
 
-            model.Property(contentItem => contentItem.CreatedWhen)
+            model
+                .Property(contentItem => contentItem.CreatedBy)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            model
+                .Property(contentItem => contentItem.CreatedWhen)
+                .IsRequired();
+
+            model
+                .Property(contentItem => contentItem.UpdatedBy)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            model
+                .Property(contentItem => contentItem.UpdatedWhen)
                 .IsRequired();
 
             // Optional properties
             model.Property(contentItem => contentItem.Title);
             model.Property(contentItem => contentItem.Author);
-            model.Property(contentItem => contentItem.CreatedBy);
-            model.Property(contentItem => contentItem.UpdatedBy);
-            model.Property(contentItem => contentItem.UpdatedWhen);
 
             // Unique constraint on (CorrelationId, Version)
             model.HasIndex(contentItem => new { contentItem.CorrelationId, contentItem.Version })
@@ -62,6 +74,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.HasIndex(contentItem => new { contentItem.CorrelationId, contentItem.Version })
                 .HasDatabaseName("IX_ContentItems_CorrelationId_VersionDesc")
                 .IsDescending(true, true);
+
+            // Relationship: many ContentItems to one ContentType
+            model.HasOne(contentItem => contentItem.ContentType)
+                .WithMany(contentType => contentType.ContentItems)
+                .HasForeignKey(contentItem => contentItem.ContentTypeId)
+                .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }

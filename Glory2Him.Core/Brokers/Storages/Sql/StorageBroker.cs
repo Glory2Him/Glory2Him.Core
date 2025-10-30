@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using STX.EFCore.Client.Clients;
@@ -47,7 +48,8 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
         private static void AddConfigurations(ModelBuilder modelBuilder)
         {
-            AddConsumerAccessConfigurations(modelBuilder.Entity<ContentItem>());
+            AddContentItemConfigurations(modelBuilder.Entity<ContentItem>());
+            AddContentTypeConfigurations(modelBuilder.Entity<ContentType>());
         }
 
         private async ValueTask<T> InsertAsync<T>(T @object) where T : class =>
