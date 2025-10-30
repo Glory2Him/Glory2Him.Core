@@ -9,6 +9,7 @@
 
 using System;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Foundations.ContentTypes;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItems
 {
@@ -71,5 +72,10 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         /// Timestamp when the content item was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
+
+        /// <summary>
+        /// Navigation to the content type this item belongs to.
+        /// </summary>
+        public ContentType? ContentType { get; set; }
     }
 }
