@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
@@ -52,6 +53,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             AddContentItemConfigurations(modelBuilder.Entity<ContentItem>());
             AddContentTypeConfigurations(modelBuilder.Entity<ContentType>());
             AddContentItemSettingConfigurations(modelBuilder.Entity<ContentItemSetting>());
+            AddApprovalConfigurations(modelBuilder.Entity<Approval>());
         }
 
         private async ValueTask<T> InsertAsync<T>(T @object) where T : class =>
