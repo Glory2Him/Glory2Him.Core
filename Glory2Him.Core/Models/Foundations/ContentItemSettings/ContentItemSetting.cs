@@ -8,13 +8,14 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using Glory2Him.Core.Models.Bases;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
 {
     /// <summary>
     /// Represents configurable settings for a content item type or specific entity instance.
     /// </summary>
-    public class ContentItemSetting
+    public class ContentItemSetting : IKey, IAudit
     {
         /// <summary>
         /// Primary key identifier for the content item setting.
@@ -146,5 +147,25 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         /// Indicates whether Bible references should be displayed.
         /// </summary>
         public bool ShowBibleReferences { get; set; }
+
+        /// <summary>
+        /// User identifier for who created the content item.
+        /// </summary>
+        public string CreatedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was created.
+        /// </summary>
+        public DateTimeOffset CreatedWhen { get; set; }
+
+        /// <summary>
+        /// User identifier for who last updated the content item.
+        /// </summary>
+        public string UpdatedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was last updated.
+        /// </summary>
+        public DateTimeOffset UpdatedWhen { get; set; }
     }
 }

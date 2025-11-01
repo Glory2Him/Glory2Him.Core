@@ -101,6 +101,24 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            model
+                .Property(contentItemSetting => contentItemSetting.CreatedBy)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            model
+                .Property(contentItemSetting => contentItemSetting.CreatedWhen)
+                .IsRequired();
+
+            model
+                .Property(contentItemSetting => contentItemSetting.UpdatedBy)
+                .HasMaxLength(255)
+                .IsRequired();
+
+            model
+                .Property(contentItemSetting => contentItemSetting.UpdatedWhen)
+                .IsRequired();
+
             // ------------------------------------------------------------------------
             // Filtered unique indexes (SQL Server) to enforce your business rules:
             // 1) At most one default per type:
