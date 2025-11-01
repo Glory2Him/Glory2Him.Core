@@ -8,34 +8,35 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using Glory2Him.Core.Models.Bases;
-using Glory2Him.Core.Models.Foundations.ApprovalComments;
-using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.Approvals;
 
-namespace Glory2Him.Core.Models.Foundations.Approvals
+namespace Glory2Him.Core.Models.Foundations.ApprovalComments
 {
     /// <summary>
-    /// Represents an approval record tied to a specific entity type and entity id
+    /// Represents an approval comment associated with an approval record.
     /// </summary>
-    public class Approval : IKey, IAudit
+    public class ApprovalComment : IKey, IAudit
     {
+        /// <summary>
+        /// Primary key identifier for the approval comment.
+        /// </summary>
         public Guid Id { get; set; }
 
         /// <summary>
-        /// Logical type of the approved entity (e.g., "Quote", "Story", "Tag", "Comment", "Reaction").
+        /// Identifier of the approval record this comment belongs to.
         /// </summary>
-        public string EntityType { get; set; } = string.Empty;
+        public Guid ApprovalId { get; set; }
 
         /// <summary>
-        /// Identifier of the approved entity instance.
+        /// Identifier of the user who made the comment.
         /// </summary>
-        public Guid EntityId { get; set; }
+        public string UserId { get; set; } = string.Empty;
 
         /// <summary>
-        /// Numeric status identifier (map to an enum in your domain layer if desired).
+        /// Text content of the comment.
         /// </summary>
-        public int StatusId { get; set; }
+        public string Comment { get; set; } = string.Empty;
 
         /// <summary>
         /// User identifier for who created the content item.
@@ -58,13 +59,8 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         public DateTimeOffset UpdatedWhen { get; set; }
 
         /// <summary>
-        /// Navigation to the approval comments associated with this approval.
+        /// Navigation to the approval this item belongs to.
         /// </summary>
-        public ICollection<ApprovalComment> ApprovalComments { get; set; } = new List<ApprovalComment>();
-
-        /// <summary>
-        /// Navigation to the approval reviews associated with this approval.
-        /// </summary>
-        public ICollection<ApprovalReview> ApprovalReviews { get; set; } = new List<ApprovalReview>();
+        public Approval Approval { get; set; } = null!;
     }
 }
