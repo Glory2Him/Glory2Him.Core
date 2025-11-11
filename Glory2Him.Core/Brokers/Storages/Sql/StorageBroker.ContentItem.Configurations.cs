@@ -65,20 +65,17 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItem => contentItem.Title);
             model.Property(contentItem => contentItem.Author);
 
-            // Unique constraint on (ContentItemGroupId, Version)
-            model.HasIndex(contentItem => new { contentItem.ContentItemGroupId, contentItem.Version })
-                .IsUnique();
-
             // Index on (ContentItemGroupId, Version DESC) for "latest" lookups
             // SQL Server supports DESC index sort order explicitly
             model.HasIndex(contentItem => new { contentItem.ContentItemGroupId, contentItem.Version })
                 .HasDatabaseName("IX_ContentItems_ContentItemGroupId_VersionDesc")
+                .IsUnique()
                 .IsDescending(true, true);
 
             // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
             model.HasIndex(e => new { e.ContentItemGroupId, e.IsLatest })
                  .IsUnique()
-                 .HasFilter("[IsLatest] = 1")
+                 .HasFilter($"[{nameof(ContentItem.IsLatest)}] = 1")
                  .HasDatabaseName("IX_ContentItem_IsLatest");
 
             // Relationship: many ContentItems to one ContentType

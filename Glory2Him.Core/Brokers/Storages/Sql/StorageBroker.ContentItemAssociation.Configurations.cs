@@ -7,6 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -17,22 +18,54 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     {
         private static void AddContentItemAssociationConfigurations(EntityTypeBuilder<ContentItemAssociation> model)
         {
-            model
-                .ToTable(
-                    "ContentItemAssociations",
-                    tableBuilder =>
-                    {
-                        // CHECK constraint to enforce Scope consistency
-                        tableBuilder.HasCheckConstraint(
-                            name: "CK_ContentItemAssociation_ScopeConsistency",
-                            sql:
-                                $"(({nameof(ContentItemAssociation.Scope)} = 0 AND " +
-                                $"{nameof(ContentItemAssociation.ContentItemGroupId)} IS NOT NULL AND " +
-                                $"{nameof(ContentItemAssociation.ContentItemId)} IS NULL) OR " +
-                                $"({nameof(ContentItemAssociation.Scope)} = 1 AND " +
-                                $"{nameof(ContentItemAssociation.ContentItemId)} IS NOT NULL AND " +
-                                $"{nameof(ContentItemAssociation.ContentItemGroupId)} IS NULL))");
-                    });
+            model.ToTable(
+                "ContentItemAssociations",
+                tableBuilder =>
+                {
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ContentItemAssociation_ScopeConsistency",
+                        sql:
+                            $"(({nameof(ContentItemAssociation.Scope)} = N'{nameof(Scope.AllVersions)}' AND " +
+                            $"{nameof(ContentItemAssociation.ContentItemGroupId)} IS NOT NULL AND " +
+                            $"{nameof(ContentItemAssociation.ContentItemId)} IS NULL) OR " +
+                            $"({nameof(ContentItemAssociation.Scope)} = N'{nameof(Scope.ThisVersionOnly)}' AND " +
+                            $"{nameof(ContentItemAssociation.ContentItemId)} IS NOT NULL AND " +
+                            $"{nameof(ContentItemAssociation.ContentItemGroupId)} IS NULL))");
+                });
+
+            model.HasKey(e => e.Id);
+
+            model.Property(e => e.Scope)
+                 .HasConversion<string>()
+                 .HasMaxLength(32)
+                 .IsUnicode(true)
+                 .IsRequired();
+
+            model.Property(e => e.EntityType)
+                 .HasConversion<string>()
+                 .HasMaxLength(32)
+                 .IsUnicode(true)
+                 .IsRequired();
+
+            model.Property(e => e.ContentItemId).IsRequired(false);
+            model.Property(e => e.ContentItemGroupId).IsRequired(false);
+            model.Property(e => e.EntityId).IsRequired();
+            model.Property(e => e.ApprovalId).IsRequired();
+            model.Property(e => e.CreatedBy).IsRequired().HasMaxLength(256);
+            model.Property(e => e.UpdatedBy).IsRequired().HasMaxLength(256);
+            model.Property(e => e.CreatedWhen).IsRequired();
+            model.Property(e => e.UpdatedWhen).IsRequired();
+
+            model.HasIndex(e => new { e.EntityType, e.EntityId })
+                 .HasDatabaseName("IX_ContentItemAssociation_Target");
+
+            model.HasIndex(e => new { e.Scope, e.ContentItemGroupId })
+                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.AllVersions)}'")
+                 .HasDatabaseName("IX_ContentItemAssociation_ByCorrelation_ScopeAll");
+
+            model.HasIndex(e => new { e.Scope, e.ContentItemId })
+                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.ThisVersionOnly)}'")
+                 .HasDatabaseName("IX_ContentItemAssociation_ByItem_ScopeThis");
 
             // Primary key
             model
@@ -84,8 +117,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // Indexes to support common queries
 
             // By target entity (what this association points to)
-            model.HasIndex(e => new { e.EntityType, e.EntityId })
-                 .HasDatabaseName("IX_ContentItemAssociation_Target");
+            model.HasIndex(e => new
+            {
+                e.EntityType,
+                e.EntityId
+            })
+            .HasDatabaseName("IX_ContentItemAssociation_Target");
 
             // Look up associations that apply to ALL VERSIONS of a group
             model.HasIndex(e => new { e.Scope, e.ContentItemGroupId })
