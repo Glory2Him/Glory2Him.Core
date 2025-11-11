@@ -34,7 +34,7 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         public Guid EntityId { get; set; }
 
         /// <summary>
-        /// Numeric status identifier (mapa to ApprovalStatus enum).
+        /// The approvals status (mapa to ApprovalStatus enum).
         /// </summary>
         public ApprovalStatus StatusId { get; set; }
 
