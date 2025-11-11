@@ -8,35 +8,50 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Foundations.ApprovalComments;
-using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 
-namespace Glory2Him.Core.Models.Foundations.Approvals
+namespace Glory2Him.Core.Models.Foundations.ContentItemAssociations
 {
     /// <summary>
-    /// Represents an approval record tied to a specific entity type and entity id
+    /// Represents a content item association.
     /// </summary>
-    public class Approval : IKey, IAudit
+    public class ContentItemAssociation : IKey, IAudit
     {
+        /// <summary>
+        /// Primary key identifier for the content item.
+        /// </summary>
         public Guid Id { get; set; }
 
         /// <summary>
-        /// Logical type of the approved entity (e.g., "Quote", "Story", "Tag", "Comment", "Reaction").
+        /// Gets or sets the scope level for the association. AllVersions = 0, ThisVersionOnly = 1.
+        /// </summary>
+        public Scope Scope { get; set; }
+
+        /// <summary>
+        /// Type identifier for the content item. (nullable if AllVersions)
+        /// </summary>
+        public Guid? ContentItemId { get; set; }
+
+        /// <summary>
+        /// Content item group Id used to group all versions of the content item. (nullable if ThisVersionOnly)
+        /// </summary>
+        public Guid? ContentItemGroupId { get; set; }
+
+        /// <summary>
+        /// Type entity type identifier.
         /// </summary>
         public EntityType EntityType { get; set; }
 
         /// <summary>
-        /// Identifier of the approved entity instance.
+        /// The entity identifier.
         /// </summary>
         public Guid EntityId { get; set; }
 
         /// <summary>
-        /// Numeric status identifier (mapa to ApprovalStatus enum).
+        /// The approval identifier.
         /// </summary>
-        public ApprovalStatus StatusId { get; set; }
+        public Guid ApprovalId { get; set; }
 
         /// <summary>
         /// User identifier for who created the content item.
@@ -57,15 +72,5 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         /// Timestamp when the content item was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
-
-        /// <summary>
-        /// Navigation to the approval comments associated with this approval.
-        /// </summary>
-        public ICollection<ApprovalComment> ApprovalComments { get; set; } = new List<ApprovalComment>();
-
-        /// <summary>
-        /// Navigation to the approval reviews associated with this approval.
-        /// </summary>
-        public ICollection<ApprovalReview> ApprovalReviews { get; set; } = new List<ApprovalReview>();
     }
 }

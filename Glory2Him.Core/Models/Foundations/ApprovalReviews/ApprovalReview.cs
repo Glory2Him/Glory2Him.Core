@@ -9,6 +9,7 @@
 
 using System;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Models.Foundations.ApprovalReviews
@@ -36,7 +37,7 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalReviews
         /// <summary>
         /// The status associated with this approval review.
         /// </summary>
-        public int StatusId { get; set; }
+        public ApprovalStatus StatusId { get; set; }
 
         /// <summary>
         /// Text content of the comment.

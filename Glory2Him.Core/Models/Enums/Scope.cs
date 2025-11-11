@@ -1,0 +1,29 @@
+﻿// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// https://mark.bible/mark-16-15
+// ────────────────────────────────────────────────────────────────────────────────
+
+namespace Glory2Him.Core.Models.Enums
+{
+    /// <summary>
+    /// Represents the scope in which a content item association applies.
+    /// </summary>
+    public enum Scope
+    {
+        /// <summary>
+        /// The association applies to all versions of the content item
+        /// that share the same <see cref="ContentItem.ContentItemGroupId"/>.
+        /// </summary>
+        AllVersions = 0,
+
+        /// <summary>
+        /// The association applies only to a single version of the
+        /// content item, identified by its unique <see cref="ContentItem.Id"/>.
+        /// </summary>
+        ThisVersionOnly = 1
+    }
+}
