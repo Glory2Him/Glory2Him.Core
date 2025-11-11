@@ -56,16 +56,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(e => e.CreatedWhen).IsRequired();
             model.Property(e => e.UpdatedWhen).IsRequired();
 
-            model.HasIndex(e => new { e.EntityType, e.EntityId })
-                 .HasDatabaseName("IX_ContentItemAssociation_Target");
-
-            model.HasIndex(e => new { e.Scope, e.ContentItemGroupId })
-                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.AllVersions)}'")
-                 .HasDatabaseName("IX_ContentItemAssociation_ByCorrelation_ScopeAll");
-
-            model.HasIndex(e => new { e.Scope, e.ContentItemId })
-                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.ThisVersionOnly)}'")
-                 .HasDatabaseName("IX_ContentItemAssociation_ByItem_ScopeThis");
 
             // Primary key
             model
@@ -124,15 +114,16 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             })
             .HasDatabaseName("IX_ContentItemAssociation_Target");
 
-            // Look up associations that apply to ALL VERSIONS of a group
-            model.HasIndex(e => new { e.Scope, e.ContentItemGroupId })
-                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = 0")
-                 .HasDatabaseName("IX_ContentItemAssociation_ByCorrelation_Scope0");
+            model.HasIndex(e => new { e.EntityType, e.EntityId })
+                 .HasDatabaseName("IX_ContentItemAssociation_Target");
 
-            // Look up associations that apply to THIS VERSION ONLY
+            model.HasIndex(e => new { e.Scope, e.ContentItemGroupId })
+                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.AllVersions)}'")
+                 .HasDatabaseName("IX_ContentItemAssociation_ByContentItemGroupId_ScopeAll");
+
             model.HasIndex(e => new { e.Scope, e.ContentItemId })
-                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = 1")
-                 .HasDatabaseName("IX_ContentItemAssociation_ByItem_Scope1");
+                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.ThisVersionOnly)}'")
+                 .HasDatabaseName("IX_ContentItemAssociation_ByItem_ScopeThis");
         }
     }
 }

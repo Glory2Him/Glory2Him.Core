@@ -207,12 +207,12 @@ namespace Glory2Him.Core.Migrations
                         .HasDatabaseName("IX_ContentItemAssociation_Target");
 
                     b.HasIndex("Scope", "ContentItemGroupId")
-                        .HasDatabaseName("IX_ContentItemAssociation_ByCorrelation_Scope0")
-                        .HasFilter("[Scope] = 0");
+                        .HasDatabaseName("IX_ContentItemAssociation_ByContentItemGroupId_ScopeAll")
+                        .HasFilter("[Scope] = N'AllVersions'");
 
                     b.HasIndex("Scope", "ContentItemId")
-                        .HasDatabaseName("IX_ContentItemAssociation_ByItem_Scope1")
-                        .HasFilter("[Scope] = 1");
+                        .HasDatabaseName("IX_ContentItemAssociation_ByItem_ScopeThis")
+                        .HasFilter("[Scope] = N'ThisVersionOnly'");
 
                     b.ToTable("ContentItemAssociations", null, t =>
                         {

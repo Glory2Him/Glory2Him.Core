@@ -50,7 +50,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model
                 .Property(contentType => contentType.UpdatedWhen)
                 .IsRequired();
-
         }
     }
 }

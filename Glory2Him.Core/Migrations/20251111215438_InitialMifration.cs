@@ -209,16 +209,16 @@ namespace Glory2Him.Core.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentItemAssociation_ByCorrelation_Scope0",
+                name: "IX_ContentItemAssociation_ByContentItemGroupId_ScopeAll",
                 table: "ContentItemAssociations",
                 columns: new[] { "Scope", "ContentItemGroupId" },
-                filter: "[Scope] = 0");
+                filter: "[Scope] = N'AllVersions'");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentItemAssociation_ByItem_Scope1",
+                name: "IX_ContentItemAssociation_ByItem_ScopeThis",
                 table: "ContentItemAssociations",
                 columns: new[] { "Scope", "ContentItemId" },
-                filter: "[Scope] = 1");
+                filter: "[Scope] = N'ThisVersionOnly'");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ContentItemAssociation_Target",
