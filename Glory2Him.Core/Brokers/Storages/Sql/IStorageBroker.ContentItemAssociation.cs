@@ -7,22 +7,8 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.Core.Infrastructure.Services;
-
-namespace Glory2Him.Core.Infrastructure
+namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    internal class Program
-    {
-        static void Main(string[] args)
-        {
-            var scriptGenerationService = new ScriptGenerationService();
-
-            scriptGenerationService.GenerateBuildScript(
-                branchName: "main",
-                projectName: "Glory2Him.Core",
-                dotNetVersion: "9.0.100");
-
-            scriptGenerationService.GeneratePrLintScript(branchName: "main");
-        }
-    }
+    public partial interface IStorageBroker
+    { }
 }

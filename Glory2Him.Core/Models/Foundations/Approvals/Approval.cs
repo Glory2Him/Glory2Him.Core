@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 
@@ -25,7 +26,7 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         /// <summary>
         /// Logical type of the approved entity (e.g., "Quote", "Story", "Tag", "Comment", "Reaction").
         /// </summary>
-        public string EntityType { get; set; } = string.Empty;
+        public EntityType EntityType { get; set; }
 
         /// <summary>
         /// Identifier of the approved entity instance.
@@ -33,9 +34,9 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         public Guid EntityId { get; set; }
 
         /// <summary>
-        /// Numeric status identifier (map to an enum in your domain layer if desired).
+        /// The approvals status (mapa to ApprovalStatus enum).
         /// </summary>
-        public int StatusId { get; set; }
+        public ApprovalStatus StatusId { get; set; }
 
         /// <summary>
         /// User identifier for who created the content item.

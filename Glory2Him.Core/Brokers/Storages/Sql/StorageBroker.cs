@@ -14,6 +14,7 @@ using EFxceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
@@ -53,6 +54,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         private static void AddConfigurations(ModelBuilder modelBuilder)
         {
             AddContentItemConfigurations(modelBuilder.Entity<ContentItem>());
+            AddContentItemAssociationConfigurations(modelBuilder.Entity<ContentItemAssociation>());
             AddContentTypeConfigurations(modelBuilder.Entity<ContentType>());
             AddContentItemSettingConfigurations(modelBuilder.Entity<ContentItemSetting>());
             AddApprovalConfigurations(modelBuilder.Entity<Approval>());

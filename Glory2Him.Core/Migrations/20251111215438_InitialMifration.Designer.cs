@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    [Migration("20251101004127_AddApproval")]
-    partial class AddApproval
+    [Migration("20251111215438_InitialMifration")]
+    partial class InitialMifration
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,96 @@ namespace Glory2Him.Core.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("CreatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("UpdatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalId")
+                        .HasDatabaseName("IX_ApprovalComments_ApprovalId");
+
+                    b.ToTable("ApprovalComments", (string)null);
+                });
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalReviews.ApprovalReview", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("CreatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ReviewerId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("StatusId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("UpdatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalId")
+                        .HasDatabaseName("IX_ApprovalReviews_ApprovalId");
+
+                    b.HasIndex("ApprovalId", "ReviewerId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ApprovalReviews_ApprovalId_ReviewerId");
+
+                    b.HasIndex("ApprovalId", "StatusId")
+                        .HasDatabaseName("IX_ApprovalReviews_ApprovalId_StatusId");
+
+                    b.ToTable("ApprovalReviews", (string)null);
+                });
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.Approvals.Approval", b =>
                 {
@@ -42,9 +132,8 @@ namespace Glory2Him.Core.Migrations
                     b.Property<Guid>("EntityId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("EntityType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("EntityType")
+                        .HasColumnType("int");
 
                     b.Property<int>("StatusId")
                         .HasColumnType("int");
@@ -67,6 +156,71 @@ namespace Glory2Him.Core.Migrations
                         .HasDatabaseName("IX_Approvals_EntityType_StatusId");
 
                     b.ToTable("Approvals", (string)null);
+                });
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ContentItemAssociations.ContentItemAssociation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ContentItemGroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ContentItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset>("CreatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset>("UpdatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntityType", "EntityId")
+                        .HasDatabaseName("IX_ContentItemAssociation_Target");
+
+                    b.HasIndex("Scope", "ContentItemGroupId")
+                        .HasDatabaseName("IX_ContentItemAssociation_ByContentItemGroupId_ScopeAll")
+                        .HasFilter("[Scope] = N'AllVersions'");
+
+                    b.HasIndex("Scope", "ContentItemId")
+                        .HasDatabaseName("IX_ContentItemAssociation_ByItem_ScopeThis")
+                        .HasFilter("[Scope] = N'ThisVersionOnly'");
+
+                    b.ToTable("ContentItemAssociations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ContentItemAssociation_ScopeConsistency", "((Scope = N'AllVersions' AND ContentItemGroupId IS NOT NULL AND ContentItemId IS NULL) OR (Scope = N'ThisVersionOnly' AND ContentItemId IS NOT NULL AND ContentItemGroupId IS NULL))");
+                        });
                 });
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting", b =>
@@ -216,10 +370,10 @@ namespace Glory2Him.Core.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<Guid>("ContentTypeId")
+                    b.Property<Guid>("ContentItemGroupId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("CorrelationId")
+                    b.Property<Guid>("ContentTypeId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CreatedBy")
@@ -229,6 +383,9 @@ namespace Glory2Him.Core.Migrations
 
                     b.Property<DateTimeOffset>("CreatedWhen")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("IsLatest")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Title")
                         .HasColumnType("nvarchar(max)");
@@ -250,10 +407,15 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasIndex("ContentTypeId");
 
-                    b.HasIndex("CorrelationId", "Version")
+                    b.HasIndex("ContentItemGroupId", "IsLatest")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ContentItem_IsLatest")
+                        .HasFilter("[IsLatest] = 1");
+
+                    b.HasIndex("ContentItemGroupId", "Version")
                         .IsUnique()
                         .IsDescending()
-                        .HasDatabaseName("IX_ContentItems_CorrelationId_VersionDesc");
+                        .HasDatabaseName("IX_ContentItems_ContentItemGroupId_VersionDesc");
 
                     b.ToTable("ContentItems", (string)null);
                 });
@@ -293,6 +455,28 @@ namespace Glory2Him.Core.Migrations
                     b.ToTable("ContentTypes", (string)null);
                 });
 
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalComments.ApprovalComment", b =>
+                {
+                    b.HasOne("Glory2Him.Core.Models.Foundations.Approvals.Approval", "Approval")
+                        .WithMany("ApprovalComments")
+                        .HasForeignKey("ApprovalId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Approval");
+                });
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalReviews.ApprovalReview", b =>
+                {
+                    b.HasOne("Glory2Him.Core.Models.Foundations.Approvals.Approval", "Approval")
+                        .WithMany("ApprovalReviews")
+                        .HasForeignKey("ApprovalId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Approval");
+                });
+
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ContentItems.ContentItem", b =>
                 {
                     b.HasOne("Glory2Him.Core.Models.Foundations.ContentTypes.ContentType", "ContentType")
@@ -302,6 +486,13 @@ namespace Glory2Him.Core.Migrations
                         .IsRequired();
 
                     b.Navigation("ContentType");
+                });
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.Approvals.Approval", b =>
+                {
+                    b.Navigation("ApprovalComments");
+
+                    b.Navigation("ApprovalReviews");
                 });
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ContentTypes.ContentType", b =>

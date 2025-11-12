@@ -7,22 +7,23 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.Core.Infrastructure.Services;
-
-namespace Glory2Him.Core.Infrastructure
+namespace Glory2Him.Core.Models.Enums
 {
-    internal class Program
+    /// <summary>
+    /// Represents the scope in which a content item association applies.
+    /// </summary>
+    public enum Scope
     {
-        static void Main(string[] args)
-        {
-            var scriptGenerationService = new ScriptGenerationService();
+        /// <summary>
+        /// The association applies to all versions of the content item
+        /// that share the same <see cref="ContentItem.ContentItemGroupId"/>.
+        /// </summary>
+        AllVersions = 0,
 
-            scriptGenerationService.GenerateBuildScript(
-                branchName: "main",
-                projectName: "Glory2Him.Core",
-                dotNetVersion: "9.0.100");
-
-            scriptGenerationService.GeneratePrLintScript(branchName: "main");
-        }
+        /// <summary>
+        /// The association applies only to a single version of the
+        /// content item, identified by its unique <see cref="ContentItem.Id"/>.
+        /// </summary>
+        ThisVersionOnly = 1
     }
 }

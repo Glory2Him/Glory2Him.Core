@@ -23,8 +23,13 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // Key
             model.HasKey(approvalComment => approvalComment.Id);
 
-            model.Property(approvalComment => approvalComment.ApprovalId).IsRequired();
-            model.Property(approvalComment => approvalComment.UserId).IsRequired();
+            model
+                .Property(approvalComment => approvalComment.ApprovalId)
+                .IsRequired();
+
+            model
+                .Property(approvalComment => approvalComment.UserId)
+                .IsRequired();
 
             model
                 .Property(approvalComment => approvalComment.CreatedBy)

@@ -7,22 +7,14 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.Core.Infrastructure.Services;
+using EFxceptions;
+using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
+using Microsoft.EntityFrameworkCore;
 
-namespace Glory2Him.Core.Infrastructure
+namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    internal class Program
+    public partial class StorageBroker : EFxceptionsContext, IStorageBroker
     {
-        static void Main(string[] args)
-        {
-            var scriptGenerationService = new ScriptGenerationService();
-
-            scriptGenerationService.GenerateBuildScript(
-                branchName: "main",
-                projectName: "Glory2Him.Core",
-                dotNetVersion: "9.0.100");
-
-            scriptGenerationService.GeneratePrLintScript(branchName: "main");
-        }
+        public DbSet<ContentItemAssociation> ContentItemAssociations { get; set; }
     }
 }

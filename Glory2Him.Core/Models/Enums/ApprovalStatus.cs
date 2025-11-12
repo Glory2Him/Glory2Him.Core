@@ -7,22 +7,31 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.Core.Infrastructure.Services;
-
-namespace Glory2Him.Core.Infrastructure
+namespace Glory2Him.Core.Models.Enums
 {
-    internal class Program
+    /// <summary>
+    /// Represents the current status of an approval workflow.
+    /// </summary>
+    public enum ApprovalStatus
     {
-        static void Main(string[] args)
-        {
-            var scriptGenerationService = new ScriptGenerationService();
+        /// <summary>
+        /// The entity is in draft state and not yet submitted for review.
+        /// </summary>
+        Draft = 0,
 
-            scriptGenerationService.GenerateBuildScript(
-                branchName: "main",
-                projectName: "Glory2Him.Core",
-                dotNetVersion: "9.0.100");
+        /// <summary>
+        /// The entity has been submitted and is awaiting one or more reviews.
+        /// </summary>
+        Submitted = 1,
 
-            scriptGenerationService.GeneratePrLintScript(branchName: "main");
-        }
+        /// <summary>
+        /// The entity has received all required approvals and is now approved.
+        /// </summary>
+        Approved = 2,
+
+        /// <summary>
+        /// The entity has been rejected during the approval process.
+        /// </summary>
+        Rejected = 3
     }
 }

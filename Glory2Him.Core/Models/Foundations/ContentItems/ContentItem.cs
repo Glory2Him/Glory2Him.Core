@@ -44,14 +44,19 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         public string Content { get; set; } = string.Empty;
 
         /// <summary>
-        /// Correlation identifier to group multiple versions of the same content item.
+        /// Content item group identifier to group multiple versions of the same content item.
         /// </summary>
-        public Guid CorrelationId { get; set; }
+        public Guid ContentItemGroupId { get; set; }
 
         /// <summary>
         /// Version number of the content item (required, defaults to 1).
         /// </summary>
         public int Version { get; set; } = 1;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the current instance represents the latest version.
+        /// </summary>
+        public bool IsLatest { get; set; } = false;
 
         /// <summary>
         /// User identifier for who created the content item.
