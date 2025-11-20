@@ -110,5 +110,18 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <returns>The audited entity with remove metadata applied.</returns>
         public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity) =>
                 this.securityClient.Audits.ApplyRemoveAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
+
+        /// <summary>
+        /// Ensures that add audit values (e.g., created by/date) remain unchanged during modify operations.
+        /// </summary>
+        /// <typeparam name="T">The type of the entity.</typeparam>
+        /// <param name="entity">The entity being modified.</param>
+        /// <param name="storageEntity">The original stored entity used to preserve original audit values.</param>
+        /// <returns>The entity with original add audit values retained.</returns>
+        public ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+            T entity,
+            T storageEntity) =>
+                this.securityClient.Audits
+                    .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(entity, storageEntity, securityConfigurations);
     }
 }
