@@ -25,5 +25,8 @@ namespace Glory2Him.Core.Brokers.Loggings
 
         public async ValueTask LogTraceAsync(string message) =>
             this.logger.LogTrace(message);
+
+        public async ValueTask LogDebugAsync(string message) =>
+            this.logger.LogDebug(message);
     }
 }
