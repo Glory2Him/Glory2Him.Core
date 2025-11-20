@@ -88,6 +88,14 @@ namespace Glory2Him.Core.Brokers.Securities
             await this.securityClient.Users.IsUserAuthenticatedAsync(claimsPrincipal);
 
         /// <summary>
+        /// Checks if the current user is in a specified role.
+        /// </summary>
+        /// <param name="roleName">The role name to check.</param>
+        /// <returns>True if the user is in the specified role; otherwise, false.</returns>
+        public async ValueTask<bool> IsInRoleAsync(string roleName) =>
+            await this.securityClient.Users.IsUserInRoleAsync(claimsPrincipal, roleName);
+
+        /// <summary>
         /// Extracts a <see cref="ClaimsPrincipal"/> from a given JWT token.
         /// </summary>
         /// <param name="token">The JWT token.</param>
