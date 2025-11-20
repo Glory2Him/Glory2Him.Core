@@ -81,6 +81,13 @@ namespace Glory2Him.Core.Brokers.Securities
         }
 
         /// <summary>
+        /// Determines whether the current user is authenticated.
+        /// </summary>
+        /// <returns>True if the user is authenticated; otherwise, false.</returns>
+        public async ValueTask<bool> IsCurrentUserAuthenticatedAsync() =>
+            await this.securityClient.Users.IsUserAuthenticatedAsync(claimsPrincipal);
+
+        /// <summary>
         /// Extracts a <see cref="ClaimsPrincipal"/> from a given JWT token.
         /// </summary>
         /// <param name="token">The JWT token.</param>

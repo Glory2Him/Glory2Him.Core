@@ -15,5 +15,6 @@ namespace Glory2Him.Core.Brokers.Securities
     public interface ISecurityBroker
     {
         ValueTask<User> GetCurrentUserAsync();
+        ValueTask<bool> IsCurrentUserAuthenticatedAsync();
     }
 }
