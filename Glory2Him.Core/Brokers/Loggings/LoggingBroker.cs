@@ -31,5 +31,8 @@ namespace Glory2Him.Core.Brokers.Loggings
 
         public async ValueTask LogWarningAsync(string message) =>
             this.logger.LogWarning(message);
+
+        public async ValueTask LogErrorAsync(Exception exception) =>
+            this.logger.LogError(exception, message: exception.Message);
     }
 }
