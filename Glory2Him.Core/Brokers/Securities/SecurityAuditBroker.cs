@@ -101,5 +101,14 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <returns>The audited entity with modify metadata applied.</returns>
         public ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity) =>
                 this.securityClient.Audits.ApplyModifyAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
+
+        /// <summary>
+        /// Applies auditing metadata for a remove (soft delete) operation to the specified entity.
+        /// </summary>
+        /// <typeparam name="T">The type of the entity.</typeparam>
+        /// <param name="entity">The entity to audit for removal.</param>
+        /// <returns>The audited entity with remove metadata applied.</returns>
+        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity) =>
+                this.securityClient.Audits.ApplyRemoveAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
     }
 }
