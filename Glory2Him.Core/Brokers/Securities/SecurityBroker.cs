@@ -8,12 +8,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.IdentityModel.Tokens.Jwt;
-using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Securities;
 using ISL.Security.Client.Clients;
-using ISL.Security.Client.Models.Clients;
 using Microsoft.AspNetCore.Http;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -101,16 +99,16 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <param name="claimType">The type of the claim.</param>
         /// <param name="claimValue">The value of the claim.</param>
         /// <returns>True if the user has the claim with the specified value; otherwise, false.</returns>
-        public async ValueTask<bool> HasClaimTypeAsync(string claimType, string claimValue) =>
-            await this.securityClient.Users.UserHasClaimTypeAsync(claimsPrincipal, claimType, claimValue);
+        public async ValueTask<bool> UserHasClaimAsync(string claimType, string claimValue) =>
+            await this.securityClient.Users.UserHasClaimAsync(claimsPrincipal, claimType, claimValue);
 
         /// <summary>
         /// Checks whether the current user has a specific claim type.
         /// </summary>
         /// <param name="claimType">The type of the claim.</param>
         /// <returns>True if the user has the claim; otherwise, false.</returns>
-        public async ValueTask<bool> HasClaimTypeAsync(string claimType) =>
-            await this.securityClient.Users.UserHasClaimTypeAsync(claimsPrincipal, claimType);
+        public async ValueTask<bool> UserHasClaimAsync(string claimType) =>
+            await this.securityClient.Users.UserHasClaimAsync(claimsPrincipal, claimType);
 
         /// <summary>
         /// Extracts a <see cref="ClaimsPrincipal"/> from a given JWT token.
