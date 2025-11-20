@@ -25,5 +25,14 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <param name="entity">The entity to which audit values should be applied.</param>
         /// <returns>A task containing the audited entity.</returns>
         ValueTask<T> ApplyAddAuditValuesAsync<T>(T entity);
+
+        /// <summary>
+        /// Applies audit values related to entity modification, such as UpdatedBy and UpdatedDate,
+        /// using the provided claims principal and security configuration.
+        /// </summary>
+        /// <typeparam name="T">The type of the entity being audited.</typeparam>
+        /// <param name="entity">The entity to which audit values should be applied.</param>
+        /// <returns>A task containing the audited entity.</returns>
+        ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity);
     }
 }

@@ -91,5 +91,15 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <returns>The audited entity with add metadata applied.</returns>
         public ValueTask<T> ApplyAddAuditValuesAsync<T>(T entity) =>
             this.securityClient.Audits.ApplyAddAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
+
+        /// <summary>
+        /// Applies auditing metadata for a modify operation to the specified entity.
+        /// Sets updated audit fields based on the current user.
+        /// </summary>
+        /// <typeparam name="T">The type of the entity.</typeparam>
+        /// <param name="entity">The entity to audit.</param>
+        /// <returns>The audited entity with modify metadata applied.</returns>
+        public ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity) =>
+                this.securityClient.Audits.ApplyModifyAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
     }
 }
