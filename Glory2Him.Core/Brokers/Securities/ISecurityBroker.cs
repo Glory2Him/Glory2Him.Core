@@ -17,5 +17,6 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<User> GetCurrentUserAsync();
         ValueTask<bool> IsCurrentUserAuthenticatedAsync();
         ValueTask<bool> IsInRoleAsync(string roleName);
+        ValueTask<bool> HasClaimTypeAsync(string claimType, string claimValue);
     }
 }

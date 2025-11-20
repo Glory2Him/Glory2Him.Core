@@ -96,6 +96,15 @@ namespace Glory2Him.Core.Brokers.Securities
             await this.securityClient.Users.IsUserInRoleAsync(claimsPrincipal, roleName);
 
         /// <summary>
+        /// Checks whether the current user has a specific claim with a given value.
+        /// </summary>
+        /// <param name="claimType">The type of the claim.</param>
+        /// <param name="claimValue">The value of the claim.</param>
+        /// <returns>True if the user has the claim with the specified value; otherwise, false.</returns>
+        public async ValueTask<bool> HasClaimTypeAsync(string claimType, string claimValue) =>
+            await this.securityClient.Users.UserHasClaimTypeAsync(claimsPrincipal, claimType, claimValue);
+
+        /// <summary>
         /// Extracts a <see cref="ClaimsPrincipal"/> from a given JWT token.
         /// </summary>
         /// <param name="token">The JWT token.</param>
