@@ -7,6 +7,10 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Microsoft.EntityFrameworkCore;
@@ -16,5 +20,29 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     public partial class StorageBroker : EFxceptionsContext, IStorageBroker
     {
         public DbSet<Reaction> Reactions { get; set; }
+
+        public async ValueTask<Reaction> InsertReactionAsync(Reaction reaction) =>
+            await InsertAsync(reaction);
+
+        public async ValueTask<IQueryable<Reaction>> SelectAllReactionsAsync() =>
+            await SelectAllAsync<Reaction>();
+
+        public async ValueTask<Reaction> SelectReactionByIdAsync(Guid reactionId) =>
+            await SelectAsync<Reaction>(reactionId);
+
+        public async ValueTask<Reaction> UpdateReactionAsync(Reaction reaction) =>
+            await UpdateAsync(reaction);
+
+        public async ValueTask<Reaction> DeleteReactionAsync(Reaction reaction) =>
+            await DeleteAsync(reaction);
+
+        public async ValueTask BulkInsertReactionsAsync(List<Reaction> reactions) =>
+            await BulkInsertAsync(reactions);
+
+        public async ValueTask BulkUpdateReactionsAsync(List<Reaction> reactions) =>
+            await BulkUpdateAsync(reactions);
+
+        public async ValueTask BulkDeleteReactionsAsync(List<Reaction> reactions) =>
+            await BulkDeleteAsync(reactions);
     }
 }

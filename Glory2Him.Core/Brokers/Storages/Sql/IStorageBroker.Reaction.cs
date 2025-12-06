@@ -7,8 +7,23 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.Reactions;
+
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
-    { }
+    {
+        ValueTask<Reaction> InsertReactionAsync(Reaction reaction);
+        ValueTask<IQueryable<Reaction>> SelectAllReactionsAsync();
+        ValueTask<Reaction> SelectReactionByIdAsync(Guid reactionId);
+        ValueTask<Reaction> UpdateReactionAsync(Reaction reaction);
+        ValueTask<Reaction> DeleteReactionAsync(Reaction reaction);
+        ValueTask BulkInsertReactionsAsync(List<Reaction> reactions);
+        ValueTask BulkUpdateReactionsAsync(List<Reaction> reactions);
+        ValueTask BulkDeleteReactionsAsync(List<Reaction> reactions);
+    }
 }
