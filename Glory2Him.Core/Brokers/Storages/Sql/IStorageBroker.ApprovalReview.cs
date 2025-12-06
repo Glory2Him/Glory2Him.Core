@@ -7,8 +7,23 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
-    { }
+    {
+        ValueTask<ApprovalReview> InsertApprovalReviewAsync(ApprovalReview approvalReview);
+        ValueTask<IQueryable<ApprovalReview>> SelectAllApprovalReviewsAsync();
+        ValueTask<ApprovalReview> SelectApprovalReviewByIdAsync(Guid approvalReviewId);
+        ValueTask<ApprovalReview> UpdateApprovalReviewAsync(ApprovalReview approvalReview);
+        ValueTask<ApprovalReview> DeleteApprovalReviewAsync(ApprovalReview approvalReview);
+        ValueTask BulkInsertApprovalReviewsAsync(List<ApprovalReview> approvalReviews);
+        ValueTask BulkUpdateApprovalReviewsAsync(List<ApprovalReview> approvalReviews);
+        ValueTask BulkDeleteApprovalReviewsAsync(List<ApprovalReview> approvalReviews);
+    }
 }
