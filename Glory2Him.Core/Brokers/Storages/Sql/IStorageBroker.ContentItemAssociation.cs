@@ -7,8 +7,30 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
+
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
-    { }
+    {
+        ValueTask<ContentItemAssociation> InsertContentItemAssociationAsync(
+            ContentItemAssociation contentItemAssociation);
+
+        ValueTask<IQueryable<ContentItemAssociation>> SelectAllContentItemAssociationsAsync();
+        ValueTask<ContentItemAssociation> SelectContentItemAssociationByIdAsync(Guid contentItemAssociationId);
+
+        ValueTask<ContentItemAssociation> UpdateContentItemAssociationAsync(
+            ContentItemAssociation contentItemAssociation);
+
+        ValueTask<ContentItemAssociation> DeleteContentItemAssociationAsync(
+            ContentItemAssociation contentItemAssociation);
+
+        ValueTask BulkInsertContentItemAssociationsAsync(List<ContentItemAssociation> contentItemAssociations);
+        ValueTask BulkUpdateContentItemAssociationsAsync(List<ContentItemAssociation> contentItemAssociations);
+        ValueTask BulkDeleteContentItemAssociationsAsync(List<ContentItemAssociation> contentItemAssociations);
+    }
 }
