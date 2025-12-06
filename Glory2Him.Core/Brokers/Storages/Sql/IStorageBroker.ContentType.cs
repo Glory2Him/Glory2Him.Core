@@ -17,18 +17,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<ContentType> InsertContentTypeAsync(
-        ContentType contentType);
-
+        ValueTask<ContentType> InsertContentTypeAsync(ContentType contentType);
         ValueTask<IQueryable<ContentType>> SelectAllContentTypesAsync();
         ValueTask<ContentType> SelectContentTypeByIdAsync(Guid contentTypeId);
-
-        ValueTask<ContentType> UpdateContentTypeAsync(
-            ContentType contentType);
-
-        ValueTask<ContentType> DeleteContentTypeAsync(
-            ContentType contentType);
-
+        ValueTask<ContentType> UpdateContentTypeAsync(ContentType contentType);
+        ValueTask<ContentType> DeleteContentTypeAsync(ContentType contentType);
         ValueTask BulkInsertContentTypesAsync(List<ContentType> contentTypes);
         ValueTask BulkUpdateContentTypesAsync(List<ContentType> contentTypes);
         ValueTask BulkDeleteContentTypesAsync(List<ContentType> contentTypes);
