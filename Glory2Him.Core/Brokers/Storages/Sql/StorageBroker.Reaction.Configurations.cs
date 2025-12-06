@@ -7,7 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,45 +15,50 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial class StorageBroker
     {
-        private static void AddTagConfigurations(EntityTypeBuilder<Tag> model)
+        private static void AddReactionConfigurations(EntityTypeBuilder<Reaction> model)
         {
             model
-                .ToTable("Tags");
+                .ToTable("Reactions");
 
             // Primary key
             model
-                .HasKey(tag => tag.Id);
+                .HasKey(reaction => reaction.Id);
 
             // Required properties
             model
-                .Property(tag => tag.Id)
+                .Property(reaction => reaction.Id)
                 .IsRequired();
 
             model
-                .Property(tag => tag.Name)
+                .Property(reaction => reaction.Name)
                 .HasMaxLength(30)
                 .IsRequired();
 
-            model.HasIndex(tag => tag.Name)
-                .HasDatabaseName("IX_Tags_Name")
+            model.HasIndex(reaction => reaction.Name)
+                .HasDatabaseName("IX_Reactions_Name")
                 .IsUnique();
 
             model
-                .Property(tag => tag.CreatedBy)
+                .Property(reaction => reaction.UnicodeEmoji)
+                .HasMaxLength(16)
+                .IsRequired();
+
+            model
+                .Property(reaction => reaction.CreatedBy)
                 .HasMaxLength(255)
                 .IsRequired();
 
             model
-                .Property(tag => tag.CreatedWhen)
+                .Property(reaction => reaction.CreatedWhen)
                 .IsRequired();
 
             model
-                .Property(tag => tag.UpdatedBy)
+                .Property(reaction => reaction.UpdatedBy)
                 .HasMaxLength(255)
                 .IsRequired();
 
             model
-                .Property(tag => tag.UpdatedWhen)
+                .Property(reaction => reaction.UpdatedWhen)
                 .IsRequired();
         }
     }

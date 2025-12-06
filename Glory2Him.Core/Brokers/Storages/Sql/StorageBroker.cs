@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -61,6 +62,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             AddApprovalConfigurations(modelBuilder.Entity<Approval>());
             AddApprovalReviewConfigurations(modelBuilder.Entity<ApprovalReview>());
             AddApprovalCommentConfigurations(modelBuilder.Entity<ApprovalComment>());
+            AddReactionConfigurations(modelBuilder.Entity<Reaction>());
             AddTagConfigurations(modelBuilder.Entity<Tag>());
         }
 
