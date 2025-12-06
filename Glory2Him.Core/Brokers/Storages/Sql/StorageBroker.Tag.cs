@@ -7,6 +7,10 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Microsoft.EntityFrameworkCore;
@@ -16,5 +20,29 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     public partial class StorageBroker : EFxceptionsContext, IStorageBroker
     {
         public DbSet<Tag> Tags { get; set; }
+
+        public async ValueTask<Tag> InsertTagAsync(Tag tag) =>
+            await InsertAsync(tag);
+
+        public async ValueTask<IQueryable<Tag>> SelectAllTagsAsync() =>
+            await SelectAllAsync<Tag>();
+
+        public async ValueTask<Tag> SelectTagByIdAsync(Guid tagId) =>
+            await SelectAsync<Tag>(tagId);
+
+        public async ValueTask<Tag> UpdateTagAsync(Tag tag) =>
+            await UpdateAsync(tag);
+
+        public async ValueTask<Tag> DeleteTagAsync(Tag tag) =>
+            await DeleteAsync(tag);
+
+        public async ValueTask BulkInsertTagsAsync(List<Tag> tags) =>
+            await BulkInsertAsync(tags);
+
+        public async ValueTask BulkUpdateTagsAsync(List<Tag> tags) =>
+            await BulkUpdateAsync(tags);
+
+        public async ValueTask BulkDeleteTagsAsync(List<Tag> tags) =>
+            await BulkDeleteAsync(tags);
     }
 }

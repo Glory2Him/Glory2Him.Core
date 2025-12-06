@@ -7,8 +7,23 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.Tags;
+
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
-    { }
+    {
+        ValueTask<Tag> InsertTagAsync(Tag tag);
+        ValueTask<IQueryable<Tag>> SelectAllTagsAsync();
+        ValueTask<Tag> SelectTagByIdAsync(Guid tagId);
+        ValueTask<Tag> UpdateTagAsync(Tag tag);
+        ValueTask<Tag> DeleteTagAsync(Tag tag);
+        ValueTask BulkInsertTagsAsync(List<Tag> tags);
+        ValueTask BulkUpdateTagsAsync(List<Tag> tags);
+        ValueTask BulkDeleteTagsAsync(List<Tag> tags);
+    }
 }
