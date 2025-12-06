@@ -22,38 +22,38 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             // Primary key
             model
-                .HasKey(contentItem => contentItem.Id);
+                .HasKey(tag => tag.Id);
 
             // Required properties
             model
-                .Property(contentItem => contentItem.Id)
+                .Property(tag => tag.Id)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.Name)
+                .Property(tag => tag.Name)
                 .HasMaxLength(30)
                 .IsRequired();
 
-            model.HasIndex(contentItem => contentItem.Name)
+            model.HasIndex(tag => tag.Name)
                 .HasDatabaseName("IX_Tags_Name")
                 .IsUnique();
 
             model
-                .Property(contentItem => contentItem.CreatedBy)
+                .Property(tag => tag.CreatedBy)
                 .HasMaxLength(255)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.CreatedWhen)
+                .Property(tag => tag.CreatedWhen)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.UpdatedBy)
+                .Property(tag => tag.UpdatedBy)
                 .HasMaxLength(255)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.UpdatedWhen)
+                .Property(tag => tag.UpdatedWhen)
                 .IsRequired();
         }
     }

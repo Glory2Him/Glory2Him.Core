@@ -22,43 +22,43 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             // Primary key
             model
-                .HasKey(contentItem => contentItem.Id);
+                .HasKey(reaction => reaction.Id);
 
             // Required properties
             model
-                .Property(contentItem => contentItem.Id)
+                .Property(reaction => reaction.Id)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.Name)
+                .Property(reaction => reaction.Name)
                 .HasMaxLength(30)
                 .IsRequired();
 
-            model.HasIndex(contentItem => contentItem.Name)
+            model.HasIndex(reaction => reaction.Name)
                 .HasDatabaseName("IX_Reactions_Name")
                 .IsUnique();
 
             model
-                .Property(contentItem => contentItem.UnicodeEmoji)
+                .Property(reaction => reaction.UnicodeEmoji)
                 .HasMaxLength(16)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.CreatedBy)
+                .Property(reaction => reaction.CreatedBy)
                 .HasMaxLength(255)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.CreatedWhen)
+                .Property(reaction => reaction.CreatedWhen)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.UpdatedBy)
+                .Property(reaction => reaction.UpdatedBy)
                 .HasMaxLength(255)
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.UpdatedWhen)
+                .Property(reaction => reaction.UpdatedWhen)
                 .IsRequired();
         }
     }
