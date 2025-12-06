@@ -20,27 +20,27 @@ namespace Glory2Him.Core.Models.Foundations.Tags
         public Guid Id { get; set; }
 
         /// <summary>
-        /// Title of the content item (optional).
+        /// The tag name.
         /// </summary>
         public string Name { get; set; }
 
         /// <summary>
-        /// User identifier for who created the content item.
+        /// User identifier for who created the tag.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;
 
         /// <summary>
-        /// Timestamp when the content item was created.
+        /// Timestamp when the tag was created.
         /// </summary>
         public DateTimeOffset CreatedWhen { get; set; }
 
         /// <summary>
-        /// User identifier for who last updated the content item.
+        /// User identifier for who last updated the tag.
         /// </summary>
         public string UpdatedBy { get; set; } = string.Empty;
 
         /// <summary>
-        /// Timestamp when the content item was last updated.
+        /// Timestamp when the tag was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
     }
