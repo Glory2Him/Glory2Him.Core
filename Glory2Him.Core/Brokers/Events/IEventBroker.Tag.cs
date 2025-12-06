@@ -7,18 +7,15 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.Core.Models.Foundations.ContentItems;
+using System;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Tags;
-using LeVent.Clients;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial class EventBroker : IEventBroker
+    public partial interface IEventBroker
     {
-        public EventBroker()
-        {
-            this.ContentItemEvents = new LeVentClient<ContentItem>();
-            this.TagEvents = new LeVentClient<Tag>();
-        }
+        ValueTask PublishTagAsync(Tag tag, string eventName = null);
+        void SubscribeToTagEvent(Func<Tag, ValueTask> tagEventHandler, string eventName = null);
     }
 }
