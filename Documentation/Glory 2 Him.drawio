@@ -218,7 +218,7 @@
         <mxCell id="Ja6-4w4M2AtIn1ur9wqj-3" value="Content Item Service" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="160" y="-320" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="Ja6-4w4M2AtIn1ur9wqj-4" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="Ja6-4w4M2AtIn1ur9wqj-4" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="360" y="-320" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="Ja6-4w4M2AtIn1ur9wqj-5" value="SQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
@@ -239,7 +239,7 @@
         <mxCell id="Ja6-4w4M2AtIn1ur9wqj-8" value="Tag Service" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="160" y="40" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="Ja6-4w4M2AtIn1ur9wqj-9" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="Ja6-4w4M2AtIn1ur9wqj-9" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="360" y="40" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="Ja6-4w4M2AtIn1ur9wqj-10" value="SQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
@@ -260,7 +260,7 @@
         <mxCell id="kYD1g2IAkvD_dyHqlXmj-2" value="Reaction Service" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="160" y="400" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="kYD1g2IAkvD_dyHqlXmj-3" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="kYD1g2IAkvD_dyHqlXmj-3" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="360" y="400" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="kYD1g2IAkvD_dyHqlXmj-4" value="SQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
@@ -362,7 +362,7 @@
         <mxCell id="IzZzthIUVAV7-9mLJMIn-25" value="Approval Review Service" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="160" y="1840" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="IzZzthIUVAV7-9mLJMIn-26" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="IzZzthIUVAV7-9mLJMIn-26" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="360" y="1840" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="IzZzthIUVAV7-9mLJMIn-27" value="SQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
@@ -386,7 +386,7 @@
         <mxCell id="IzZzthIUVAV7-9mLJMIn-33" value="Content Item Settings Service" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="160" y="-680" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="IzZzthIUVAV7-9mLJMIn-34" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="IzZzthIUVAV7-9mLJMIn-34" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="360" y="-680" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="IzZzthIUVAV7-9mLJMIn-35" value="SQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
@@ -434,7 +434,7 @@
         <mxCell id="IzZzthIUVAV7-9mLJMIn-47" value="Approval Service" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="160" y="2400" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="IzZzthIUVAV7-9mLJMIn-48" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="IzZzthIUVAV7-9mLJMIn-48" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="360" y="2400" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="IzZzthIUVAV7-9mLJMIn-49" value="SQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
@@ -706,7 +706,7 @@
         <mxCell id="OuINNMDo09YkA2E1Ia2P-3" value="Content Type Service" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="160" y="-1040" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="OuINNMDo09YkA2E1Ia2P-4" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="OuINNMDo09YkA2E1Ia2P-4" value="Storage Broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
           <mxGeometry x="360" y="-1040" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="OuINNMDo09YkA2E1Ia2P-5" value="SQL" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#60a917;fontColor=#ffffff;strokeColor=#2D7600;" parent="1" vertex="1">
