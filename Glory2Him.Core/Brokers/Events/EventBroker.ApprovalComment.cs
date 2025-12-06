@@ -7,28 +7,23 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
-using Glory2Him.Core.Models.Foundations.ApprovalReviews;
-using Glory2Him.Core.Models.Foundations.Approvals;
-using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Foundations.ContentTypes;
-using Glory2Him.Core.Models.Foundations.Reactions;
-using Glory2Him.Core.Models.Foundations.Tags;
 using LeVent.Clients;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial class EventBroker : IEventBroker
+    public partial class EventBroker
     {
-        public EventBroker()
-        {
-            this.ApprovalCommentEvents = new LeVentClient<ApprovalComment>();
-            this.ApprovalEvents = new LeVentClient<Approval>();
-            this.ApprovalReviewEvents = new LeVentClient<ApprovalReview>();
-            this.ContentItemEvents = new LeVentClient<ContentItem>();
-            this.ContentTypeEvents = new LeVentClient<ContentType>();
-            this.ReactionEvents = new LeVentClient<Reaction>();
-            this.TagEvents = new LeVentClient<Tag>();
-        }
+        public ILeVentClient<ApprovalComment> ApprovalCommentEvents { get; set; }
+
+        public ValueTask PublishApprovalCommentAsync(ApprovalComment approvalComment, string eventName = null) =>
+            this.ApprovalCommentEvents.PublishEventAsync(approvalComment, eventName);
+
+        public void SubscribeToApprovalCommentEvent(
+            Func<ApprovalComment, ValueTask> approvalCommentEventHandler,
+            string eventName = null) =>
+                this.ApprovalCommentEvents.RegisterEventHandler(approvalCommentEventHandler, eventName);
     }
 }
