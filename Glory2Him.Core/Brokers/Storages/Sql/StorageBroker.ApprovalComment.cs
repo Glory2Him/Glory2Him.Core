@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
@@ -21,28 +22,57 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     {
         public DbSet<ApprovalComment> ApprovalComments { get; set; }
 
-        public async ValueTask<ApprovalComment> InsertApprovalCommentAsync(ApprovalComment approvalComment) =>
-            await InsertAsync(approvalComment);
+        public async ValueTask<ApprovalComment> InsertApprovalCommentAsync(
+            ApprovalComment approvalComment,
+            CancellationToken cancellationToken = default) =>
+            await InsertAsync(approvalComment, cancellationToken);
 
         public async ValueTask<IQueryable<ApprovalComment>> SelectAllApprovalCommentsAsync() =>
             await SelectAllAsync<ApprovalComment>();
 
-        public async ValueTask<ApprovalComment> SelectApprovalCommentByIdAsync(Guid approvalCommentId) =>
-            await SelectAsync<ApprovalComment>(approvalCommentId);
+        public async ValueTask<ApprovalComment> SelectApprovalCommentByIdAsync(
+            Guid approvalCommentId,
+            CancellationToken cancellationToken = default) =>
+            await SelectAsync<ApprovalComment>(new object[] { approvalCommentId }, cancellationToken);
 
-        public async ValueTask<ApprovalComment> UpdateApprovalCommentAsync(ApprovalComment approvalComment) =>
-            await UpdateAsync(approvalComment);
+        public async ValueTask<ApprovalComment> UpdateApprovalCommentAsync(
+            ApprovalComment approvalComment,
+            CancellationToken cancellationToken = default) =>
+            await UpdateAsync(approvalComment, cancellationToken);
 
-        public async ValueTask<ApprovalComment> DeleteApprovalCommentAsync(ApprovalComment approvalComment) =>
-            await DeleteAsync(approvalComment);
+        public async ValueTask<ApprovalComment> DeleteApprovalCommentAsync(
+            ApprovalComment approvalComment,
+            CancellationToken cancellationToken = default) =>
+            await DeleteAsync(approvalComment, cancellationToken);
 
-        public async ValueTask BulkInsertApprovalCommentsAsync(List<ApprovalComment> approvalComments) =>
-            await BulkInsertAsync(approvalComments);
+        public async ValueTask BulkInsertApprovalCommentsAsync(
+            List<ApprovalComment> approvalComments,
+            CancellationToken cancellationToken = default) =>
+            await BulkInsertAsync(approvalComments, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkUpdateApprovalCommentsAsync(List<ApprovalComment> approvalComments) =>
-            await BulkUpdateAsync(approvalComments);
+        public async ValueTask BulkUpdateApprovalCommentsAsync(
+            List<ApprovalComment> approvalComments,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpdateAsync(approvalComments, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkDeleteApprovalCommentsAsync(List<ApprovalComment> approvalComments) =>
-            await BulkDeleteAsync(approvalComments);
+        public async ValueTask BulkDeleteApprovalCommentsAsync(
+            List<ApprovalComment> approvalComments,
+            CancellationToken cancellationToken = default) =>
+            await BulkDeleteAsync(approvalComments, cancellationToken: cancellationToken);
+
+        public async ValueTask<IEnumerable<ApprovalComment>> BulkReadApprovalCommentsAsync(
+            List<ApprovalComment> approvalComments,
+            CancellationToken cancellationToken = default) =>
+            await BulkReadAsync(approvalComments, cancellationToken);
+
+        public async ValueTask BulkUpsertApprovalCommentsAsync(
+            List<ApprovalComment> approvalComments,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpsertAsync(approvalComments, cancellationToken: cancellationToken);
+
+        public async ValueTask<bool> ExistsApprovalCommentAsync(
+            Guid approvalCommentId,
+            CancellationToken cancellationToken = default) =>
+            await ExistsAsync<ApprovalComment>(new object[] { approvalCommentId }, cancellationToken);
     }
 }

@@ -15,7 +15,7 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishReactionAsync(Reaction reaction, string eventName = null);
-        void SubscribeToReactionEvent(Func<Reaction, ValueTask> reactionEventHandler, string eventName = null);
+        ValueTask PublishReactionAsync(Reaction reaction, string? eventName = null);
+        void SubscribeToReactionEvent(Func<Reaction, ValueTask> reactionEventHandler, string? eventName = null);
     }
 }

@@ -48,6 +48,11 @@ namespace Glory2Him.Core.Models.Enums
         /// <summary>
         /// A file or other binary attachment linked to the content item.
         /// </summary>
-        Attachment = 6
+        Attachment = 6,
+
+        /// <summary>
+        /// A content item association record that itself participates in the approval workflow.
+        /// </summary>
+        ContentItemAssociation = 7
     }
 }

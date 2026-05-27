@@ -7,6 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -55,6 +56,38 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model
                 .Property(tag => tag.UpdatedWhen)
                 .IsRequired();
+
+            model
+                .Property(tag => tag.IsDeleted)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(tag => tag.DeletedBy)
+                .HasMaxLength(255)
+                .IsRequired(false);
+
+            model
+                .Property(tag => tag.DeletedWhen)
+                .IsRequired(false);
+
+            model
+                .Property(tag => tag.DeletionReason)
+                .IsRequired(false);
+
+            model
+                .Property(tag => tag.PublishDate)
+                .IsRequired(false);
+
+            model
+                .Property(tag => tag.IsPublished)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(tag => tag.ApprovalStatus)
+                .IsRequired()
+                .HasDefaultValue(ApprovalStatus.Draft);
         }
     }
 }

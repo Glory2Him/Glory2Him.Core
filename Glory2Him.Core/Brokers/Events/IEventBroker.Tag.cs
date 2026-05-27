@@ -15,7 +15,7 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishTagAsync(Tag tag, string eventName = null);
-        void SubscribeToTagEvent(Func<Tag, ValueTask> tagEventHandler, string eventName = null);
+        ValueTask PublishTagAsync(Tag tag, string? eventName = null);
+        void SubscribeToTagEvent(Func<Tag, ValueTask> tagEventHandler, string? eventName = null);
     }
 }

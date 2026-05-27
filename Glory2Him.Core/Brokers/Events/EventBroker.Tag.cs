@@ -18,10 +18,10 @@ namespace Glory2Him.Core.Brokers.Events
     {
         public ILeVentClient<Tag> TagEvents { get; set; }
 
-        public ValueTask PublishTagAsync(Tag tag, string eventName = null) =>
+        public ValueTask PublishTagAsync(Tag tag, string? eventName = null) =>
             this.TagEvents.PublishEventAsync(tag, eventName);
 
-        public void SubscribeToTagEvent(Func<Tag, ValueTask> tagEventHandler, string eventName = null) =>
+        public void SubscribeToTagEvent(Func<Tag, ValueTask> tagEventHandler, string? eventName = null) =>
             this.TagEvents.RegisterEventHandler(tagEventHandler, eventName);
     }
 }

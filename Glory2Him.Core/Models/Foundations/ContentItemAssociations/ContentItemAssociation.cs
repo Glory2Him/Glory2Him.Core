@@ -16,42 +16,39 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemAssociations
     /// <summary>
     /// Represents a content item association.
     /// </summary>
-    public class ContentItemAssociation : IKey, IAudit, IVersion, IApproval
+    public class ContentItemAssociation : IKey, IAudit, IApproval
     {
         /// <summary>
         /// Primary key identifier for the content item.
         /// </summary>
         public Guid Id { get; set; }
 
-        /// <summary>
-        /// Gets or sets the scope level for the association. AllVersions = 0, ThisVersionOnly = 1.
-        /// </summary>
-        public Scope Scope { get; set; }
 
         /// <summary>
         /// Type identifier for the content item. (nullable if AllVersions)
         /// </summary>
-        public Guid? ContentItemId { get; set; }
+        public Guid? LinkedContentItemId { get; set; }
 
         /// <summary>
-        /// Content item group Id used to group all versions of the content item. (nullable if ThisVersionOnly)
+        /// The target content item group identifier for the association.
+        /// Used when <see cref="Scope"/> is <c>AllVersions</c>; null when scope is <c>ThisVersionOnly</c>.
         /// </summary>
-        public Guid? ContentItemGroupId { get; set; }
+        public Guid? LinkedContentItemGroupId { get; set; }
+
+        /// <summary>
+        /// Gets or sets the scope level for the association. AllVersions = 0, ThisVersionOnly = 1.
+        /// </summary>
+        public Scope LinkedContentScope { get; set; } = Scope.AllVersions;
 
         /// <summary>
         /// Type entity type identifier.
         /// </summary>
-        public EntityType EntityType { get; set; }
+        public EntityType LinkedEntityType { get; set; }
 
         /// <summary>
         /// The entity identifier.
         /// </summary>
-        public Guid EntityId { get; set; }
-
-        /// <summary>
-        /// The approval identifier.
-        /// </summary>
-        public Guid ApprovalId { get; set; }
+        public Guid LinkedEntityId { get; set; }
 
         /// <summary>
         /// User identifier for who created the content item.
@@ -72,5 +69,43 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemAssociations
         /// Timestamp when the content item was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
+
+        /// <summary>
+        /// User identifier for who deleted the content item.
+        /// </summary>
+        public string? DeletedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was deleted.
+        /// </summary>
+        public DateTimeOffset? DeletedWhen { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is deleted.
+        /// </summary>
+        public bool IsDeleted { get; set; } = false;
+
+        /// <summary>
+        /// Reason for deletion, if applicable.
+        /// </summary>
+        public string? DeletionReason { get; set; }
+
+        /// <summary>
+        /// The date and time when the content item was published. 
+        /// This is nullable to allow for drafts that have not yet been published.
+        /// </summary>
+        public DateTimeOffset? PublishDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is published.
+        /// </summary>
+        public bool IsPublished { get; set; }
+
+        /// <summary>
+        /// A denormalized field to indicate if the content item has been approved. 
+        /// This is used to optimize queries for approved content items without 
+        /// needing to join with the approvals table.
+        /// </summary>
+        public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Draft;
     }
 }

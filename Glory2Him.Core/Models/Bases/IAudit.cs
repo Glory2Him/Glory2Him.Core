@@ -17,5 +17,9 @@ namespace Glory2Him.Core.Models.Bases
         DateTimeOffset CreatedWhen { get; set; }
         string UpdatedBy { get; set; }
         DateTimeOffset UpdatedWhen { get; set; }
+        bool IsDeleted { get; set; }
+        string? DeletedBy { get; set; }
+        DateTimeOffset? DeletedWhen { get; set; }
+        string? DeletionReason { get; set; }
     }
 }

@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -21,28 +22,57 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     {
         public DbSet<Approval> Approvals { get; set; }
 
-        public async ValueTask<Approval> InsertApprovalAsync(Approval approval) =>
-            await InsertAsync(approval);
+        public async ValueTask<Approval> InsertApprovalAsync(
+            Approval approval,
+            CancellationToken cancellationToken = default) =>
+            await InsertAsync(approval, cancellationToken);
 
         public async ValueTask<IQueryable<Approval>> SelectAllApprovalsAsync() =>
             await SelectAllAsync<Approval>();
 
-        public async ValueTask<Approval> SelectApprovalByIdAsync(Guid approvalId) =>
-            await SelectAsync<Approval>(approvalId);
+        public async ValueTask<Approval> SelectApprovalByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            await SelectAsync<Approval>(new object[] { approvalId }, cancellationToken);
 
-        public async ValueTask<Approval> UpdateApprovalAsync(Approval approval) =>
-            await UpdateAsync(approval);
+        public async ValueTask<Approval> UpdateApprovalAsync(
+            Approval approval,
+            CancellationToken cancellationToken = default) =>
+            await UpdateAsync(approval, cancellationToken);
 
-        public async ValueTask<Approval> DeleteApprovalAsync(Approval approval) =>
-            await DeleteAsync(approval);
+        public async ValueTask<Approval> DeleteApprovalAsync(
+            Approval approval,
+            CancellationToken cancellationToken = default) =>
+            await DeleteAsync(approval, cancellationToken);
 
-        public async ValueTask BulkInsertApprovalsAsync(List<Approval> approvals) =>
-            await BulkInsertAsync(approvals);
+        public async ValueTask BulkInsertApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default) =>
+            await BulkInsertAsync(approvals, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkUpdateApprovalsAsync(List<Approval> approvals) =>
-            await BulkUpdateAsync(approvals);
+        public async ValueTask BulkUpdateApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpdateAsync(approvals, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkDeleteApprovalsAsync(List<Approval> approvals) =>
-            await BulkDeleteAsync(approvals);
+        public async ValueTask BulkDeleteApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default) =>
+            await BulkDeleteAsync(approvals, cancellationToken: cancellationToken);
+
+        public async ValueTask<IEnumerable<Approval>> BulkReadApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default) =>
+            await BulkReadAsync(approvals, cancellationToken);
+
+        public async ValueTask BulkUpsertApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpsertAsync(approvals, cancellationToken: cancellationToken);
+
+        public async ValueTask<bool> ExistsApprovalAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            await ExistsAsync<Approval>(new object[] { approvalId }, cancellationToken);
     }
 }

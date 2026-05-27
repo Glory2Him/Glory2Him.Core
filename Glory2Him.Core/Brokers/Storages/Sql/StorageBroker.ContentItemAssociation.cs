@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
@@ -22,34 +23,49 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         public DbSet<ContentItemAssociation> ContentItemAssociations { get; set; }
 
         public async ValueTask<ContentItemAssociation> InsertContentItemAssociationAsync(
-            ContentItemAssociation contentItemAssociation) =>
-                await InsertAsync(contentItemAssociation);
+            ContentItemAssociation contentItemAssociation, CancellationToken cancellationToken = default) =>
+                await InsertAsync(contentItemAssociation, cancellationToken);
 
         public async ValueTask<IQueryable<ContentItemAssociation>> SelectAllContentItemAssociationsAsync() =>
             await SelectAllAsync<ContentItemAssociation>();
 
         public async ValueTask<ContentItemAssociation> SelectContentItemAssociationByIdAsync(
-            Guid contentItemAssociationId) =>
-                await SelectAsync<ContentItemAssociation>(contentItemAssociationId);
+            Guid contentItemAssociationId, CancellationToken cancellationToken = default) =>
+                await SelectAsync<ContentItemAssociation>(new object[] { contentItemAssociationId }, cancellationToken);
 
         public async ValueTask<ContentItemAssociation> UpdateContentItemAssociationAsync(
-            ContentItemAssociation contentItemAssociation) =>
-                await UpdateAsync(contentItemAssociation);
+            ContentItemAssociation contentItemAssociation, CancellationToken cancellationToken = default) =>
+                await UpdateAsync(contentItemAssociation, cancellationToken);
 
         public async ValueTask<ContentItemAssociation> DeleteContentItemAssociationAsync(
-            ContentItemAssociation contentItemAssociation) =>
-                await DeleteAsync(contentItemAssociation);
+            ContentItemAssociation contentItemAssociation, CancellationToken cancellationToken = default) =>
+                await DeleteAsync(contentItemAssociation, cancellationToken);
 
         public async ValueTask BulkInsertContentItemAssociationsAsync(
-            List<ContentItemAssociation> contentItemAssociations) =>
-                await BulkInsertAsync(contentItemAssociations);
+            List<ContentItemAssociation> contentItemAssociations, CancellationToken cancellationToken = default) =>
+                await BulkInsertAsync(contentItemAssociations, cancellationToken: cancellationToken);
 
         public async ValueTask BulkUpdateContentItemAssociationsAsync(
-            List<ContentItemAssociation> contentItemAssociations) =>
-                await BulkUpdateAsync(contentItemAssociations);
+            List<ContentItemAssociation> contentItemAssociations, CancellationToken cancellationToken = default) =>
+                await BulkUpdateAsync(contentItemAssociations, cancellationToken: cancellationToken);
 
         public async ValueTask BulkDeleteContentItemAssociationsAsync(
-            List<ContentItemAssociation> contentItemAssociations) =>
-                await BulkDeleteAsync(contentItemAssociations);
+            List<ContentItemAssociation> contentItemAssociations, CancellationToken cancellationToken = default) =>
+                await BulkDeleteAsync(contentItemAssociations, cancellationToken: cancellationToken);
+
+        public async ValueTask<IEnumerable<ContentItemAssociation>> BulkReadContentItemAssociationsAsync(
+            List<ContentItemAssociation> contentItemAssociations,
+            CancellationToken cancellationToken = default) =>
+            await BulkReadAsync(contentItemAssociations, cancellationToken);
+
+        public async ValueTask BulkUpsertContentItemAssociationsAsync(
+            List<ContentItemAssociation> contentItemAssociations,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpsertAsync(contentItemAssociations, cancellationToken: cancellationToken);
+
+        public async ValueTask<bool> ExistsContentItemAssociationAsync(
+            Guid contentItemAssociationId,
+            CancellationToken cancellationToken = default) =>
+            await ExistsAsync<ContentItemAssociation>(new object[] { contentItemAssociationId }, cancellationToken);
     }
 }

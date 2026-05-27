@@ -7,6 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -61,6 +62,43 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .Property(contentItem => contentItem.UpdatedWhen)
                 .IsRequired();
 
+            model
+                .Property(contentItem => contentItem.IsDeleted)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(contentItem => contentItem.DeletedBy)
+                .HasMaxLength(255)
+                .IsRequired(false);
+
+            model
+                .Property(contentItem => contentItem.DeletedWhen)
+                .IsRequired(false);
+
+            model
+                .Property(contentItem => contentItem.DeletionReason)
+                .IsRequired(false);
+
+            model
+                .Property(contentItem => contentItem.IsLatestVersion)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(contentItem => contentItem.IsPublished)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(contentItem => contentItem.PublishDate)
+                .IsRequired(false);
+
+            model
+                .Property(contentItem => contentItem.ApprovalStatus)
+                .IsRequired()
+                .HasDefaultValue(ApprovalStatus.Draft);
+
             // Optional properties
             model.Property(contentItem => contentItem.Title);
             model.Property(contentItem => contentItem.Author);
@@ -73,16 +111,40 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsDescending(true, true);
 
             // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
-            model.HasIndex(e => new { e.ContentItemGroupId, e.IsLatest })
+            model.HasIndex(e => new { e.ContentItemGroupId, e.IsLatestVersion })
                  .IsUnique()
-                 .HasFilter($"[{nameof(ContentItem.IsLatest)}] = 1")
+                 .HasFilter($"[{nameof(ContentItem.IsLatestVersion)}] = 1")
                  .HasDatabaseName("IX_ContentItem_IsLatest");
+
+            // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
+            model.HasIndex(e => new { e.ContentItemGroupId, e.IsPublished })
+                 .IsUnique()
+                 .HasFilter($"[{nameof(ContentItem.IsPublished)}] = 1")
+                 .HasDatabaseName("IX_ContentItem_IsPublished");
 
             // Relationship: many ContentItems to one ContentType
             model.HasOne(contentItem => contentItem.ContentType)
                 .WithMany(contentType => contentType.ContentItems)
                 .HasForeignKey(contentItem => contentItem.ContentTypeId)
                 .OnDelete(DeleteBehavior.NoAction);
+
+            // §14.2 — additional recommended indexes
+            model.HasIndex(contentItem => contentItem.ContentTypeId)
+                 .HasDatabaseName("IX_ContentItems_ContentTypeId");
+
+            model.HasIndex(contentItem => contentItem.PublishDate)
+                 .HasDatabaseName("IX_ContentItems_PublishDate");
+
+            model.HasIndex(contentItem => new
+                {
+                    contentItem.ApprovalStatus,
+                    contentItem.IsPublished,
+                    contentItem.PublishDate
+                })
+                 .HasDatabaseName("IX_ContentItems_Feed");
+
+            model.HasIndex(contentItem => contentItem.DeletedWhen)
+                 .HasDatabaseName("IX_ContentItems_DeletedWhen");
         }
     }
 }

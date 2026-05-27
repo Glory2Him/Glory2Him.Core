@@ -15,10 +15,10 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishApprovalCommentAsync(ApprovalComment approvalComment, string eventName = null);
+        ValueTask PublishApprovalCommentAsync(ApprovalComment approvalComment, string? eventName = null);
 
         void SubscribeToApprovalCommentEvent(
             Func<ApprovalComment, ValueTask> approvalCommentEventHandler,
-            string eventName = null);
+            string? eventName = null);
     }
 }

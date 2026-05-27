@@ -44,6 +44,24 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .Property(approvalReviews => approvalReviews.UpdatedWhen)
                 .IsRequired();
 
+            model
+                .Property(approvalReviews => approvalReviews.IsDeleted)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(approvalReviews => approvalReviews.DeletedBy)
+                .HasMaxLength(255)
+                .IsRequired(false);
+
+            model
+                .Property(approvalReviews => approvalReviews.DeletedWhen)
+                .IsRequired(false);
+
+            model
+                .Property(approvalReviews => approvalReviews.DeletionReason)
+                .IsRequired(false);
+
             model.Property(approvalReviews => approvalReviews.Comment).IsRequired(false);
 
             // Index to speed up joins/filters by parent

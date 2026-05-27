@@ -59,6 +59,26 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalComments
         public DateTimeOffset UpdatedWhen { get; set; }
 
         /// <summary>
+        /// User identifier for who deleted the content item.
+        /// </summary>
+        public string? DeletedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was deleted.
+        /// </summary>
+        public DateTimeOffset? DeletedWhen { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is deleted.
+        /// </summary>
+        public bool IsDeleted { get; set; } = false;
+
+        /// <summary>
+        /// Reason for deletion, if applicable.
+        /// </summary>
+        public string? DeletionReason { get; set; }
+
+        /// <summary>
         /// Navigation to the approval this item belongs to.
         /// </summary>
         public Approval Approval { get; set; } = null!;

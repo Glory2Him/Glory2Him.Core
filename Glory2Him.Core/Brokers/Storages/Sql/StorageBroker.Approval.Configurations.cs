@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(approval => approval.EntityId)
                  .IsRequired();
 
-            model.Property(approval => approval.StatusId)
+            model.Property(approval => approval.ApprovalStatus)
                  .IsRequired();
 
             model
@@ -50,13 +50,31 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .Property(approval => approval.UpdatedWhen)
                 .IsRequired();
 
+            model
+                .Property(approval => approval.IsDeleted)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(approval => approval.DeletedBy)
+                .HasMaxLength(255)
+                .IsRequired(false);
+
+            model
+                .Property(approval => approval.DeletedWhen)
+                .IsRequired(false);
+
+            model
+                .Property(approval => approval.DeletionReason)
+                .IsRequired(false);
+
             // UNIQUE (EntityType, EntityId)
             model.HasIndex(a => new { a.EntityType, a.EntityId })
                  .IsUnique()
                  .HasDatabaseName("UX_Approvals_EntityType_EntityId");
 
             // INDEX (EntityType, StatusId)  -- for common joins/filters
-            model.HasIndex(a => new { a.EntityType, a.StatusId })
+            model.HasIndex(a => new { a.EntityType, a.ApprovalStatus })
                  .HasDatabaseName("IX_Approvals_EntityType_StatusId");
         }
     }

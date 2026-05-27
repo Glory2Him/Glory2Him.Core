@@ -32,6 +32,12 @@ namespace Glory2Him.Core.Models.Enums
         /// <summary>
         /// The entity has been rejected during the approval process.
         /// </summary>
-        Rejected = 3
+        Rejected = 3,
+
+        /// <summary>
+        /// The entity was previously approved but has since been dismissed, 
+        /// indicating that the approval is no longer valid and may require re-submission for review.
+        /// </summary>
+        Dismissed = 4,
     }
 }
