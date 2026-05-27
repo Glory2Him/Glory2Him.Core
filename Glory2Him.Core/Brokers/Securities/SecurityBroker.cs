@@ -11,7 +11,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Securities;
-using ISL.Security.Client.Clients;
+using Glory2Him.Security.Client.Clients;
 using Microsoft.AspNetCore.Http;
 
 namespace Glory2Him.Core.Brokers.Securities

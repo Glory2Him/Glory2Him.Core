@@ -1,11 +1,18 @@
 <Solution>
+  <Folder Name="/Clients/">
+    <Project Path="Glory2Him.Security.Client.Tests.Acceptance/Glory2Him.Security.Client.Tests.Acceptance.csproj" />
+    <Project Path="Glory2Him.Security.Client.Tests.Unit/Glory2Him.Security.Client.Tests.Unit.csproj" />
+    <Project Path="Glory2Him.Security.Client/Glory2Him.Security.Client.csproj" />
+  </Folder>
+  <Folder Name="/Core/">
+    <Project Path="Glory2Him.Core.Infrastructure/Glory2Him.Core.Infrastructure.csproj" />
+    <Project Path="Glory2Him.Core.Tests.Acceptance/Glory2Him.Core.Tests.Acceptance.csproj" />
+    <Project Path="Glory2Him.Core.Tests.Integration/Glory2Him.Core.Tests.Integration.csproj" />
+    <Project Path="Glory2Him.Core.Tests.Unit/Glory2Him.Core.Tests.Unit.csproj" />
+    <Project Path="Glory2Him.Core/Glory2Him.Core.csproj" />
+  </Folder>
   <Folder Name="/Documentation/">
     <File Path="Documentation/G2H Design.md" />
     <File Path="Documentation/Glory 2 Him.drawio" />
   </Folder>
-  <Project Path="Glory2Him.Core.Infrastructure/Glory2Him.Core.Infrastructure.csproj" />
-  <Project Path="Glory2Him.Core.Tests.Acceptance/Glory2Him.Core.Tests.Acceptance.csproj" />
-  <Project Path="Glory2Him.Core.Tests.Integration/Glory2Him.Core.Tests.Integration.csproj" />
-  <Project Path="Glory2Him.Core.Tests.Unit/Glory2Him.Core.Tests.Unit.csproj" />
-  <Project Path="Glory2Him.Core/Glory2Him.Core.csproj" />
 </Solution>

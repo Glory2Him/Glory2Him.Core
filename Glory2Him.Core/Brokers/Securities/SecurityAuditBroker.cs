@@ -10,8 +10,8 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using ISL.Security.Client.Clients;
-using ISL.Security.Client.Models.Clients;
+using Glory2Him.Security.Client.Clients;
+using Glory2Him.Security.Client.Models.Clients;
 using Microsoft.AspNetCore.Http;
 
 namespace Glory2Him.Core.Brokers.Securities

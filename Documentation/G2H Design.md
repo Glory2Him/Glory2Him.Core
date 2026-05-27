@@ -1771,7 +1771,213 @@ Recommended endpoints:
 | `POST` | `/api/approvals/{approvalId}/comments` | Add approval comment. |
 | `GET` | `/api/approvals/entity/{entityType}/{entityId}` | Retrieve approval for entity. |
 
-## 16. Search Engine Optimisation
+## 16. Authentication and Authorisation
+
+### 16.1 1 Purpose
+
+Authentication and authorisation ensures that G2H users are correctly identified, that access to content and actions is controlled by role and permission, and that the system is ready to support future client applications, mobile apps, and machine-to-machine integrations without requiring a rewrite.
+
+### 16.2 2 Technology Selection
+
+G2H uses the following stack for authentication and authorisation:
+
+| Component | Purpose |
+| --- | --- |
+| ASP.NET Core Identity | User management, password hashing, roles, claims, 2FA, and external login providers. |
+| OpenIddict | OAuth 2.0 and OpenID Connect token issuance, scopes, client app registration, and machine-to-machine auth. |
+| EF Core | Identity and OpenIddict data persisted to the same SQL database as the domain model. |
+
+This combination gives full ownership of users and data with no vendor lock-in and no external auth service costs.
+
+### 16.3 3 ASP.NET Core Identity
+
+ASP.NET Core Identity provides:
+
+1. Full control over users, roles, claims, passwords, and lockout policies.
+2. Natural integration with EF Core — Identity tables live in the same database.
+3. Role-based and claims-based authorisation for API endpoints and UI routes.
+4. Two-factor authentication using TOTP, compatible with Microsoft Authenticator and Google Authenticator.
+5. External login provider support including Google, Microsoft, GitHub, and Facebook.
+6. Cookie-based authentication for the React frontend hosted within the same ASP.NET app.
+7. JWT bearer token support for API consumers.
+
+### 16.4 4 OpenIddict
+
+OpenIddict layers OAuth 2.0 and OpenID Connect on top of ASP.NET Core Identity.
+
+It enables:
+
+1. OAuth 2.0 authorisation code flow with PKCE for mobile and public clients.
+2. OpenID Connect for identity token issuance and userinfo endpoints.
+3. Client credentials flow for machine-to-machine integrations such as background jobs and AI workers.
+4. Scope-based permission control for fine-grained API access.
+5. Client application registration for web, mobile, CLI, and partner integrations.
+
+OpenIddict integrates directly with ASP.NET Core Identity and persists its data to EF Core, meaning no separate identity server infrastructure is required.
+
+### 16.5 5 Scope Design
+
+OAuth 2.0 scopes define what a client application is permitted to access.
+
+Recommended initial scopes for G2H:
+
+| Scope | Purpose |
+| --- | --- |
+| `content.read` | Read published content items, feed, topics, tags, and reactions. |
+| `content.write` | Submit, edit, and soft-delete content items and associations. |
+| `topics.read` | Read topic landing pages and child content. |
+| `notes.read` | Read approval comments and review notes. |
+| `notes.write` | Add approval comments. |
+| `admin.users` | Manage users, roles, and approval settings. |
+
+Client apps request only the scopes they need.
+
+Example scope assignments by client type:
+
+| Client | Requested Scopes |
+| --- | --- |
+| Web app (React, cookie auth) | All scopes based on user role. |
+| Mobile app | `content.read` |
+| Admin portal | `content.read`, `content.write`, `admin.users` |
+| AI background worker | `content.read` via client credentials |
+| Partner/ministry API consumer | `content.read` via client credentials |
+
+### 16.6 6 Role Design
+
+ASP.NET Core Identity roles control access within the G2H application.
+
+Recommended roles:
+
+| Role | Purpose |
+| --- | --- |
+| `Contributor` | Can submit content for approval. |
+| `Reviewer` | Can submit approval reviews and approval comments. |
+| `Publisher` | Can approve and publish content. |
+| `Admin` | Full access including user management, approval settings, and content type management. |
+| `ReadOnly` | Authenticated read-only access with no contribution or admin rights. |
+
+Role claims from the identity token must be used to control visibility of role-restricted navigation items in the React frontend and to enforce API-level authorisation.
+
+### 16.7 7 Authentication Flow
+
+#### 16.7.1 1 Web App (Cookie Auth)
+
+1. The React frontend is hosted within the same ASP.NET Core application.
+2. Login submits credentials to the ASP.NET Core Identity sign-in endpoint.
+3. On success, an HttpOnly cookie is issued and the user is redirected.
+4. The cookie is sent automatically on subsequent requests.
+5. Logout clears the cookie and redirects to the home page.
+6. Role claims from the cookie identity are used for route guards and UI state.
+
+#### 16.7.2 2 API (JWT Bearer)
+
+1. API consumers authenticate using OAuth 2.0 via OpenIddict.
+2. The authorisation code + PKCE flow is used for interactive clients such as mobile apps.
+3. The client credentials flow is used for non-interactive clients such as background jobs.
+4. Access tokens are issued as JWTs containing user identity, roles, and scopes.
+5. APIs validate the JWT bearer token on each request.
+6. API endpoints declare required scopes and roles using standard ASP.NET Core policy attributes.
+
+Example:
+
+```csharp
+[Authorize(Policy = "content.write")]
+[HttpPost("/api/content-items")]
+public IActionResult CreateContentItem(...) { ... }
+```
+
+#### 16.7.3 3 Two-Factor Authentication
+
+1. TOTP-based 2FA is supported via ASP.NET Core Identity.
+2. Users can enable 2FA from their profile and scan a QR code with Microsoft Authenticator or Google Authenticator.
+3. 2FA is enforced for `Admin` and `Publisher` roles by policy.
+
+#### 16.7.4 4 External Login Providers
+
+1. Google, Microsoft, GitHub, and Facebook external login providers can be configured.
+2. External login users are linked to ASP.NET Core Identity accounts.
+3. Role assignment for external login users follows the same rules as internal users.
+
+### 16.8 8 Authorisation Policies
+
+API authorisation is enforced using ASP.NET Core policy-based authorisation.
+
+Recommended policies:
+
+| Policy | Requirement |
+| --- | --- |
+| `content.read` | Authenticated user or valid access token with `content.read` scope. |
+| `content.write` | Authenticated user with `Contributor` role or access token with `content.write` scope. |
+| `review` | Authenticated user with `Reviewer` or `Publisher` role. |
+| `publish` | Authenticated user with `Publisher` role. |
+| `admin` | Authenticated user with `Admin` role or access token with `admin.users` scope. |
+
+### 16.9 9 Phased Adoption
+
+The recommended adoption path is:
+
+**Phase 1 — Current**
+
+1. ASP.NET Core Identity for user management, roles, and claims.
+2. Cookie authentication for the React frontend.
+3. JWT bearer token support for API consumers.
+4. Role-based authorisation for all API endpoints.
+5. 2FA with TOTP.
+6. External login providers.
+
+**Phase 2 — When Mobile or Public API is Required**
+
+1. Add OpenIddict on top of the existing Identity setup.
+2. No rewrite of Identity or domain model required.
+3. Register client applications in OpenIddict.
+4. Introduce scope-based authorisation alongside role-based authorisation.
+5. Enable authorisation code + PKCE for mobile clients.
+6. Enable client credentials for machine-to-machine integrations.
+
+### 16.10 10 Future Token Claims Example
+
+When OpenIddict is active, access tokens will carry structured claims:
+
+```json
+{
+  "sub": "user-guid",
+  "name": "Jane Doe",
+  "role": ["Contributor", "Reviewer"],
+  "plan": "premium",
+  "scope": "content.read content.write notes.read notes.write"
+}
+```
+
+APIs enforce access using:
+
+```csharp
+[Authorize(Policy = "content.write")]
+```
+
+This allows fine-grained permission control per client type without changing the domain model.
+
+### 16.11 11 Architecture
+
+The authentication and authorisation architecture follows the same layered pattern as the rest of the system:
+
+```text
+React Frontend (cookie auth)
+Mobile App / Partner API (OAuth 2.0 + PKCE)
+AI Worker / CLI (client credentials)
+        │
+        ▼
+ASP.NET Core Identity + OpenIddict
+        │
+        ▼
+G2H APIs (scope + role policy enforcement)
+        │
+        ▼
+EF Core → SQL (Identity + OpenIddict + domain tables)
+```
+
+This keeps all users, tokens, roles, clients, and domain data in a single owned SQL database with no external dependency on a third-party identity provider.
+
+## 19. Search Engine Optimisation
 
 ### 16.1 1 Purpose
 
@@ -1837,7 +2043,7 @@ The following sitemap and indexing support should be considered:
 4. Soft-deleted or unapproved content must not appear in the sitemap.
 5. A `robots.txt` endpoint should disallow indexing of draft, admin, and API routes.
 
-## 17. UI / UX Design
+## 20. UI / UX Design
 
 ### 17.1 1 Purpose
 
@@ -1978,7 +2184,7 @@ The following authentication behaviour is required:
 | `ApprovalService` | Manages approval queue data and submission actions. |
 | `AuthService` | Manages session state, role extraction, and token lifecycle. |
 
-## 18. Summary
+## 21. Summary
 
 ### 18.1 1 Final Design Direction
 
