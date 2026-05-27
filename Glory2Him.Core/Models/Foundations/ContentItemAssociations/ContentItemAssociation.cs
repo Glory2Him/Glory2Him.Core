@@ -16,7 +16,7 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemAssociations
     /// <summary>
     /// Represents a content item association.
     /// </summary>
-    public class ContentItemAssociation : IKey, IAudit
+    public class ContentItemAssociation : IKey, IAudit, IVersion, IApproval
     {
         /// <summary>
         /// Primary key identifier for the content item.
