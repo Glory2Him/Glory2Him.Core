@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
@@ -21,28 +22,57 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     {
         public DbSet<ContentType> ContentTypes { get; set; }
 
-        public async ValueTask<ContentType> InsertContentTypeAsync(ContentType contentType) =>
-            await InsertAsync(contentType);
+        public async ValueTask<ContentType> InsertContentTypeAsync(
+            ContentType contentType,
+            CancellationToken cancellationToken = default) =>
+            await InsertAsync(contentType, cancellationToken);
 
         public async ValueTask<IQueryable<ContentType>> SelectAllContentTypesAsync() =>
             await SelectAllAsync<ContentType>();
 
-        public async ValueTask<ContentType> SelectContentTypeByIdAsync(Guid contentTypeId) =>
-            await SelectAsync<ContentType>(contentTypeId);
+        public async ValueTask<ContentType> SelectContentTypeByIdAsync(
+            Guid contentTypeId,
+            CancellationToken cancellationToken = default) =>
+            await SelectAsync<ContentType>(new object[] { contentTypeId }, cancellationToken);
 
-        public async ValueTask<ContentType> UpdateContentTypeAsync(ContentType contentType) =>
-            await UpdateAsync(contentType);
+        public async ValueTask<ContentType> UpdateContentTypeAsync(
+            ContentType contentType,
+            CancellationToken cancellationToken = default) =>
+            await UpdateAsync(contentType, cancellationToken);
 
-        public async ValueTask<ContentType> DeleteContentTypeAsync(ContentType contentType) =>
-            await DeleteAsync(contentType);
+        public async ValueTask<ContentType> DeleteContentTypeAsync(
+            ContentType contentType,
+            CancellationToken cancellationToken = default) =>
+            await DeleteAsync(contentType, cancellationToken);
 
-        public async ValueTask BulkInsertContentTypesAsync(List<ContentType> contentTypes) =>
-            await BulkInsertAsync(contentTypes);
+        public async ValueTask BulkInsertContentTypesAsync(
+            List<ContentType> contentTypes,
+            CancellationToken cancellationToken = default) =>
+            await BulkInsertAsync(contentTypes, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkUpdateContentTypesAsync(List<ContentType> contentTypes) =>
-            await BulkUpdateAsync(contentTypes);
+        public async ValueTask BulkUpdateContentTypesAsync(
+            List<ContentType> contentTypes,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpdateAsync(contentTypes, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkDeleteContentTypesAsync(List<ContentType> contentTypes) =>
-            await BulkDeleteAsync(contentTypes);
+        public async ValueTask BulkDeleteContentTypesAsync(
+            List<ContentType> contentTypes,
+            CancellationToken cancellationToken = default) =>
+            await BulkDeleteAsync(contentTypes, cancellationToken: cancellationToken);
+
+        public async ValueTask<IEnumerable<ContentType>> BulkReadContentTypesAsync(
+            List<ContentType> contentTypes,
+            CancellationToken cancellationToken = default) =>
+            await BulkReadAsync(contentTypes, cancellationToken);
+
+        public async ValueTask BulkUpsertContentTypesAsync(
+            List<ContentType> contentTypes,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpsertAsync(contentTypes, cancellationToken: cancellationToken);
+
+        public async ValueTask<bool> ExistsContentTypeAsync(
+            Guid contentTypeId,
+            CancellationToken cancellationToken = default) =>
+            await ExistsAsync<ContentType>(new object[] { contentTypeId }, cancellationToken);
     }
 }

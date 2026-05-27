@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 
@@ -18,19 +19,38 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     public partial interface IStorageBroker
     {
         ValueTask<ContentItemAssociation> InsertContentItemAssociationAsync(
-            ContentItemAssociation contentItemAssociation);
+            ContentItemAssociation contentItemAssociation, CancellationToken cancellationToken = default);
 
         ValueTask<IQueryable<ContentItemAssociation>> SelectAllContentItemAssociationsAsync();
-        ValueTask<ContentItemAssociation> SelectContentItemAssociationByIdAsync(Guid contentItemAssociationId);
+
+        ValueTask<ContentItemAssociation> SelectContentItemAssociationByIdAsync(
+            Guid contentItemAssociationId, CancellationToken cancellationToken = default);
 
         ValueTask<ContentItemAssociation> UpdateContentItemAssociationAsync(
-            ContentItemAssociation contentItemAssociation);
+            ContentItemAssociation contentItemAssociation, CancellationToken cancellationToken = default);
 
         ValueTask<ContentItemAssociation> DeleteContentItemAssociationAsync(
-            ContentItemAssociation contentItemAssociation);
+            ContentItemAssociation contentItemAssociation, CancellationToken cancellationToken = default);
 
-        ValueTask BulkInsertContentItemAssociationsAsync(List<ContentItemAssociation> contentItemAssociations);
-        ValueTask BulkUpdateContentItemAssociationsAsync(List<ContentItemAssociation> contentItemAssociations);
-        ValueTask BulkDeleteContentItemAssociationsAsync(List<ContentItemAssociation> contentItemAssociations);
+        ValueTask BulkInsertContentItemAssociationsAsync(
+            List<ContentItemAssociation> contentItemAssociations, CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpdateContentItemAssociationsAsync(
+            List<ContentItemAssociation> contentItemAssociations, CancellationToken cancellationToken = default);
+
+        ValueTask BulkDeleteContentItemAssociationsAsync(
+            List<ContentItemAssociation> contentItemAssociations, CancellationToken cancellationToken = default);
+
+        ValueTask<IEnumerable<ContentItemAssociation>> BulkReadContentItemAssociationsAsync(
+            List<ContentItemAssociation> contentItemAssociations,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpsertContentItemAssociationsAsync(
+            List<ContentItemAssociation> contentItemAssociations,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<bool> ExistsContentItemAssociationAsync(
+            Guid contentItemAssociationId,
+            CancellationToken cancellationToken = default);
     }
 }

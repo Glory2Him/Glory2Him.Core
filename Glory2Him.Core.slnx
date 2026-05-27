@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/Documentation/">
+    <File Path="Documentation/G2H Design.md" />
+    <File Path="Documentation/Glory 2 Him.drawio" />
+  </Folder>
   <Project Path="Glory2Him.Core.Infrastructure/Glory2Him.Core.Infrastructure.csproj" />
   <Project Path="Glory2Him.Core.Tests.Acceptance/Glory2Him.Core.Tests.Acceptance.csproj" />
   <Project Path="Glory2Him.Core.Tests.Integration/Glory2Him.Core.Tests.Integration.csproj" />

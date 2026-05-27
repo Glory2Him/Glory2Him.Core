@@ -25,7 +25,7 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         /// <summary>
         /// Identifier for the content type this setting applies to.
         /// </summary>
-        public string ContentTypeId { get; set; } = string.Empty;
+        public Guid ContentTypeId { get; set; }
 
         /// <summary>
         /// Optional identifier for a specific content item.
@@ -149,6 +149,12 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         public bool ShowBibleReferences { get; set; }
 
         /// <summary>
+        /// Indicates whether only the love reaction is permitted (favourite-style behaviour).
+        /// When true, only the designated love reaction may be associated with content items of this type.
+        /// </summary>
+        public bool LimitReactionsToLoveOnly { get; set; }
+
+        /// <summary>
         /// User identifier for who created the content item.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;
@@ -167,5 +173,25 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         /// Timestamp when the content item was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
+
+        /// <summary>
+        /// User identifier for who deleted the content item.
+        /// </summary>
+        public string? DeletedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was deleted.
+        /// </summary>
+        public DateTimeOffset? DeletedWhen { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is deleted.
+        /// </summary>
+        public bool IsDeleted { get; set; } = false;
+
+        /// <summary>
+        /// Reason for deletion, if applicable.
+        /// </summary>
+        public string? DeletionReason { get; set; }
     }
 }

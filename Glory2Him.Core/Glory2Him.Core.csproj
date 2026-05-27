@@ -28,22 +28,26 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="EFxceptions" Version="1.0.3" />
+		<PackageReference Include="EFxceptions" Version="10.0.0" />
 		<PackageReference Include="ISL.Security.Client" Version="4.0.0" />
 		<PackageReference Include="LeVent" Version="1.2.0" />
-		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.7" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.7" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer.HierarchyId" Version="10.0.7" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.7">
+		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.8" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer.HierarchyId" Version="10.0.8" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.7" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.7" />
-		<PackageReference Include="STX.EFCore.Client" Version="2.0.0" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.8" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.8" />
+		<PackageReference Include="STX.EFCore.Client" Version="3.0.0" />
 	</ItemGroup>
 	
 	<ItemGroup>

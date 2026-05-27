@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -21,28 +22,57 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     {
         public DbSet<ContentItem> ContentItems { get; set; }
 
-        public async ValueTask<ContentItem> InsertContentItemAsync(ContentItem contentItem) =>
-            await InsertAsync(contentItem);
+        public async ValueTask<ContentItem> InsertContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default) =>
+            await InsertAsync(contentItem, cancellationToken);
 
         public async ValueTask<IQueryable<ContentItem>> SelectAllContentItemsAsync() =>
             await SelectAllAsync<ContentItem>();
 
-        public async ValueTask<ContentItem> SelectContentItemByIdAsync(Guid contentItemId) =>
-            await SelectAsync<ContentItem>(contentItemId);
+        public async ValueTask<ContentItem> SelectContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default) =>
+            await SelectAsync<ContentItem>(new object[] { contentItemId }, cancellationToken);
 
-        public async ValueTask<ContentItem> UpdateContentItemAsync(ContentItem contentItem) =>
-            await UpdateAsync(contentItem);
+        public async ValueTask<ContentItem> UpdateContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default) =>
+            await UpdateAsync(contentItem, cancellationToken);
 
-        public async ValueTask<ContentItem> DeleteContentItemAsync(ContentItem contentItem) =>
-            await DeleteAsync(contentItem);
+        public async ValueTask<ContentItem> DeleteContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default) =>
+            await DeleteAsync(contentItem, cancellationToken);
 
-        public async ValueTask BulkInsertContentItemsAsync(List<ContentItem> contentItems) =>
-            await BulkInsertAsync(contentItems);
+        public async ValueTask BulkInsertContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default) =>
+            await BulkInsertAsync(contentItems, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkUpdateContentItemsAsync(List<ContentItem> contentItems) =>
-            await BulkUpdateAsync(contentItems);
+        public async ValueTask BulkUpdateContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpdateAsync(contentItems, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkDeleteContentItemsAsync(List<ContentItem> contentItems) =>
-            await BulkDeleteAsync(contentItems);
+        public async ValueTask BulkDeleteContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default) =>
+            await BulkDeleteAsync(contentItems, cancellationToken: cancellationToken);
+
+        public async ValueTask<IEnumerable<ContentItem>> BulkReadContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default) =>
+            await BulkReadAsync(contentItems, cancellationToken);
+
+        public async ValueTask BulkUpsertContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpsertAsync(contentItems, cancellationToken: cancellationToken);
+
+        public async ValueTask<bool> ExistsContentItemAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default) =>
+            await ExistsAsync<ContentItem>(new object[] { contentItemId }, cancellationToken);
     }
 }

@@ -9,10 +9,11 @@
 
 using System;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Enums;
 
 namespace Glory2Him.Core.Models.Foundations.Tags
 {
-    public class Tag : IKey, IAudit
+    public class Tag : IKey, IAudit, IApproval
     {
         /// <summary>
         /// Primary key identifier for the tag.
@@ -43,5 +44,43 @@ namespace Glory2Him.Core.Models.Foundations.Tags
         /// Timestamp when the tag was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
+
+        /// <summary>
+        /// User identifier for who deleted the content item.
+        /// </summary>
+        public string? DeletedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was deleted.
+        /// </summary>
+        public DateTimeOffset? DeletedWhen { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is deleted.
+        /// </summary>
+        public bool IsDeleted { get; set; } = false;
+
+        /// <summary>
+        /// Reason for deletion, if applicable.
+        /// </summary>
+        public string? DeletionReason { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is published.
+        /// </summary>
+        public bool IsPublished { get; set; }
+
+        /// <summary>
+        /// The date and time when the tag was published.
+        /// This is nullable to allow for drafts that have not yet been published.
+        /// </summary>
+        public DateTimeOffset? PublishDate { get; set; }
+
+        /// <summary>
+        /// A denormalized field to indicate if the content item has been approved. 
+        /// This is used to optimize queries for approved content items without 
+        /// needing to join with the approvals table.
+        /// </summary>
+        public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Draft;
     }
 }

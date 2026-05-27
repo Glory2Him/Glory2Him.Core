@@ -101,6 +101,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            model.Property(contentItemSetting => contentItemSetting.LimitReactionsToLoveOnly)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             model
                 .Property(contentItemSetting => contentItemSetting.CreatedBy)
                 .HasMaxLength(255)
@@ -118,6 +122,24 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model
                 .Property(contentItemSetting => contentItemSetting.UpdatedWhen)
                 .IsRequired();
+
+            model
+                .Property(contentItemSetting => contentItemSetting.IsDeleted)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(contentItemSetting => contentItemSetting.DeletedBy)
+                .HasMaxLength(255)
+                .IsRequired(false);
+
+            model
+                .Property(contentItemSetting => contentItemSetting.DeletedWhen)
+                .IsRequired(false);
+
+            model
+                .Property(contentItemSetting => contentItemSetting.DeletionReason)
+                .IsRequired(false);
 
             // ------------------------------------------------------------------------
             // Filtered unique indexes (SQL Server) to enforce your business rules:

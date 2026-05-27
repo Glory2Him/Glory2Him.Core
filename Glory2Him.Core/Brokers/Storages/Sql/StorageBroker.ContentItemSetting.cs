@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
@@ -22,34 +23,49 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         public DbSet<ContentItemSetting> ContentItemSettings { get; set; }
 
         public async ValueTask<ContentItemSetting> InsertContentItemSettingAsync(
-            ContentItemSetting contentItemSetting) =>
-                await InsertAsync(contentItemSetting);
+            ContentItemSetting contentItemSetting, CancellationToken cancellationToken = default) =>
+                await InsertAsync(contentItemSetting, cancellationToken);
 
         public async ValueTask<IQueryable<ContentItemSetting>> SelectAllContentItemSettingsAsync() =>
             await SelectAllAsync<ContentItemSetting>();
 
         public async ValueTask<ContentItemSetting> SelectContentItemSettingByIdAsync(
-            Guid contentItemSettingId) =>
-                await SelectAsync<ContentItemSetting>(contentItemSettingId);
+            Guid contentItemSettingId, CancellationToken cancellationToken = default) =>
+                await SelectAsync<ContentItemSetting>(new object[] { contentItemSettingId }, cancellationToken);
 
         public async ValueTask<ContentItemSetting> UpdateContentItemSettingAsync(
-            ContentItemSetting contentItemSetting) =>
-                await UpdateAsync(contentItemSetting);
+            ContentItemSetting contentItemSetting, CancellationToken cancellationToken = default) =>
+                await UpdateAsync(contentItemSetting, cancellationToken);
 
         public async ValueTask<ContentItemSetting> DeleteContentItemSettingAsync(
-            ContentItemSetting contentItemSetting) =>
-                await DeleteAsync(contentItemSetting);
+            ContentItemSetting contentItemSetting, CancellationToken cancellationToken = default) =>
+                await DeleteAsync(contentItemSetting, cancellationToken);
 
         public async ValueTask BulkInsertContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings) =>
-                await BulkInsertAsync(contentItemSettings);
+            List<ContentItemSetting> contentItemSettings, CancellationToken cancellationToken = default) =>
+                await BulkInsertAsync(contentItemSettings, cancellationToken: cancellationToken);
 
         public async ValueTask BulkUpdateContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings) =>
-                await BulkUpdateAsync(contentItemSettings);
+            List<ContentItemSetting> contentItemSettings, CancellationToken cancellationToken = default) =>
+                await BulkUpdateAsync(contentItemSettings, cancellationToken: cancellationToken);
 
         public async ValueTask BulkDeleteContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings) =>
-                await BulkDeleteAsync(contentItemSettings);
+            List<ContentItemSetting> contentItemSettings, CancellationToken cancellationToken = default) =>
+                await BulkDeleteAsync(contentItemSettings, cancellationToken: cancellationToken);
+
+        public async ValueTask<IEnumerable<ContentItemSetting>> BulkReadContentItemSettingsAsync(
+            List<ContentItemSetting> contentItemSettings,
+            CancellationToken cancellationToken = default) =>
+            await BulkReadAsync(contentItemSettings, cancellationToken);
+
+        public async ValueTask BulkUpsertContentItemSettingsAsync(
+            List<ContentItemSetting> contentItemSettings,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpsertAsync(contentItemSettings, cancellationToken: cancellationToken);
+
+        public async ValueTask<bool> ExistsContentItemSettingAsync(
+            Guid contentItemSettingId,
+            CancellationToken cancellationToken = default) =>
+            await ExistsAsync<ContentItemSetting>(new object[] { contentItemSettingId }, cancellationToken);
     }
 }

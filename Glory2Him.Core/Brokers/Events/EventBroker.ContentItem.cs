@@ -18,12 +18,12 @@ namespace Glory2Him.Core.Brokers.Events
     {
         public ILeVentClient<ContentItem> ContentItemEvents { get; set; }
 
-        public ValueTask PublishContentItemAsync(ContentItem contentItem, string eventName = null) =>
+        public ValueTask PublishContentItemAsync(ContentItem contentItem, string? eventName = null) =>
             this.ContentItemEvents.PublishEventAsync(contentItem, eventName);
 
         public void SubscribeToContentItemEvent(
             Func<ContentItem, ValueTask> contentItemEventHandler,
-            string eventName = null) =>
+            string? eventName = null) =>
                 this.ContentItemEvents.RegisterEventHandler(contentItemEventHandler, eventName);
     }
 }

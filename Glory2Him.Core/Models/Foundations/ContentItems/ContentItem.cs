@@ -9,6 +9,7 @@
 
 using System;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItems
@@ -16,7 +17,7 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
     /// <summary>
     /// Represents a versioned content item.
     /// </summary>
-    public class ContentItem : IKey, IAudit
+    public class ContentItem : IKey, IAudit, IVersion, IApproval
     {
         /// <summary>
         /// Primary key identifier for the content item.
@@ -56,7 +57,30 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         /// <summary>
         /// Gets or sets a value indicating whether the current instance represents the latest version.
         /// </summary>
-        public bool IsLatest { get; set; } = false;
+        public bool IsLatestVersion { get; set; } = false;
+
+        /// <summary>
+        /// The date and time when the content item was published. 
+        /// This is nullable to allow for drafts that have not yet been published.
+        /// </summary>
+        public DateTimeOffset? PublishDate { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is published.
+        /// </summary>
+        public bool IsPublished { get; set; }
+
+        /// <summary>
+        /// A denormalized field to indicate if the content item has been approved. 
+        /// This is used to optimize queries for approved content items without 
+        /// needing to join with the approvals table.
+        /// </summary>
+        public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Draft;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is deleted.
+        /// </summary>
+        public bool IsDeleted { get; set; } = false;
 
         /// <summary>
         /// User identifier for who created the content item.
@@ -77,6 +101,21 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         /// Timestamp when the content item was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
+
+        /// <summary>
+        /// User identifier for who deleted the content item.
+        /// </summary>
+        public string? DeletedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was deleted.
+        /// </summary>
+        public DateTimeOffset? DeletedWhen { get; set; }
+
+        /// <summary>
+        /// Reason for deletion, if applicable.
+        /// </summary>
+        public string? DeletionReason { get; set; }
 
         /// <summary>
         /// Navigation to the content type this item belongs to.

@@ -15,7 +15,7 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishContentTypeAsync(ContentType contentType, string eventName = null);
-        void SubscribeToContentTypeEvent(Func<ContentType, ValueTask> contentTypeEventHandler, string eventName = null);
+        ValueTask PublishContentTypeAsync(ContentType contentType, string? eventName = null);
+        void SubscribeToContentTypeEvent(Func<ContentType, ValueTask> contentTypeEventHandler, string? eventName = null);
     }
 }

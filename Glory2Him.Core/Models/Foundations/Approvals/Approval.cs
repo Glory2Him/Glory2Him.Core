@@ -34,9 +34,9 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         public Guid EntityId { get; set; }
 
         /// <summary>
-        /// The approvals status (mapa to ApprovalStatus enum).
+        /// The approvals status (maps to ApprovalStatus enum).
         /// </summary>
-        public ApprovalStatus StatusId { get; set; }
+        public ApprovalStatus ApprovalStatus { get; set; }
 
         /// <summary>
         /// User identifier for who created the content item.
@@ -57,6 +57,26 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         /// Timestamp when the content item was last updated.
         /// </summary>
         public DateTimeOffset UpdatedWhen { get; set; }
+
+        /// <summary>
+        /// User identifier for who deleted the content item.
+        /// </summary>
+        public string? DeletedBy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Timestamp when the content item was deleted.
+        /// </summary>
+        public DateTimeOffset? DeletedWhen { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the content item is deleted.
+        /// </summary>
+        public bool IsDeleted { get; set; } = false;
+
+        /// <summary>
+        /// Reason for deletion, if applicable.
+        /// </summary>
+        public string? DeletionReason { get; set; }
 
         /// <summary>
         /// Navigation to the approval comments associated with this approval.

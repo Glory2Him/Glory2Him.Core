@@ -18,12 +18,12 @@ namespace Glory2Him.Core.Brokers.Events
     {
         public ILeVentClient<ApprovalReview> ApprovalReviewEvents { get; set; }
 
-        public ValueTask PublishApprovalReviewAsync(ApprovalReview approvalReview, string eventName = null) =>
+        public ValueTask PublishApprovalReviewAsync(ApprovalReview approvalReview, string? eventName = null) =>
             this.ApprovalReviewEvents.PublishEventAsync(approvalReview, eventName);
 
         public void SubscribeToApprovalReviewEvent(
             Func<ApprovalReview, ValueTask> approvalReviewEventHandler,
-            string eventName = null) =>
+            string? eventName = null) =>
                 this.ApprovalReviewEvents.RegisterEventHandler(approvalReviewEventHandler, eventName);
     }
 }

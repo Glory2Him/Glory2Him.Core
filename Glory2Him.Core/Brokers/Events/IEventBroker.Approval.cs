@@ -15,7 +15,7 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishApprovalAsync(Approval approval, string eventName = null);
-        void SubscribeToApprovalEvent(Func<Approval, ValueTask> approvalEventHandler, string eventName = null);
+        ValueTask PublishApprovalAsync(Approval approval, string? eventName = null);
+        void SubscribeToApprovalEvent(Func<Approval, ValueTask> approvalEventHandler, string? eventName = null);
     }
 }

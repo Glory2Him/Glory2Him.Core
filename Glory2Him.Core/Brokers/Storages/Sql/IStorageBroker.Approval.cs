@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
@@ -17,13 +18,25 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<Approval> InsertApprovalAsync(Approval approval);
+        ValueTask<Approval> InsertApprovalAsync(Approval approval, CancellationToken cancellationToken = default);
         ValueTask<IQueryable<Approval>> SelectAllApprovalsAsync();
-        ValueTask<Approval> SelectApprovalByIdAsync(Guid approvalId);
-        ValueTask<Approval> UpdateApprovalAsync(Approval approval);
-        ValueTask<Approval> DeleteApprovalAsync(Approval approval);
-        ValueTask BulkInsertApprovalsAsync(List<Approval> approvals);
-        ValueTask BulkUpdateApprovalsAsync(List<Approval> approvals);
-        ValueTask BulkDeleteApprovalsAsync(List<Approval> approvals);
+        ValueTask<Approval> SelectApprovalByIdAsync(Guid approvalId, CancellationToken cancellationToken = default);
+        ValueTask<Approval> UpdateApprovalAsync(Approval approval, CancellationToken cancellationToken = default);
+        ValueTask<Approval> DeleteApprovalAsync(Approval approval, CancellationToken cancellationToken = default);
+        ValueTask BulkInsertApprovalsAsync(List<Approval> approvals, CancellationToken cancellationToken = default);
+        ValueTask BulkUpdateApprovalsAsync(List<Approval> approvals, CancellationToken cancellationToken = default);
+        ValueTask BulkDeleteApprovalsAsync(List<Approval> approvals, CancellationToken cancellationToken = default);
+
+        ValueTask<IEnumerable<Approval>> BulkReadApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpsertApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<bool> ExistsApprovalAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
     }
 }

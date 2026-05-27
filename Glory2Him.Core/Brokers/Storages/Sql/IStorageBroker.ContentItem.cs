@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
@@ -17,13 +18,46 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<ContentItem> InsertContentItemAsync(ContentItem contentItem);
+        ValueTask<ContentItem> InsertContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default);
+
         ValueTask<IQueryable<ContentItem>> SelectAllContentItemsAsync();
-        ValueTask<ContentItem> SelectContentItemByIdAsync(Guid contentItemId);
-        ValueTask<ContentItem> UpdateContentItemAsync(ContentItem contentItem);
-        ValueTask<ContentItem> DeleteContentItemAsync(ContentItem contentItem);
-        ValueTask BulkInsertContentItemsAsync(List<ContentItem> contentItems);
-        ValueTask BulkUpdateContentItemsAsync(List<ContentItem> contentItems);
-        ValueTask BulkDeleteContentItemsAsync(List<ContentItem> contentItems);
+
+        ValueTask<ContentItem> SelectContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<ContentItem> UpdateContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<ContentItem> DeleteContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkInsertContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpdateContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkDeleteContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<IEnumerable<ContentItem>> BulkReadContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpsertContentItemsAsync(
+            List<ContentItem> contentItems,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<bool> ExistsContentItemAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default);
     }
 }

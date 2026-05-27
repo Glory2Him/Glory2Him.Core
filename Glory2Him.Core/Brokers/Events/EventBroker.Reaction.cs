@@ -18,10 +18,10 @@ namespace Glory2Him.Core.Brokers.Events
     {
         public ILeVentClient<Reaction> ReactionEvents { get; set; }
 
-        public ValueTask PublishReactionAsync(Reaction reaction, string eventName = null) =>
+        public ValueTask PublishReactionAsync(Reaction reaction, string? eventName = null) =>
             this.ReactionEvents.PublishEventAsync(reaction, eventName);
 
-        public void SubscribeToReactionEvent(Func<Reaction, ValueTask> reactionEventHandler, string eventName = null) =>
+        public void SubscribeToReactionEvent(Func<Reaction, ValueTask> reactionEventHandler, string? eventName = null) =>
             this.ReactionEvents.RegisterEventHandler(reactionEventHandler, eventName);
     }
 }

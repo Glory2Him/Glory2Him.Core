@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -25,104 +25,90 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                     tableBuilder.HasCheckConstraint(
                         name: "CK_ContentItemAssociation_ScopeConsistency",
                         sql:
-                            $"(({nameof(ContentItemAssociation.Scope)} = N'{nameof(Scope.AllVersions)}' AND " +
-                            $"{nameof(ContentItemAssociation.ContentItemGroupId)} IS NOT NULL AND " +
-                            $"{nameof(ContentItemAssociation.ContentItemId)} IS NULL) OR " +
-                            $"({nameof(ContentItemAssociation.Scope)} = N'{nameof(Scope.ThisVersionOnly)}' AND " +
-                            $"{nameof(ContentItemAssociation.ContentItemId)} IS NOT NULL AND " +
-                            $"{nameof(ContentItemAssociation.ContentItemGroupId)} IS NULL))");
+                            $"(({nameof(ContentItemAssociation.LinkedContentScope)} = N'{nameof(Scope.AllVersions)}' AND " +
+                            $"{nameof(ContentItemAssociation.LinkedContentItemGroupId)} IS NOT NULL AND " +
+                            $"{nameof(ContentItemAssociation.LinkedContentItemId)} IS NULL) OR " +
+                            $"({nameof(ContentItemAssociation.LinkedContentScope)} = N'{nameof(Scope.ThisVersionOnly)}' AND " +
+                            $"{nameof(ContentItemAssociation.LinkedContentItemId)} IS NOT NULL AND " +
+                            $"{nameof(ContentItemAssociation.LinkedContentItemGroupId)} IS NULL))");
                 });
 
-            model.HasKey(e => e.Id);
+            model.HasKey(contentItemAssociation => contentItemAssociation.Id);
 
-            model.Property(e => e.Scope)
+            model.Property(contentItemAssociation => contentItemAssociation.LinkedContentScope)
                  .HasConversion<string>()
                  .HasMaxLength(32)
                  .IsUnicode(true)
                  .IsRequired();
 
-            model.Property(e => e.EntityType)
+            model.Property(contentItemAssociation => contentItemAssociation.LinkedEntityType)
                  .HasConversion<string>()
                  .HasMaxLength(32)
                  .IsUnicode(true)
                  .IsRequired();
 
-            model.Property(e => e.ContentItemId).IsRequired(false);
-            model.Property(e => e.ContentItemGroupId).IsRequired(false);
-            model.Property(e => e.EntityId).IsRequired();
-            model.Property(e => e.ApprovalId).IsRequired();
-            model.Property(e => e.CreatedBy).IsRequired().HasMaxLength(256);
-            model.Property(e => e.UpdatedBy).IsRequired().HasMaxLength(256);
-            model.Property(e => e.CreatedWhen).IsRequired();
-            model.Property(e => e.UpdatedWhen).IsRequired();
+            model.Property(contentItemAssociation => contentItemAssociation.LinkedContentItemId)
+                 .IsRequired(false);
 
+            model.Property(contentItemAssociation => contentItemAssociation.LinkedContentItemGroupId)
+                 .IsRequired(false);
 
-            // Primary key
-            model
-                .HasKey(contentItemAssociation => contentItemAssociation.Id);
+            model.Property(contentItemAssociation => contentItemAssociation.LinkedEntityId)
+                 .IsRequired();
 
-            // Properties
-            model
-                .Property(contentItemAssociation => contentItemAssociation.Scope)
-                .IsRequired();
+            model.Property(contentItemAssociation => contentItemAssociation.CreatedBy)
+                 .IsRequired()
+                 .HasMaxLength(256);
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.ContentItemId)
-                .IsRequired(false);
+            model.Property(contentItemAssociation => contentItemAssociation.UpdatedBy)
+                 .IsRequired()
+                 .HasMaxLength(256);
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.ContentItemGroupId)
-                .IsRequired(false);
+            model.Property(contentItemAssociation => contentItemAssociation.CreatedWhen)
+                 .IsRequired();
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.EntityType)
-                .IsRequired();
+            model.Property(contentItemAssociation => contentItemAssociation.UpdatedWhen)
+                 .IsRequired();
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.EntityId)
-                .IsRequired();
+            model.Property(contentItemAssociation => contentItemAssociation.IsDeleted)
+                 .IsRequired()
+                 .HasDefaultValue(false);
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.ApprovalId)
-                .IsRequired();
+            model.Property(contentItemAssociation => contentItemAssociation.DeletedBy)
+                 .HasMaxLength(255)
+                 .IsRequired(false);
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.CreatedBy)
-                .IsRequired()
-                .HasMaxLength(256);
+            model.Property(contentItemAssociation => contentItemAssociation.DeletedWhen)
+                 .IsRequired(false);
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.UpdatedBy)
-                .IsRequired()
-                .HasMaxLength(256);
+            model.Property(contentItemAssociation => contentItemAssociation.DeletionReason)
+                 .IsRequired(false);
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.CreatedWhen)
-                .IsRequired();
+            model.Property(contentItemAssociation => contentItemAssociation.PublishDate)
+                 .IsRequired(false);
 
-            model
-                .Property(contentItemAssociation => contentItemAssociation.UpdatedWhen)
-                .IsRequired();
+            model.Property(contentItemAssociation => contentItemAssociation.IsPublished)
+                 .IsRequired()
+                 .HasDefaultValue(false);
 
-            // Indexes to support common queries
+            model.Property(contentItemAssociation => contentItemAssociation.ApprovalStatus)
+                 .IsRequired()
+                 .HasDefaultValue(ApprovalStatus.Draft);
 
             // By target entity (what this association points to)
-            model.HasIndex(e => new
-            {
-                e.EntityType,
-                e.EntityId
-            })
-            .HasDatabaseName("IX_ContentItemAssociation_Target");
-
-            model.HasIndex(e => new { e.EntityType, e.EntityId })
+            model.HasIndex(e => new { e.LinkedEntityType, e.LinkedEntityId })
                  .HasDatabaseName("IX_ContentItemAssociation_Target");
 
-            model.HasIndex(e => new { e.Scope, e.ContentItemGroupId })
-                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.AllVersions)}'")
-                 .HasDatabaseName("IX_ContentItemAssociation_ByContentItemGroupId_ScopeAll");
+            // By scope: all versions of an associated content item group
+            model.HasIndex(e => new { e.LinkedContentScope, e.LinkedContentItemGroupId })
+                 .HasFilter(
+                     $"[{nameof(ContentItemAssociation.LinkedContentScope)}] = N'{nameof(Scope.AllVersions)}'")
+                 .HasDatabaseName("IX_ContentItemAssociation_ByAssociatedContentItemGroupId_ScopeAll");
 
-            model.HasIndex(e => new { e.Scope, e.ContentItemId })
-                 .HasFilter($"[{nameof(ContentItemAssociation.Scope)}] = N'{nameof(Scope.ThisVersionOnly)}'")
+            // By scope: a specific version of an associated content item
+            model.HasIndex(e => new { e.LinkedContentScope, e.LinkedContentItemId })
+                 .HasFilter(
+                     $"[{nameof(ContentItemAssociation.LinkedContentScope)}] = N'{nameof(Scope.ThisVersionOnly)}'")
                  .HasDatabaseName("IX_ContentItemAssociation_ByItem_ScopeThis");
         }
     }

@@ -10,6 +10,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
 using Glory2Him.Core.Models.Foundations.Tags;
@@ -21,28 +22,43 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     {
         public DbSet<Tag> Tags { get; set; }
 
-        public async ValueTask<Tag> InsertTagAsync(Tag tag) =>
-            await InsertAsync(tag);
+        public async ValueTask<Tag> InsertTagAsync(Tag tag, CancellationToken cancellationToken = default) =>
+            await InsertAsync(tag, cancellationToken);
 
         public async ValueTask<IQueryable<Tag>> SelectAllTagsAsync() =>
             await SelectAllAsync<Tag>();
 
-        public async ValueTask<Tag> SelectTagByIdAsync(Guid tagId) =>
-            await SelectAsync<Tag>(tagId);
+        public async ValueTask<Tag> SelectTagByIdAsync(Guid tagId, CancellationToken cancellationToken = default) =>
+            await SelectAsync<Tag>(new object[] { tagId }, cancellationToken);
 
-        public async ValueTask<Tag> UpdateTagAsync(Tag tag) =>
-            await UpdateAsync(tag);
+        public async ValueTask<Tag> UpdateTagAsync(Tag tag, CancellationToken cancellationToken = default) =>
+            await UpdateAsync(tag, cancellationToken);
 
-        public async ValueTask<Tag> DeleteTagAsync(Tag tag) =>
-            await DeleteAsync(tag);
+        public async ValueTask<Tag> DeleteTagAsync(Tag tag, CancellationToken cancellationToken = default) =>
+            await DeleteAsync(tag, cancellationToken);
 
-        public async ValueTask BulkInsertTagsAsync(List<Tag> tags) =>
-            await BulkInsertAsync(tags);
+        public async ValueTask BulkInsertTagsAsync(List<Tag> tags, CancellationToken cancellationToken = default) =>
+            await BulkInsertAsync(tags, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkUpdateTagsAsync(List<Tag> tags) =>
-            await BulkUpdateAsync(tags);
+        public async ValueTask BulkUpdateTagsAsync(List<Tag> tags, CancellationToken cancellationToken = default) =>
+            await BulkUpdateAsync(tags, cancellationToken: cancellationToken);
 
-        public async ValueTask BulkDeleteTagsAsync(List<Tag> tags) =>
-            await BulkDeleteAsync(tags);
+        public async ValueTask BulkDeleteTagsAsync(List<Tag> tags, CancellationToken cancellationToken = default) =>
+            await BulkDeleteAsync(tags, cancellationToken: cancellationToken);
+
+        public async ValueTask<IEnumerable<Tag>> BulkReadTagsAsync(
+            List<Tag> tags,
+            CancellationToken cancellationToken = default) =>
+            await BulkReadAsync(tags, cancellationToken);
+
+        public async ValueTask BulkUpsertTagsAsync(
+            List<Tag> tags,
+            CancellationToken cancellationToken = default) =>
+            await BulkUpsertAsync(tags, cancellationToken: cancellationToken);
+
+        public async ValueTask<bool> ExistsTagAsync(
+            Guid tagId,
+            CancellationToken cancellationToken = default) =>
+            await ExistsAsync<Tag>(new object[] { tagId }, cancellationToken);
     }
 }
