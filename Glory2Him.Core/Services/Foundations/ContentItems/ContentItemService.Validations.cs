@@ -15,7 +15,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     public partial class ContentItemService
     {
-        private static void ValidateContentItemOnAdd(ContentItem contentItem)
+        private static void ValidateOnAddContentItem(ContentItem contentItem)
         {
             ValidateContentItemIsNotNull(contentItem);
 
@@ -30,6 +30,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 (Rule: IsInvalid(contentItem.CreatedWhen), Parameter: nameof(ContentItem.CreatedWhen)),
                 (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)));
         }
+
+        private static void ValidateOnRetrieveContentItemById(Guid contentItemId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
         private static void ValidateContentItemIsNotNull(ContentItem contentItem)
         {

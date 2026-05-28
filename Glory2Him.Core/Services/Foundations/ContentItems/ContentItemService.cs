@@ -49,7 +49,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemOnAdd(contentItem);
+                ValidateOnAddContentItem(contentItem);
                 contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentItem);
 
                 ContentItem addedContentItem =
@@ -73,7 +73,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default) =>
-            this.storageBroker.SelectContentItemByIdAsync(contentItemId, cancellationToken);
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnRetrieveContentItemById(contentItemId);
+
+                return await this.storageBroker.SelectContentItemByIdAsync(
+                    contentItemId,
+                    cancellationToken);
+            });
 
         public ValueTask<ContentItem> ModifyContentItemAsync(
             ContentItem contentItem,
