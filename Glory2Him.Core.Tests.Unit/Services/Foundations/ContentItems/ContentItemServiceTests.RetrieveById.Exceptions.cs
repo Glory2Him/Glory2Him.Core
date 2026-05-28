@@ -21,6 +21,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
     public partial class ContentItemServiceTests
     {
         [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrieveByIdIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someContentItemId = Guid.NewGuid();
+            var serviceException = new Exception();
+
+            var failedContentItemServiceException = new FailedContentItemServiceException(
+                message: "Failed content item service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedContentItemServiceException = new ContentItemServiceException(
+                message: "Content item service error occurred, contact support.",
+                innerException: failedContentItemServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<ContentItem> retrieveContentItemByIdTask =
+                this.contentItemService.RetrieveContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemServiceException actualContentItemServiceException =
+                await Assert.ThrowsAsync<ContentItemServiceException>(
+                    retrieveContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemServiceException.Should().BeEquivalentTo(
+                expectedContentItemServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowDependencyExceptionOnRetrieveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
