@@ -13,6 +13,7 @@ using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
+using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
@@ -34,13 +35,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: new TimeoutException(),
                     data: operationCanceledException.Data);
 
-                var contentItemDependencyException = new ContentItemDependencyException(
-                    message: "Content item dependency error occurred, contact support.",
-                    innerException: timeoutContentItemException);
-
-                await this.loggingBroker.LogErrorAsync(contentItemDependencyException);
-
-                throw contentItemDependencyException;
+                throw await CreateAndLogDependencyException(timeoutContentItemException);
             }
             catch (SqlException sqlException)
             {
@@ -49,13 +44,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                var contentItemDependencyException = new ContentItemDependencyException(
-                    message: "Content item dependency error occurred, contact support.",
-                    innerException: failedStorageContentItemException);
-
-                await this.loggingBroker.LogCriticalAsync(contentItemDependencyException);
-
-                throw contentItemDependencyException;
+                throw await CreateAndLogCriticalDependencyException(failedStorageContentItemException);
             }
             catch (DuplicateKeyException duplicateKeyException)
             {
@@ -64,34 +53,86 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: duplicateKeyException,
                     data: duplicateKeyException.Data);
 
-                var contentItemDependencyValidationException = new ContentItemDependencyValidationException(
-                    message: "Content item dependency validation error occurred, fix the errors and try again.",
-                    innerException: alreadyExistsContentItemException);
-
-                await this.loggingBroker.LogErrorAsync(contentItemDependencyValidationException);
-
-                throw contentItemDependencyValidationException;
+                throw await CreateAndLogDependencyValidationException(alreadyExistsContentItemException);
             }
             catch (NullContentItemException nullContentItemException)
             {
-                var contentItemValidationException = new ContentItemValidationException(
-                    message: "Content item validation error occurred, fix the errors and try again.",
-                    innerException: nullContentItemException);
-
-                await this.loggingBroker.LogErrorAsync(contentItemValidationException);
-
-                throw contentItemValidationException;
+                throw await CreateAndLogValidationException(nullContentItemException);
             }
             catch (InvalidContentItemException invalidContentItemException)
             {
-                var contentItemValidationException = new ContentItemValidationException(
-                    message: "Content item validation error occurred, fix the errors and try again.",
-                    innerException: invalidContentItemException);
-
-                await this.loggingBroker.LogErrorAsync(contentItemValidationException);
-
-                throw contentItemValidationException;
+                throw await CreateAndLogValidationException(invalidContentItemException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException = new FailedContentItemServiceException(
+                    message: "Failed content item service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceException(failedContentItemServiceException);
+            }
+        }
+
+        private async ValueTask<ContentItemValidationException> CreateAndLogValidationException(Xeption exception)
+        {
+            var contentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentItemValidationException);
+
+            return contentItemValidationException;
+        }
+
+        private async ValueTask<ContentItemDependencyException> CreateAndLogCriticalDependencyException(
+            Xeption exception)
+        {
+            var contentItemDependencyException = new ContentItemDependencyException(
+                message: "Content item dependency error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogCriticalAsync(contentItemDependencyException);
+
+            return contentItemDependencyException;
+        }
+
+        private async ValueTask<ContentItemDependencyValidationException> CreateAndLogDependencyValidationException(
+            Xeption exception)
+        {
+            var contentItemDependencyValidationException = new ContentItemDependencyValidationException(
+                message: "Content item dependency validation error occurred, fix the errors and try again.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentItemDependencyValidationException);
+
+            return contentItemDependencyValidationException;
+        }
+
+        private async ValueTask<ContentItemDependencyException> CreateAndLogDependencyException(Xeption exception)
+        {
+            var contentItemDependencyException = new ContentItemDependencyException(
+                message: "Content item dependency error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentItemDependencyException);
+
+            return contentItemDependencyException;
+        }
+
+        private async ValueTask<ContentItemServiceException> CreateAndLogServiceException(Xeption exception)
+        {
+            var contentItemServiceException = new ContentItemServiceException(
+                message: "Content item service error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentItemServiceException);
+
+            return contentItemServiceException;
         }
     }
 }
