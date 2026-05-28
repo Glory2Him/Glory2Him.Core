@@ -7,6 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -22,6 +23,22 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             try
             {
                 return await returningContentItemFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutContentItemException = new TimeoutContentItemException(
+                    message: "Content item timed out, contact support.",
+                    innerException: new TimeoutException(),
+                    data: operationCanceledException.Data);
+
+                var contentItemDependencyException = new ContentItemDependencyException(
+                    message: "Content item dependency error occurred, contact support.",
+                    innerException: timeoutContentItemException);
+
+                await this.loggingBroker.LogErrorAsync(contentItemDependencyException);
+
+                throw contentItemDependencyException;
             }
             catch (NullContentItemException nullContentItemException)
             {
