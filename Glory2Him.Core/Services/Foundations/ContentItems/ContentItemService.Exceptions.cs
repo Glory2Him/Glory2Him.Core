@@ -11,6 +11,7 @@ using System;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Microsoft.Data.SqlClient;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
@@ -37,6 +38,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: timeoutContentItemException);
 
                 await this.loggingBroker.LogErrorAsync(contentItemDependencyException);
+
+                throw contentItemDependencyException;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentItemException = new FailedStorageContentItemException(
+                    message: "Failed content item storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                var contentItemDependencyException = new ContentItemDependencyException(
+                    message: "Content item dependency error occurred, contact support.",
+                    innerException: failedStorageContentItemException);
+
+                await this.loggingBroker.LogCriticalAsync(contentItemDependencyException);
 
                 throw contentItemDependencyException;
             }
