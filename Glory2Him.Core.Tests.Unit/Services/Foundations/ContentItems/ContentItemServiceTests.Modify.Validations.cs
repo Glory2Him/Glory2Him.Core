@@ -7,6 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -35,6 +36,93 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ValueTask<ContentItem> modifyContentItemTask =
                 this.contentItemService.ModifyContentItemAsync(
                     nullContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task ShouldThrowValidationExceptionOnModifyIfContentItemIsInvalidAndLogItAsync(
+            string invalidText)
+        {
+            // given
+            var invalidContentItem = new ContentItem
+            {
+                Id = Guid.Empty,
+                ContentTypeId = Guid.Empty,
+                ContentItemGroupId = Guid.Empty,
+                Content = invalidText,
+                CreatedBy = invalidText,
+                UpdatedBy = invalidText,
+                CreatedWhen = default,
+                UpdatedWhen = default
+            };
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.Id),
+                values: "Id is required");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ContentTypeId),
+                values: "Id is required");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ContentItemGroupId),
+                values: "Id is required");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.Content),
+                values: "Text is required");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.CreatedBy),
+                values: "Text is required");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.UpdatedBy),
+                values: "Text is required");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.CreatedWhen),
+                values: "Date is required");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.UpdatedWhen),
+                values: "Date is required");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =
