@@ -9,6 +9,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -16,11 +17,11 @@ namespace Glory2Him.Core.Brokers.Events
     public partial interface IEventBroker
     {
         ValueTask PublishContentItemAssociationAsync(
-            ContentItemAssociation contentItemAssociation,
+            EventEnvelope<ContentItemAssociation> envelope,
             string? eventName = null);
 
         void SubscribeToContentItemAssociationEvent(
-            Func<ContentItemAssociation, ValueTask> contentItemAssociationEventHandler,
+            Func<EventEnvelope<ContentItemAssociation>, ValueTask> contentItemAssociationEventHandler,
             string? eventName = null);
     }
 }

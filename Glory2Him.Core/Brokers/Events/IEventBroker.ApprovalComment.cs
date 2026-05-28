@@ -9,16 +9,17 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishApprovalCommentAsync(ApprovalComment approvalComment, string? eventName = null);
+        ValueTask PublishApprovalCommentAsync(EventEnvelope<ApprovalComment> envelope, string? eventName = null);
 
         void SubscribeToApprovalCommentEvent(
-            Func<ApprovalComment, ValueTask> approvalCommentEventHandler,
+            Func<EventEnvelope<ApprovalComment>, ValueTask> approvalCommentEventHandler,
             string? eventName = null);
     }
 }

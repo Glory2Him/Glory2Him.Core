@@ -9,13 +9,17 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishContentItemAsync(ContentItem contentItem, string? eventName = null);
-        void SubscribeToContentItemEvent(Func<ContentItem, ValueTask> contentItemEventHandler, string? eventName = null);
+        ValueTask PublishContentItemAsync(EventEnvelope<ContentItem> envelope, string? eventName = null);
+
+        void SubscribeToContentItemEvent(
+            Func<EventEnvelope<ContentItem>, ValueTask> contentItemEventHandler,
+            string? eventName = null);
     }
 }

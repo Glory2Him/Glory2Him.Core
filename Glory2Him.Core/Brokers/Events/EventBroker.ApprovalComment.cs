@@ -9,6 +9,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using LeVent.Clients;
 
@@ -16,13 +17,13 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<ApprovalComment> ApprovalCommentEvents { get; set; }
+        public ILeVentClient<EventEnvelope<ApprovalComment>> ApprovalCommentEvents { get; set; }
 
-        public ValueTask PublishApprovalCommentAsync(ApprovalComment approvalComment, string? eventName = null) =>
-            this.ApprovalCommentEvents.PublishEventAsync(approvalComment, eventName);
+        public ValueTask PublishApprovalCommentAsync(EventEnvelope<ApprovalComment> envelope, string? eventName = null) =>
+            this.ApprovalCommentEvents.PublishEventAsync(envelope, eventName);
 
         public void SubscribeToApprovalCommentEvent(
-            Func<ApprovalComment, ValueTask> approvalCommentEventHandler,
+            Func<EventEnvelope<ApprovalComment>, ValueTask> approvalCommentEventHandler,
             string? eventName = null) =>
                 this.ApprovalCommentEvents.RegisterEventHandler(approvalCommentEventHandler, eventName);
     }

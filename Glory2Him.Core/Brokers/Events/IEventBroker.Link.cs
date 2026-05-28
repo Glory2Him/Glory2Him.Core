@@ -9,16 +9,17 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishLinkAsync(Link link, string? eventName = null);
+        ValueTask PublishLinkAsync(EventEnvelope<Link> envelope, string? eventName = null);
 
         void SubscribeToLinkEvent(
-            Func<Link, ValueTask> linkEventHandler,
+            Func<EventEnvelope<Link>, ValueTask> linkEventHandler,
             string? eventName = null);
     }
 }

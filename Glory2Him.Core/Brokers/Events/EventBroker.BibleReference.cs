@@ -9,6 +9,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using LeVent.Clients;
 
@@ -16,13 +17,13 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<BibleReference> BibleReferenceEvents { get; set; }
+        public ILeVentClient<EventEnvelope<BibleReference>> BibleReferenceEvents { get; set; }
 
-        public ValueTask PublishBibleReferenceAsync(BibleReference bibleReference, string? eventName = null) =>
-            this.BibleReferenceEvents.PublishEventAsync(bibleReference, eventName);
+        public ValueTask PublishBibleReferenceAsync(EventEnvelope<BibleReference> envelope, string? eventName = null) =>
+            this.BibleReferenceEvents.PublishEventAsync(envelope, eventName);
 
         public void SubscribeToBibleReferenceEvent(
-            Func<BibleReference, ValueTask> bibleReferenceEventHandler,
+            Func<EventEnvelope<BibleReference>, ValueTask> bibleReferenceEventHandler,
             string? eventName = null) =>
                 this.BibleReferenceEvents.RegisterEventHandler(bibleReferenceEventHandler, eventName);
     }
