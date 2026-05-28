@@ -32,6 +32,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     message: "Content item validation error occurred, fix the errors and try again.",
                     innerException: nullContentItemException);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(nullContentItem))
+                    .ReturnsAsync(nullContentItem);
+
             // when
             ValueTask<ContentItem> modifyContentItemTask =
                 this.contentItemService.ModifyContentItemAsync(
@@ -45,6 +49,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // then
             actualContentItemValidationException.Should().BeEquivalentTo(
                 expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(nullContentItem),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -119,6 +127,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     message: "Content item validation error occurred, fix the errors and try again.",
                     innerException: invalidContentItemException);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem))
+                    .ReturnsAsync(invalidContentItem);
+
             // when
             ValueTask<ContentItem> modifyContentItemTask =
                 this.contentItemService.ModifyContentItemAsync(
@@ -132,6 +144,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // then
             actualContentItemValidationException.Should().BeEquivalentTo(
                 expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

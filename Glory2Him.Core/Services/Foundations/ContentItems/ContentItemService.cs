@@ -49,8 +49,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnAddContentItem(contentItem);
                 contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentItem);
+                ValidateOnAddContentItem(contentItem);
 
                 ContentItem addedContentItem =
                     await this.storageBroker.InsertContentItemAsync(contentItem, cancellationToken);
@@ -89,8 +89,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnModifyContentItem(contentItem);
                 contentItem = await this.securityAuditBroker.ApplyModifyAuditValuesAsync(contentItem);
+                ValidateOnModifyContentItem(contentItem);
 
                 ContentItem maybeContentItem =
                     await this.storageBroker.SelectContentItemByIdAsync(contentItem.Id, cancellationToken);
