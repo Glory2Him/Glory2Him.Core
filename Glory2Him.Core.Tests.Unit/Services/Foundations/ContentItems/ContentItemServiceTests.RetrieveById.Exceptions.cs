@@ -73,5 +73,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveByIdIfCancellationRequestedAndLogItAsync()
+        {
+            // given
+            Guid someContentItemId = Guid.NewGuid();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<ContentItem> retrieveContentItemByIdTask =
+                this.contentItemService.RetrieveContentItemByIdAsync(
+                    someContentItemId,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                retrieveContentItemByIdTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
