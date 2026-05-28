@@ -110,6 +110,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 throw;
             }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException = new FailedContentItemServiceException(
+                    message: "Failed content item service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceException(failedContentItemServiceException);
+            }
         }
 
         private async ValueTask<ContentItemValidationException> CreateAndLogValidationException(Xeption exception)
