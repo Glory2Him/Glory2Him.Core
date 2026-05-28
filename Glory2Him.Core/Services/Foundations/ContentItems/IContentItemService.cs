@@ -1,0 +1,39 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// https://mark.bible/mark-16-15
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+
+namespace Glory2Him.Core.Services.Foundations.ContentItems
+{
+    public interface IContentItemService
+    {
+        ValueTask<ContentItem> AddContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
+            CancellationToken cancellationToken = default);
+
+        ValueTask<ContentItem> RetrieveContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<ContentItem> ModifyContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<ContentItem> RemoveContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default);
+    }
+}
