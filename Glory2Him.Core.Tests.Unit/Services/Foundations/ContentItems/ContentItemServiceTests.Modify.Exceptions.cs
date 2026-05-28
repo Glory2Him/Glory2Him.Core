@@ -93,5 +93,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnModifyIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            ContentItem someContentItem = CreateRandomContentItem();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageContentItemException = new FailedStorageContentItemException(
+                message: "Failed content item storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedContentItemDependencyException = new ContentItemDependencyException(
+                message: "Content item dependency error occurred, contact support.",
+                innerException: failedStorageContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentItem))
+                    .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    someContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemDependencyException actualContentItemDependencyException =
+                await Assert.ThrowsAsync<ContentItemDependencyException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemDependencyException.Should().BeEquivalentTo(
+                expectedContentItemDependencyException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentItem),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedContentItemDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
