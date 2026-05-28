@@ -9,6 +9,7 @@
 
 using System;
 using System.Linq;
+using System.Linq.Expressions;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Loggings;
@@ -18,6 +19,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Moq;
 using Tynamix.ObjectFiller;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
@@ -61,6 +63,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             return randomContentItem;
         }
+
+        private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
+            actualException => actualException.SameExceptionAs(expectedException);
 
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();

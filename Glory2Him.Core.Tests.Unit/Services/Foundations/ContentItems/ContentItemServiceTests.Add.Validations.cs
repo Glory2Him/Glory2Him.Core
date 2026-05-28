@@ -48,8 +48,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 expectedContentItemValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is<ContentItemValidationException>(actual =>
-                    actual.SameExceptionAs(expectedContentItemValidationException))),
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
@@ -135,8 +135,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 expectedContentItemValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is<ContentItemValidationException>(actual =>
-                    actual.SameExceptionAs(expectedContentItemValidationException))),
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
