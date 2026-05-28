@@ -14,6 +14,7 @@ using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
@@ -56,6 +57,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     data: duplicateKeyException.Data);
 
                 throw await CreateAndLogDependencyValidationException(alreadyExistsContentItemException);
+            }
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var lockedContentItemException = new LockedContentItemException(
+                    message: "Locked content item record, please try again later.",
+                    innerException: dbUpdateConcurrencyException,
+                    data: dbUpdateConcurrencyException.Data);
+
+                throw await CreateAndLogDependencyValidationException(lockedContentItemException);
             }
             catch (NullContentItemException nullContentItemException)
             {
