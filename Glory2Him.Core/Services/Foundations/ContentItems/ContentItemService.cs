@@ -89,6 +89,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnModifyContentItem(contentItem);
                 contentItem = await this.securityAuditBroker.ApplyModifyAuditValuesAsync(contentItem);
 
                 ContentItem updatedContentItem =
