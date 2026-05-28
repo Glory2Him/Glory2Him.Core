@@ -9,16 +9,17 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Attachments;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishAttachmentAsync(Attachment attachment, string? eventName = null);
+        ValueTask PublishAttachmentAsync(EventEnvelope<Attachment> envelope, string? eventName = null);
 
         void SubscribeToAttachmentEvent(
-            Func<Attachment, ValueTask> attachmentEventHandler,
+            Func<EventEnvelope<Attachment>, ValueTask> attachmentEventHandler,
             string? eventName = null);
     }
 }

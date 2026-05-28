@@ -9,13 +9,17 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishReactionAsync(Reaction reaction, string? eventName = null);
-        void SubscribeToReactionEvent(Func<Reaction, ValueTask> reactionEventHandler, string? eventName = null);
+        ValueTask PublishReactionAsync(EventEnvelope<Reaction> envelope, string? eventName = null);
+
+        void SubscribeToReactionEvent(
+            Func<EventEnvelope<Reaction>, ValueTask> reactionEventHandler,
+            string? eventName = null);
     }
 }

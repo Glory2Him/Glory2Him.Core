@@ -9,6 +9,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Comments;
 using LeVent.Clients;
 
@@ -16,13 +17,13 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<Comment> CommentEvents { get; set; }
+        public ILeVentClient<EventEnvelope<Comment>> CommentEvents { get; set; }
 
-        public ValueTask PublishCommentAsync(Comment comment, string? eventName = null) =>
-            this.CommentEvents.PublishEventAsync(comment, eventName);
+        public ValueTask PublishCommentAsync(EventEnvelope<Comment> envelope, string? eventName = null) =>
+            this.CommentEvents.PublishEventAsync(envelope, eventName);
 
         public void SubscribeToCommentEvent(
-            Func<Comment, ValueTask> commentEventHandler,
+            Func<EventEnvelope<Comment>, ValueTask> commentEventHandler,
             string? eventName = null) =>
                 this.CommentEvents.RegisterEventHandler(commentEventHandler, eventName);
     }

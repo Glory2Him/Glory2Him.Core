@@ -9,6 +9,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Attachments;
 using LeVent.Clients;
 
@@ -16,13 +17,13 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<Attachment> AttachmentEvents { get; set; }
+        public ILeVentClient<EventEnvelope<Attachment>> AttachmentEvents { get; set; }
 
-        public ValueTask PublishAttachmentAsync(Attachment attachment, string? eventName = null) =>
-            this.AttachmentEvents.PublishEventAsync(attachment, eventName);
+        public ValueTask PublishAttachmentAsync(EventEnvelope<Attachment> envelope, string? eventName = null) =>
+            this.AttachmentEvents.PublishEventAsync(envelope, eventName);
 
         public void SubscribeToAttachmentEvent(
-            Func<Attachment, ValueTask> attachmentEventHandler,
+            Func<EventEnvelope<Attachment>, ValueTask> attachmentEventHandler,
             string? eventName = null) =>
                 this.AttachmentEvents.RegisterEventHandler(attachmentEventHandler, eventName);
     }

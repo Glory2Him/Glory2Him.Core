@@ -2,7 +2,7 @@
 
 ## 1. Design Overview
 
-### 1.1 1 Purpose
+### 1.1 Purpose
 
 Glory 2 Him (G2H) is a content management system designed to allow users to contribute, organise, review, approve, publish, associate, and consume gospel-focused content.
 
@@ -16,7 +16,7 @@ The system is centred around `ContentItem`, which represents primary user-contri
 
 All user-contributed and configurable content is subject to an approval process before it is considered trusted, visible, or publishable.
 
-### 1.2 2 Core Design Principles
+### 1.2 Core Design Principles
 
 The design follows these principles:
 
@@ -33,7 +33,7 @@ The design follows these principles:
 11. All deletes are soft deletes.
 12. Soft-deleted content must be excluded from public visibility.
 
-### 1.3 3 Source Inputs
+### 1.3 Source Inputs
 
 This design is based on:
 
@@ -42,7 +42,7 @@ This design is based on:
 3. The current EF Core model snapshot.
 4. The supplied design direction for approval, settings, feed, topic, versioning, visibility, and soft delete behaviour.
 
-### 1.4 4 Current Model Completion Status
+### 1.4 Current Model Completion Status
 
 The current source files are not complete. This document separates the design into:
 
@@ -54,7 +54,7 @@ The current source files are not complete. This document separates the design in
 
 ## 2. Domain Model Overview
 
-### 2.1 1 Main Domain Areas
+### 2.1 Main Domain Areas
 
 The domain model is grouped into the following areas:
 
@@ -72,7 +72,7 @@ The domain model is grouped into the following areas:
 12. Security and Audit
 13. Soft Delete
 
-### 2.2 2 Main Entity Groups
+### 2.2 Main Entity Groups
 
 | Area | Entities |
 | --- | --- |
@@ -84,13 +84,13 @@ The domain model is grouped into the following areas:
 
 ## 3. Content Design
 
-### 3.1 1 ContentItem
+### 3.1 ContentItem
 
 `ContentItem` is the central content entity in the system.
 
 It represents a versioned item of contributed content such as a quote, story, testimony, topic, or future content type.
 
-### 3.2 2 ContentItem Properties
+### 3.2 ContentItem Properties
 
 The content item model should contain the following design-relevant properties:
 
@@ -116,7 +116,7 @@ The content item model should contain the following design-relevant properties:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 3.3 3 Content Versioning
+### 3.3 Content Versioning
 
 Content is versioned by using:
 
@@ -126,7 +126,7 @@ Content is versioned by using:
 4. `IsLatestVersion` to identify the latest editable version.
 5. `IsPublished` to identify the current public version.
 
-### 3.4 4 Content Versioning Rules
+### 3.4 Content Versioning Rules
 
 The following rules apply:
 
@@ -146,7 +146,7 @@ The following rules apply:
 14. Only one content item per `ContentItemGroupId` may have `IsPublished = true`.
 15. Previous versions must remain available for audit, approval history, comparison, and rollback.
 
-### 3.5 5 Approval Invalidation Rules
+### 3.5 Approval Invalidation Rules
 
 Approval invalidation is entity-scoped.
 
@@ -173,7 +173,7 @@ Example:
 4. The story remains approved and published.
 5. The tag is only visible on the story once the tag and association are visible according to policy.
 
-### 3.6 6 ContentType
+### 3.6 ContentType
 
 `ContentType` defines the type of content represented by a `ContentItem`.
 
@@ -184,7 +184,7 @@ Standard content type examples:
 3. `Testimony`
 4. `Topic`
 
-### 3.7 7 ContentType Properties
+### 3.7 ContentType Properties
 
 | Property | Purpose |
 | --- | --- |
@@ -205,7 +205,7 @@ Standard content type examples:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 3.8 8 Content Type Rules
+### 3.8 Content Type Rules
 
 The following rules apply:
 
@@ -217,7 +217,7 @@ The following rules apply:
 
 ## 4. ContentItemAssociation Design
 
-### 4.1 1 Purpose
+### 4.1 Purpose
 
 `ContentItemAssociation` is the generic association mechanism between a content item and another entity.
 
@@ -233,7 +233,7 @@ It supports:
 8. Topic membership
 9. Related content
 
-### 4.2 2 Association Scope
+### 4.2 Association Scope
 
 Associations can apply to:
 
@@ -242,14 +242,14 @@ Associations can apply to:
 
 This is controlled by `Scope`.
 
-### 4.3 3 Scope Rules
+### 4.3 Scope Rules
 
 | Scope | Meaning | Required Field |
 | --- | --- | --- |
 | `AllVersions` | Association applies to every version sharing the same `AssociatedContentItemGroupId`. | `AssociatedContentItemGroupId` |
 | `ThisVersionOnly` | Association applies only to a single content item version. | `ContentItemId` |
 
-### 4.4 4 Scope Consistency Rules
+### 4.4 Scope Consistency Rules
 
 The following rules must be enforced:
 
@@ -258,7 +258,7 @@ The following rules must be enforced:
 3. Both fields must not be supplied at the same time.
 4. Both fields must not be null.
 
-### 4.5 5 ContentItemAssociation Properties
+### 4.5 ContentItemAssociation Properties
 
 | Property | Purpose |
 | --- | --- |
@@ -283,7 +283,7 @@ The following rules must be enforced:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 4.6 6 Associated Entity Types
+### 4.6 Associated Entity Types
 
 The supported associated entity types are defined by `EntityType`.
 
@@ -298,7 +298,7 @@ The supported associated entity types are defined by `EntityType`.
 | `Link` | External or internal links. |
 | `Attachment` | Files or binary resources. |
 
-### 4.7 7 Association Approval
+### 4.7 Association Approval
 
 Associations are themselves subject to approval.
 
@@ -313,7 +313,7 @@ Example:
 
 ## 5. Supporting Content Entities
 
-### 5.1 1 Tag
+### 5.1 Tag
 
 `Tag` represents a categorisation label.
 
@@ -336,7 +336,7 @@ Example:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 5.2 2 Reaction
+### 5.2 Reaction
 
 `Reaction` represents a reusable reaction definition.
 
@@ -360,7 +360,7 @@ Example:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 5.3 3 Comment
+### 5.3 Comment
 
 `Comment` represents user or reviewer visible discussion attached to content through `ContentItemAssociation`.
 
@@ -376,7 +376,7 @@ Example:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 5.4 4 BibleReference
+### 5.4 BibleReference
 
 `BibleReference` represents scripture references associated with content.
 
@@ -394,7 +394,7 @@ Example:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 5.5 5 Link
+### 5.5 Link
 
 `Link` represents an external or internal link associated with content.
 
@@ -412,7 +412,7 @@ Example:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 5.6 6 Attachment
+### 5.6 Attachment
 
 `Attachment` represents a file or binary resource associated with content.
 
@@ -432,20 +432,20 @@ Example:
 
 ## 6. ContentItemSetting Design
 
-### 6.1 1 Purpose
+### 6.1 Purpose
 
 `ContentItemSetting` defines policy settings for content interaction behaviour.
 
 It controls whether related entities can be created, whether associations require approval, and whether associated entities should be displayed.
 
-### 6.2 2 Default and Override Behaviour
+### 6.2 Default and Override Behaviour
 
 `ContentItemSetting` can apply at two levels:
 
 1. Content type default.
 2. Specific content item override.
 
-### 6.3 3 Default Rule
+### 6.3 Default Rule
 
 If `ContentItemId` is null, the setting applies to all content items of the given content type.
 
@@ -455,11 +455,11 @@ Example:
 2. All `Story` items may allow comments.
 3. All `Topic` items may allow child content associations.
 
-### 6.4 4 Override Rule
+### 6.4 Override Rule
 
 If `ContentItemId` is supplied, the setting applies only to that specific content item and overrides the content type default.
 
-### 6.5 5 Current Settings
+### 6.5 Current Settings
 
 | Area | Settings |
 | --- | --- |
@@ -470,7 +470,7 @@ If `ContentItemId` is supplied, the setting applies only to that specific conten
 | Comments | `CommentsAllowed`, `CommentAssociationsRequireApproval`, `ShowComments` |
 | Bible References | `BibleReferenceAllowed`, `BibleReferenceAssociationsRequireApproval`, `ShowBibleReferences` |
 
-### 6.6 6 ContentItemSetting Properties
+### 6.6 ContentItemSetting Properties
 
 | Property | Purpose |
 | --- | --- |
@@ -486,7 +486,7 @@ If `ContentItemId` is supplied, the setting applies only to that specific conten
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 6.7 7 Recommended Settings Extension
+### 6.7 Recommended Settings Extension
 
 Recommended property:
 
@@ -496,7 +496,7 @@ public bool LimitReactionsToLoveOnly { get; set; }
 
 This supports favourite-style behaviour where only a love reaction should be allowed.
 
-### 6.8 8 Recommended Type Correction
+### 6.8 Recommended Type Correction
 
 The current `ContentItemSetting.ContentTypeId` is a string, while `ContentType.Id` is a `Guid`.
 
@@ -508,7 +508,7 @@ public Guid ContentTypeId { get; set; }
 
 ## 7. Approval Design
 
-### 7.1 1 Approval Purpose
+### 7.1 Approval Purpose
 
 The approval process controls whether an entity is trusted, accepted, and visible.
 
@@ -521,7 +521,7 @@ Instead, it uses:
 
 This allows the same approval workflow to apply to multiple entity types.
 
-### 7.2 2 Approval Entity
+### 7.2 Approval Entity
 
 `Approval` represents the workflow state for a specific entity instance.
 
@@ -540,7 +540,7 @@ This allows the same approval workflow to apply to multiple entity types.
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 7.3 3 Approval Status
+### 7.3 Approval Status
 
 Approval status values are:
 
@@ -552,7 +552,7 @@ Approval status values are:
 | `Rejected` | Entity has been rejected. |
 | `Dismissed` | Previous reviews or approval decisions were invalidated by a change and must not count toward approval. |
 
-### 7.4 4 Approval Decoupling Rule
+### 7.4 Approval Decoupling Rule
 
 The approval process must not require a direct database relationship from every entity to `Approval`.
 
@@ -564,7 +564,7 @@ Instead:
 4. Services enforce existence and consistency.
 5. The database enforces uniqueness for approval records by `(EntityType, EntityId)`.
 
-### 7.5 5 Approvable Entities
+### 7.5 Approvable Entities
 
 The following entities are subject to approval:
 
@@ -579,7 +579,7 @@ The following entities are subject to approval:
 9. `ContentType`, if end-user or admin-defined content types should be reviewed.
 10. `ContentItemSetting`, if policy changes require approval.
 
-### 7.6 6 ApprovalReview
+### 7.6 ApprovalReview
 
 `ApprovalReview` represents a reviewer decision for an approval record.
 
@@ -599,7 +599,7 @@ The following entities are subject to approval:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 7.7 7 ApprovalReview Rules
+### 7.7 ApprovalReview Rules
 
 The following rules apply:
 
@@ -610,7 +610,7 @@ The following rules apply:
 5. Self-approval is controlled by `ApprovalSetting.AllowSelfApproval`.
 6. Dismissed reviews must not count toward the approval threshold.
 
-### 7.8 8 ApprovalComment
+### 7.8 ApprovalComment
 
 `ApprovalComment` represents discussion or notes attached to an approval record.
 
@@ -631,13 +631,13 @@ The following rules apply:
 
 ## 8. Approval Settings Design
 
-### 8.1 1 Purpose
+### 8.1 Purpose
 
 `ApprovalSetting` defines policy rules for approval workflows.
 
 This is similar to GitHub pull request approval rules, where different entity types can require one or more approvers before they are approved.
 
-### 8.2 2 ApprovalSetting Entity
+### 8.2 ApprovalSetting Entity
 
 Recommended properties:
 
@@ -660,7 +660,7 @@ Recommended properties:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 8.3 3 ApprovalSettingRole Entity
+### 8.3 ApprovalSettingRole Entity
 
 Recommended properties:
 
@@ -678,7 +678,7 @@ Recommended properties:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 8.4 4 Approval Policy Resolution
+### 8.4 Approval Policy Resolution
 
 When an approval record is created or evaluated, the approval service must resolve the effective approval setting by entity type.
 
@@ -690,7 +690,7 @@ Recommended resolution order:
 
 Approval settings are not snapshotted by default. If approval settings change, subsequent approval evaluation should use the latest effective settings.
 
-### 8.5 5 Approval Threshold Rules
+### 8.5 Approval Threshold Rules
 
 The approval threshold is controlled by `RequiredApprovals`.
 
@@ -700,7 +700,7 @@ The approval threshold is controlled by `RequiredApprovals`.
 4. If there are not enough valid approvals, status remains `Submitted`.
 5. If threshold is reached and `AutoApproveIfThresholdMet = true`, status changes to `Approved`.
 
-### 8.6 6 Self-Approval Rules
+### 8.6 Self-Approval Rules
 
 If `AllowSelfApproval = false`:
 
@@ -708,7 +708,7 @@ If `AllowSelfApproval = false`:
 2. The creator of the approval record must not approve the entity if they are the same as the content creator.
 3. Attempts to self-approve must be rejected by validation.
 
-### 8.7 7 Rejection Rules
+### 8.7 Rejection Rules
 
 If `BlockOnReject = true`:
 
@@ -720,7 +720,7 @@ If `BlockOnReject = false`:
 1. Rejections are recorded.
 2. Approval can still proceed if the required approval threshold is met.
 
-### 8.8 8 Reapproval Rules
+### 8.8 Reapproval Rules
 
 If `RequireReapprovalOnChange = true`:
 
@@ -733,7 +733,7 @@ If `RequireReapprovalOnChange = false`:
 1. Approved status may remain after edit.
 2. Audit history must still record the change.
 
-### 8.9 9 Role-Based Approval Rules
+### 8.9 Role-Based Approval Rules
 
 If `MustBeInRoleToApprove = true`:
 
@@ -743,29 +743,29 @@ If `MustBeInRoleToApprove = true`:
 
 ## 9. Approval Lifecycle
 
-### 9.1 1 Draft
+### 9.1 Draft
 
 An entity starts in `Draft` when it is created but not yet ready for review.
 
-### 9.2 2 Submitted
+### 9.2 Submitted
 
 An entity moves to `Submitted` when a user submits it for review.
 
-### 9.3 3 Approved
+### 9.3 Approved
 
 An entity moves to `Approved` when approval policy rules are satisfied.
 
-### 9.4 4 Rejected
+### 9.4 Rejected
 
 An entity moves to `Rejected` when rejected according to the effective approval policy.
 
-### 9.5 5 Dismissed
+### 9.5 Dismissed
 
 An entity or review moves to `Dismissed` when existing approval decisions are invalidated by an entity-scoped change.
 
 Dismissed records are retained for audit but must not count toward approval.
 
-### 9.6 6 Recommended State Flow
+### 9.6 Recommended State Flow
 
 ```mermaid
 stateDiagram-v2
@@ -781,11 +781,11 @@ stateDiagram-v2
 
 ## 10. Event Design
 
-### 10.1 1 Purpose
+### 10.1 Purpose
 
 The component design uses events to decouple entity creation and update operations from approval record creation, approval reset behaviour, and denormalized read state updates.
 
-### 10.2 2 Event System Behaviour
+### 10.2 Event System Behaviour
 
 Every entity should publish consistent lifecycle events.
 
@@ -797,7 +797,7 @@ Every entity should publish consistent lifecycle events.
 6. Event handlers determine whether approval must be created, retained, dismissed, reset, or updated.
 7. Event handlers can update the denormalized `ApprovalStatus` field where appropriate, for example setting `ApprovalStatus = ApprovalStatus.Approved` when the threshold is met.
 
-### 10.3 3 Recommended Events
+### 10.3 Recommended Events
 
 Recommended domain events:
 
@@ -837,7 +837,7 @@ Recommended domain events:
 | `ApprovalCommentUpdatedEvent` | Propagate comment update to audit history. |
 | `ApprovalCommentDeletedEvent` | Record soft delete and remove comment from public visibility. |
 
-### 10.4 4 Soft Delete Behaviour
+### 10.4 Soft Delete Behaviour
 
 Hard deletes are not planned.
 
@@ -859,7 +859,7 @@ Soft-deleted entities:
 4. Must remain available for audit.
 5. Must remain available for administrative review.
 
-### 10.5 5 Delete Approval Direction
+### 10.5 Delete Approval Direction
 
 Deletion is not part of `ApprovalStatus`.
 
@@ -873,9 +873,464 @@ public bool PendingDeletion { get; set; }
 
 or a separate delete-request entity that itself participates in approval.
 
+### 10.6 Event Envelope
+
+All events should be wrapped in an `EventEnvelope<T>` that carries the business payload alongside security, request, and event metadata.
+
+```csharp
+public sealed class EventEnvelope<T>
+{
+    public T Content { get; init; }
+
+    public SecurityContext SecurityContext { get; init; }
+
+    public RequestContext RequestContext { get; init; }
+
+    public EventMetadata Metadata { get; init; }
+}
+```
+
+The word `Envelope` is intentional. The event content is the business payload, while the envelope carries the contextual information required to process the event safely and consistently.
+
+This design ensures that orchestration services and event handlers do not depend directly on `HttpContext`, `IHttpContextAccessor`, `ClaimsPrincipal`, or raw JWT tokens.
+
+### 10.7 Security Context
+
+`SecurityContext` is a normalized representation of the authenticated caller extracted at the application entry point.
+
+```csharp
+public sealed class SecurityContext
+{
+    // Identity
+    public string? SubjectId { get; init; }
+
+    public string? Username { get; init; }
+
+    public string? TenantId { get; init; }
+
+    // Authorization
+    public IReadOnlyList<string> Roles { get; init; }
+
+    public IReadOnlyList<string> Scopes { get; init; }
+
+    public IReadOnlyList<string> Permissions { get; init; }
+
+    // Authentication state
+    public bool IsAuthenticated { get; init; }
+
+    public AuthenticationType AuthenticationType { get; init; }
+
+    // Client / application identity
+    public string? ClientId { get; init; }
+
+    public string? ClientApplicationName { get; init; }
+
+    // Delegated/system access
+    public bool IsSystemIdentity { get; init; }
+
+    public string? DelegatedBySubjectId { get; init; }
+}
+```
+
+Recommended enum:
+
+```csharp
+public enum AuthenticationType
+{
+    Unknown = 0,
+    User = 1,
+    Machine = 2,
+    Delegated = 3,
+    System = 4
+}
+```
+
+`SubjectId` is used instead of `UserId` because OAuth 2.0 and OpenID Connect use the `sub` claim to represent the authenticated subject. For machine-to-machine flows there may be no human user, and using `SubjectId` avoids forcing every authenticated caller into a user-only model.
+
+`SecurityContext` should be built from the `ClaimsPrincipal` provided by ASP.NET Core Identity and OpenIddict (see section 16). A `securityContextFactory` at the entry point is responsible for this normalization. The rest of the application must not depend on `ClaimsPrincipal` directly.
+
+#### 10.7.1 1 Authentication Flow Examples
+
+**OpenID Connect user login:**
+
+```csharp
+new SecurityContext
+{
+    SubjectId = subjectId,
+    Username = username,
+    TenantId = tenantId,
+    Roles = roles,
+    Scopes = scopes,
+    Permissions = permissions,
+    IsAuthenticated = true,
+    AuthenticationType = AuthenticationType.User,
+    ClientId = clientId,
+    ClientApplicationName = clientApplicationName,
+    IsSystemIdentity = false
+};
+```
+
+**Client credentials / machine-to-machine:**
+
+```csharp
+new SecurityContext
+{
+    SubjectId = null,
+    Username = null,
+    Roles = [],
+    Scopes = scopes,
+    Permissions = permissions,
+    IsAuthenticated = true,
+    AuthenticationType = AuthenticationType.Machine,
+    ClientId = clientId,
+    ClientApplicationName = clientApplicationName,
+    IsSystemIdentity = true
+};
+```
+
+**Delegated access:**
+
+```csharp
+new SecurityContext
+{
+    SubjectId = actingSubjectId,
+    DelegatedBySubjectId = delegatingSubjectId,
+    Username = username,
+    Roles = roles,
+    Scopes = scopes,
+    Permissions = permissions,
+    IsAuthenticated = true,
+    AuthenticationType = AuthenticationType.Delegated,
+    ClientId = clientId,
+    IsSystemIdentity = false
+};
+```
+
+### 10.8 Request Context
+
+`RequestContext` contains operational information about the original request or process that triggered the event.
+
+```csharp
+public sealed class RequestContext
+{
+    public Guid CorrelationId { get; init; }
+
+    public DateTimeOffset RequestedDate { get; init; }
+
+    public string? RequestId { get; init; }
+
+    public string? SourceSystem { get; init; }
+
+    public string? ClientApplicationId { get; init; }
+}
+```
+
+`CorrelationId` represents the wider business operation or request chain and is useful for audit trails, diagnostics, tracing, distributed workflow correlation, support investigations, and replay analysis.
+
+### 10.9 Event Metadata
+
+`EventMetadata` contains information about the event instance itself.
+
+```csharp
+public sealed class EventMetadata
+{
+    public Guid EventId { get; init; }
+
+    public string EventType { get; init; }
+
+    public int Version { get; init; }
+
+    public int RetryCount { get; init; }
+
+    public string? CausationId { get; init; }
+
+    public Guid? ParentCorrelationId { get; init; }
+}
+```
+
+This metadata becomes more important when moving from in-process event handling to asynchronous or distributed event processing. It supports retries, replays, event versioning, diagnostics, idempotency, causation tracking, and parent/child event relationships.
+
+Example causation chain:
+
+```text
+API Request
+CorrelationId: A
+
+StudentCreated
+EventId: 1
+CorrelationId: A
+
+AddressCreated
+EventId: 2
+CorrelationId: A
+CausationId: 1
+
+AuditLogged
+EventId: 3
+CorrelationId: A
+CausationId: 2
+```
+
+### 10.10 Current In-Process Implementation (LeVent)
+
+With LeVent or another synchronous in-process event library, the event may run under the same HTTP request and dependency injection scope.
+
+Even so, the event handler must receive an `EventEnvelope<T>` rather than depending directly on `HttpContext`.
+
+Current flow:
+
+```text
+HTTP Request
+    ↓
+Controller
+    ↓
+Create EventEnvelope<T>
+    ↓
+Publish using LeVent
+    ↓
+In-process handler
+    ↓
+Orchestration Service
+```
+
+### 10.11 Future Disconnected Processing
+
+If the application later moves to background workers, queues, Azure Service Bus, RabbitMQ, Kafka, or another distributed event mechanism, the same envelope can be serialized and processed outside the original HTTP request.
+
+Future flow:
+
+```text
+HTTP Request
+    ↓
+Controller
+    ↓
+Create EventEnvelope<T>
+    ↓
+Serialize envelope
+    ↓
+Queue/message broker
+    ↓
+Background worker
+    ↓
+Deserialize envelope
+    ↓
+Orchestration Service
+```
+
+At that point there is no active `HttpContext`, no original request scope, and the original token may have expired. The `EventEnvelope<T>` prevents the architecture from depending on request-specific state.
+
+### 10.12 Recommended Controller Pattern
+
+The controller should not contain business authorization logic. It should:
+
+1. Rely on authentication middleware to authenticate the caller.
+2. Normalize the caller into `SecurityContext` using a `securityContextFactory`.
+3. Create `RequestContext` using a `requestContextFactory`.
+4. Create `EventMetadata`.
+5. Create `EventEnvelope<T>`.
+6. Publish the event or call the relevant orchestration service.
+
+Example:
+
+```csharp
+[HttpPost]
+public async ValueTask<IActionResult> PostStudentAsync(
+    Student student,
+    CancellationToken cancellationToken)
+{
+    SecurityContext securityContext =
+        this.securityContextFactory.CreateFrom(this.User);
+
+    RequestContext requestContext =
+        this.requestContextFactory.CreateFrom(this.HttpContext);
+
+    EventEnvelope<Student> envelope =
+        new()
+        {
+            Content = student,
+            SecurityContext = securityContext,
+            RequestContext = requestContext,
+            Metadata = new EventMetadata
+            {
+                EventId = Guid.NewGuid(),
+                EventType = nameof(Student),
+                Version = 1,
+                RetryCount = 0
+            }
+        };
+
+    Student createdStudent =
+        await this.studentOrchestrationService
+            .OrchestrateStudentCreationAsync(
+                envelope,
+                cancellationToken);
+
+    return Ok(createdStudent);
+}
+```
+
+### 10.13 Recommended Event Handler Pattern
+
+Event handlers should accept the envelope and pass it to the relevant orchestration service.
+
+```csharp
+public sealed class StudentCreatedEventHandler
+{
+    private readonly IStudentOrchestrationService studentOrchestrationService;
+
+    public StudentCreatedEventHandler(
+        IStudentOrchestrationService studentOrchestrationService)
+    {
+        this.studentOrchestrationService = studentOrchestrationService;
+    }
+
+    public async ValueTask HandleAsync(
+        EventEnvelope<Student> envelope,
+        CancellationToken cancellationToken)
+    {
+        await this.studentOrchestrationService
+            .OrchestrateStudentCreationAsync(
+                envelope,
+                cancellationToken);
+    }
+}
+```
+
+### 10.14 Recommended Envelope Validation
+
+The envelope should be validated before orchestration proceeds. Validation should confirm:
+
+1. Envelope is not null.
+2. Content is not null.
+3. Security context is present.
+4. Request context is present.
+5. Metadata is present.
+6. Correlation id is present.
+7. Event id is present.
+8. Authenticated operations have valid identity details.
+9. Machine operations have valid client details.
+
+Example validation:
+
+```csharp
+private static void ValidateEnvelope<T>(EventEnvelope<T> envelope)
+{
+    if (envelope is null)
+    {
+        throw new InvalidEventEnvelopeException("Event envelope is required.");
+    }
+
+    if (envelope.Content is null)
+    {
+        throw new InvalidEventEnvelopeException("Event content is required.");
+    }
+
+    if (envelope.SecurityContext is null)
+    {
+        throw new InvalidEventEnvelopeException("Security context is required.");
+    }
+
+    if (envelope.RequestContext is null)
+    {
+        throw new InvalidEventEnvelopeException("Request context is required.");
+    }
+
+    if (envelope.Metadata is null)
+    {
+        throw new InvalidEventEnvelopeException("Event metadata is required.");
+    }
+}
+```
+
+### 10.15 Recommended Anti-Patterns
+
+Avoid passing `HttpContext` into orchestration services:
+
+```csharp
+// AVOID
+public ValueTask<Student> OrchestrateAsync(Student student, HttpContext httpContext)
+```
+
+Avoid using `IHttpContextAccessor` inside orchestration services:
+
+```csharp
+// AVOID
+this.httpContextAccessor.HttpContext.User
+```
+
+Avoid serializing raw `ClaimsPrincipal` into events.
+
+Avoid passing raw JWT tokens through the domain or event pipeline unless there is a specific and justified reason.
+
+Avoid placing authorization decisions only in controllers when orchestration services are responsible for business workflow decisions.
+
+Avoid scattering role and scope checks throughout orchestration services. Prefer a central authorization service.
+
+### 10.16 Authorization in Orchestration Services
+
+Authorization should be performed where the business decision is required. Orchestration services should call an authorization service explicitly.
+
+> ⚠️ **Naming conflict notice:** `events.md` proposes a custom `IAuthorizationService` interface for use inside orchestration services. ASP.NET Core also ships a built-in `IAuthorizationService` (in `Microsoft.AspNetCore.Authorization`) with a different method signature. These must not be confused. The G2H orchestration authorization service should use a distinct interface name such as `IOrchestrationAuthorizationService` or a domain-specific name such `IPermissionService` to avoid ambiguity with the ASP.NET Core built-in.
+
+Example interface:
+
+```csharp
+public interface IPermissionService
+{
+    ValueTask AuthorizeAsync(
+        SecurityContext securityContext,
+        string permission,
+        CancellationToken cancellationToken);
+}
+```
+
+Example usage in an orchestration service:
+
+```csharp
+public ValueTask<Student> OrchestrateStudentCreationAsync(
+    EventEnvelope<Student> envelope,
+    CancellationToken cancellationToken) =>
+TryCatch(async () =>
+{
+    ValidateEnvelope(envelope);
+
+    await this.permissionService.AuthorizeAsync(
+        envelope.SecurityContext,
+        StudentPermissions.CreateStudent,
+        cancellationToken);
+
+    Student createdStudent =
+        await this.studentService.AddStudentAsync(
+            envelope.Content,
+            cancellationToken);
+
+    return createdStudent;
+});
+```
+
+Prefer this:
+
+```csharp
+await this.permissionService.AuthorizeAsync(
+    envelope.SecurityContext,
+    StudentPermissions.CreateStudent,
+    cancellationToken);
+```
+
+Avoid this:
+
+```csharp
+if (envelope.SecurityContext.Roles.Contains("Admin") is false)
+{
+    throw new UnauthorizedAccessException();
+}
+```
+
+The permission service should own the mapping between roles, scopes, permissions, client applications, delegated access, and system identities.
+
 ## 11. Topic and Feed Design
 
-### 11.1 1 Topic as Content
+### 11.1 Topic as Content
 
 `Topic` is a `ContentType` used to group related content.
 
@@ -888,7 +1343,7 @@ Example:
 3. Associate other content items with that topic through `ContentItemAssociation`.
 4. The associated content may be `Quote`, `Story`, `Testimony`, or any future publishable content type.
 
-### 11.2 2 Topic Is Not a Feed Item
+### 11.2 Topic Is Not a Feed Item
 
 A `Topic` must not appear directly in the feed.
 
@@ -900,7 +1355,7 @@ A topic acts as:
 4. A thematic collection.
 5. A way to organise related content without introducing a separate database entity.
 
-### 11.3 3 Feed as a Domain Projection
+### 11.3 Feed as a Domain Projection
 
 The feed is not a database entity.
 
@@ -923,7 +1378,7 @@ WHERE
 ORDER BY PublishDate DESC, CreatedWhen DESC;
 ```
 
-### 11.4 4 Topic Parent/Child Relationship
+### 11.4 Topic Parent/Child Relationship
 
 Topics use `ContentItemAssociation` for parent/child relationships.
 
@@ -937,7 +1392,7 @@ A child item is associated to the topic by creating a `ContentItemAssociation` w
 | `Scope` | Whether the association applies to one version or all versions. |
 | `PublishDate` | Optional date/time from which the child association becomes visible. |
 
-### 11.5 5 Topic Visibility
+### 11.5 Topic Visibility
 
 A topic can have its own visibility as a landing page or subscription target, but it does not appear in the feed.
 
@@ -948,7 +1403,7 @@ A topic page is visible only when:
 3. The topic content item is published.
 4. The topic `PublishDate` is null or has passed.
 
-### 11.6 6 Topic Child Visibility
+### 11.6 Topic Child Visibility
 
 A child item is visible under a topic only when:
 
@@ -958,7 +1413,7 @@ A child item is visible under a topic only when:
 4. The `ContentItemAssociation.PublishDate` is null or has passed.
 5. The effective `ContentItemSetting` allows the relationship or associated content to be shown.
 
-### 11.7 7 Topic Ordering
+### 11.7 Topic Ordering
 
 The current model does not include an explicit sort order.
 
@@ -975,7 +1430,7 @@ Topic child ordering should be resolved as:
 3. Child `PublishDate`, if supplied.
 4. `CreatedWhen` as fallback.
 
-### 11.8 8 Future Topic Subscriptions
+### 11.8 Future Topic Subscriptions
 
 Subscriptions should remain decoupled from the content model, similar to approvals.
 
@@ -995,7 +1450,7 @@ Subscriptions should not control whether content is visible on the public UI.
 
 ## 12. Component Architecture
 
-### 12.1 1 Architecture Overview
+### 12.1 Architecture Overview
 
 The component design follows a layered service architecture using:
 
@@ -1017,7 +1472,7 @@ Controllers
                 -> SQL Storage / External Infrastructure
 ```
 
-### 12.2 2 Broker Layer
+### 12.2 Broker Layer
 
 Brokers abstract infrastructure, persistence, external systems, security access, event publication, and AI integrations.
 
@@ -1049,7 +1504,7 @@ Current intended brokers:
 
 `AIBroker` is responsible for infrastructure-level access to AI capabilities used by the content analysis workflow.
 
-### 12.3 3 Foundation Service Layer
+### 12.3 Foundation Service Layer
 
 Foundation services own core CRUD, validation, and business rules for one entity.
 
@@ -1071,7 +1526,7 @@ Current intended foundation services:
 | 12 | `LinkService` *(future)* | CRUD and validation for links. |
 | 13 | `AttachmentService` *(future)* | CRUD and validation for attachments. |
 
-### 12.4 4 Orchestration Layer
+### 12.4 Orchestration Layer
 
 Orchestration services Orchestrate multiple dependencies and enforce cross-entity workflows.
 
@@ -1439,7 +1894,7 @@ Business Rules:
 10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Reference`, `Translation`, `Scripture`) onto that entity before saving.
 11. Review dismissal is not the responsibility of this orchestration. Publishing `BibleReferenceUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-### 12.5 5 Controller Layer
+### 12.5 Controller Layer
 
 Controllers expose API endpoints for the domain.
 
@@ -1460,7 +1915,7 @@ Current intended controllers:
 | 11 | `LinkController` *(future)* | Exposes endpoints for link management. |
 | 12 | `AttachmentController` *(future)* | Exposes endpoints for attachment management. |
 
-### 12.6 6 SQL Storage
+### 12.6 SQL Storage
 
 SQL is the persistence layer behind `StorageBroker`.
 
@@ -1478,13 +1933,13 @@ The EF Core model snapshot currently shows tables and constraints for:
 | 8 | `Tags` | Stores tag definitions used for content categorisation. |
 | 9 | `Reactions` | Stores reusable reaction definitions. |
 
-### 12.7 7 Event System
+### 12.7 Event System
 
 The event system decouples entity creation, update, and soft-delete operations from approval workflow side effects.
 
 Events are published through the `EventBroker` and consumed by approval and orchestration services as required.
 
-### 12.8 8 Content Analysis Service
+### 12.8 Content Analysis Service
 
 The `ContentAnalysisService` orchestrates AI-assisted analysis, duplicate detection, scripture extraction, categorisation, quality checks, and moderation suggestions.
 
@@ -1492,13 +1947,13 @@ The service may depend on `AIBroker`, `StorageBroker`, and approval/content serv
 
 ## 13. AI Content Analysis
 
-### 13.1 1 Purpose
+### 13.1 Purpose
 
 The component design includes an `AI Broker` and `Content Analysis Service`.
 
 These components can be used to assist with content quality, safety, scripture relevance, duplication checks, and moderation suggestions.
 
-### 13.2 2 AI Analysis Should Not Replace Approval
+### 13.2 AI Analysis Should Not Replace Approval
 
 AI analysis must not replace human approval.
 
@@ -1513,7 +1968,7 @@ AI should provide:
 
 Final approval should remain controlled by the approval process.
 
-### 13.3 3 Recommended AI Analysis Outputs
+### 13.3 Recommended AI Analysis Outputs
 
 Recommended outputs:
 
@@ -1527,7 +1982,7 @@ Recommended outputs:
 
 ## 14. Visibility Rules
 
-### 14.1 1 Canonical Content Visibility
+### 14.1 Canonical Content Visibility
 
 A content item is visible only when:
 
@@ -1541,7 +1996,7 @@ contentItem.DeletedWhen is null
 )
 ```
 
-### 14.2 2 Feed Visibility
+### 14.2 Feed Visibility
 
 The feed is a projection of visible content items.
 
@@ -1555,7 +2010,7 @@ The feed is ordered by:
 1. `PublishDate DESC`, if present.
 2. `CreatedWhen DESC` as fallback.
 
-### 14.3 3 Association Visibility
+### 14.3 Association Visibility
 
 An association is visible only when:
 
@@ -1567,7 +2022,7 @@ An association is visible only when:
 6. `ContentItemAssociation.PublishDate` is null or has passed.
 7. The effective `ContentItemSetting` allows the association type to be shown.
 
-### 14.4 4 Topic Visibility
+### 14.4 Topic Visibility
 
 A topic page is visible only when:
 
@@ -1582,7 +2037,7 @@ Topic children are visible only when:
 
 ## 15. Recommended Corrections
 
-### 14.1 1 Correct Typographical Issues
+### 14.1 Correct Typographical Issues
 
 The draw.io model includes `ConentItemAssociation`.
 
@@ -1592,7 +2047,7 @@ The correct name should be:
 ContentItemAssociation
 ```
 
-### 14.2 2 Remove ApprovalId from Approvable Entities
+### 14.2 Remove ApprovalId from Approvable Entities
 
 The draw.io model included `ApprovalId` on `ContentItem` and `ContentItemAssociation` as a direct foreign key to the `Approval` record. This has been resolved.
 
@@ -1603,7 +2058,7 @@ Final direction:
 3. `ApprovalId` on `ContentItemAssociation` has been removed. Approval for an association is resolved through `Approval(EntityType = ContentItemAssociation, EntityId = ContentItemAssociation.Id)`.
 4. `ApprovalId` remains valid only on `ApprovalReview` and `ApprovalComment` as a direct foreign key to their parent `Approval` record, not as a lookup from approvable entities.
 
-### 14.3 3 Add ContentItemAssociation to EntityType
+### 14.3 Add ContentItemAssociation to EntityType
 
 The current `EntityType` enum does not include `ContentItemAssociation`.
 
@@ -1615,7 +2070,7 @@ ContentItemAssociation = 7
 
 This allows association records themselves to be approved through the same approval mechanism.
 
-### 14.4 4 Add Topic Content Type
+### 14.4 Add Topic Content Type
 
 `Topic` does not require a separate `EntityType` because it is represented as a `ContentItem` with `ContentType = Topic`.
 
@@ -1626,7 +2081,7 @@ Recommended direction:
 3. Use `ContentItemAssociation` to connect topics to child content items.
 4. Exclude `Topic` from feed projections.
 
-### 14.5 5 Review ContentItemSetting Type Mismatch
+### 14.5 Review ContentItemSetting Type Mismatch
 
 The current `ContentItemSetting.ContentTypeId` is a string, while `ContentType.Id` is a `Guid`.
 
@@ -1638,7 +2093,7 @@ public Guid ContentTypeId { get; set; }
 
 ## 16. Recommended Service Responsibilities
 
-### 16.1 1 ContentItemService
+### 16.1 ContentItemService
 
 Responsible for:
 
@@ -1649,7 +2104,7 @@ Responsible for:
 5. Reading content by id, group id, type, latest version, and published version.
 6. Applying soft delete fields.
 
-### 16.2 2 ContentItemAssociationService
+### 16.2 ContentItemAssociationService
 
 Responsible for:
 
@@ -1661,7 +2116,7 @@ Responsible for:
 6. Reading topic children.
 7. Applying soft delete fields.
 
-### 16.3 3 ContentItemSettingsService
+### 16.3 ContentItemSettingsService
 
 Responsible for:
 
@@ -1671,7 +2126,7 @@ Responsible for:
 4. Validating whether tags, comments, reactions, links, attachments, Bible references, and child content associations are allowed.
 5. Applying soft delete fields.
 
-### 16.4 4 ApprovalService
+### 16.4 ApprovalService
 
 Responsible for:
 
@@ -1682,7 +2137,7 @@ Responsible for:
 5. Enforcing approval uniqueness per entity.
 6. Applying dismissed status when entity-scoped changes invalidate reviews.
 
-### 16.5 5 ApprovalReviewService
+### 16.5 ApprovalReviewService
 
 Responsible for:
 
@@ -1692,7 +2147,7 @@ Responsible for:
 4. Evaluating approval thresholds.
 5. Excluding dismissed reviews from threshold calculations.
 
-### 16.6 6 ApprovalSettingsService
+### 16.6 ApprovalSettingsService
 
 Responsible for:
 
@@ -1701,7 +2156,7 @@ Responsible for:
 3. Resolving effective approval settings.
 4. Validating approval configuration.
 
-### 16.7 7 ApprovalOrchestrationService
+### 16.7 ApprovalOrchestrationService
 
 Responsible for:
 
@@ -1715,7 +2170,7 @@ Responsible for:
 
 ## 17. Recommended API Design
 
-### 15.1 1 Content Endpoints
+### 15.1 Content Endpoints
 
 Recommended endpoints:
 
@@ -1730,7 +2185,7 @@ Recommended endpoints:
 | `POST` | `/api/content-items/{id}/submit` | Submit content item for approval. |
 | `DELETE` | `/api/content-items/{id}` | Soft delete content item. |
 
-### 15.2 2 Feed Endpoints
+### 15.2 Feed Endpoints
 
 Recommended endpoints:
 
@@ -1739,7 +2194,7 @@ Recommended endpoints:
 | `GET` | `/api/feed` | Retrieve visible published content excluding topics. |
 | `GET` | `/api/feed?contentType={name}` | Retrieve visible published content by content type. |
 
-### 15.3 3 Topic Endpoints
+### 15.3 Topic Endpoints
 
 Recommended endpoints:
 
@@ -1749,7 +2204,7 @@ Recommended endpoints:
 | `GET` | `/api/topics/{id}/items` | Retrieve visible child items for a topic. |
 | `POST` | `/api/topics/{id}/items` | Associate a content item with a topic. |
 
-### 15.4 4 Association Endpoints
+### 15.4 Association Endpoints
 
 Recommended endpoints:
 
@@ -1760,7 +2215,7 @@ Recommended endpoints:
 | `GET` | `/api/content-items/{id}/associations` | Retrieve visible associations for a content item. |
 | `DELETE` | `/api/content-item-associations/{id}` | Soft delete an association. |
 
-### 15.5 5 Approval Endpoints
+### 15.5 Approval Endpoints
 
 Recommended endpoints:
 
@@ -1773,11 +2228,11 @@ Recommended endpoints:
 
 ## 16. Authentication and Authorisation
 
-### 16.1 1 Purpose
+### 16.1 Purpose
 
 Authentication and authorisation ensures that G2H users are correctly identified, that access to content and actions is controlled by role and permission, and that the system is ready to support future client applications, mobile apps, and machine-to-machine integrations without requiring a rewrite.
 
-### 16.2 2 Technology Selection
+### 16.2 Technology Selection
 
 G2H uses the following stack for authentication and authorisation:
 
@@ -1789,7 +2244,7 @@ G2H uses the following stack for authentication and authorisation:
 
 This combination gives full ownership of users and data with no vendor lock-in and no external auth service costs.
 
-### 16.3 3 ASP.NET Core Identity
+### 16.3 ASP.NET Core Identity
 
 ASP.NET Core Identity provides:
 
@@ -1801,7 +2256,7 @@ ASP.NET Core Identity provides:
 6. Cookie-based authentication for the React frontend hosted within the same ASP.NET app.
 7. JWT bearer token support for API consumers.
 
-### 16.4 4 OpenIddict
+### 16.4 OpenIddict
 
 OpenIddict layers OAuth 2.0 and OpenID Connect on top of ASP.NET Core Identity.
 
@@ -1815,7 +2270,7 @@ It enables:
 
 OpenIddict integrates directly with ASP.NET Core Identity and persists its data to EF Core, meaning no separate identity server infrastructure is required.
 
-### 16.5 5 Scope Design
+### 16.5 Scope Design
 
 OAuth 2.0 scopes define what a client application is permitted to access.
 
@@ -1842,7 +2297,7 @@ Example scope assignments by client type:
 | AI background worker | `content.read` via client credentials |
 | Partner/ministry API consumer | `content.read` via client credentials |
 
-### 16.6 6 Role Design
+### 16.6 Role Design
 
 ASP.NET Core Identity roles control access within the G2H application.
 
@@ -1858,7 +2313,7 @@ Recommended roles:
 
 Role claims from the identity token must be used to control visibility of role-restricted navigation items in the React frontend and to enforce API-level authorisation.
 
-### 16.7 7 Authentication Flow
+### 16.7 Authentication Flow
 
 #### 16.7.1 1 Web App (Cookie Auth)
 
@@ -1898,7 +2353,7 @@ public IActionResult CreateContentItem(...) { ... }
 2. External login users are linked to ASP.NET Core Identity accounts.
 3. Role assignment for external login users follows the same rules as internal users.
 
-### 16.8 8 Authorisation Policies
+### 16.8 Authorisation Policies
 
 API authorisation is enforced using ASP.NET Core policy-based authorisation.
 
@@ -1912,7 +2367,7 @@ Recommended policies:
 | `publish` | Authenticated user with `Publisher` role. |
 | `admin` | Authenticated user with `Admin` role or access token with `admin.users` scope. |
 
-### 16.9 9 Phased Adoption
+### 16.9 Phased Adoption
 
 The recommended adoption path is:
 
@@ -1934,7 +2389,7 @@ The recommended adoption path is:
 5. Enable authorisation code + PKCE for mobile clients.
 6. Enable client credentials for machine-to-machine integrations.
 
-### 16.10 10 Future Token Claims Example
+### 16.10 Future Token Claims Example
 
 When OpenIddict is active, access tokens will carry structured claims:
 
@@ -1956,7 +2411,7 @@ APIs enforce access using:
 
 This allows fine-grained permission control per client type without changing the domain model.
 
-### 16.11 11 Architecture
+### 16.11 Architecture
 
 The authentication and authorisation architecture follows the same layered pattern as the rest of the system:
 
@@ -1979,11 +2434,11 @@ This keeps all users, tokens, roles, clients, and domain data in a single owned 
 
 ## 19. Search Engine Optimisation
 
-### 16.1 1 Purpose
+### 16.1 Purpose
 
 Search engine optimisation (SEO) ensures that gospel content published through G2H is discoverable by search engines and social platforms, maximising the reach of the content.
 
-### 16.2 2 ContentItem SEO Fields
+### 16.2 ContentItem SEO Fields
 
 The following optional fields should be added to `ContentItem` to support SEO:
 
@@ -1999,7 +2454,7 @@ The following optional fields should be added to `ContentItem` to support SEO:
 | `OgImageUrl` | Open Graph image URL for social sharing previews. |
 | `StructuredDataJson` | Optional JSON-LD structured data blob for rich search results, for example `Article`, `Quote`, or `FAQPage` schema. |
 
-### 16.3 3 Slug Rules
+### 16.3 Slug Rules
 
 The following rules apply to `Slug`:
 
@@ -2010,7 +2465,7 @@ The following rules apply to `Slug`:
 5. If an approved content item is edited and a new version is created, the new version inherits the slug from the previous published version.
 6. An unpublished draft may have a provisional slug that can still be edited.
 
-### 16.4 4 API SEO Considerations
+### 16.4 API SEO Considerations
 
 The following API behaviour should be supported for SEO:
 
@@ -2020,7 +2475,7 @@ The following API behaviour should be supported for SEO:
 4. Topic landing page responses should include SEO fields for the topic content item itself.
 5. APIs should not expose draft or unpublished SEO fields to unauthenticated callers.
 
-### 16.5 5 Structured Data Recommendations
+### 16.5 Structured Data Recommendations
 
 Recommended JSON-LD schema types for G2H content:
 
@@ -2033,7 +2488,7 @@ Recommended JSON-LD schema types for G2H content:
 
 Structured data should be rendered server-side or returned by the API for use in server-side rendered frontends.
 
-### 16.6 6 Sitemap and Indexing
+### 16.6 Sitemap and Indexing
 
 The following sitemap and indexing support should be considered:
 
@@ -2045,13 +2500,13 @@ The following sitemap and indexing support should be considered:
 
 ## 20. UI / UX Design
 
-### 17.1 1 Purpose
+### 17.1 Purpose
 
 The G2H frontend is a React application responsible for presenting gospel content to users in a clean, readable, and accessible way.
 
 The design reference is the Blogzine Bootstrap template (https://www.webestica.com/bootstrap-templates/blogzine-blog-magazine-template), which will be converted into a React + TypeScript + Vite + Bootstrap architecture with full componentisation and clean separation of concerns.
 
-### 17.2 2 Technology Stack
+### 17.2 Technology Stack
 
 | Layer | Technology |
 | --- | --- |
@@ -2064,7 +2519,7 @@ The design reference is the Blogzine Bootstrap template (https://www.webestica.c
 | HTTP client | Axios or native Fetch with typed wrappers |
 | Auth | Token-based — JWT or MSAL depending on identity provider |
 
-### 17.3 3 Architecture Principles
+### 17.3 Architecture Principles
 
 The following principles apply to the frontend architecture:
 
@@ -2076,7 +2531,7 @@ The following principles apply to the frontend architecture:
 6. Models are TypeScript interfaces that match API response shapes.
 7. Navigation must support both unauthenticated public routes and authenticated, role-aware private routes.
 
-### 17.4 4 Folder Structure
+### 17.4 Folder Structure
 
 Recommended project structure:
 
@@ -2094,7 +2549,7 @@ src/
   assets/           # Static assets, images, fonts
 ```
 
-### 17.5 5 Pages
+### 17.5 Pages
 
 Planned pages based on the Blogzine template and the G2H domain:
 
@@ -2115,7 +2570,7 @@ Planned pages based on the Blogzine template and the G2H domain:
 | `AdminDashboardPage` | Admin overview of content, settings, and approval configuration. |
 | `NotFoundPage` | 404 fallback. |
 
-### 17.6 6 Components
+### 17.6 Components
 
 Planned reusable components based on the Blogzine template:
 
@@ -2145,7 +2600,7 @@ Planned reusable components based on the Blogzine template:
 | `LoadingSpinner` | Generic loading indicator. |
 | `ErrorMessage` | Generic error display. |
 
-### 17.7 7 Navigation
+### 17.7 Navigation
 
 Navigation must support three levels:
 
@@ -2155,7 +2610,7 @@ Navigation must support three levels:
 
 Route guards should redirect unauthenticated users to the login page and unauthorised users to a 403 or not-found page.
 
-### 17.8 8 Authentication
+### 17.8 Authentication
 
 The following authentication behaviour is required:
 
@@ -2166,7 +2621,7 @@ The following authentication behaviour is required:
 5. Role claims from the token must be used to control visibility of role-restricted navigation items.
 6. Token refresh or silent renewal must be handled transparently.
 
-### 17.9 9 Services and Brokers
+### 17.9 Services and Brokers
 
 | Layer | Responsibility |
 | --- | --- |
@@ -2186,7 +2641,7 @@ The following authentication behaviour is required:
 
 ## 21. Summary
 
-### 18.1 1 Final Design Direction
+### 18.1 Final Design Direction
 
 G2H should use `ContentItem` as the primary content model and represent different kinds of content through `ContentType`.
 
@@ -2198,7 +2653,7 @@ All content and supporting entities should use a shared approval workflow based 
 
 The feed should not be a database entity. It should be a projection of visible, approved, published, non-deleted content items excluding `Topic`, ordered by publish date descending.
 
-### 18.2 2 Immediate Next Changes
+### 18.2 Immediate Next Changes
 
 The next changes to look at:
 

@@ -9,16 +9,17 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishBibleReferenceAsync(BibleReference bibleReference, string? eventName = null);
+        ValueTask PublishBibleReferenceAsync(EventEnvelope<BibleReference> envelope, string? eventName = null);
 
         void SubscribeToBibleReferenceEvent(
-            Func<BibleReference, ValueTask> bibleReferenceEventHandler,
+            Func<EventEnvelope<BibleReference>, ValueTask> bibleReferenceEventHandler,
             string? eventName = null);
     }
 }

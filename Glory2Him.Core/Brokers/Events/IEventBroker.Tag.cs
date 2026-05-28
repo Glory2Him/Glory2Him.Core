@@ -9,13 +9,17 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishTagAsync(Tag tag, string? eventName = null);
-        void SubscribeToTagEvent(Func<Tag, ValueTask> tagEventHandler, string? eventName = null);
+        ValueTask PublishTagAsync(EventEnvelope<Tag> envelope, string? eventName = null);
+
+        void SubscribeToTagEvent(
+            Func<EventEnvelope<Tag>, ValueTask> tagEventHandler,
+            string? eventName = null);
     }
 }

@@ -9,6 +9,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using LeVent.Clients;
 
@@ -16,13 +17,13 @@ namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<Link> LinkEvents { get; set; }
+        public ILeVentClient<EventEnvelope<Link>> LinkEvents { get; set; }
 
-        public ValueTask PublishLinkAsync(Link link, string? eventName = null) =>
-            this.LinkEvents.PublishEventAsync(link, eventName);
+        public ValueTask PublishLinkAsync(EventEnvelope<Link> envelope, string? eventName = null) =>
+            this.LinkEvents.PublishEventAsync(envelope, eventName);
 
         public void SubscribeToLinkEvent(
-            Func<Link, ValueTask> linkEventHandler,
+            Func<EventEnvelope<Link>, ValueTask> linkEventHandler,
             string? eventName = null) =>
                 this.LinkEvents.RegisterEventHandler(linkEventHandler, eventName);
     }
