@@ -10,6 +10,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -186,6 +187,107 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemDependencyValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyValidationExceptionOnModifyIfForeignKeyConstraintConflictExceptionOccursAndLogItAsync()
+        {
+            // given
+            ContentItem someContentItem = CreateRandomContentItem();
+            string someMessage = GetRandomString();
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            var invalidContentItemReferenceException = new InvalidContentItemReferenceException(
+                message: "Invalid content item reference error occurred.",
+                innerException: foreignKeyConstraintConflictException,
+                data: foreignKeyConstraintConflictException.Data);
+
+            var expectedContentItemDependencyValidationException = new ContentItemDependencyValidationException(
+                message: "Content item dependency validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentItem))
+                    .ThrowsAsync(foreignKeyConstraintConflictException);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    someContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemDependencyValidationException actualContentItemDependencyValidationException =
+                await Assert.ThrowsAsync<ContentItemDependencyValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemDependencyValidationException.Should().BeEquivalentTo(
+                expectedContentItemDependencyValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentItem),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemDependencyValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnModifyIfDbUpdateExceptionOccursAndLogItAsync()
+        {
+            // given
+            ContentItem someContentItem = CreateRandomContentItem();
+            var dbUpdateException = new DbUpdateException();
+
+            var failedStorageContentItemException = new FailedStorageContentItemException(
+                message: "Failed content item storage error occurred, contact support.",
+                innerException: dbUpdateException,
+                data: dbUpdateException.Data);
+
+            var expectedContentItemDependencyException = new ContentItemDependencyException(
+                message: "Content item dependency error occurred, contact support.",
+                innerException: failedStorageContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentItem))
+                    .ThrowsAsync(dbUpdateException);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    someContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemDependencyException actualContentItemDependencyException =
+                await Assert.ThrowsAsync<ContentItemDependencyException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemDependencyException.Should().BeEquivalentTo(
+                expectedContentItemDependencyException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentItem),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemDependencyException))),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
