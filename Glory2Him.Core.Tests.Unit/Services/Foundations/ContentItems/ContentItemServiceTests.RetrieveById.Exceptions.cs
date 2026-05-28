@@ -75,6 +75,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnRetrieveByIdIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someContentItemId = Guid.NewGuid();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageContentItemException = new FailedStorageContentItemException(
+                message: "Failed content item storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedContentItemDependencyException = new ContentItemDependencyException(
+                message: "Content item dependency error occurred, contact support.",
+                innerException: failedStorageContentItemException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<ContentItem> retrieveContentItemByIdTask =
+                this.contentItemService.RetrieveContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemDependencyException actualContentItemDependencyException =
+                await Assert.ThrowsAsync<ContentItemDependencyException>(
+                    retrieveContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemDependencyException.Should().BeEquivalentTo(
+                expectedContentItemDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedContentItemDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowOperationCanceledExceptionOnRetrieveByIdIfCancellationRequestedAndLogItAsync()
         {
             // given
