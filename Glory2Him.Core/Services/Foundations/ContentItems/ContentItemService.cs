@@ -16,6 +16,7 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
@@ -42,10 +43,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             this.loggingBroker = loggingBroker;
         }
 
-        public ValueTask<ContentItem> AddContentItemAsync(
+        public async ValueTask<ContentItem> AddContentItemAsync(
             ContentItem contentItem,
-            CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentItem);
+
+            ContentItem addedContentItem =
+                await this.storageBroker.InsertContentItemAsync(contentItem, cancellationToken);
+
+            var envelope = new EventEnvelope<ContentItem> { Content = addedContentItem };
+            await this.eventBroker.PublishContentItemAsync(envelope, "ContentItemAdded");
+
+            return addedContentItem;
+        }
 
         public ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
             CancellationToken cancellationToken = default) =>

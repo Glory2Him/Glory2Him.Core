@@ -7,6 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
@@ -33,7 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(auditAppliedContentItem);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.InsertContentItemAsync(auditAppliedContentItem, default))
+                broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
             this.eventBrokerMock.Setup(broker =>
@@ -54,7 +55,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.InsertContentItemAsync(auditAppliedContentItem, default),
+                    broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
