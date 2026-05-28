@@ -9,6 +9,7 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -59,6 +60,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemDependencyException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveAllIfCancellationRequestedAndLogItAsync()
+        {
+            // given
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<IQueryable<ContentItem>> retrieveAllContentItemsTask =
+                this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                retrieveAllContentItemsTask.AsTask);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
