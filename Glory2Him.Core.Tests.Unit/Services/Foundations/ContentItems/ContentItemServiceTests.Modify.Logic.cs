@@ -29,15 +29,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem inputContentItem = randomContentItem;
             ContentItem auditAppliedContentItem = inputContentItem.DeepClone();
             ContentItem storageContentItem = auditAppliedContentItem.DeepClone();
-            ContentItem expectedContentItem = storageContentItem.DeepClone();
+            ContentItem auditPreservedContentItem = auditAppliedContentItem.DeepClone();
+            ContentItem updatedContentItem = auditPreservedContentItem.DeepClone();
+            ContentItem expectedContentItem = updatedContentItem.DeepClone();
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(inputContentItem))
                     .ReturnsAsync(auditAppliedContentItem);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItem);
+                broker.SelectContentItemByIdAsync(
+                    auditAppliedContentItem.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedContentItem,
+                    storageContentItem))
+                        .ReturnsAsync(auditPreservedContentItem);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateContentItemAsync(auditPreservedContentItem, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedContentItem);
 
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemModified"))
@@ -57,7 +71,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()),
+                    broker.SelectContentItemByIdAsync(
+                        auditAppliedContentItem.Id,
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                        auditAppliedContentItem,
+                        storageContentItem),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateContentItemAsync(auditPreservedContentItem, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>

@@ -92,6 +92,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ValidateOnModifyContentItem(contentItem);
                 contentItem = await this.securityAuditBroker.ApplyModifyAuditValuesAsync(contentItem);
 
+                ContentItem maybeContentItem =
+                    await this.storageBroker.SelectContentItemByIdAsync(contentItem.Id, cancellationToken);
+
+                ValidateStorageContentItem(maybeContentItem, contentItem.Id);
+
+                contentItem = await this.securityAuditBroker
+                    .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(contentItem, maybeContentItem);
+
                 ContentItem updatedContentItem =
                     await this.storageBroker.UpdateContentItemAsync(contentItem, cancellationToken);
 
