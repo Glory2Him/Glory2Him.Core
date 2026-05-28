@@ -43,21 +43,23 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             this.loggingBroker = loggingBroker;
         }
 
-        public async ValueTask<ContentItem> AddContentItemAsync(
+        public ValueTask<ContentItem> AddContentItemAsync(
             ContentItem contentItem,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentItem);
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemIsNotNull(contentItem);
+                contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentItem);
 
-            ContentItem addedContentItem =
-                await this.storageBroker.InsertContentItemAsync(contentItem, cancellationToken);
+                ContentItem addedContentItem =
+                    await this.storageBroker.InsertContentItemAsync(contentItem, cancellationToken);
 
-            var envelope = new EventEnvelope<ContentItem> { Content = addedContentItem };
-            await this.eventBroker.PublishContentItemAsync(envelope, "ContentItemAdded");
+                var envelope = new EventEnvelope<ContentItem> { Content = addedContentItem };
+                await this.eventBroker.PublishContentItemAsync(envelope, "ContentItemAdded");
 
-            return addedContentItem;
-        }
+                return addedContentItem;
+            });
 
         public ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
             CancellationToken cancellationToken = default) =>
