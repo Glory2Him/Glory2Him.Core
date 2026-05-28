@@ -61,11 +61,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 return addedContentItem;
             });
 
-        public async ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
-            CancellationToken cancellationToken = default)
-        {
-            return await this.storageBroker.SelectAllContentItemsAsync();
-        }
+        public ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
+            CancellationToken cancellationToken = default) =>
+            TryCatch(() => this.storageBroker.SelectAllContentItemsAsync());
 
         public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
             Guid contentItemId,

@@ -8,6 +8,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -20,6 +21,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
     public partial class ContentItemService
     {
         private delegate ValueTask<ContentItem> ReturningContentItemFunction();
+        private delegate ValueTask<IQueryable<ContentItem>> ReturningContentItemsFunction();
 
         private async ValueTask<ContentItem> TryCatch(ReturningContentItemFunction returningContentItemFunction)
         {
@@ -75,6 +77,25 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     data: exception.Data);
 
                 throw await CreateAndLogServiceException(failedContentItemServiceException);
+            }
+        }
+
+        private async ValueTask<IQueryable<ContentItem>> TryCatch(
+            ReturningContentItemsFunction returningContentItemsFunction)
+        {
+            try
+            {
+                return await returningContentItemsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutContentItemException = new TimeoutContentItemException(
+                    message: "Content item timed out, contact support.",
+                    innerException: new TimeoutException(),
+                    data: operationCanceledException.Data);
+
+                throw await CreateAndLogDependencyException(timeoutContentItemException);
             }
         }
 
