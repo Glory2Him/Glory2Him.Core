@@ -57,13 +57,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 .AsQueryable();
         }
 
-        private static ContentItem CreateRandomModifyContentItem(DateTimeOffset dateTimeOffset)
+        private static ContentItem CreateRandomModifyContentItem(
+            DateTimeOffset dateTimeOffset,
+            string userId = "")
         {
             int randomDaysInPast = GetRandomNegativeNumber();
-            ContentItem randomContentItem = CreateRandomContentItem(dateTimeOffset);
+            ContentItem randomContentItem = CreateContentItemFiller(dateTimeOffset, userId).Create();
             randomContentItem.CreatedWhen = randomContentItem.CreatedWhen.AddDays(randomDaysInPast);
 
             return randomContentItem;
+        }
+
+        public static TheoryData<int> MinutesBeforeOrAfter()
+        {
+            int randomTimeInFuture = GetRandomNumber();
+            int randomTimeInPast = GetRandomNegativeNumber();
+
+            return new TheoryData<int>
+            {
+                randomTimeInFuture,
+                randomTimeInPast
+            };
         }
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
@@ -94,17 +108,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         private static ContentItem CreateRandomContentItem() =>
             CreateContentItemFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        private static ContentItem CreateRandomContentItem(DateTimeOffset dateTimeOffset) =>
-            CreateContentItemFiller(dateTimeOffset).Create();
+        private static ContentItem CreateRandomContentItem(DateTimeOffset dateTimeOffset, string userId = "") =>
+            CreateContentItemFiller(dateTimeOffset, userId).Create();
 
-        private static Filler<ContentItem> CreateContentItemFiller(DateTimeOffset dateTimeOffset)
+        private static Filler<ContentItem> CreateContentItemFiller(
+            DateTimeOffset dateTimeOffset,
+            string userId = "")
         {
+            userId = string.IsNullOrEmpty(userId) ? Guid.NewGuid().ToString() : userId;
             var filler = new Filler<ContentItem>();
 
             filler.Setup()
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
-                .OnProperty(contentItem => contentItem.ContentType).IgnoreIt();
+                .OnProperty(contentItem => contentItem.ContentType).IgnoreIt()
+                .OnProperty(contentItem => contentItem.CreatedBy).Use(userId)
+                .OnProperty(contentItem => contentItem.UpdatedBy).Use(userId);
 
             return filler;
         }

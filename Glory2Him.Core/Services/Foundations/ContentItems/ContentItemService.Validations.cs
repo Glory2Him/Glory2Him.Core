@@ -8,6 +8,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 
@@ -15,9 +16,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     public partial class ContentItemService
     {
-        private static void ValidateOnAddContentItem(ContentItem contentItem)
+        private async ValueTask ValidateOnAddContentItem(ContentItem contentItem)
         {
             ValidateContentItemIsNotNull(contentItem);
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
 
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
@@ -28,12 +30,39 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 (Rule: IsInvalid(contentItem.CreatedBy), Parameter: nameof(ContentItem.CreatedBy)),
                 (Rule: IsInvalid(contentItem.UpdatedBy), Parameter: nameof(ContentItem.UpdatedBy)),
                 (Rule: IsInvalid(contentItem.CreatedWhen), Parameter: nameof(ContentItem.CreatedWhen)),
-                (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)));
+                (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)),
+
+                (Rule: IsGreaterThan(contentItem.CreatedBy, 255),
+                    Parameter: nameof(ContentItem.CreatedBy)),
+
+                (Rule: IsGreaterThan(contentItem.UpdatedBy, 255),
+                    Parameter: nameof(ContentItem.UpdatedBy)),
+
+                (Rule: IsNotSame(
+                        firstDate: contentItem.UpdatedWhen,
+                        secondDate: contentItem.CreatedWhen,
+                        secondDateName: nameof(ContentItem.CreatedWhen)),
+                    Parameter: nameof(ContentItem.UpdatedWhen)),
+
+                (Rule: IsNotSame(
+                        first: currentUserId,
+                        second: contentItem.CreatedBy),
+                    Parameter: nameof(ContentItem.CreatedBy)),
+
+                (Rule: IsNotSame(
+                        first: contentItem.UpdatedBy,
+                        second: contentItem.CreatedBy,
+                        secondName: nameof(ContentItem.CreatedBy)),
+                    Parameter: nameof(ContentItem.UpdatedBy)),
+
+                (Rule: await IsNotRecentAsync(contentItem.CreatedWhen),
+                    Parameter: nameof(ContentItem.CreatedWhen)));
         }
 
-        private static void ValidateOnModifyContentItem(ContentItem contentItem)
+        private async ValueTask ValidateOnModifyContentItem(ContentItem contentItem)
         {
             ValidateContentItemIsNotNull(contentItem);
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
 
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
@@ -44,7 +73,27 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 (Rule: IsInvalid(contentItem.CreatedBy), Parameter: nameof(ContentItem.CreatedBy)),
                 (Rule: IsInvalid(contentItem.UpdatedBy), Parameter: nameof(ContentItem.UpdatedBy)),
                 (Rule: IsInvalid(contentItem.CreatedWhen), Parameter: nameof(ContentItem.CreatedWhen)),
-                (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)));
+                (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)),
+
+                (Rule: IsGreaterThan(contentItem.CreatedBy, 255),
+                    Parameter: nameof(ContentItem.CreatedBy)),
+
+                (Rule: IsGreaterThan(contentItem.UpdatedBy, 255),
+                    Parameter: nameof(ContentItem.UpdatedBy)),
+
+                (Rule: IsNotSame(
+                        first: currentUserId,
+                        second: contentItem.UpdatedBy),
+                    Parameter: nameof(ContentItem.UpdatedBy)),
+
+                (Rule: IsSame(
+                        firstDate: contentItem.UpdatedWhen,
+                        secondDate: contentItem.CreatedWhen,
+                        secondDateName: nameof(ContentItem.CreatedWhen)),
+                    Parameter: nameof(ContentItem.UpdatedWhen)),
+
+                (Rule: await IsNotRecentAsync(contentItem.UpdatedWhen),
+                    Parameter: nameof(ContentItem.UpdatedWhen)));
         }
 
         private static void ValidateOnRetrieveContentItemById(Guid contentItemId) =>
@@ -118,13 +167,30 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Message = "Date is required"
         };
 
+        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        {
+            Condition = IsExceedingLength(text, maxLength),
+            Message = $"Text exceed max length of {maxLength} characters"
+        };
+
+        private static bool IsExceedingLength(string text, int maxLength) =>
+            (text ?? string.Empty).Length > maxLength;
+
+        private static dynamic IsNotSame(
+            string first,
+            string second) => new
+            {
+                Condition = first != second,
+                Message = $"Expected value to be '{first}' but found '{second}'."
+            };
+
         private static dynamic IsNotSame(
             DateTimeOffset firstDate,
             DateTimeOffset secondDate,
             string secondDateName) => new
             {
                 Condition = firstDate != secondDate,
-                Message = $"Date is not the same as: {secondDate}"
+                Message = $"Date is not the same as {secondDateName}"
             };
 
         private static dynamic IsNotSame(
@@ -144,6 +210,36 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 Condition = firstDate == secondDate,
                 Message = $"Date is the same as {secondDateName}"
             };
+
+        private async ValueTask<dynamic> IsNotRecentAsync(DateTimeOffset date)
+        {
+            var (isNotRecent, startDate, endDate) = await IsDateNotRecentAsync(date);
+
+            return new
+            {
+                Condition = isNotRecent,
+                Message = $"Date is not recent. Expected a value between {startDate} and {endDate} but found {date}"
+            };
+        }
+
+        private async ValueTask<(bool IsNotRecent, DateTimeOffset StartDate, DateTimeOffset EndDate)>
+            IsDateNotRecentAsync(DateTimeOffset date)
+        {
+            int pastThreshold = 90;
+            int futureThreshold = 0;
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            if (currentDateTime == default)
+            {
+                return (false, default, default);
+            }
+
+            DateTimeOffset startDate = currentDateTime.AddSeconds(-pastThreshold);
+            DateTimeOffset endDate = currentDateTime.AddSeconds(futureThreshold);
+            bool isNotRecent = date < startDate || date > endDate;
+
+            return (isNotRecent, startDate, endDate);
+        }
 
         private static void Validate(
             string message,

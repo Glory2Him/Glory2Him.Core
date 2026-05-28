@@ -50,7 +50,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentItem);
-                ValidateOnAddContentItem(contentItem);
+                await ValidateOnAddContentItem(contentItem);
 
                 ContentItem addedContentItem =
                     await this.storageBroker.InsertContentItemAsync(contentItem, cancellationToken);
@@ -95,7 +95,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 contentItem = await this.securityAuditBroker.ApplyModifyAuditValuesAsync(contentItem);
-                ValidateOnModifyContentItem(contentItem);
+                await ValidateOnModifyContentItem(contentItem);
 
                 ContentItem maybeContentItem =
                     await this.storageBroker.SelectContentItemByIdAsync(contentItem.Id, cancellationToken);

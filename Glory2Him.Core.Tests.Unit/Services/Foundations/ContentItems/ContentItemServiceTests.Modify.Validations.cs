@@ -121,7 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.UpdatedWhen),
-                values: "Date is required");
+                values: new[] { "Date is required", "Date is the same as CreatedWhen" });
 
             var expectedContentItemValidationException =
                 new ContentItemValidationException(
@@ -131,6 +131,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem))
                     .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(invalidText);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(default(DateTimeOffset));
 
             // when
             ValueTask<ContentItem> modifyContentItemTask =
@@ -150,6 +158,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem),
                 Times.Once);
 
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemValidationException))),
@@ -166,7 +182,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnModifyIfContentItemNotFoundAndLogItAsync()        {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset);
+            string randomUserId = GetRandomString();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
             ContentItem nonExistentContentItem = randomContentItem;
             ContentItem noContentItem = null;
 
@@ -180,6 +197,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(nonExistentContentItem))
                     .ReturnsAsync(nonExistentContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
@@ -205,6 +230,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.ApplyModifyAuditValuesAsync(nonExistentContentItem),
                 Times.Once);
 
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectContentItemByIdAsync(
                     nonExistentContentItem.Id,
@@ -228,7 +261,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset);
+            string randomUserId = GetRandomString();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
             ContentItem invalidContentItem = randomContentItem;
             ContentItem storageContentItem = randomContentItem.DeepClone();
             storageContentItem.CreatedWhen = GetRandomDateTimeOffset();
@@ -239,7 +273,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.CreatedWhen),
-                values: $"Date is not the same as: {storageContentItem.CreatedWhen}");
+                values: $"Date is not the same as {nameof(ContentItem.CreatedWhen)}");
 
             var expectedContentItemValidationException = new ContentItemValidationException(
                 message: "Content item validation error occurred, fix the errors and try again.",
@@ -248,6 +282,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem))
                     .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
@@ -277,6 +319,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -308,7 +358,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset);
+            string randomUserId = GetRandomString();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
             ContentItem invalidContentItem = randomContentItem;
             ContentItem storageContentItem = randomContentItem.DeepClone();
             storageContentItem.CreatedBy = GetRandomString();
@@ -330,6 +381,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem))
                     .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
@@ -359,6 +418,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -390,7 +457,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset);
+            string randomUserId = GetRandomString();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
             ContentItem invalidContentItem = randomContentItem;
             ContentItem storageContentItem = randomContentItem.DeepClone();
 
@@ -410,6 +478,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem))
                     .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
@@ -441,6 +517,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.ApplyModifyAuditValuesAsync(invalidContentItem),
                 Times.Once);
 
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectContentItemByIdAsync(
                     invalidContentItem.Id,
@@ -451,6 +535,389 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
                     invalidContentItem,
                     storageContentItem),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedByIsNotSameAsCurrentUserIdAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            string differentUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
+            ContentItem invalidContentItem = randomContentItem;
+            invalidContentItem.UpdatedBy = differentUserId;
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.UpdatedBy),
+                values: $"Expected value to be '{randomUserId}' but found '{differentUserId}'.");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem))
+                    .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedWhenIsSameAsCreatedWhenAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
+            ContentItem invalidContentItem = randomContentItem;
+            DateTimeOffset currentDateTime = randomDateTimeOffset;
+            DateTimeOffset startDate = currentDateTime.AddSeconds(-90);
+            DateTimeOffset endDate = currentDateTime;
+            invalidContentItem.UpdatedWhen = invalidContentItem.CreatedWhen;
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.UpdatedWhen),
+                values: new[]
+                {
+                    $"Date is the same as {nameof(ContentItem.CreatedWhen)}",
+                    $"Date is not recent. Expected a value between {startDate} and {endDate} but found {invalidContentItem.UpdatedWhen}"
+                });
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem))
+                    .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(MinutesBeforeOrAfter))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedWhenIsNotRecentAndLogItAsync(int minutes)
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
+            ContentItem invalidContentItem = randomContentItem;
+            DateTimeOffset currentDateTime = randomDateTimeOffset;
+            DateTimeOffset startDate = currentDateTime.AddSeconds(-90);
+            DateTimeOffset endDate = currentDateTime;
+            invalidContentItem.UpdatedWhen = randomDateTimeOffset.AddMinutes(minutes);
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.UpdatedWhen),
+                values: $"Date is not recent. Expected a value between {startDate} and {endDate} but found {invalidContentItem.UpdatedWhen}");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem))
+                    .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfCreatedByExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            string longText = GetRandomStringWithLengthOf(256);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
+            ContentItem invalidContentItem = randomContentItem;
+            invalidContentItem.CreatedBy = longText;
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.CreatedBy),
+                values: "Text exceed max length of 255 characters");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem))
+                    .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedByExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            string longText = GetRandomStringWithLengthOf(256);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
+            ContentItem invalidContentItem = randomContentItem;
+            invalidContentItem.UpdatedBy = longText;
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.UpdatedBy),
+                values: new[]
+                {
+                    "Text exceed max length of 255 characters",
+                    $"Expected value to be '{randomUserId}' but found '{longText}'."
+                });
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem))
+                    .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItem),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

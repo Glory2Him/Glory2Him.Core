@@ -24,8 +24,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldModifyContentItemAsync()
         {
             // given
+            string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset);
+            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
             ContentItem inputContentItem = randomContentItem;
             ContentItem auditAppliedContentItem = inputContentItem.DeepClone();
             ContentItem storageContentItem = auditAppliedContentItem.DeepClone();
@@ -33,6 +34,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem auditPreservedContentItem = auditAppliedContentItem.DeepClone();
             ContentItem updatedContentItem = auditPreservedContentItem.DeepClone();
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(inputContentItem))
@@ -66,6 +75,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // then
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyModifyAuditValuesAsync(inputContentItem),

@@ -7,6 +7,7 @@
 // https://mark.bible/mark-16-15
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -23,11 +24,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldAddContentItemAsync()
         {
             // given
-            ContentItem randomContentItem = CreateRandomContentItem();
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem randomContentItem = CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
             ContentItem inputContentItem = randomContentItem;
             ContentItem auditAppliedContentItem = inputContentItem.DeepClone();
+            auditAppliedContentItem.CreatedBy = randomUserId;
+            auditAppliedContentItem.CreatedWhen = randomDateTimeOffset;
+            auditAppliedContentItem.UpdatedBy = randomUserId;
+            auditAppliedContentItem.UpdatedWhen = randomDateTimeOffset;
             ContentItem storageContentItem = auditAppliedContentItem.DeepClone();
             ContentItem expectedContentItem = storageContentItem.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(inputContentItem))
@@ -49,6 +64,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // then
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyAddAuditValuesAsync(inputContentItem),
