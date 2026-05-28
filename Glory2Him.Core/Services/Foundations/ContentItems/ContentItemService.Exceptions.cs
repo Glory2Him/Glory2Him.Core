@@ -9,6 +9,7 @@
 
 using System;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
@@ -55,6 +56,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 await this.loggingBroker.LogCriticalAsync(contentItemDependencyException);
 
                 throw contentItemDependencyException;
+            }
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsContentItemException = new AlreadyExistsContentItemException(
+                    message: "Content item already exists with the same Id.",
+                    innerException: duplicateKeyException,
+                    data: duplicateKeyException.Data);
+
+                var contentItemDependencyValidationException = new ContentItemDependencyValidationException(
+                    message: "Content item dependency validation error occurred, fix the errors and try again.",
+                    innerException: alreadyExistsContentItemException);
+
+                await this.loggingBroker.LogErrorAsync(contentItemDependencyValidationException);
+
+                throw contentItemDependencyValidationException;
             }
             catch (NullContentItemException nullContentItemException)
             {
