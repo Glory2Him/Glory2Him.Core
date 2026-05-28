@@ -34,6 +34,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         private static void ValidateOnModifyContentItem(ContentItem contentItem)
         {
             ValidateContentItemIsNotNull(contentItem);
+
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
+                (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentItem.ContentItemGroupId), Parameter: nameof(ContentItem.ContentItemGroupId)),
+                (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)),
+                (Rule: IsInvalid(contentItem.CreatedBy), Parameter: nameof(ContentItem.CreatedBy)),
+                (Rule: IsInvalid(contentItem.UpdatedBy), Parameter: nameof(ContentItem.UpdatedBy)),
+                (Rule: IsInvalid(contentItem.CreatedWhen), Parameter: nameof(ContentItem.CreatedWhen)),
+                (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)));
         }
 
         private static void ValidateOnRetrieveContentItemById(Guid contentItemId) =>
