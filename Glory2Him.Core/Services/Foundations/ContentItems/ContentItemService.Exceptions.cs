@@ -97,6 +97,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 throw await CreateAndLogDependencyException(timeoutContentItemException);
             }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentItemException = new FailedStorageContentItemException(
+                    message: "Failed content item storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyException(failedStorageContentItemException);
+            }
             catch (OperationCanceledException)
             {
                 throw;
