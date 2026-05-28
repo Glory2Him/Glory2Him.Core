@@ -104,6 +104,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         public ValueTask<ContentItem> RemoveContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                ContentItem maybeContentItem =
+                    await this.storageBroker.SelectContentItemByIdAsync(contentItemId, cancellationToken);
+
+                ContentItem deletedContentItem =
+                    await this.storageBroker.DeleteContentItemAsync(maybeContentItem, cancellationToken);
+
+                var envelope = new EventEnvelope<ContentItem> { Content = deletedContentItem };
+                await this.eventBroker.PublishContentItemAsync(envelope, "ContentItemRemoved");
+
+                return deletedContentItem;
+            });
     }
 }
