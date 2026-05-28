@@ -33,6 +33,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 throw contentItemValidationException;
             }
+            catch (InvalidContentItemException invalidContentItemException)
+            {
+                var contentItemValidationException = new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+                await this.loggingBroker.LogErrorAsync(contentItemValidationException);
+
+                throw contentItemValidationException;
+            }
         }
     }
 }
