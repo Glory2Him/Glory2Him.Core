@@ -137,5 +137,53 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrieveAllIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            var serviceException = new Exception();
+
+            var failedContentItemServiceException = new FailedContentItemServiceException(
+                message: "Failed content item service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedContentItemServiceException = new ContentItemServiceException(
+                message: "Content item service error occurred, contact support.",
+                innerException: failedContentItemServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllContentItemsAsync())
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<IQueryable<ContentItem>> retrieveAllContentItemsTask =
+                this.contentItemService.RetrieveAllContentItemsAsync(
+                    TestContext.Current.CancellationToken);
+
+            ContentItemServiceException actualContentItemServiceException =
+                await Assert.ThrowsAsync<ContentItemServiceException>(
+                    retrieveAllContentItemsTask.AsTask);
+
+            // then
+            actualContentItemServiceException.Should().BeEquivalentTo(
+                expectedContentItemServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllContentItemsAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
