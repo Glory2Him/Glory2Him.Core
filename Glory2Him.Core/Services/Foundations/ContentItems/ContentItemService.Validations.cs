@@ -52,6 +52,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
+        private static void ValidateOnRemoveContentItemById(Guid contentItemId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
+
         private static void ValidateContentItemIsNotNull(ContentItem contentItem)
         {
             if (contentItem is null)

@@ -107,6 +107,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnRemoveContentItemById(contentItemId);
 
                 ContentItem maybeContentItem =
                     await this.storageBroker.SelectContentItemByIdAsync(contentItemId, cancellationToken);
