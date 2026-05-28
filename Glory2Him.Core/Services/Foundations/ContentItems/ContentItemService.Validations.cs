@@ -57,6 +57,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
+        private static void ValidateStorageContentItem(ContentItem maybeContentItem, Guid contentItemId)
+        {
+            if (maybeContentItem is null)
+            {
+                throw new NotFoundContentItemException(
+                    message: $"Content item not found with id: {contentItemId}.");
+            }
+        }
+
         private static void ValidateContentItemIsNotNull(ContentItem contentItem)
         {
             if (contentItem is null)

@@ -75,6 +75,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 throw await CreateAndLogValidationException(invalidContentItemException);
             }
+            catch (NotFoundContentItemException notFoundContentItemException)
+            {
+                throw await CreateAndLogValidationException(notFoundContentItemException);
+            }
             catch (OperationCanceledException)
             {
                 throw;

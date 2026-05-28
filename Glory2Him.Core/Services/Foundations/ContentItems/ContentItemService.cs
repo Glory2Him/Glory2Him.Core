@@ -112,6 +112,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ContentItem maybeContentItem =
                     await this.storageBroker.SelectContentItemByIdAsync(contentItemId, cancellationToken);
 
+                ValidateStorageContentItem(maybeContentItem, contentItemId);
+
                 ContentItem deletedContentItem =
                     await this.storageBroker.DeleteContentItemAsync(maybeContentItem, cancellationToken);
 
