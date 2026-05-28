@@ -40,6 +40,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 throw await CreateAndLogDependencyException(timeoutContentItemException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (NullContentItemException nullContentItemException)
+            {
+                throw await CreateAndLogValidationException(nullContentItemException);
+            }
+            catch (InvalidContentItemException invalidContentItemException)
+            {
+                throw await CreateAndLogValidationException(invalidContentItemException);
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageContentItemException = new FailedStorageContentItemException(
@@ -48,6 +60,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     data: sqlException.Data);
 
                 throw await CreateAndLogCriticalDependencyException(failedStorageContentItemException);
+            }
+            catch (NotFoundContentItemException notFoundContentItemException)
+            {
+                throw await CreateAndLogValidationException(notFoundContentItemException);
             }
             catch (DuplicateKeyException duplicateKeyException)
             {
@@ -58,6 +74,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 throw await CreateAndLogDependencyValidationException(alreadyExistsContentItemException);
             }
+            catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
+            {
+                var invalidContentItemReferenceException = new InvalidContentItemReferenceException(
+                    message: "Invalid content item reference error occurred.",
+                    innerException: foreignKeyConstraintConflictException,
+                    data: foreignKeyConstraintConflictException.Data);
+
+                throw await CreateAndLogDependencyValidationException(invalidContentItemReferenceException);
+            }
             catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
             {
                 var lockedContentItemException = new LockedContentItemException(
@@ -67,21 +92,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 throw await CreateAndLogDependencyValidationException(lockedContentItemException);
             }
-            catch (NullContentItemException nullContentItemException)
+            catch (DbUpdateException dbUpdateException)
             {
-                throw await CreateAndLogValidationException(nullContentItemException);
-            }
-            catch (InvalidContentItemException invalidContentItemException)
-            {
-                throw await CreateAndLogValidationException(invalidContentItemException);
-            }
-            catch (NotFoundContentItemException notFoundContentItemException)
-            {
-                throw await CreateAndLogValidationException(notFoundContentItemException);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
+                var failedStorageContentItemException = new FailedStorageContentItemException(
+                    message: "Failed content item storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+                throw await CreateAndLogDependencyException(failedStorageContentItemException);
             }
             catch (Exception exception)
             {
@@ -111,6 +129,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 throw await CreateAndLogDependencyException(timeoutContentItemException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageContentItemException = new FailedStorageContentItemException(
@@ -119,10 +141,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     data: sqlException.Data);
 
                 throw await CreateAndLogCriticalDependencyException(failedStorageContentItemException);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
             }
             catch (Exception exception)
             {
