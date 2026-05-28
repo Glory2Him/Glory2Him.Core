@@ -66,6 +66,32 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
+        private static void ValidateAgainstStorageContentItemOnModify(
+            ContentItem inputContentItem,
+            ContentItem storageContentItem)
+        {
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+
+                (Rule: IsNotSame(
+                        firstDate: inputContentItem.CreatedWhen,
+                        secondDate: storageContentItem.CreatedWhen,
+                        secondDateName: nameof(ContentItem.CreatedWhen)),
+                    Parameter: nameof(ContentItem.CreatedWhen)),
+
+                (Rule: IsNotSame(
+                        first: inputContentItem.CreatedBy,
+                        second: storageContentItem.CreatedBy,
+                        secondName: nameof(ContentItem.CreatedBy)),
+                    Parameter: nameof(ContentItem.CreatedBy)),
+
+                (Rule: IsSame(
+                        firstDate: inputContentItem.UpdatedWhen,
+                        secondDate: storageContentItem.UpdatedWhen,
+                        secondDateName: nameof(ContentItem.UpdatedWhen)),
+                    Parameter: nameof(ContentItem.UpdatedWhen)));
+        }
+
         private static void ValidateContentItemIsNotNull(ContentItem contentItem)
         {
             if (contentItem is null)
@@ -91,6 +117,33 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Condition = date == default,
             Message = "Date is required"
         };
+
+        private static dynamic IsNotSame(
+            DateTimeOffset firstDate,
+            DateTimeOffset secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate != secondDate,
+                Message = $"Date is not the same as: {secondDate}"
+            };
+
+        private static dynamic IsNotSame(
+            string first,
+            string second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Text is not the same as {secondName}"
+            };
+
+        private static dynamic IsSame(
+            DateTimeOffset firstDate,
+            DateTimeOffset secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate == secondDate,
+                Message = $"Date is the same as {secondDateName}"
+            };
 
         private static void Validate(
             string message,

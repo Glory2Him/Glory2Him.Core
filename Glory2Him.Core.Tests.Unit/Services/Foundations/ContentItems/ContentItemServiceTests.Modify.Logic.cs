@@ -29,6 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem inputContentItem = randomContentItem;
             ContentItem auditAppliedContentItem = inputContentItem.DeepClone();
             ContentItem storageContentItem = auditAppliedContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
             ContentItem auditPreservedContentItem = auditAppliedContentItem.DeepClone();
             ContentItem updatedContentItem = auditPreservedContentItem.DeepClone();
             ContentItem expectedContentItem = updatedContentItem.DeepClone();

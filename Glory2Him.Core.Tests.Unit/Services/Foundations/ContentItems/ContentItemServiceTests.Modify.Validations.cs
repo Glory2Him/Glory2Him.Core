@@ -232,6 +232,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem invalidContentItem = randomContentItem;
             ContentItem storageContentItem = randomContentItem.DeepClone();
             storageContentItem.CreatedWhen = GetRandomDateTimeOffset();
+            storageContentItem.UpdatedWhen = GetRandomDateTimeOffset();
 
             var invalidContentItemException = new InvalidContentItemException(
                 message: "Content item is invalid, fix the errors and try again.");
