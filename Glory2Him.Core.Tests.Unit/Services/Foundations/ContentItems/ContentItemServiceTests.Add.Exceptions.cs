@@ -195,5 +195,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnAddIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            ContentItem someContentItem = CreateRandomContentItem();
+            var serviceException = new Exception();
+
+            var failedContentItemServiceException = new FailedContentItemServiceException(
+                message: "Failed content item service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedContentItemServiceException = new ContentItemServiceException(
+                message: "Content item service error occurred, contact support.",
+                innerException: failedContentItemServiceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(someContentItem))
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<ContentItem> addContentItemTask =
+                this.contentItemService.AddContentItemAsync(
+                    someContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemServiceException actualContentItemServiceException =
+                await Assert.ThrowsAsync<ContentItemServiceException>(
+                    addContentItemTask.AsTask);
+
+            // then
+            actualContentItemServiceException.Should().BeEquivalentTo(
+                expectedContentItemServiceException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(someContentItem),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
