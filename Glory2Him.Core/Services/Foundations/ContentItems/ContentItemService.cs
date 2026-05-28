@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            this.storageBroker.SelectContentItemByIdAsync(contentItemId, cancellationToken);
 
         public ValueTask<ContentItem> ModifyContentItemAsync(
             ContentItem contentItem,
