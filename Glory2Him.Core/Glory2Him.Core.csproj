@@ -29,6 +29,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="EFxceptions" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
+		<PackageReference Include="Xeption" Version="2.9.0" />
 		<ProjectReference Include="..\Glory2Him.Security.Client\Glory2Him.Security.Client.csproj" />
 		<PackageReference Include="LeVent" Version="1.2.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.10" />

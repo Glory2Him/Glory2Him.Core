@@ -15,4 +15,7 @@
     <File Path="Documentation/G2H Design.md" />
     <File Path="Documentation/Glory 2 Him.drawio" />
   </Folder>
+  <Folder Name="/Documentation/Prompts/">
+    <File Path="Documentation/Prompt-CreateFoundationService.md" />
+  </Folder>
 </Solution>

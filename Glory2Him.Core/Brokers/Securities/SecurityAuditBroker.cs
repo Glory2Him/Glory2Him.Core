@@ -123,5 +123,22 @@ namespace Glory2Him.Core.Brokers.Securities
             T storageEntity) =>
                 this.securityClient.Audits
                     .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(entity, storageEntity, securityConfigurations);
+
+        /// <summary>
+        /// Retrieves the user identifier from the given claims principal.
+        /// </summary>
+        /// <param name="claimsPrincipal">The user context containing claims.</param>
+        /// <returns>The user identifier string.</returns>
+        /// <remarks>
+        /// If no valid user identifier is found, a fallback (such as <c>"Anonymous"</c>) may be returned.
+        /// </remarks>
+        /// <example>
+        /// <code>
+        /// string userId = await auditClient.GetUserIdAsync(User);
+        /// // e.g. "Alice" or "Anonymous"
+        /// </code>
+        /// </example>
+        public async ValueTask<string> GetUserIdAsync() =>
+            await securityClient.Audits.GetUserIdAsync(claimsPrincipal);
     }
 }
