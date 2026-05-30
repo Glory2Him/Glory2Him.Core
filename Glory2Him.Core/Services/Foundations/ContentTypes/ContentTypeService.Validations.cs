@@ -68,6 +68,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 message: "Content type is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
 
+        private static void ValidateStorageContentType(ContentType maybeContentType, Guid contentTypeId)
+        {
+            if (maybeContentType is null)
+            {
+                throw new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {contentTypeId}.");
+            }
+        }
+
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
         {
             if (contentType is null)

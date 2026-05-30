@@ -81,7 +81,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRetrieveContentTypeById(contentTypeId);
 
-                return await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
+                ContentType maybeContentType =
+                    await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
+
+                ValidateStorageContentType(maybeContentType, contentTypeId);
+
+                return maybeContentType;
             });
 
         public ValueTask<ContentType> ModifyContentTypeAsync(

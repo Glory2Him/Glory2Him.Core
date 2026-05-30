@@ -54,6 +54,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 throw await CreateAndLogValidationException(invalidContentTypeException);
             }
+            catch (NotFoundContentTypeException notFoundContentTypeException)
+            {
+                throw await CreateAndLogValidationException(notFoundContentTypeException);
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageContentTypeException = new FailedStorageContentTypeException(
