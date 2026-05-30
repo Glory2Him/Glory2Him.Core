@@ -46,21 +46,23 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             this.loggingBroker = loggingBroker;
         }
 
-        public async ValueTask<ContentType> AddContentTypeAsync(
+        public ValueTask<ContentType> AddContentTypeAsync(
             ContentType contentType,
-            CancellationToken cancellationToken = default)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            contentType = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentType);
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                contentType = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentType);
+                ValidateOnAddContentType(contentType);
 
-            ContentType addedContentType =
-                await this.storageBroker.InsertContentTypeAsync(contentType, cancellationToken);
+                ContentType addedContentType =
+                    await this.storageBroker.InsertContentTypeAsync(contentType, cancellationToken);
 
-            var envelope = new EventEnvelope<ContentType> { Content = addedContentType };
-            await this.eventBroker.PublishContentTypeAsync(envelope, "ContentTypeAdded");
+                var envelope = new EventEnvelope<ContentType> { Content = addedContentType };
+                await this.eventBroker.PublishContentTypeAsync(envelope, "ContentTypeAdded");
 
-            return addedContentType;
-        }
+                return addedContentType;
+            });
 
         public ValueTask<IQueryable<ContentType>> RetrieveAllContentTypesAsync(
             CancellationToken cancellationToken = default) =>

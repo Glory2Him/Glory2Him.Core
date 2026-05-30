@@ -10,38 +10,24 @@
 // https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
-using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
     public partial class ContentTypeService
     {
-        private delegate ValueTask<ContentType> ReturningContentTypeFunction();
-
-        private async ValueTask<ContentType> TryCatch(ReturningContentTypeFunction returningContentTypeFunction)
+        private static void ValidateOnAddContentType(ContentType contentType)
         {
-            try
-            {
-                return await returningContentTypeFunction();
-            }
-            catch (NullContentTypeException nullContentTypeException)
-            {
-                throw await CreateAndLogValidationException(nullContentTypeException);
-            }
+            ValidateContentTypeIsNotNull(contentType);
         }
 
-        private async ValueTask<ContentTypeValidationException> CreateAndLogValidationException(Xeption exception)
+        private static void ValidateContentTypeIsNotNull(ContentType contentType)
         {
-            var contentTypeValidationException = new ContentTypeValidationException(
-                message: "Content type validation error occurred, fix the errors and try again.",
-                innerException: exception);
-
-            await this.loggingBroker.LogErrorAsync(contentTypeValidationException);
-
-            return contentTypeValidationException;
+            if (contentType is null)
+            {
+                throw new NullContentTypeException(message: "Content type is null.");
+            }
         }
     }
 }
