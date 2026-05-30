@@ -31,6 +31,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 throw await CreateAndLogValidationException(nullContentTypeException);
             }
+            catch (InvalidContentTypeException invalidContentTypeException)
+            {
+                throw await CreateAndLogValidationException(invalidContentTypeException);
+            }
         }
 
         private async ValueTask<ContentTypeValidationException> CreateAndLogValidationException(Xeption exception)

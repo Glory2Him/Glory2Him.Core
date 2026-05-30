@@ -10,6 +10,7 @@
 // https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 
@@ -20,6 +21,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         private static void ValidateOnAddContentType(ContentType contentType)
         {
             ValidateContentTypeIsNotNull(contentType);
+
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentType.Id), Parameter: nameof(ContentType.Id)),
+                (Rule: IsInvalid(contentType.Name), Parameter: nameof(ContentType.Name)));
         }
 
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
@@ -28,6 +34,37 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 throw new NullContentTypeException(message: "Content type is null.");
             }
+        }
+
+        private static dynamic IsInvalid(Guid id) => new
+        {
+            Condition = id == Guid.Empty,
+            Message = "Id is required"
+        };
+
+        private static dynamic IsInvalid(string text) => new
+        {
+            Condition = string.IsNullOrWhiteSpace(text),
+            Message = "Text is required"
+        };
+
+        private static void Validate(
+            string message,
+            params (dynamic Rule, string Parameter)[] validations)
+        {
+            var invalidContentTypeException = new InvalidContentTypeException(message);
+
+            foreach ((dynamic rule, string parameter) in validations)
+            {
+                if (rule.Condition)
+                {
+                    invalidContentTypeException.UpsertDataList(
+                        key: parameter,
+                        value: rule.Message);
+                }
+            }
+
+            invalidContentTypeException.ThrowIfContainsErrors();
         }
     }
 }
