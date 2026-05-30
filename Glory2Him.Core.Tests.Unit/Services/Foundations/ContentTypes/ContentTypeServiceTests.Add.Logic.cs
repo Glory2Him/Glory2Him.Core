@@ -27,25 +27,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldAddContentTypeAsync()
         {
             // given
-            string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentType randomContentType = CreateContentTypeFiller(randomDateTimeOffset, randomUserId).Create();
+            ContentType randomContentType = CreateContentTypeFiller(randomDateTimeOffset).Create();
             ContentType inputContentType = randomContentType;
             ContentType auditAppliedContentType = inputContentType.DeepClone();
-            auditAppliedContentType.CreatedBy = randomUserId;
-            auditAppliedContentType.CreatedWhen = randomDateTimeOffset;
-            auditAppliedContentType.UpdatedBy = randomUserId;
-            auditAppliedContentType.UpdatedWhen = randomDateTimeOffset;
             ContentType storageContentType = auditAppliedContentType.DeepClone();
             ContentType expectedContentType = storageContentType.DeepClone();
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
-                    .ReturnsAsync(randomUserId);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(inputContentType))
@@ -67,14 +54,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             // then
             actualContentType.Should().BeEquivalentTo(expectedContentType);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(),
-                Times.Once);
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                    broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyAddAuditValuesAsync(inputContentType),
