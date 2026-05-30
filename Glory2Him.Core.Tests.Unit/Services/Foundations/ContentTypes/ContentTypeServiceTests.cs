@@ -66,6 +66,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         private static int GetRandomNumber() =>
             new IntRange(min: 2, max: 10).GetValue();
 
+        private static int GetRandomNegativeNumber() =>
+            -1 * new IntRange(min: 2, max: 10).GetValue();
+
+        public static TheoryData<int> MinutesBeforeOrAfter()
+        {
+            int randomTimeInFuture = GetRandomNumber();
+            int randomTimeInPast = GetRandomNegativeNumber();
+
+            return new TheoryData<int>
+            {
+                randomTimeInFuture,
+                randomTimeInPast
+            };
+        }
+
         private static ContentType CreateRandomContentType() =>
             CreateContentTypeFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 

@@ -470,5 +470,83 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(MinutesBeforeOrAfter))]
+        public async Task ShouldThrowValidationExceptionOnAddIfCreatedWhenIsNotRecentAndLogItAsync(int minutes)
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentType randomContentType = CreateContentTypeFiller(randomDateTimeOffset, randomUserId).Create();
+            ContentType invalidContentType = randomContentType;
+            DateTimeOffset currentDateTime = randomDateTimeOffset;
+            DateTimeOffset startDate = currentDateTime.AddSeconds(-90);
+            DateTimeOffset endDate = currentDateTime;
+            invalidContentType.CreatedWhen = randomDateTimeOffset.AddMinutes(minutes);
+            invalidContentType.UpdatedWhen = invalidContentType.CreatedWhen;
+
+            var invalidContentTypeException =
+                new InvalidContentTypeException(
+                    message: "Content type is invalid, fix the errors and try again.");
+
+            invalidContentTypeException.AddData(
+                key: nameof(ContentType.CreatedWhen),
+                values: $"Date is not recent. Expected a value between {startDate} and {endDate} but found {invalidContentType.CreatedWhen}");
+
+            var expectedContentTypeValidationException =
+                new ContentTypeValidationException(
+                    message: "Content type validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentTypeException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidContentType))
+                    .ReturnsAsync(invalidContentType);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            // when
+            ValueTask<ContentType> addContentTypeTask =
+                this.contentTypeService.AddContentTypeAsync(
+                    invalidContentType,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    addContentTypeTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidContentType),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
