@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
+using Microsoft.Data.SqlClient;
 using Moq;
 using Xeptions;
 
@@ -86,6 +87,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             // then
             await Assert.ThrowsAsync<OperationCanceledException>(
                 modifyContentTypeTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnModifyIfSqlErrorOccursAndLogItAsync()
+        {
+            // given
+            ContentType someContentType = CreateRandomContentType();
+            SqlException sqlException = GetSqlException();
+
+            var failedStorageContentTypeException = new FailedStorageContentTypeException(
+                message: "Failed content type storage error occurred, contact support.",
+                innerException: sqlException,
+                data: sqlException.Data);
+
+            var expectedContentTypeDependencyException = new ContentTypeDependencyException(
+                message: "Content type dependency error occurred, contact support.",
+                innerException: failedStorageContentTypeException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentType))
+                    .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<ContentType> modifyContentTypeTask =
+                this.contentTypeService.ModifyContentTypeAsync(
+                    someContentType,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeDependencyException actualContentTypeDependencyException =
+                await Assert.ThrowsAsync<ContentTypeDependencyException>(
+                    modifyContentTypeTask.AsTask);
+
+            // then
+            actualContentTypeDependencyException.Should().BeEquivalentTo(
+                expectedContentTypeDependencyException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentType),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeDependencyException))),
+                Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
