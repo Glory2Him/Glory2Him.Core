@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="G2H.StorageClient.Infrastructure/G2H.StorageClient.Infrastructure.csproj" />
+  <Project Path="G2H.StorageClient.Tests.Acceptance/G2H.StorageClient.Tests.Acceptance.csproj" />
+  <Project Path="G2H.StorageClient.Tests.Integrations/G2H.StorageClient.Tests.Integrations.csproj" />
+  <Project Path="G2H.StorageClient.Tests.Unit/G2H.StorageClient.Tests.Unit.csproj" />
+  <Project Path="G2H.StorageClient/G2H.StorageClient.csproj" />
+</Solution>

@@ -384,7 +384,7 @@ namespace Glory2Him.Core.Migrations
                     b.Property<DateTimeOffset>("CreatedWhen")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<bool>("IsLatest")
+                    b.Property<bool>("G2Hatest")
                         .HasColumnType("bit");
 
                     b.Property<string>("Title")
@@ -407,10 +407,10 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasIndex("ContentTypeId");
 
-                    b.HasIndex("ContentItemGroupId", "IsLatest")
+                    b.HasIndex("ContentItemGroupId", "G2Hatest")
                         .IsUnique()
-                        .HasDatabaseName("IX_ContentItem_IsLatest")
-                        .HasFilter("[IsLatest] = 1");
+                        .HasDatabaseName("IX_ContentItem_G2Hatest")
+                        .HasFilter("[G2Hatest] = 1");
 
                     b.HasIndex("ContentItemGroupId", "Version")
                         .IsUnique()

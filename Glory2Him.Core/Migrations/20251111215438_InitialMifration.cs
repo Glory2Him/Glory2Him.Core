@@ -1,4 +1,16 @@
-﻿using System;
+﻿// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
+// https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -160,7 +172,7 @@ namespace Glory2Him.Core.Migrations
                     Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ContentItemGroupId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Version = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
-                    IsLatest = table.Column<bool>(type: "bit", nullable: false),
+                    G2Hatest = table.Column<bool>(type: "bit", nullable: false),
                     CreatedBy = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
                     CreatedWhen = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false),
                     UpdatedBy = table.Column<string>(type: "nvarchar(255)", maxLength: 255, nullable: false),
@@ -226,11 +238,11 @@ namespace Glory2Him.Core.Migrations
                 columns: new[] { "EntityType", "EntityId" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentItem_IsLatest",
+                name: "IX_ContentItem_G2Hatest",
                 table: "ContentItems",
-                columns: new[] { "ContentItemGroupId", "IsLatest" },
+                columns: new[] { "ContentItemGroupId", "G2Hatest" },
                 unique: true,
-                filter: "[IsLatest] = 1");
+                filter: "[G2Hatest] = 1");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ContentItems_ContentItemGroupId_VersionDesc",

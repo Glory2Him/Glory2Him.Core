@@ -4,7 +4,10 @@
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
 // https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
@@ -12,11 +15,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions;
+using G2H.StorageClient.Clients;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
-using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingRoles;
+using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Glory2Him.Core.Models.Foundations.Attachments;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.Comments;
@@ -29,7 +33,6 @@ using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using STX.EFCore.Client.Clients;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {

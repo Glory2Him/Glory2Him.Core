@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
@@ -31,7 +31,6 @@
 		<PackageReference Include="EFxceptions" Version="10.0.0" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
 		<PackageReference Include="Xeption" Version="2.9.0" />
-		<ProjectReference Include="..\Glory2Him.Security.Client\Glory2Him.Security.Client.csproj" />
 		<PackageReference Include="LeVent" Version="1.2.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.10" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
@@ -49,7 +48,6 @@
 		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.8" />
 		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.8" />
-		<PackageReference Include="STX.EFCore.Client" Version="3.0.0" />
 	</ItemGroup>
 	
 	<ItemGroup>
@@ -89,6 +87,11 @@
 		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Unit" />
 		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Acceptance" />
 		<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Clients\SecurityClients\G2H.Security.Client\G2H.Security.Client.csproj" />
+	  <ProjectReference Include="..\Clients\StorageClients\G2H.StorageClient\G2H.StorageClient.csproj" />
 	</ItemGroup>
 
 </Project>

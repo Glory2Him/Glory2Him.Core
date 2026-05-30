@@ -103,7 +103,7 @@ The content item model should contain the following design-relevant properties:
 | `Content` | Required body content. |
 | `ContentItemGroupId` | Groups multiple versions of the same logical content item. |
 | `Version` | Version number for the item. |
-| `IsLatestVersion` | Identifies the latest version within the content group. Only one row per `ContentItemGroupId` may be latest. |
+| `G2HatestVersion` | Identifies the latest version within the content group. Only one row per `ContentItemGroupId` may be latest. |
 | `IsPublished` | Identifies the currently published version. Only one row per `ContentItemGroupId` may be published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
 | `PublishDate` | Optional date/time from which the content can be visible. |
@@ -123,7 +123,7 @@ Content is versioned by using:
 1. `Id` for the specific version.
 2. `ContentItemGroupId` for the logical content item across all versions.
 3. `Version` for the version number.
-4. `IsLatestVersion` to identify the latest editable version.
+4. `G2HatestVersion` to identify the latest editable version.
 5. `IsPublished` to identify the current public version.
 
 ### 3.4 Content Versioning Rules
@@ -131,18 +131,18 @@ Content is versioned by using:
 The following rules apply:
 
 1. A new content item starts with `Version = 1`.
-2. A new content item starts with `IsLatestVersion = true`.
+2. A new content item starts with `G2HatestVersion = true`.
 3. A new content item starts with `IsPublished = false` unless it is approved and published through the approval workflow.
 4. A content item that has not yet been approved may be edited in-place.
 5. Editing a draft, submitted, rejected, or dismissed item does not create a new version.
 6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed and the item must be reviewed again.
 7. Once a content item has been approved, it becomes immutable for public-audit purposes.
 8. Editing an approved content item creates a new `ContentItem` row with the same `ContentItemGroupId` and incremented `Version`.
-9. The new version becomes `IsLatestVersion = true`.
-10. The previous latest version becomes `IsLatestVersion = false`.
+9. The new version becomes `G2HatestVersion = true`.
+10. The previous latest version becomes `G2HatestVersion = false`.
 11. The new version must not become `IsPublished = true` until approved.
 12. The previously published version remains `IsPublished = true` until the new version is approved and published.
-13. Only one content item per `ContentItemGroupId` may have `IsLatestVersion = true`.
+13. Only one content item per `ContentItemGroupId` may have `G2HatestVersion = true`.
 14. Only one content item per `ContentItemGroupId` may have `IsPublished = true`.
 15. Previous versions must remain available for audit, approval history, comparison, and rollback.
 
@@ -192,7 +192,7 @@ Standard content type examples:
 | `Name` | Name of the content type. |
 | `ContentItemGroupId` | Groups all versions of this content type record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of the content type record, defaults to 1. |
-| `IsLatestVersion` | Identifies the latest version of this content type record. |
+| `G2HatestVersion` | Identifies the latest version of this content type record. |
 | `PublishDate` | Optional date/time from which this content type becomes visible. |
 | `IsPublished` | Identifies the currently published version of this content type record. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). |
@@ -268,7 +268,7 @@ The following rules must be enforced:
 | `AssociatedContentItemGroupId` | Target content item group for the association. Populated when `Scope = AllVersions`; null otherwise. |
 | `ContentItemGroupId` | Groups all versions of this association record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this association record, defaults to 1. |
-| `IsLatestVersion` | Identifies the latest version of this association record. |
+| `G2HatestVersion` | Identifies the latest version of this association record. |
 | `EntityType` | Type of the associated entity. |
 | `EntityId` | Identifier of the associated entity. |
 | `PublishDate` | Optional visibility date for the association. |
@@ -323,7 +323,7 @@ Example:
 | `Name` | Tag name. |
 | `ContentItemGroupId` | Groups all versions of this tag record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this tag record, defaults to 1. |
-| `IsLatestVersion` | Identifies the latest version of this tag record. |
+| `G2HatestVersion` | Identifies the latest version of this tag record. |
 | `PublishDate` | Optional date/time from which this tag becomes visible. |
 | `IsPublished` | Identifies whether the current version of this tag is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). |
@@ -347,7 +347,7 @@ Example:
 | `UnicodeEmoji` | Emoji representation. |
 | `ContentItemGroupId` | Groups all versions of this reaction record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this reaction record, defaults to 1. |
-| `IsLatestVersion` | Identifies the latest version of this reaction record. |
+| `G2HatestVersion` | Identifies the latest version of this reaction record. |
 | `PublishDate` | Optional date/time from which this reaction becomes visible. |
 | `IsPublished` | Identifies whether the current version of this reaction is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). |
@@ -1553,7 +1553,7 @@ Responsibilities:
 
 1. Orchestrate content item creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Update `G2HatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Orchestrate soft delete across the content item and flag dependent associations as appropriate.
 6. Publish `ContentItemCreatedEvent`, `ContentItemUpdatedEvent`, and `ContentItemDeletedEvent` via `ContentItemEventService`.
@@ -1562,14 +1562,14 @@ Responsibilities:
 Business Rules:
 
 1. A content item in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` content item is immutable. Editing must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
+2. An `Approved` content item is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
+3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index))
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A content item must not be published until its `ApprovalStatus` is `Approved`. This is enforced by the orchestration workflow that listens for approval status changes and updates `IsPublished` accordingly when approval is granted.
 6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `IsLatestVersion`
+   - `G2HatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1589,7 +1589,7 @@ Responsibilities:
 
 1. Orchestrate content type creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Update `G2HatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Ensure required seeded content types exist on startup.
 6. Orchestrate soft delete and prevent deletion of content types that have active content items.
@@ -1599,8 +1599,8 @@ Responsibilities:
 Business Rules:
 
 1. A content type in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` content type is immutable. Editing must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+2. An `Approved` content type is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
+3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. The seeded content types `Quote`, `Story`, `Testimony`, and `Topic` must always exist and may not be deleted.
 6. A content type may not be deleted if it has active, non-deleted content items assigned to it.
@@ -1609,7 +1609,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `IsLatestVersion`
+   - `G2HatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1743,7 +1743,7 @@ Responsibilities:
 
 1. Orchestrate tag creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Update `G2HatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved tag with a content item by creating a `ContentItemAssociation`, validating that tagging is permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of tags and flag associated content item associations as appropriate.
@@ -1753,8 +1753,8 @@ Responsibilities:
 Business Rules:
 
 1. A tag in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` tag is immutable. Editing must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+2. An `Approved` tag is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
+3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A tag may only be associated with a content item if `ContentItemSetting.TagsAllowed = true`.
 6. The association requires its own approval when `ContentItemSetting.TagAssociationsRequireApproval = true`.
@@ -1763,7 +1763,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `IsLatestVersion`
+   - `G2HatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1783,7 +1783,7 @@ Responsibilities:
 
 1. Orchestrate reaction definition creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Update `G2HatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate a reaction with a content item by creating a `ContentItemAssociation`, validating that reactions are permitted and enforcing `LimitReactionsToLoveOnly` when the setting is enabled.
 6. Orchestrate soft delete of reactions and flag associated content item associations as appropriate.
@@ -1793,8 +1793,8 @@ Responsibilities:
 Business Rules:
 
 1. A reaction in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` reaction is immutable. Editing must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+2. An `Approved` reaction is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
+3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A reaction may only be associated with a content item if `ContentItemSetting.ReactionsAllowed = true`.
 6. When `ContentItemSetting.LimitReactionsToLoveOnly = true`, only the designated love reaction may be associated.
@@ -1803,7 +1803,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `IsLatestVersion`
+   - `G2HatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1823,7 +1823,7 @@ Responsibilities:
 
 1. Orchestrate comment creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Update `G2HatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved comment with a content item by creating a `ContentItemAssociation`, validating that comments are permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of comments and flag associated content item associations as appropriate.
@@ -1833,8 +1833,8 @@ Responsibilities:
 Business Rules:
 
 1. A comment in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` comment is immutable. Editing must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+2. An `Approved` comment is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
+3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A comment may only be associated with a content item if `ContentItemSetting.CommentsAllowed = true`.
 6. The association requires its own approval when `ContentItemSetting.CommentAssociationsRequireApproval = true`.
@@ -1842,7 +1842,7 @@ Business Rules:
 8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `IsLatestVersion`
+   - `G2HatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1862,7 +1862,7 @@ Responsibilities:
 
 1. Orchestrate Bible reference creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Update `G2HatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved Bible reference with a content item by creating a `ContentItemAssociation`, validating that Bible references are permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of Bible references and flag associated content item associations as appropriate.
@@ -1872,8 +1872,8 @@ Responsibilities:
 Business Rules:
 
 1. A Bible reference in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` Bible reference is immutable. Editing must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+2. An `Approved` Bible reference is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
+3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A Bible reference may only be associated with a content item if `ContentItemSetting.BibleReferenceAllowed = true`.
 6. The association requires its own approval when `ContentItemSetting.BibleReferenceAssociationsRequireApproval = true`.
@@ -1882,7 +1882,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `IsLatestVersion`
+   - `G2HatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -2098,7 +2098,7 @@ public Guid ContentTypeId { get; set; }
 Responsible for:
 
 1. Creating content item versions.
-2. Updating `IsLatestVersion` flags.
+2. Updating `G2HatestVersion` flags.
 3. Updating `IsPublished` flags when approval completes.
 4. Validating content item fields.
 5. Reading content by id, group id, type, latest version, and published version.

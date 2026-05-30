@@ -1,0 +1,62 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>disable</Nullable>
+		<NoWarn>CS1998</NoWarn>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<Title>G2H.StorageClient</Title>
+		<Authors>Christo du Toit</Authors>
+		<Description>
+			A Standard-compliant EF Core client that backs your Storage Broker with full CRUD, bulk, upsert, and existence-check operations — 
+			all with cancellation support — so your foundation services remain clean, consistent, and fully unit-testable without direct EF Core dependencies.
+		</Description>
+		<Copyright>Copyright (c) Christo du Toit</Copyright>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+		<PackageIcon>Glory2Him-Square.png</PackageIcon>
+		<Version>1.0.0</Version>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<FileVersion>1.0.0.0</FileVersion>
+		<NeutralLanguage>en-US</NeutralLanguage>
+		<PackageProjectUrl>https://github.com/Glory2Him/G2H.StorageClient</PackageProjectUrl>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/Glory2Him/G2H.StorageClient</RepositoryUrl>
+		<RepositoryType>Github</RepositoryType>
+		<PackageTags>EF;EFCore;EntityFramework;StorageBroker;BulkInsert;BulkUpdate;BulkDelete;BulkUpsert;Operations;CSharp</PackageTags>		
+		<PackageReleaseNotes>
+			v1.0.0 — Initial release.
+		</PackageReleaseNotes>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="G2H.StorageClient.Tests.Unit" />
+		<InternalsVisibleTo Include="G2H.StorageClient.Tests.Acceptance" />
+		<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Content Include="..\LICENSE.txt">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</Content>
+		<Content Include="..\README.md">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</Content>
+		<None Include="..\Resources\Images\Glory2Him-Square.png">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.8" />
+	</ItemGroup>
+
+</Project>

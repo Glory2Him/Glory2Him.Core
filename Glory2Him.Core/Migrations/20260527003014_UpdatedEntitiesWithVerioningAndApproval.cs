@@ -1,4 +1,16 @@
-﻿using System;
+﻿// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
+// https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -12,7 +24,7 @@ namespace Glory2Him.Core.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropIndex(
-                name: "IX_ContentItem_IsLatest",
+                name: "IX_ContentItem_G2Hatest",
                 table: "ContentItems");
 
             migrationBuilder.DropIndex(
@@ -32,7 +44,7 @@ namespace Glory2Him.Core.Migrations
                 table: "ContentItemAssociations");
 
             migrationBuilder.DropColumn(
-                name: "IsLatest",
+                name: "G2Hatest",
                 table: "ContentItems");
 
             migrationBuilder.DropColumn(
@@ -318,7 +330,7 @@ namespace Glory2Him.Core.Migrations
                 defaultValue: false);
 
             migrationBuilder.AddColumn<bool>(
-                name: "IsLatestVersion",
+                name: "G2HatestVersion",
                 table: "ContentItems",
                 type: "bit",
                 nullable: false,
@@ -505,7 +517,7 @@ namespace Glory2Him.Core.Migrations
                     DeletionReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ContentItemGroupId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Version = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
-                    IsLatestVersion = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    G2HatestVersion = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     PublishDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     IsPublished = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     ApprovalStatus = table.Column<int>(type: "int", nullable: false, defaultValue: 0)
@@ -533,7 +545,7 @@ namespace Glory2Him.Core.Migrations
                     DeletionReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ContentItemGroupId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Version = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
-                    IsLatestVersion = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    G2HatestVersion = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     PublishDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     IsPublished = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     ApprovalStatus = table.Column<int>(type: "int", nullable: false, defaultValue: 0)
@@ -584,7 +596,7 @@ namespace Glory2Him.Core.Migrations
                     DeletionReason = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ContentItemGroupId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     Version = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
-                    IsLatestVersion = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
+                    G2HatestVersion = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     PublishDate = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
                     IsPublished = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     ApprovalStatus = table.Column<int>(type: "int", nullable: false, defaultValue: 0)
@@ -627,11 +639,11 @@ namespace Glory2Him.Core.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentItem_IsLatest",
+                name: "IX_ContentItem_G2Hatest",
                 table: "ContentItems",
-                columns: new[] { "ContentItemGroupId", "IsLatestVersion" },
+                columns: new[] { "ContentItemGroupId", "G2HatestVersion" },
                 unique: true,
-                filter: "[IsLatestVersion] = 1");
+                filter: "[G2HatestVersion] = 1");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ContentItem_IsPublished",
@@ -700,11 +712,11 @@ namespace Glory2Him.Core.Migrations
                 column: "Hash");
 
             migrationBuilder.CreateIndex(
-                name: "UX_Attachments_ContentItemGroupId_IsLatest",
+                name: "UX_Attachments_ContentItemGroupId_G2Hatest",
                 table: "Attachments",
-                columns: new[] { "ContentItemGroupId", "IsLatestVersion" },
+                columns: new[] { "ContentItemGroupId", "G2HatestVersion" },
                 unique: true,
-                filter: "[IsLatestVersion] = 1");
+                filter: "[G2HatestVersion] = 1");
 
             migrationBuilder.CreateIndex(
                 name: "UX_Attachments_ContentItemGroupId_IsPublished",
@@ -720,11 +732,11 @@ namespace Glory2Him.Core.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "UX_BibleReferences_ContentItemGroupId_IsLatest",
+                name: "UX_BibleReferences_ContentItemGroupId_G2Hatest",
                 table: "BibleReferences",
-                columns: new[] { "ContentItemGroupId", "IsLatestVersion" },
+                columns: new[] { "ContentItemGroupId", "G2HatestVersion" },
                 unique: true,
-                filter: "[IsLatestVersion] = 1");
+                filter: "[G2HatestVersion] = 1");
 
             migrationBuilder.CreateIndex(
                 name: "UX_BibleReferences_ContentItemGroupId_IsPublished",
@@ -740,11 +752,11 @@ namespace Glory2Him.Core.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "UX_Links_ContentItemGroupId_IsLatest",
+                name: "UX_Links_ContentItemGroupId_G2Hatest",
                 table: "Links",
-                columns: new[] { "ContentItemGroupId", "IsLatestVersion" },
+                columns: new[] { "ContentItemGroupId", "G2HatestVersion" },
                 unique: true,
-                filter: "[IsLatestVersion] = 1");
+                filter: "[G2HatestVersion] = 1");
 
             migrationBuilder.CreateIndex(
                 name: "UX_Links_ContentItemGroupId_IsPublished",
@@ -786,7 +798,7 @@ namespace Glory2Him.Core.Migrations
                 table: "Reactions");
 
             migrationBuilder.DropIndex(
-                name: "IX_ContentItem_IsLatest",
+                name: "IX_ContentItem_G2Hatest",
                 table: "ContentItems");
 
             migrationBuilder.DropIndex(
@@ -946,7 +958,7 @@ namespace Glory2Him.Core.Migrations
                 table: "ContentItems");
 
             migrationBuilder.DropColumn(
-                name: "IsLatestVersion",
+                name: "G2HatestVersion",
                 table: "ContentItems");
 
             migrationBuilder.DropColumn(
@@ -1108,7 +1120,7 @@ namespace Glory2Him.Core.Migrations
                 oldType: "uniqueidentifier");
 
             migrationBuilder.AddColumn<bool>(
-                name: "IsLatest",
+                name: "G2Hatest",
                 table: "ContentItems",
                 type: "bit",
                 nullable: false,
@@ -1122,11 +1134,11 @@ namespace Glory2Him.Core.Migrations
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
             migrationBuilder.CreateIndex(
-                name: "IX_ContentItem_IsLatest",
+                name: "IX_ContentItem_G2Hatest",
                 table: "ContentItems",
-                columns: new[] { "ContentItemGroupId", "IsLatest" },
+                columns: new[] { "ContentItemGroupId", "G2Hatest" },
                 unique: true,
-                filter: "[IsLatest] = 1");
+                filter: "[G2Hatest] = 1");
 
             migrationBuilder.CreateIndex(
                 name: "IX_ContentItemAssociation_ByContentItemGroupId_ScopeAll",

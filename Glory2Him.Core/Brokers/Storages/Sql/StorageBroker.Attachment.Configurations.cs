@@ -4,7 +4,10 @@
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
 // https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Glory2Him.Core.Models.Enums;
@@ -72,7 +75,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(1);
 
-            model.Property(attachment => attachment.IsLatestVersion)
+            model.Property(attachment => attachment.G2HatestVersion)
                  .IsRequired()
                  .HasDefaultValue(false);
 
@@ -93,10 +96,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasDatabaseName("UX_Attachments_ContentItemGroupId_Version");
 
             // Exactly one latest version per group
-            model.HasIndex(attachment => new { attachment.ContentItemGroupId, attachment.IsLatestVersion })
+            model.HasIndex(attachment => new { attachment.ContentItemGroupId, attachment.G2HatestVersion })
                  .IsUnique()
-                 .HasFilter($"[{nameof(Attachment.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("UX_Attachments_ContentItemGroupId_IsLatest");
+                 .HasFilter($"[{nameof(Attachment.G2HatestVersion)}] = 1")
+                 .HasDatabaseName("UX_Attachments_ContentItemGroupId_G2Hatest");
 
             // Exactly one published version per group
             model.HasIndex(attachment => new { attachment.ContentItemGroupId, attachment.IsPublished })

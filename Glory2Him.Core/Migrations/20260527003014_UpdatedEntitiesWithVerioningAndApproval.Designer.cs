@@ -386,7 +386,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsLatestVersion")
+                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -422,10 +422,10 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("Hash")
                         .HasDatabaseName("IX_Attachments_Hash");
 
-                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
+                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
                         .IsUnique()
-                        .HasDatabaseName("UX_Attachments_ContentItemGroupId_IsLatest")
-                        .HasFilter("[IsLatestVersion] = 1");
+                        .HasDatabaseName("UX_Attachments_ContentItemGroupId_G2Hatest")
+                        .HasFilter("[G2HatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()
@@ -476,7 +476,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsLatestVersion")
+                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -517,10 +517,10 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
+                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
                         .IsUnique()
-                        .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_IsLatest")
-                        .HasFilter("[IsLatestVersion] = 1");
+                        .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_G2Hatest")
+                        .HasFilter("[G2HatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()
@@ -883,7 +883,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsLatestVersion")
+                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -923,10 +923,10 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("PublishDate")
                         .HasDatabaseName("IX_ContentItems_PublishDate");
 
-                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
+                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
                         .IsUnique()
-                        .HasDatabaseName("IX_ContentItem_IsLatest")
-                        .HasFilter("[IsLatestVersion] = 1");
+                        .HasDatabaseName("IX_ContentItem_G2Hatest")
+                        .HasFilter("[G2HatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()
@@ -1044,7 +1044,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsLatestVersion")
+                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -1087,10 +1087,10 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
+                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
                         .IsUnique()
-                        .HasDatabaseName("UX_Links_ContentItemGroupId_IsLatest")
-                        .HasFilter("[IsLatestVersion] = 1");
+                        .HasDatabaseName("UX_Links_ContentItemGroupId_G2Hatest")
+                        .HasFilter("[G2HatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()

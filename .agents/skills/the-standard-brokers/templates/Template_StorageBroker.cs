@@ -76,7 +76,7 @@ using EFxceptions;
 using {Namespace}.Models.Foundations.{Entity}s;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using STX.EFCore.Client.Clients;
+using G2H.StorageClient.Clients;
 
 namespace {Namespace}.Brokers.Storages.Sql
 {

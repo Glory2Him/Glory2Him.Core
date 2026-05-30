@@ -4,7 +4,10 @@
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, 'I am the way and the truth and the life.
+//                  No one comes to the Father except through me.'" 
 // https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -48,7 +51,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ValueTask<ContentItem> removeContentItemByIdTask =
                 this.contentItemService.RemoveContentItemByIdAsync(
                     someContentItemId,
-                    TestContext.Current.CancellationToken);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             ContentItemDependencyException actualContentItemDependencyException =
                 await Assert.ThrowsAsync<ContentItemDependencyException>(
@@ -87,7 +90,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ValueTask<ContentItem> removeContentItemByIdTask =
                 this.contentItemService.RemoveContentItemByIdAsync(
                     someContentItemId,
-                    cancellationToken);
+                    cancellationToken: cancellationToken);
 
             // then
             await Assert.ThrowsAsync<OperationCanceledException>(
@@ -126,7 +129,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ValueTask<ContentItem> removeContentItemByIdTask =
                 this.contentItemService.RemoveContentItemByIdAsync(
                     someContentItemId,
-                    TestContext.Current.CancellationToken);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             ContentItemDependencyException actualContentItemDependencyException =
                 await Assert.ThrowsAsync<ContentItemDependencyException>(
@@ -160,6 +163,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given
             Guid someContentItemId = Guid.NewGuid();
             ContentItem someContentItem = CreateRandomContentItem();
+            someContentItem.IsDeleted = false;
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
 
             var lockedContentItemException = new LockedContentItemException(
@@ -177,8 +181,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(someContentItem);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(someContentItem))
+                    .ReturnsAsync(someContentItem);
+
             this.storageBrokerMock.Setup(broker =>
-                broker.DeleteContentItemAsync(
+                broker.UpdateContentItemAsync(
                     someContentItem,
                     TestContext.Current.CancellationToken))
                         .ThrowsAsync(dbUpdateConcurrencyException);
@@ -187,7 +195,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ValueTask<ContentItem> removeContentItemByIdTask =
                 this.contentItemService.RemoveContentItemByIdAsync(
                     someContentItemId,
-                    TestContext.Current.CancellationToken);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             ContentItemDependencyValidationException actualContentItemDependencyValidationException =
                 await Assert.ThrowsAsync<ContentItemDependencyValidationException>(
@@ -203,8 +211,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(someContentItem),
+                Times.Once);
+
             this.storageBrokerMock.Verify(broker =>
-                broker.DeleteContentItemAsync(
+                broker.UpdateContentItemAsync(
                     someContentItem,
                     TestContext.Current.CancellationToken),
                 Times.Once);
@@ -227,6 +239,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given
             Guid someContentItemId = Guid.NewGuid();
             ContentItem someContentItem = CreateRandomContentItem();
+            someContentItem.IsDeleted = false;
             var dbUpdateException = new DbUpdateException();
 
             var failedStorageContentItemException = new FailedStorageContentItemException(
@@ -244,8 +257,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(someContentItem);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(someContentItem))
+                    .ReturnsAsync(someContentItem);
+
             this.storageBrokerMock.Setup(broker =>
-                broker.DeleteContentItemAsync(
+                broker.UpdateContentItemAsync(
                     someContentItem,
                     TestContext.Current.CancellationToken))
                         .ThrowsAsync(dbUpdateException);
@@ -254,7 +271,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ValueTask<ContentItem> removeContentItemByIdTask =
                 this.contentItemService.RemoveContentItemByIdAsync(
                     someContentItemId,
-                    TestContext.Current.CancellationToken);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             ContentItemDependencyException actualContentItemDependencyException =
                 await Assert.ThrowsAsync<ContentItemDependencyException>(
@@ -270,8 +287,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(someContentItem),
+                Times.Once);
+
             this.storageBrokerMock.Verify(broker =>
-                broker.DeleteContentItemAsync(
+                broker.UpdateContentItemAsync(
                     someContentItem,
                     TestContext.Current.CancellationToken),
                 Times.Once);
@@ -314,7 +335,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ValueTask<ContentItem> removeContentItemByIdTask =
                 this.contentItemService.RemoveContentItemByIdAsync(
                     someContentItemId,
-                    TestContext.Current.CancellationToken);
+                    cancellationToken: TestContext.Current.CancellationToken);
 
             ContentItemServiceException actualContentItemServiceException =
                 await Assert.ThrowsAsync<ContentItemServiceException>(

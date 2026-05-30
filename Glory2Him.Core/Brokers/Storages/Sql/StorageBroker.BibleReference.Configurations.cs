@@ -4,7 +4,10 @@
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
 // https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Glory2Him.Core.Models.Enums;
@@ -71,7 +74,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(1);
 
-            model.Property(bibleReference => bibleReference.IsLatestVersion)
+            model.Property(bibleReference => bibleReference.G2HatestVersion)
                  .IsRequired()
                  .HasDefaultValue(false);
 
@@ -92,10 +95,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_Version");
 
             // Exactly one latest version per group
-            model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.IsLatestVersion })
+            model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.G2HatestVersion })
                  .IsUnique()
-                 .HasFilter($"[{nameof(BibleReference.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_IsLatest");
+                 .HasFilter($"[{nameof(BibleReference.G2HatestVersion)}] = 1")
+                 .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_G2Hatest");
 
             // Exactly one published version per group
             model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.IsPublished })

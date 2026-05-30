@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="G2H.Security.Client.Infrastructure/G2H.Security.Client.Infrastructure.csproj" />
+  <Project Path="G2H.Security.Client.Tests.Acceptance/G2H.Security.Client.Tests.Acceptance.csproj" />
+  <Project Path="G2H.Security.Client.Tests.Unit/G2H.Security.Client.Tests.Unit.csproj" />
+  <Project Path="G2H.Security.Client/G2H.Security.Client.csproj" />
+</Solution>

@@ -4,7 +4,10 @@
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
 // https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Glory2Him.Core.Models.Enums;
@@ -81,7 +84,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired(false);
 
             model
-                .Property(contentItem => contentItem.IsLatestVersion)
+                .Property(contentItem => contentItem.G2HatestVersion)
                 .IsRequired()
                 .HasDefaultValue(false);
 
@@ -111,10 +114,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsDescending(true, true);
 
             // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
-            model.HasIndex(e => new { e.ContentItemGroupId, e.IsLatestVersion })
+            model.HasIndex(e => new { e.ContentItemGroupId, e.G2HatestVersion })
                  .IsUnique()
-                 .HasFilter($"[{nameof(ContentItem.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("IX_ContentItem_IsLatest");
+                 .HasFilter($"[{nameof(ContentItem.G2HatestVersion)}] = 1")
+                 .HasDatabaseName("IX_ContentItem_G2Hatest");
 
             // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
             model.HasIndex(e => new { e.ContentItemGroupId, e.IsPublished })
@@ -136,11 +139,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasDatabaseName("IX_ContentItems_PublishDate");
 
             model.HasIndex(contentItem => new
-                {
-                    contentItem.ApprovalStatus,
-                    contentItem.IsPublished,
-                    contentItem.PublishDate
-                })
+            {
+                contentItem.ApprovalStatus,
+                contentItem.IsPublished,
+                contentItem.PublishDate
+            })
                  .HasDatabaseName("IX_ContentItems_Feed");
 
             model.HasIndex(contentItem => contentItem.DeletedWhen)

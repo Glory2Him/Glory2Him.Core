@@ -1,0 +1,253 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
+// https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Force.DeepCloner;
+using G2H.StorageClient.Tests.Integrations.Models.Users;
+using Microsoft.EntityFrameworkCore;
+
+namespace G2H.StorageClient.Tests.Integrations.Tests
+{
+    public partial class StorageBrokerTests
+    {
+        [Fact]
+        public async Task ShouldInsertUserAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+
+            // When
+            User actualUser = await storageBroker.InsertUserAsync(inputUser);
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+            await storageBroker.DeleteUserAsync(actualUser);
+        }
+
+
+        [Fact]
+        public async Task ShouldSelectAllUsersAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+            await storageBroker.InsertUserAsync(inputUser);
+
+            // When
+            IQueryable<User> actualUsers = await storageBroker.SelectAllUsersAsync();
+            User actualUser = await actualUsers.FirstOrDefaultAsync(user => user.Id == inputUser.Id);
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+            await storageBroker.DeleteUserAsync(actualUser);
+        }
+
+        [Fact]
+        public async Task ShouldSelectUserAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+            await storageBroker.InsertUserAsync(inputUser);
+
+            // When
+            User actualUser = await storageBroker.SelectUserByIdAsync(inputUser.Id);
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+            await storageBroker.DeleteUserAsync(actualUser);
+        }
+
+
+
+        [Fact]
+        public async Task ShouldDeleteUserAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+            await storageBroker.InsertUserAsync(inputUser);
+
+            // When
+            User actualUser = await storageBroker.DeleteUserAsync(inputUser);
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+            User userInDatabase = await storageBroker.SelectUserByIdAsync(inputUser.Id);
+            userInDatabase.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldBulkInsertUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            List<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            List<User> inputUsers = randomUsers;
+            List<User> expectedUsers = inputUsers.DeepClone();
+            List<Guid> expectedUserIds = expectedUsers.Select(u => u.Id).ToList();
+
+            // When
+            await storageBroker.BulkInsertUsersAsync(inputUsers);
+            IQueryable<User> users = await storageBroker.SelectAllUsersAsync();
+
+            List<User> actualUsers = await users
+                .Where(u => expectedUserIds.Contains(u.Id)).ToListAsync();
+
+            // Then
+            actualUsers.Should().BeEquivalentTo(expectedUsers);
+            await storageBroker.BulkDeleteUsersAsync(actualUsers);
+        }
+
+        [Fact]
+        public async Task ShouldBulkReadUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            IEnumerable<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            IEnumerable<User> inputUsers = randomUsers;
+            IEnumerable<User> expectedUsers = inputUsers.DeepClone();
+            IEnumerable<Guid> expectedUserIds = expectedUsers.Select(u => u.Id).ToList();
+            await storageBroker.BulkInsertUsersAsync(inputUsers);
+
+            // When
+            IEnumerable<User> actualUsers = await storageBroker.BulkReadUsersAsync(inputUsers);
+
+            // Then
+            actualUsers.Should().BeEquivalentTo(expectedUsers);
+            await storageBroker.BulkDeleteUsersAsync(actualUsers);
+        }
+
+        [Fact]
+        public async Task ShouldBulkUpdateUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            List<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            List<User> inputUsers = randomUsers;
+            List<User> updatedUsers = inputUsers.DeepClone();
+            updatedUsers.ForEach(user => user.Email = GetRandomString());
+            List<User> expectedUsers = updatedUsers.DeepClone();
+            List<Guid> expectedUserIds = expectedUsers.Select(u => u.Id).ToList();
+            await storageBroker.BulkInsertUsersAsync(inputUsers);
+
+            // When
+            await storageBroker.BulkUpdateUsersAsync(updatedUsers);
+            IQueryable<User> users = await storageBroker.SelectAllUsersAsync();
+
+            List<User> actualUsers = await users
+                .Where(u => expectedUserIds.Contains(u.Id)).ToListAsync();
+
+            // Then
+            actualUsers.Should().BeEquivalentTo(expectedUsers);
+            await storageBroker.BulkDeleteUsersAsync(actualUsers);
+        }
+
+        [Fact]
+        public async Task ShouldBulkDeleteUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            List<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            List<User> inputUsers = randomUsers;
+            List<User> updatedUsers = inputUsers.DeepClone();
+            updatedUsers.ForEach(user => user.Email = GetRandomString());
+            List<User> expectedUsers = updatedUsers.DeepClone();
+            List<Guid> expectedUserIds = expectedUsers.Select(u => u.Id).ToList();
+            await storageBroker.BulkInsertUsersAsync(inputUsers);
+
+            // When
+            await storageBroker.BulkDeleteUsersAsync(updatedUsers);
+
+            // Then
+            IQueryable<User> users = await storageBroker.SelectAllUsersAsync();
+
+            List<User> actualUsers = await users
+                .Where(u => expectedUserIds.Contains(u.Id)).ToListAsync();
+
+            actualUsers.Should().HaveCount(0);
+        }
+
+        [Fact]
+        public async Task ShouldBulkUpsertUsersAsync()
+        {
+            // Given
+            int numberOfExistingUsers = GetRandomNumber();
+            int numberOfNewUsers = GetRandomNumber();
+            List<User> existingUsers = CreateRandomUsers(count: numberOfExistingUsers);
+            await storageBroker.BulkInsertUsersAsync(existingUsers);
+
+            List<User> updatedExistingUsers = existingUsers.DeepClone();
+            updatedExistingUsers.ForEach(user => user.Email = GetRandomString());
+
+            List<User> newUsers = CreateRandomUsers(count: numberOfNewUsers);
+            List<User> inputUsers = updatedExistingUsers.Concat(newUsers).ToList();
+            List<Guid> allExpectedIds = inputUsers.Select(u => u.Id).ToList();
+
+            // When
+            await storageBroker.BulkUpsertUsersAsync(inputUsers);
+
+            // Then
+            IQueryable<User> users = await storageBroker.SelectAllUsersAsync();
+
+            List<User> actualUsers = await users
+                .Where(u => allExpectedIds.Contains(u.Id)).ToListAsync();
+
+            actualUsers.Should().HaveCount(inputUsers.Count);
+
+            foreach (User expectedUser in inputUsers)
+            {
+                User actualUser = actualUsers.Single(u => u.Id == expectedUser.Id);
+                actualUser.Should().BeEquivalentTo(expectedUser);
+            }
+
+            await storageBroker.BulkDeleteUsersAsync(actualUsers);
+        }
+
+        [Fact]
+        public async Task ShouldReturnTrueWhenUserExistsAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            await storageBroker.InsertUserAsync(randomUser);
+
+            // When
+            bool actualResult = await storageBroker.UserExistsAsync(randomUser.Id);
+
+            // Then
+            actualResult.Should().BeTrue();
+            await storageBroker.DeleteUserAsync(randomUser);
+        }
+
+        [Fact]
+        public async Task ShouldReturnFalseWhenUserDoesNotExistAsync()
+        {
+            // Given
+            Guid nonExistentId = Guid.NewGuid();
+
+            // When
+            bool actualResult = await storageBroker.UserExistsAsync(nonExistentId);
+
+            // Then
+            actualResult.Should().BeFalse();
+        }
+    }
+}

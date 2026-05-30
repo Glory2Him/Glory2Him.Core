@@ -1,0 +1,271 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
+// https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Force.DeepCloner;
+using G2H.StorageClient.Tests.Acceptance.Models.Users;
+using Microsoft.EntityFrameworkCore;
+
+namespace G2H.StorageClient.Tests.Acceptance.Clients
+{
+    public partial class OperationServiceTests
+    {
+        [Fact]
+        public async Task ShouldInsertUserAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+
+            // When
+            User actualUser = await efCoreClient.InsertAsync(inputUser);
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+
+            if (actualUser != null)
+            {
+                await efCoreClient.DeleteAsync(actualUser);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldSelectAllUsersAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+            await efCoreClient.InsertAsync(inputUser);
+
+            // When
+            IQueryable<User> actualUsers = await efCoreClient.SelectAllAsync<User>();
+            User actualUser = await actualUsers.FirstOrDefaultAsync(user => user.Id == inputUser.Id);
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+
+            if (actualUser != null)
+            {
+                await efCoreClient.DeleteAsync(actualUser);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldSelectUserAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+            await efCoreClient.InsertAsync(inputUser);
+
+            // When
+            User actualUser = await efCoreClient.SelectAsync<User>(new object[] { inputUser.Id });
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+
+            if (actualUser != null)
+            {
+                await efCoreClient.DeleteAsync(actualUser);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldDeleteUserAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            User inputUser = randomUser;
+            User expectedUser = inputUser.DeepClone();
+            await efCoreClient.InsertAsync(inputUser);
+
+            // When
+            User actualUser = await efCoreClient.DeleteAsync(inputUser);
+
+            // Then
+            actualUser.Should().BeEquivalentTo(expectedUser);
+            User userInDatabase = await efCoreClient.SelectAsync<User>(new object[] { inputUser.Id });
+            userInDatabase.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldBulkInsertUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            List<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            List<User> inputUsers = randomUsers;
+            List<User> expectedUsers = inputUsers.DeepClone();
+            List<Guid> expectedUserIds = expectedUsers.Select(u => u.Id).ToList();
+
+            // When
+            await efCoreClient.BulkInsertAsync<User>(inputUsers);
+            IQueryable<User> users = await efCoreClient.SelectAllAsync<User>();
+
+            List<User> actualUsers = await users
+                .Where(u => expectedUserIds.Contains(u.Id)).ToListAsync();
+
+            // Then
+            actualUsers.Should().BeEquivalentTo(expectedUsers);
+
+            foreach (User user in inputUsers)
+            {
+                await efCoreClient.DeleteAsync(user);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldBulkReadUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            List<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            List<User> inputUsers = randomUsers;
+            List<User> queryUsers = inputUsers;
+            List<User> expectedUsers = queryUsers.DeepClone();
+            await efCoreClient.BulkInsertAsync(inputUsers);
+
+            // When
+            IEnumerable<User> actualUsers = await efCoreClient.BulkReadAsync(queryUsers);
+
+            // Then
+            actualUsers.Should().BeEquivalentTo(expectedUsers);
+            await this.efCoreClient.BulkDeleteAsync(inputUsers);
+        }
+
+        [Fact]
+        public async Task ShouldBulkUpdateUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            List<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            List<User> inputUsers = randomUsers;
+            List<User> updatedUsers = inputUsers.DeepClone();
+            updatedUsers.ForEach(user => user.Email = GetRandomString());
+            List<User> expectedUsers = updatedUsers.DeepClone();
+            List<Guid> expectedUserIds = expectedUsers.Select(u => u.Id).ToList();
+            await efCoreClient.BulkInsertAsync(inputUsers);
+
+            // When
+            await efCoreClient.BulkUpdateAsync(updatedUsers);
+            IQueryable<User> users = await efCoreClient.SelectAllAsync<User>();
+
+            List<User> actualUsers = await users
+                .Where(u => expectedUserIds.Contains(u.Id)).ToListAsync();
+
+            // Then
+            actualUsers.Should().BeEquivalentTo(expectedUsers);
+
+            foreach (User user in inputUsers)
+            {
+                await efCoreClient.DeleteAsync(user);
+            }
+        }
+
+        [Fact]
+        public async Task ShouldBulkDeleteUsersAsync()
+        {
+            // Given
+            int numberOfUsers = GetRandomNumber();
+            List<User> randomUsers = CreateRandomUsers(count: numberOfUsers);
+            List<User> inputUsers = randomUsers;
+            List<User> updatedUsers = inputUsers.DeepClone();
+            updatedUsers.ForEach(user => user.Email = GetRandomString());
+            List<User> expectedUsers = updatedUsers.DeepClone();
+            List<Guid> expectedUserIds = expectedUsers.Select(u => u.Id).ToList();
+            await efCoreClient.BulkInsertAsync(inputUsers);
+
+            // When
+            await efCoreClient.BulkDeleteAsync(updatedUsers);
+
+
+            // Then
+            IQueryable<User> users = await efCoreClient.SelectAllAsync<User>();
+
+            List<User> actualUsers = await users
+                .Where(u => expectedUserIds.Contains(u.Id)).ToListAsync();
+
+            actualUsers.Should().HaveCount(0);
+        }
+
+        [Fact]
+        public async Task ShouldBulkUpsertUsersAsync()
+        {
+            // Given
+            int numberOfExistingUsers = GetRandomNumber();
+            int numberOfNewUsers = GetRandomNumber();
+            List<User> existingUsers = CreateRandomUsers(count: numberOfExistingUsers);
+            await efCoreClient.BulkInsertAsync(existingUsers);
+
+            List<User> updatedExistingUsers = existingUsers.DeepClone();
+            updatedExistingUsers.ForEach(user => user.Email = GetRandomString());
+
+            List<User> newUsers = CreateRandomUsers(count: numberOfNewUsers);
+            List<User> inputUsers = updatedExistingUsers.Concat(newUsers).ToList();
+            List<Guid> allExpectedIds = inputUsers.Select(u => u.Id).ToList();
+
+            // When
+            await efCoreClient.BulkUpsertAsync(inputUsers);
+
+            // Then
+            IQueryable<User> users = await efCoreClient.SelectAllAsync<User>();
+
+            List<User> actualUsers = await users
+                .Where(u => allExpectedIds.Contains(u.Id)).ToListAsync();
+
+            actualUsers.Should().HaveCount(inputUsers.Count);
+
+            foreach (User expectedUser in inputUsers)
+            {
+                User actualUser = actualUsers.Single(u => u.Id == expectedUser.Id);
+                actualUser.Should().BeEquivalentTo(expectedUser);
+            }
+
+            await efCoreClient.BulkDeleteAsync(actualUsers);
+        }
+
+        [Fact]
+        public async Task ShouldReturnTrueWhenUserExistsAsync()
+        {
+            // Given
+            User randomUser = CreateRandomUser();
+            await efCoreClient.InsertAsync(randomUser);
+
+            // When
+            bool actualResult = await efCoreClient.ExistsAsync<User>(new object[] { randomUser.Id });
+
+            // Then
+            actualResult.Should().BeTrue();
+            await efCoreClient.DeleteAsync(randomUser);
+        }
+
+        [Fact]
+        public async Task ShouldReturnFalseWhenUserDoesNotExistAsync()
+        {
+            // Given
+            Guid nonExistentId = Guid.NewGuid();
+
+            // When
+            bool actualResult = await efCoreClient.ExistsAsync<User>(new object[] { nonExistentId });
+
+            // Then
+            actualResult.Should().BeFalse();
+        }
+    }
+}
