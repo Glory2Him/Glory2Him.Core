@@ -109,6 +109,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
                 throw await CreateAndLogDependencyException(timeoutContentTypeException);
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
         }
 
         private async ValueTask<ContentTypeValidationException> CreateAndLogValidationException(Xeption exception)

@@ -67,7 +67,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         public ValueTask<IQueryable<ContentType>> RetrieveAllContentTypesAsync(
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
-                await this.storageBroker.SelectAllContentTypesAsync());
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                return await this.storageBroker.SelectAllContentTypesAsync();
+            });
 
         public ValueTask<ContentType> RetrieveContentTypeByIdAsync(
             Guid contentTypeId,
