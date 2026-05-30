@@ -70,6 +70,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
                 throw await CreateAndLogDependencyValidationException(alreadyExistsContentTypeException);
             }
+            catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
+            {
+                var invalidContentTypeReferenceException = new InvalidContentTypeReferenceException(
+                    message: "Invalid content type reference error occurred.",
+                    innerException: foreignKeyConstraintConflictException,
+                    data: foreignKeyConstraintConflictException.Data);
+
+                throw await CreateAndLogDependencyValidationException(invalidContentTypeReferenceException);
+            }
             catch (Exception exception)
             {
                 var failedContentTypeServiceException = new FailedContentTypeServiceException(
