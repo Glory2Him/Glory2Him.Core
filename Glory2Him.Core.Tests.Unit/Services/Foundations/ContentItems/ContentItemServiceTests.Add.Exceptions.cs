@@ -20,30 +20,28 @@ using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
     public partial class ContentItemServiceTests
     {
-        [Fact]
-        public async Task ShouldThrowDependencyExceptionOnAddIfOperationCanceledExceptionOccursAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnAddIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
         {
             // given
             ContentItem someContentItem = CreateRandomContentItem();
-            var operationCanceledException = new OperationCanceledException();
-
-            var timeoutContentItemException = new TimeoutContentItemException(
-                message: "Content item timed out, contact support.",
-                innerException: new TimeoutException(),
-                data: operationCanceledException.Data);
 
             var expectedContentItemDependencyException = new ContentItemDependencyException(
                 message: "Content item dependency error occurred, contact support.",
-                innerException: timeoutContentItemException);
+                innerException: expectedInnerException);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(someContentItem))
-                    .ThrowsAsync(operationCanceledException);
+                    .ThrowsAsync(thrownException);
 
             // when
             ValueTask<ContentItem> addContentItemTask =
@@ -149,26 +147,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowDependencyValidationExceptionOnAddIfDuplicateKeyExceptionOccursAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(DependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnAddIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
         {
             // given
             ContentItem someContentItem = CreateRandomContentItem();
-            string someMessage = GetRandomString();
-            var duplicateKeyException = new DuplicateKeyException(someMessage);
-
-            var alreadyExistsContentItemException = new AlreadyExistsContentItemException(
-                message: "Content item already exists with the same Id.",
-                innerException: duplicateKeyException,
-                data: duplicateKeyException.Data);
 
             var expectedContentItemDependencyValidationException = new ContentItemDependencyValidationException(
                 message: "Content item dependency validation error occurred, fix the errors and try again.",
-                innerException: alreadyExistsContentItemException);
+                innerException: expectedInnerException);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(someContentItem))
-                    .ThrowsAsync(duplicateKeyException);
+                    .ThrowsAsync(thrownException);
 
             // when
             ValueTask<ContentItem> addContentItemTask =
@@ -191,107 +185,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemDependencyValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowDependencyValidationExceptionOnAddIfForeignKeyConstraintConflictExceptionOccursAndLogItAsync()
-        {
-            // given
-            ContentItem someContentItem = CreateRandomContentItem();
-            string someMessage = GetRandomString();
-            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
-
-            var invalidContentItemReferenceException = new InvalidContentItemReferenceException(
-                message: "Invalid content item reference error occurred.",
-                innerException: foreignKeyConstraintConflictException,
-                data: foreignKeyConstraintConflictException.Data);
-
-            var expectedContentItemDependencyValidationException = new ContentItemDependencyValidationException(
-                message: "Content item dependency validation error occurred, fix the errors and try again.",
-                innerException: invalidContentItemReferenceException);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(someContentItem))
-                    .ThrowsAsync(foreignKeyConstraintConflictException);
-
-            // when
-            ValueTask<ContentItem> addContentItemTask =
-                this.contentItemService.AddContentItemAsync(
-                    someContentItem,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemDependencyValidationException actualContentItemDependencyValidationException =
-                await Assert.ThrowsAsync<ContentItemDependencyValidationException>(
-                    addContentItemTask.AsTask);
-
-            // then
-            actualContentItemDependencyValidationException.Should().BeEquivalentTo(
-                expectedContentItemDependencyValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(someContentItem),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemDependencyValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowDependencyExceptionOnAddIfDbUpdateExceptionOccursAndLogItAsync()
-        {
-            // given
-            ContentItem someContentItem = CreateRandomContentItem();
-            var dbUpdateException = new DbUpdateException();
-
-            var failedStorageContentItemException = new FailedStorageContentItemException(
-                message: "Failed content item storage error occurred, contact support.",
-                innerException: dbUpdateException,
-                data: dbUpdateException.Data);
-
-            var expectedContentItemDependencyException = new ContentItemDependencyException(
-                message: "Content item dependency error occurred, contact support.",
-                innerException: failedStorageContentItemException);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(someContentItem))
-                    .ThrowsAsync(dbUpdateException);
-
-            // when
-            ValueTask<ContentItem> addContentItemTask =
-                this.contentItemService.AddContentItemAsync(
-                    someContentItem,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemDependencyException actualContentItemDependencyException =
-                await Assert.ThrowsAsync<ContentItemDependencyException>(
-                    addContentItemTask.AsTask);
-
-            // then
-            actualContentItemDependencyException.Should().BeEquivalentTo(
-                expectedContentItemDependencyException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(someContentItem),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemDependencyException))),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

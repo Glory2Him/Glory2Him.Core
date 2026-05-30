@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Microsoft.Data.SqlClient;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 {
@@ -123,77 +124,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowDependencyValidationExceptionOnAddIfDuplicateKeyExceptionOccursAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(DependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnAddIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
         {
             // given
             ContentType someContentType = CreateRandomContentType();
-            string someMessage = GetRandomString();
-            var duplicateKeyException = new DuplicateKeyException(someMessage);
-
-            var alreadyExistsContentTypeException = new AlreadyExistsContentTypeException(
-                message: "Content type already exists with the same Id.",
-                innerException: duplicateKeyException,
-                data: duplicateKeyException.Data);
 
             var expectedContentTypeDependencyValidationException = new ContentTypeDependencyValidationException(
                 message: "Content type dependency validation error occurred, fix the errors and try again.",
-                innerException: alreadyExistsContentTypeException);
+                innerException: expectedInnerException);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(someContentType))
-                    .ThrowsAsync(duplicateKeyException);
-
-            // when
-            ValueTask<ContentType> addContentTypeTask =
-                this.contentTypeService.AddContentTypeAsync(
-                    someContentType,
-                    TestContext.Current.CancellationToken);
-
-            ContentTypeDependencyValidationException actualContentTypeDependencyValidationException =
-                await Assert.ThrowsAsync<ContentTypeDependencyValidationException>(
-                    addContentTypeTask.AsTask);
-
-            // then
-            actualContentTypeDependencyValidationException.Should().BeEquivalentTo(
-                expectedContentTypeDependencyValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(someContentType),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentTypeDependencyValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowDependencyValidationExceptionOnAddIfReferenceErrorOccursAndLogItAsync()
-        {
-            // given
-            ContentType someContentType = CreateRandomContentType();
-            string someMessage = GetRandomString();
-            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
-
-            var invalidContentTypeReferenceException = new InvalidContentTypeReferenceException(
-                message: "Invalid content type reference error occurred.",
-                innerException: foreignKeyConstraintConflictException,
-                data: foreignKeyConstraintConflictException.Data);
-
-            var expectedContentTypeDependencyValidationException = new ContentTypeDependencyValidationException(
-                message: "Content type dependency validation error occurred, fix the errors and try again.",
-                innerException: invalidContentTypeReferenceException);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(someContentType))
-                    .ThrowsAsync(foreignKeyConstraintConflictException);
+                    .ThrowsAsync(thrownException);
 
             // when
             ValueTask<ContentType> addContentTypeTask =

@@ -13,12 +13,14 @@
 using System;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Microsoft.Data.SqlClient;
 using Moq;
@@ -83,6 +85,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             {
                 randomTimeInFuture,
                 randomTimeInPast
+            };
+        }
+
+        public static TheoryData<Exception, Xeption> DependencyValidationExceptions()
+        {
+            string someMessage = GetRandomString();
+            var duplicateKeyException = new DuplicateKeyException(someMessage);
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    duplicateKeyException,
+                    new AlreadyExistsContentTypeException(
+                        message: "Content type already exists with the same Id.",
+                        innerException: duplicateKeyException,
+                        data: duplicateKeyException.Data)
+                },
+                {
+                    foreignKeyConstraintConflictException,
+                    new InvalidContentTypeReferenceException(
+                        message: "Invalid content type reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data)
+                }
             };
         }
 
