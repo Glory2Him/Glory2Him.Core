@@ -10,7 +10,9 @@
 // https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Xeptions;
@@ -27,6 +29,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 return await returningContentTypeFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutContentTypeException = new TimeoutContentTypeException(
+                    message: "Content type timed out, contact support.",
+                    innerException: new TimeoutException(),
+                    data: operationCanceledException.Data);
+
+                throw await CreateAndLogDependencyException(timeoutContentTypeException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (NullContentTypeException nullContentTypeException)
             {
                 throw await CreateAndLogValidationException(nullContentTypeException);
@@ -34,6 +50,24 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (InvalidContentTypeException invalidContentTypeException)
             {
                 throw await CreateAndLogValidationException(invalidContentTypeException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentTypeException = new FailedStorageContentTypeException(
+                    message: "Failed content type storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyException(failedStorageContentTypeException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentTypeServiceException = new FailedContentTypeServiceException(
+                    message: "Failed content type service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceException(failedContentTypeServiceException);
             }
         }
 
@@ -46,6 +80,39 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             await this.loggingBroker.LogErrorAsync(contentTypeValidationException);
 
             return contentTypeValidationException;
+        }
+
+        private async ValueTask<ContentTypeDependencyException> CreateAndLogDependencyException(Xeption exception)
+        {
+            var contentTypeDependencyException = new ContentTypeDependencyException(
+                message: "Content type dependency error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentTypeDependencyException);
+
+            return contentTypeDependencyException;
+        }
+
+        private async ValueTask<ContentTypeDependencyException> CreateAndLogCriticalDependencyException(Xeption exception)
+        {
+            var contentTypeDependencyException = new ContentTypeDependencyException(
+                message: "Content type dependency error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogCriticalAsync(contentTypeDependencyException);
+
+            return contentTypeDependencyException;
+        }
+
+        private async ValueTask<ContentTypeServiceException> CreateAndLogServiceException(Xeption exception)
+        {
+            var contentTypeServiceException = new ContentTypeServiceException(
+                message: "Content type service error occurred, contact support.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentTypeServiceException);
+
+            return contentTypeServiceException;
         }
     }
 }
