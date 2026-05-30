@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Xeptions;
@@ -84,6 +85,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     data: foreignKeyConstraintConflictException.Data);
 
                 throw await CreateAndLogDependencyValidationException(invalidContentTypeReferenceException);
+            }
+            catch (DbUpdateException dbUpdateException)
+            {
+                var failedStorageContentTypeException = new FailedStorageContentTypeException(
+                    message: "Failed content type storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+                throw await CreateAndLogDependencyException(failedStorageContentTypeException);
             }
             catch (Exception exception)
             {
