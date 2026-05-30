@@ -47,7 +47,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                         firstDate: contentType.UpdatedWhen,
                         secondDate: contentType.CreatedWhen,
                         secondDateName: nameof(ContentType.CreatedWhen)),
-                    Parameter: nameof(ContentType.UpdatedWhen)));
+                    Parameter: nameof(ContentType.UpdatedWhen)),
+
+                (Rule: IsNotSame(
+                        firstText: contentType.CreatedBy,
+                        secondText: contentType.UpdatedBy,
+                        secondTextName: nameof(ContentType.UpdatedBy)),
+                    Parameter: nameof(ContentType.CreatedBy)));
         }
 
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
@@ -75,6 +81,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             Condition = date == default,
             Message = "Date is required"
         };
+
+        private static dynamic IsNotSame(
+            string firstText,
+            string secondText,
+            string secondTextName) => new
+            {
+                Condition = firstText != secondText,
+                Message = $"Text is not the same as {secondTextName}"
+            };
 
         private static dynamic IsNotSame(
             DateTimeOffset firstDate,
