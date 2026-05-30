@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
@@ -61,6 +62,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentTypeDependencyException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnModifyIfCancellationRequestedAndLogItAsync()
+        {
+            // given
+            ContentType someContentType = CreateRandomContentType();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<ContentType> modifyContentTypeTask =
+                this.contentTypeService.ModifyContentTypeAsync(
+                    someContentType,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                modifyContentTypeTask.AsTask);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
