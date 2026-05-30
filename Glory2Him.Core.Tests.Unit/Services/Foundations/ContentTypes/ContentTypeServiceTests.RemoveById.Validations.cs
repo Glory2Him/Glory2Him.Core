@@ -63,5 +63,94 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfContentTypeNotFoundAndLogItAsync()
+        {
+            // given
+            Guid someContentTypeId = Guid.NewGuid();
+            ContentType noContentType = null;
+
+            var notFoundContentTypeException = new NotFoundContentTypeException(
+                message: $"Content type not found with id: {someContentTypeId}.");
+
+            var expectedContentTypeValidationException = new ContentTypeValidationException(
+                message: "Content type validation error occurred, fix the errors and try again.",
+                innerException: notFoundContentTypeException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(noContentType);
+
+            // when
+            ValueTask<ContentType> removeContentTypeByIdTask =
+                this.contentTypeService.RemoveContentTypeByIdAsync(
+                    someContentTypeId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    removeContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnEarlyOnRemoveByIdIfAlreadyDeletedAsync()
+        {
+            // given
+            ContentType alreadyDeletedContentType = CreateRandomContentType();
+            alreadyDeletedContentType.IsDeleted = true;
+            Guid someContentTypeId = alreadyDeletedContentType.Id;
+            ContentType expectedContentType = alreadyDeletedContentType;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(alreadyDeletedContentType);
+
+            // when
+            ContentType actualContentType =
+                await this.contentTypeService.RemoveContentTypeByIdAsync(
+                    someContentTypeId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualContentType.Should().BeEquivalentTo(expectedContentType);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
