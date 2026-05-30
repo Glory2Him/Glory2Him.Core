@@ -133,6 +133,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
                 ValidateStorageContentType(maybeContentType, contentTypeId);
 
+                if (maybeContentType.IsDeleted)
+                    return maybeContentType;
+
                 if (deletionReason is not null)
                     maybeContentType.DeletionReason = deletionReason;
 
