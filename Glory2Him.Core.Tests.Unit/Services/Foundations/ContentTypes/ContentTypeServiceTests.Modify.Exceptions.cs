@@ -191,5 +191,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnModifyIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            ContentType someContentType = CreateRandomContentType();
+            var serviceException = new Exception();
+
+            var failedContentTypeServiceException = new FailedContentTypeServiceException(
+                message: "Failed content type service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedContentTypeServiceException = new ContentTypeServiceException(
+                message: "Content type service error occurred, contact support.",
+                innerException: failedContentTypeServiceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentType))
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<ContentType> modifyContentTypeTask =
+                this.contentTypeService.ModifyContentTypeAsync(
+                    someContentType,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeServiceException actualContentTypeServiceException =
+                await Assert.ThrowsAsync<ContentTypeServiceException>(
+                    modifyContentTypeTask.AsTask);
+
+            // then
+            actualContentTypeServiceException.Should().BeEquivalentTo(
+                expectedContentTypeServiceException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentType),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
