@@ -12,6 +12,7 @@
 
 using System;
 using System.Threading.Tasks;
+using EFxceptions.Models.Exceptions;
 using Microsoft.Data.SqlClient;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
@@ -60,6 +61,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
                 throw await CreateAndLogCriticalDependencyException(failedStorageContentTypeException);
             }
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsContentTypeException = new AlreadyExistsContentTypeException(
+                    message: "Content type already exists with the same Id.",
+                    innerException: duplicateKeyException,
+                    data: duplicateKeyException.Data);
+
+                throw await CreateAndLogDependencyValidationException(alreadyExistsContentTypeException);
+            }
             catch (Exception exception)
             {
                 var failedContentTypeServiceException = new FailedContentTypeServiceException(
@@ -102,6 +112,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             await this.loggingBroker.LogCriticalAsync(contentTypeDependencyException);
 
             return contentTypeDependencyException;
+        }
+
+        private async ValueTask<ContentTypeDependencyValidationException> CreateAndLogDependencyValidationException(
+            Xeption exception)
+        {
+            var contentTypeDependencyValidationException = new ContentTypeDependencyValidationException(
+                message: "Content type dependency validation error occurred, fix the errors and try again.",
+                innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentTypeDependencyValidationException);
+
+            return contentTypeDependencyValidationException;
         }
 
         private async ValueTask<ContentTypeServiceException> CreateAndLogServiceException(Xeption exception)
