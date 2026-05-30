@@ -92,7 +92,32 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         public ValueTask<ContentType> ModifyContentTypeAsync(
             ContentType contentType,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                contentType = await this.securityAuditBroker.ApplyModifyAuditValuesAsync(contentType);
+                await ValidateOnModifyContentTypeAsync(contentType);
+
+                ContentType maybeContentType =
+                    await this.storageBroker.SelectContentTypeByIdAsync(contentType.Id, cancellationToken);
+
+                ValidateStorageContentType(maybeContentType, contentType.Id);
+
+                contentType = await this.securityAuditBroker
+                    .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(contentType, maybeContentType);
+
+                ValidateAgainstStorageContentTypeOnModify(
+                    inputContentType: contentType,
+                    storageContentType: maybeContentType);
+
+                ContentType updatedContentType =
+                    await this.storageBroker.UpdateContentTypeAsync(contentType, cancellationToken);
+
+                var envelope = new EventEnvelope<ContentType> { Content = updatedContentType };
+                await this.eventBroker.PublishContentTypeAsync(envelope, "ContentTypeModified");
+
+                return updatedContentType;
+            });
 
         public ValueTask<ContentType> RemoveContentTypeByIdAsync(
             Guid contentTypeId,

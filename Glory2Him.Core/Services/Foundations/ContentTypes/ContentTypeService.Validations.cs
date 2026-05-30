@@ -63,6 +63,70 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.CreatedWhen)));
         }
 
+        private async ValueTask ValidateOnModifyContentTypeAsync(ContentType contentType)
+        {
+            ValidateContentTypeIsNotNull(contentType);
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentType.Id), Parameter: nameof(ContentType.Id)),
+                (Rule: IsInvalid(contentType.Name), Parameter: nameof(ContentType.Name)),
+                (Rule: IsInvalid(contentType.CreatedBy), Parameter: nameof(ContentType.CreatedBy)),
+                (Rule: IsInvalid(contentType.UpdatedBy), Parameter: nameof(ContentType.UpdatedBy)),
+                (Rule: IsInvalid(contentType.CreatedWhen), Parameter: nameof(ContentType.CreatedWhen)),
+                (Rule: IsInvalid(contentType.UpdatedWhen), Parameter: nameof(ContentType.UpdatedWhen)),
+
+                (Rule: IsGreaterThan(contentType.Name, 255),
+                    Parameter: nameof(ContentType.Name)),
+
+                (Rule: IsGreaterThan(contentType.CreatedBy, 255),
+                    Parameter: nameof(ContentType.CreatedBy)),
+
+                (Rule: IsGreaterThan(contentType.UpdatedBy, 255),
+                    Parameter: nameof(ContentType.UpdatedBy)),
+
+                (Rule: IsNotSame(
+                        first: currentUserId,
+                        second: contentType.UpdatedBy),
+                    Parameter: nameof(ContentType.UpdatedBy)),
+
+                (Rule: IsSame(
+                        firstDate: contentType.UpdatedWhen,
+                        secondDate: contentType.CreatedWhen,
+                        secondDateName: nameof(ContentType.CreatedWhen)),
+                    Parameter: nameof(ContentType.UpdatedWhen)),
+
+                (Rule: await IsNotRecentAsync(contentType.UpdatedWhen),
+                    Parameter: nameof(ContentType.UpdatedWhen)));
+        }
+
+        private static void ValidateAgainstStorageContentTypeOnModify(
+            ContentType inputContentType,
+            ContentType storageContentType)
+        {
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+
+                (Rule: IsNotSame(
+                        firstDate: inputContentType.CreatedWhen,
+                        secondDate: storageContentType.CreatedWhen,
+                        secondDateName: nameof(ContentType.CreatedWhen)),
+                    Parameter: nameof(ContentType.CreatedWhen)),
+
+                (Rule: IsNotSame(
+                        first: inputContentType.CreatedBy,
+                        second: storageContentType.CreatedBy,
+                        secondName: nameof(ContentType.CreatedBy)),
+                    Parameter: nameof(ContentType.CreatedBy)),
+
+                (Rule: IsSame(
+                        firstDate: inputContentType.UpdatedWhen,
+                        secondDate: storageContentType.UpdatedWhen,
+                        secondDateName: nameof(ContentType.UpdatedWhen)),
+                    Parameter: nameof(ContentType.UpdatedWhen)));
+        }
+
         private static void ValidateOnRetrieveContentTypeById(Guid contentTypeId) =>
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
@@ -134,6 +198,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
         };
+
+        private static dynamic IsSame(
+            DateTimeOffset firstDate,
+            DateTimeOffset secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate == secondDate,
+                Message = $"Date is the same as {secondDateName}"
+            };
 
         private async ValueTask<dynamic> IsNotRecentAsync(DateTimeOffset date)
         {
