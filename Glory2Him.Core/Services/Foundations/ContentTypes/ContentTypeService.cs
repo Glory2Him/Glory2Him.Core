@@ -106,10 +106,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 contentType = await this.securityAuditBroker
                     .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(contentType, maybeContentType);
 
-                ValidateAgainstStorageContentTypeOnModify(
-                    inputContentType: contentType,
-                    storageContentType: maybeContentType);
-
                 ContentType updatedContentType =
                     await this.storageBroker.UpdateContentTypeAsync(contentType, cancellationToken);
 
