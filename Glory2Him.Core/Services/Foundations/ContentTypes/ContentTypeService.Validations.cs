@@ -32,7 +32,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 (Rule: IsInvalid(contentType.CreatedBy), Parameter: nameof(ContentType.CreatedBy)),
                 (Rule: IsInvalid(contentType.UpdatedBy), Parameter: nameof(ContentType.UpdatedBy)),
                 (Rule: IsInvalid(contentType.CreatedWhen), Parameter: nameof(ContentType.CreatedWhen)),
-                (Rule: IsInvalid(contentType.UpdatedWhen), Parameter: nameof(ContentType.UpdatedWhen)));
+                (Rule: IsInvalid(contentType.UpdatedWhen), Parameter: nameof(ContentType.UpdatedWhen)),
+
+                (Rule: IsGreaterThan(contentType.Name, 255),
+                    Parameter: nameof(ContentType.Name)),
+
+                (Rule: IsGreaterThan(contentType.CreatedBy, 255),
+                    Parameter: nameof(ContentType.CreatedBy)),
+
+                (Rule: IsGreaterThan(contentType.UpdatedBy, 255),
+                    Parameter: nameof(ContentType.UpdatedBy)));
         }
 
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
@@ -59,6 +68,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         {
             Condition = date == default,
             Message = "Date is required"
+        };
+
+        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        {
+            Condition = (text ?? string.Empty).Length > maxLength,
+            Message = $"Text exceed max length of {maxLength} characters"
         };
 
         private static void Validate(
