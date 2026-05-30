@@ -63,6 +63,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.CreatedWhen)));
         }
 
+        private static void ValidateOnRetrieveContentTypeById(Guid contentTypeId) =>
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
+
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
         {
             if (contentType is null)
