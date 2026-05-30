@@ -174,12 +174,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowValidationExceptionOnAddIfContentTypeNameExceedsMaxLengthAndLogItAsync()
         {
             // given
-            string randomUserId = GetRandomString();
+            string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ContentType invalidContentType = CreateContentTypeFiller(randomDateTimeOffset, randomUserId).Create();
             invalidContentType.Name = GetRandomStringWithLengthOf(256);
-            invalidContentType.CreatedBy = GetRandomStringWithLengthOf(256);
-            invalidContentType.UpdatedBy = GetRandomStringWithLengthOf(256);
 
             var invalidContentTypeException =
                 new InvalidContentTypeException(
@@ -335,6 +333,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             ContentType randomContentType = CreateContentTypeFiller(randomDateTimeOffset, randomUserId).Create();
             ContentType invalidContentType = randomContentType;
             invalidContentType.CreatedBy = differentUserId;
+            invalidContentType.UpdatedBy = differentUserId;
 
             var invalidContentTypeException =
                 new InvalidContentTypeException(
@@ -342,7 +341,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             invalidContentTypeException.AddData(
                 key: nameof(ContentType.CreatedBy),
-                values: $"Text is not the same as {nameof(ContentType.UpdatedBy)}");
+                values: $"Expected value to be '{randomUserId}' but found '{differentUserId}'.");
 
             var expectedContentTypeValidationException =
                 new ContentTypeValidationException(

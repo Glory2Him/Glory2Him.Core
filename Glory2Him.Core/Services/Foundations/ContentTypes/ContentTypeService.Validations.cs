@@ -50,10 +50,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.UpdatedWhen)),
 
                 (Rule: IsNotSame(
-                        firstText: contentType.CreatedBy,
-                        secondText: contentType.UpdatedBy,
-                        secondTextName: nameof(ContentType.UpdatedBy)),
-                    Parameter: nameof(ContentType.CreatedBy)));
+                        first: currentUserId,
+                        second: contentType.CreatedBy),
+                    Parameter: nameof(ContentType.CreatedBy)),
+
+                (Rule: IsNotSame(
+                        first: contentType.UpdatedBy,
+                        second: contentType.CreatedBy,
+                        secondName: nameof(ContentType.CreatedBy)),
+                    Parameter: nameof(ContentType.UpdatedBy)));
         }
 
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
@@ -83,12 +88,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         };
 
         private static dynamic IsNotSame(
-            string firstText,
-            string secondText,
-            string secondTextName) => new
+            string first,
+            string second) => new
             {
-                Condition = firstText != secondText,
-                Message = $"Text is not the same as {secondTextName}"
+                Condition = first != second,
+                Message = $"Expected value to be '{first}' but found '{second}'."
+            };
+
+        private static dynamic IsNotSame(
+            string first,
+            string second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Text is not the same as {secondName}"
             };
 
         private static dynamic IsNotSame(
