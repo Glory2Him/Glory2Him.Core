@@ -175,6 +175,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         }
 
         [Fact]
+        public async Task ShouldThrowDependencyValidationExceptionOnAddIfReferenceErrorOccursAndLogItAsync()
+        {
+            // given
+            ContentType someContentType = CreateRandomContentType();
+            string someMessage = GetRandomString();
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            var invalidContentTypeReferenceException = new InvalidContentTypeReferenceException(
+                message: "Invalid content type reference error occurred.",
+                innerException: foreignKeyConstraintConflictException,
+                data: foreignKeyConstraintConflictException.Data);
+
+            var expectedContentTypeDependencyValidationException = new ContentTypeDependencyValidationException(
+                message: "Content type dependency validation error occurred, fix the errors and try again.",
+                innerException: invalidContentTypeReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(someContentType))
+                    .ThrowsAsync(foreignKeyConstraintConflictException);
+
+            // when
+            ValueTask<ContentType> addContentTypeTask =
+                this.contentTypeService.AddContentTypeAsync(
+                    someContentType,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeDependencyValidationException actualContentTypeDependencyValidationException =
+                await Assert.ThrowsAsync<ContentTypeDependencyValidationException>(
+                    addContentTypeTask.AsTask);
+
+            // then
+            actualContentTypeDependencyValidationException.Should().BeEquivalentTo(
+                expectedContentTypeDependencyValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(someContentType),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeDependencyValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowServiceExceptionOnAddIfServiceErrorOccursAndLogItAsync()
         {
             // given
