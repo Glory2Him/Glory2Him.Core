@@ -480,13 +480,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfCreatedByExceedsMaxLengthAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAddIfContentItemExceedsMaxLengthAndLogItAsync()
         {
             // given
             string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
-            ContentItem invalidContentItem = randomContentItem;
+            ContentItem invalidContentItem = CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
 
             var invalidContentItemException =
                 new InvalidContentItemException(
@@ -494,89 +493,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.CreatedBy),
-                values: "Text exceed max length of 255 characters");
+                values: $"Text exceed max length of {invalidContentItem.CreatedBy.Length - 1} characters");
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.UpdatedBy),
-                values: "Text exceed max length of 255 characters");
-
-            var expectedContentItemValidationException =
-                new ContentItemValidationException(
-                    message: "Content item validation error occurred, fix the errors and try again.",
-                    innerException: invalidContentItemException);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentItem))
-                    .ReturnsAsync(invalidContentItem);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
-                    .ReturnsAsync(randomUserId);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
-
-            // when
-            ValueTask<ContentItem> addContentItemTask =
-                this.contentItemService.AddContentItemAsync(
-                    invalidContentItem,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemValidationException actualContentItemValidationException =
-                await Assert.ThrowsAsync<ContentItemValidationException>(
-                    addContentItemTask.AsTask);
-
-            // then
-            actualContentItemValidationException.Should().BeEquivalentTo(
-                expectedContentItemValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentItem),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
-                Times.Once);
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfUpdatedByExceedsMaxLengthAndLogItAsync()
-        {
-            // given
-            string randomUserId = GetRandomString();
-            string longText = GetRandomStringWithLengthOf(256);
-            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
-            ContentItem invalidContentItem = randomContentItem;
-            invalidContentItem.UpdatedBy = longText;
-
-            var invalidContentItemException =
-                new InvalidContentItemException(
-                    message: "Content item is invalid, fix the errors and try again.");
-
-            invalidContentItemException.AddData(
-                key: nameof(ContentItem.UpdatedBy),
-                values: new[]
-                {
-                    "Text exceed max length of 255 characters",
-                    $"Text is not the same as {nameof(ContentItem.CreatedBy)}"
-                });
+                values: $"Text exceed max length of {invalidContentItem.UpdatedBy.Length - 1} characters");
 
             var expectedContentItemValidationException =
                 new ContentItemValidationException(

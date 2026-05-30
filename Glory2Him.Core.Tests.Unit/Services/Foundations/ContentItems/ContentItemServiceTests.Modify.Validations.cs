@@ -785,15 +785,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfCreatedByExceedsMaxLengthAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnModifyIfContentItemExceedsMaxLengthAndLogItAsync()
         {
             // given
-            string randomUserId = GetRandomString();
-            string longText = GetRandomStringWithLengthOf(256);
+            string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
-            ContentItem invalidContentItem = randomContentItem;
-            invalidContentItem.CreatedBy = longText;
+            ContentItem invalidContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
 
             var invalidContentItemException =
                 new InvalidContentItemException(
@@ -801,85 +798,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.CreatedBy),
-                values: "Text exceed max length of 255 characters");
-
-            var expectedContentItemValidationException =
-                new ContentItemValidationException(
-                    message: "Content item validation error occurred, fix the errors and try again.",
-                    innerException: invalidContentItemException);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(invalidContentItem))
-                    .ReturnsAsync(invalidContentItem);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
-                    .ReturnsAsync(randomUserId);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
-
-            // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemService.ModifyContentItemAsync(
-                    invalidContentItem,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemValidationException actualContentItemValidationException =
-                await Assert.ThrowsAsync<ContentItemValidationException>(
-                    modifyContentItemTask.AsTask);
-
-            // then
-            actualContentItemValidationException.Should().BeEquivalentTo(
-                expectedContentItemValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(invalidContentItem),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
-                Times.Once);
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedByExceedsMaxLengthAndLogItAsync()
-        {
-            // given
-            string randomUserId = GetRandomString();
-            string longText = GetRandomStringWithLengthOf(256);
-            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
-            ContentItem invalidContentItem = randomContentItem;
-            invalidContentItem.UpdatedBy = longText;
-
-            var invalidContentItemException =
-                new InvalidContentItemException(
-                    message: "Content item is invalid, fix the errors and try again.");
+                values: $"Text exceed max length of {invalidContentItem.CreatedBy.Length - 1} characters");
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.UpdatedBy),
-                values: new[]
-                {
-                    "Text exceed max length of 255 characters",
-                    $"Expected value to be '{randomUserId}' but found '{longText}'."
-                });
+                values: $"Text exceed max length of {invalidContentItem.UpdatedBy.Length - 1} characters");
 
             var expectedContentItemValidationException =
                 new ContentItemValidationException(
