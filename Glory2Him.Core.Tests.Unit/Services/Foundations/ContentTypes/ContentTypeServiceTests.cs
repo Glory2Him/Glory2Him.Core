@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq.Expressions;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Loggings;
@@ -20,6 +21,7 @@ using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Moq;
 using Tynamix.ObjectFiller;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 {
@@ -48,11 +50,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
-        private static string GetRandomString() =>
-            new MnemonicString(wordCount: GetRandomNumber()).GetValue();
-
-        private static int GetRandomNumber() =>
-            new IntRange(min: 2, max: 10).GetValue();
+        private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
+            actualException => actualException.SameExceptionAs(expectedException);
 
         private static DateTimeOffset GetRandomDateTimeOffset() =>
             new DateTimeRange(earliestDate: new DateTime()).GetValue();

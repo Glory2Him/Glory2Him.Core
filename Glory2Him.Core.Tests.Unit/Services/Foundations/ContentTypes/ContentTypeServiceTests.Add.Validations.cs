@@ -1,0 +1,71 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, 'I am the way and the truth and the life.
+//                  No one comes to the Father except through me.'" 
+// https://mark.bible/mark-16-15
+// https://john.bible/john-14-6 
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
+using Moq;
+
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
+{
+    public partial class ContentTypeServiceTests
+    {
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfContentTypeIsNullAndLogItAsync()
+        {
+            // given
+            ContentType nullContentType = null;
+
+            var nullContentTypeException =
+                new NullContentTypeException(message: "Content type is null.");
+
+            var expectedContentTypeValidationException =
+                new ContentTypeValidationException(
+                    message: "Content type validation error occurred, fix the errors and try again.",
+                    innerException: nullContentTypeException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(nullContentType))
+                    .ReturnsAsync(nullContentType);
+
+            // when
+            ValueTask<ContentType> addContentTypeTask =
+                this.contentTypeService.AddContentTypeAsync(
+                    nullContentType,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    addContentTypeTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(nullContentType),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+    }
+}
