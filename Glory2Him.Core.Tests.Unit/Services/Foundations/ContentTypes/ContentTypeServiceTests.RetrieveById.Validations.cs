@@ -13,6 +13,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Moq;
 
@@ -50,6 +51,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             // then
             actualContentTypeValidationException.Should().BeEquivalentTo(
                 expectedContentTypeValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfContentTypeNotFoundAndLogItAsync()
+        {
+            // given
+            Guid someContentTypeId = Guid.NewGuid();
+            ContentType nullContentType = null;
+
+            var notFoundContentTypeException =
+                new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {someContentTypeId}.");
+
+            var expectedContentTypeValidationException =
+                new ContentTypeValidationException(
+                    message: "Content type validation error occurred, fix the errors and try again.",
+                    innerException: notFoundContentTypeException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(nullContentType);
+
+            // when
+            ValueTask<ContentType> retrieveContentTypeByIdTask =
+                this.contentTypeService.RetrieveContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    retrieveContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
