@@ -41,7 +41,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.CreatedBy)),
 
                 (Rule: IsGreaterThan(contentType.UpdatedBy, 255),
-                    Parameter: nameof(ContentType.UpdatedBy)));
+                    Parameter: nameof(ContentType.UpdatedBy)),
+
+                (Rule: IsNotSame(
+                        firstDate: contentType.UpdatedWhen,
+                        secondDate: contentType.CreatedWhen,
+                        secondDateName: nameof(ContentType.CreatedWhen)),
+                    Parameter: nameof(ContentType.UpdatedWhen)));
         }
 
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
@@ -69,6 +75,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             Condition = date == default,
             Message = "Date is required"
         };
+
+        private static dynamic IsNotSame(
+            DateTimeOffset firstDate,
+            DateTimeOffset secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate != secondDate,
+                Message = $"Date is not the same as {secondDateName}"
+            };
 
         private static dynamic IsGreaterThan(string text, int maxLength) => new
         {
