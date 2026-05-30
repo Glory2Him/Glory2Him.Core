@@ -144,5 +144,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [MemberData(nameof(ModifyDependencyValidationExceptions))]
+        public async Task ShouldThrowDependencyValidationExceptionOnModifyIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
+        {
+            // given
+            ContentType someContentType = CreateRandomContentType();
+
+            var expectedContentTypeDependencyValidationException = new ContentTypeDependencyValidationException(
+                message: "Content type dependency validation error occurred, fix the errors and try again.",
+                innerException: expectedInnerException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentType))
+                    .ThrowsAsync(thrownException);
+
+            // when
+            ValueTask<ContentType> modifyContentTypeTask =
+                this.contentTypeService.ModifyContentTypeAsync(
+                    someContentType,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeDependencyValidationException actualContentTypeDependencyValidationException =
+                await Assert.ThrowsAsync<ContentTypeDependencyValidationException>(
+                    modifyContentTypeTask.AsTask);
+
+            // then
+            actualContentTypeDependencyValidationException.Should().BeEquivalentTo(
+                expectedContentTypeDependencyValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(someContentType),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeDependencyValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

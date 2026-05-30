@@ -139,6 +139,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             };
         }
 
+        public static TheoryData<Exception, Xeption> ModifyDependencyValidationExceptions()
+        {
+            string someMessage = GetRandomString();
+            var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    dbUpdateConcurrencyException,
+                    new LockedContentTypeException(
+                        message: "Locked content type record, please try again later.",
+                        innerException: dbUpdateConcurrencyException,
+                        data: dbUpdateConcurrencyException.Data)
+                },
+                {
+                    foreignKeyConstraintConflictException,
+                    new InvalidContentTypeReferenceException(
+                        message: "Invalid content type reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data)
+                }
+            };
+        }
+
         private static ContentType CreateRandomContentType() =>
             CreateContentTypeFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
