@@ -117,6 +117,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         private static ContentType CreateRandomContentType() =>
             CreateContentTypeFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
+        private static ContentType CreateRandomModifyContentType(
+            DateTimeOffset dateTimeOffset,
+            string userId = "")
+        {
+            int randomDaysInPast = GetRandomNegativeNumber();
+            ContentType randomContentType = CreateContentTypeFiller(dateTimeOffset, userId).Create();
+            randomContentType.CreatedWhen = randomContentType.CreatedWhen.AddDays(randomDaysInPast);
+
+            return randomContentType;
+        }
+
         private static IQueryable<ContentType> CreateRandomContentTypes()
         {
             return CreateContentTypeFiller(dateTimeOffset: GetRandomDateTimeOffset())
