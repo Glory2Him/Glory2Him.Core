@@ -122,6 +122,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
                 throw await CreateAndLogCriticalDependencyException(failedStorageContentTypeException);
             }
+            catch (Exception exception)
+            {
+                var failedContentTypeServiceException = new FailedContentTypeServiceException(
+                    message: "Failed content type service error occurred, please contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceException(failedContentTypeServiceException);
+            }
         }
 
         private async ValueTask<ContentTypeValidationException> CreateAndLogValidationException(Xeption exception)
