@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
 using Microsoft.Data.SqlClient;
@@ -23,6 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
     public partial class ContentTypeService
     {
         private delegate ValueTask<ContentType> ReturningContentTypeFunction();
+        private delegate ValueTask<IQueryable<ContentType>> ReturningContentTypesFunction();
 
         private async ValueTask<ContentType> TryCatch(ReturningContentTypeFunction returningContentTypeFunction)
         {
@@ -87,6 +89,25 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     data: exception.Data);
 
                 throw await CreateAndLogServiceException(failedContentTypeServiceException);
+            }
+        }
+
+        private async ValueTask<IQueryable<ContentType>> TryCatch(
+            ReturningContentTypesFunction returningContentTypesFunction)
+        {
+            try
+            {
+                return await returningContentTypesFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutContentTypeException = new TimeoutContentTypeException(
+                    message: "Content type timed out, contact support.",
+                    innerException: new TimeoutException(),
+                    data: operationCanceledException.Data);
+
+                throw await CreateAndLogDependencyException(timeoutContentTypeException);
             }
         }
 
