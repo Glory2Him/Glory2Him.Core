@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using EFxceptions.Models.Exceptions;
@@ -115,6 +116,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
         private static ContentType CreateRandomContentType() =>
             CreateContentTypeFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
+
+        private static IQueryable<ContentType> CreateRandomContentTypes()
+        {
+            return CreateContentTypeFiller(dateTimeOffset: GetRandomDateTimeOffset())
+                .Create(count: GetRandomNumber())
+                .AsQueryable();
+        }
 
         private static DateTimeOffset GetRandomDateTimeOffset() =>
             new DateTimeRange(earliestDate: new DateTime()).GetValue();
