@@ -73,10 +73,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 return await this.storageBroker.SelectAllContentTypesAsync();
             });
 
-        public ValueTask<ContentType> RetrieveContentTypeByIdAsync(
+        public async ValueTask<ContentType> RetrieveContentTypeByIdAsync(
             Guid contentTypeId,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
 
         public ValueTask<ContentType> ModifyContentTypeAsync(
             ContentType contentType,
