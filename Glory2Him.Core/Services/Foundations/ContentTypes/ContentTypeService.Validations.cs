@@ -23,7 +23,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         {
             ValidateContentTypeIsNotNull(contentType);
             string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
-            await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
@@ -58,7 +57,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                         first: contentType.UpdatedBy,
                         second: contentType.CreatedBy,
                         secondName: nameof(ContentType.CreatedBy)),
-                    Parameter: nameof(ContentType.UpdatedBy)));
+                    Parameter: nameof(ContentType.UpdatedBy)),
+
+                (Rule: await IsNotRecentAsync(contentType.CreatedWhen),
+                    Parameter: nameof(ContentType.CreatedWhen)));
         }
 
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
@@ -118,6 +120,36 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
         };
+
+        private async ValueTask<dynamic> IsNotRecentAsync(DateTimeOffset date)
+        {
+            var (isNotRecent, startDate, endDate) = await IsDateNotRecentAsync(date);
+
+            return new
+            {
+                Condition = isNotRecent,
+                Message = $"Date is not recent. Expected a value between {startDate} and {endDate} but found {date}"
+            };
+        }
+
+        private async ValueTask<(bool IsNotRecent, DateTimeOffset StartDate, DateTimeOffset EndDate)>
+            IsDateNotRecentAsync(DateTimeOffset date)
+        {
+            int pastThreshold = 90;
+            int futureThreshold = 0;
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            if (currentDateTime == default)
+            {
+                return (false, default, default);
+            }
+
+            DateTimeOffset startDate = currentDateTime.AddSeconds(-pastThreshold);
+            DateTimeOffset endDate = currentDateTime.AddSeconds(futureThreshold);
+            bool isNotRecent = date < startDate || date > endDate;
+
+            return (isNotRecent, startDate, endDate);
+        }
 
         private static void Validate(
             string message,
