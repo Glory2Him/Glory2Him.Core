@@ -101,6 +101,29 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.UpdatedWhen)));
         }
 
+        private static void ValidateAgainstStorageContentTypeOnModify(
+            ContentType inputContentType,
+            ContentType storageContentType)
+        {
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsNotSame(
+                        firstDate: inputContentType.CreatedWhen,
+                        secondDate: storageContentType.CreatedWhen,
+                        secondDateName: nameof(ContentType.CreatedWhen)),
+                    Parameter: nameof(ContentType.CreatedWhen)),
+                (Rule: IsNotSame(
+                        first: inputContentType.CreatedBy,
+                        second: storageContentType.CreatedBy,
+                        secondName: nameof(ContentType.CreatedBy)),
+                    Parameter: nameof(ContentType.CreatedBy)),
+                (Rule: IsSame(
+                        firstDate: inputContentType.UpdatedWhen,
+                        secondDate: storageContentType.UpdatedWhen,
+                        secondDateName: nameof(ContentType.UpdatedWhen)),
+                    Parameter: nameof(ContentType.UpdatedWhen)));
+        }
+
         private static void ValidateOnRetrieveContentTypeById(Guid contentTypeId) =>
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
