@@ -80,7 +80,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             var invalidContentType = new ContentType
             {
                 Id = Guid.Empty,
-                Name = invalidText
+                Name = invalidText,
+                CreatedBy = invalidText,
+                UpdatedBy = invalidText,
+                CreatedWhen = default,
+                UpdatedWhen = default
             };
 
             var invalidContentTypeException =
@@ -95,6 +99,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 key: nameof(ContentType.Name),
                 values: "Text is required");
 
+            invalidContentTypeException.AddData(
+                key: nameof(ContentType.CreatedBy),
+                values: "Text is required");
+
+            invalidContentTypeException.AddData(
+                key: nameof(ContentType.UpdatedBy),
+                values: "Text is required");
+
+            invalidContentTypeException.AddData(
+                key: nameof(ContentType.CreatedWhen),
+                values: "Date is required");
+
+            invalidContentTypeException.AddData(
+                key: nameof(ContentType.UpdatedWhen),
+                values: "Date is required");
+
             var expectedContentTypeValidationException =
                 new ContentTypeValidationException(
                     message: "Content type validation error occurred, fix the errors and try again.",
@@ -103,6 +123,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidContentType))
                     .ReturnsAsync(invalidContentType);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(invalidText);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(default(DateTimeOffset));
 
             // when
             ValueTask<ContentType> addContentTypeTask =
@@ -120,6 +148,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyAddAuditValuesAsync(invalidContentType),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
