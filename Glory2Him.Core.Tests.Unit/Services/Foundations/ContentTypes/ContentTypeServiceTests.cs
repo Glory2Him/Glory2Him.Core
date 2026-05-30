@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using Tynamix.ObjectFiller;
 using Xeptions;
@@ -86,6 +87,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             {
                 randomTimeInFuture,
                 randomTimeInPast
+            };
+        }
+
+        public static TheoryData<Exception, Xeption> DependencyExceptions()
+        {
+            var operationCanceledException = new OperationCanceledException();
+            var dbUpdateException = new DbUpdateException();
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    operationCanceledException,
+                    new TimeoutContentTypeException(
+                        message: "Content type timed out, contact support.",
+                        innerException: new TimeoutException(),
+                        data: operationCanceledException.Data)
+                },
+                {
+                    dbUpdateException,
+                    new FailedStorageContentTypeException(
+                        message: "Failed content type storage error occurred, contact support.",
+                        innerException: dbUpdateException,
+                        data: dbUpdateException.Data)
+                }
             };
         }
 
