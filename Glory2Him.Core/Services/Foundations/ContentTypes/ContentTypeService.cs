@@ -123,7 +123,29 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             Guid contentTypeId,
             string? deletionReason = null,
             CancellationToken cancellationToken = default) =>
-            throw new NotImplementedException();
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                ContentType maybeContentType =
+                    await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
+
+                ValidateStorageContentType(maybeContentType, contentTypeId);
+
+                if (deletionReason is not null)
+                    maybeContentType.DeletionReason = deletionReason;
+
+                ContentType auditedContentType =
+                    await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(maybeContentType);
+
+                ContentType removedContentType =
+                    await this.storageBroker.UpdateContentTypeAsync(auditedContentType, cancellationToken);
+
+                var envelope = new EventEnvelope<ContentType> { Content = removedContentType };
+                await this.eventBroker.PublishContentTypeAsync(envelope, "ContentTypeRemoved");
+
+                return removedContentType;
+            });
 
         public ValueTask<ContentType> HardRemoveContentTypeByIdAsync(
             Guid contentTypeId,
