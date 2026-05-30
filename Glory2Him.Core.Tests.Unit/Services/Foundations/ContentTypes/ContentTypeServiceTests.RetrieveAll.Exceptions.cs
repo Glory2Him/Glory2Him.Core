@@ -12,6 +12,7 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
@@ -70,5 +71,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-            }
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveAllIfCancellationRequestedAndLogItAsync()
+        {
+            // given
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<IQueryable<ContentType>> retrieveAllContentTypesTask =
+                this.contentTypeService.RetrieveAllContentTypesAsync(cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                retrieveAllContentTypesTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+    }
+}
