@@ -53,7 +53,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 contentType = await this.securityAuditBroker.ApplyAddAuditValuesAsync(contentType);
-                ValidateOnAddContentType(contentType);
+                await ValidateOnAddContentTypeAsync(contentType);
 
                 ContentType addedContentType =
                     await this.storageBroker.InsertContentTypeAsync(contentType, cancellationToken);

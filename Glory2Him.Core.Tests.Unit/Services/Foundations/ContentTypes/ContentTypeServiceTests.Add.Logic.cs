@@ -28,8 +28,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         {
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentType randomContentType = CreateContentTypeFiller(randomDateTimeOffset).Create();
-            ContentType inputContentType = randomContentType;
+            ContentType randomContentType = CreateContentTypeFiller(randomDateTimeOffset).Create();            ContentType inputContentType = randomContentType;
             ContentType auditAppliedContentType = inputContentType.DeepClone();
             ContentType storageContentType = auditAppliedContentType.DeepClone();
             ContentType expectedContentType = storageContentType.DeepClone();
@@ -37,6 +36,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(inputContentType))
                     .ReturnsAsync(auditAppliedContentType);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync())
+                    .ReturnsAsync(auditAppliedContentType.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertContentTypeAsync(auditAppliedContentType, It.IsAny<CancellationToken>()))
@@ -57,6 +64,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyAddAuditValuesAsync(inputContentType),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

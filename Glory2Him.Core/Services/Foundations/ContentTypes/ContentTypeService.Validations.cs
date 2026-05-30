@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 
@@ -18,14 +19,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
     public partial class ContentTypeService
     {
-        private static void ValidateOnAddContentType(ContentType contentType)
+        private async ValueTask ValidateOnAddContentTypeAsync(ContentType contentType)
         {
             ValidateContentTypeIsNotNull(contentType);
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentType.Id), Parameter: nameof(ContentType.Id)),
-                (Rule: IsInvalid(contentType.Name), Parameter: nameof(ContentType.Name)));
+                (Rule: IsInvalid(contentType.Name), Parameter: nameof(ContentType.Name)),
+                (Rule: IsInvalid(contentType.CreatedBy), Parameter: nameof(ContentType.CreatedBy)),
+                (Rule: IsInvalid(contentType.UpdatedBy), Parameter: nameof(ContentType.UpdatedBy)),
+                (Rule: IsInvalid(contentType.CreatedWhen), Parameter: nameof(ContentType.CreatedWhen)),
+                (Rule: IsInvalid(contentType.UpdatedWhen), Parameter: nameof(ContentType.UpdatedWhen)));
         }
 
         private static void ValidateContentTypeIsNotNull(ContentType contentType)
@@ -46,6 +53,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         {
             Condition = string.IsNullOrWhiteSpace(text),
             Message = "Text is required"
+        };
+
+        private static dynamic IsInvalid(DateTimeOffset date) => new
+        {
+            Condition = date == default,
+            Message = "Date is required"
         };
 
         private static void Validate(

@@ -125,9 +125,10 @@ Validation Phase Rules
 Only begin validation tests after the CRUD operation logic test has completed successfully.
 Validation tests must be completed one at a time and in this exact order:
 	1. Null validation
-	2. Required field validation (if applicable)
-	3. Maximum length validation (if applicable)
-	4. Minimum length validation (if applicable)
+	2. Required field validation (if applicable, all in one test, check storage broker fluent configuration)
+	3. Maximum length validation (if applicable, all in one test, check storage broker fluent configuration as well as length restrictions from indexes)
+	4. Minimum length validation (if applicable, all in one test, check storage broker fluent configuration)
+	5. Audit field tests (SameAs, NotSameAs, NotRecent)
 Rules:
 	• Implement only the validation required for the current test
 	• Do not implement future validations
