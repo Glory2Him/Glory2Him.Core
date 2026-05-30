@@ -86,6 +86,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
                 throw await CreateAndLogDependencyValidationException(invalidContentTypeReferenceException);
             }
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var lockedContentTypeException = new LockedContentTypeException(
+                    message: "Locked content type record, please try again later.",
+                    innerException: dbUpdateConcurrencyException,
+                    data: dbUpdateConcurrencyException.Data);
+
+                throw await CreateAndLogDependencyValidationException(lockedContentTypeException);
+            }
             catch (DbUpdateException dbUpdateException)
             {
                 var failedStorageContentTypeException = new FailedStorageContentTypeException(
