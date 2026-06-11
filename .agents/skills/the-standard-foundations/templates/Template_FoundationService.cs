@@ -23,7 +23,13 @@ namespace {Namespace}.Services.Foundations.{Entity}s
         ValueTask<IQueryable<{Entity}>> RetrieveAll{Entity}sAsync(CancellationToken cancellationToken = default);
         ValueTask<{Entity}> Retrieve{Entity}ByIdAsync(Guid {entity}Id, CancellationToken cancellationToken = default);
         ValueTask<{Entity}> Modify{Entity}Async({Entity} {entity}, CancellationToken cancellationToken = default);
-        ValueTask<{Entity}> Remove{Entity}ByIdAsync(Guid {entity}Id, CancellationToken cancellationToken = default);
+
+        ValueTask<{Entity}> Remove{Entity}ByIdAsync(
+            Guid {entity}Id, 
+            string? deletionReason = null, 
+            CancellationToken cancellationToken = default);
+
+        ValueTask<{Entity}> HardRemove{Entity}ByIdAsync(Guid {entity}Id, CancellationToken cancellationToken = default);
     }
 }
 
@@ -41,6 +47,7 @@ using {Namespace}.Brokers.Events;
 using {Namespace}.Brokers.Loggings;
 using {Namespace}.Brokers.Securities;
 using {Namespace}.Brokers.Storages.Sql;
+using {Namespace}.Models.Events;
 using {Namespace}.Models.Foundations.{Entity}s;
 
 namespace {Namespace}.Services.Foundations.{Entity}s
@@ -73,8 +80,9 @@ namespace {Namespace}.Services.Foundations.{Entity}s
                 cancellationToken.ThrowIfCancellationRequested();
                 {entity} = await this.securityAuditBroker.ApplyAddAuditValuesAsync({entity});
                 await Validate{Entity}OnAdd({entity});
-                {Entity} added{Entity} = await this.storageBroker.Insert{Entity}Async({entity});
-                await this.eventBroker.Publish{Entity}Async(added{Entity}, "{Entity}Added");
+                {Entity} added{Entity} = await this.storageBroker.Insert{Entity}Async({entity}, cancellationToken);
+                var added{Entity}Envelope = new EventEnvelope<{Entity}> { Content = added{Entity} };
+                await this.eventBroker.Publish{Entity}Async(added{Entity}Envelope, "{Entity}Added");
 
                 return added{Entity};
             });
@@ -97,7 +105,7 @@ namespace {Namespace}.Services.Foundations.{Entity}s
                 Validate{Entity}Id({entity}Id);
 
                 {Entity} maybe{Entity} = await this.storageBroker
-                    .Select{Entity}ByIdAsync({entity}Id);
+                    .Select{Entity}ByIdAsync({entity}Id, cancellationToken);
 
                 ValidateStorage{Entity}(maybe{Entity}, {entity}Id);
 
@@ -114,24 +122,57 @@ namespace {Namespace}.Services.Foundations.{Entity}s
                 await Validate{Entity}OnModify({entity});
 
                 {Entity} maybe{Entity} =
-                    await this.storageBroker.Select{Entity}ByIdAsync({entity}.Id);
+                    await this.storageBroker.Select{Entity}ByIdAsync({entity}.Id, cancellationToken);
 
                 ValidateStorage{Entity}(maybe{Entity}, {entity}.Id);
 
                 {entity} = await this.securityAuditBroker
-                    .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync({entity}, maybe{Entity});
+                    .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync({entity}, maybe{Entity});
 
                 ValidateAgainstStorage{Entity}OnModify(
                     input{Entity}: {entity},
                     storage{Entity}: maybe{Entity});
 
-                {Entity} updated{Entity} = await this.storageBroker.Update{Entity}Async({entity});
-                await this.eventBroker.Publish{Entity}Async(updated{Entity}, "{Entity}Modified");
+                {Entity} updated{Entity} = await this.storageBroker.Update{Entity}Async({entity}, cancellationToken);
+                var updated{Entity}Envelope = new EventEnvelope<{Entity}> { Content = updated{Entity} };
+                await this.eventBroker.Publish{Entity}Async(updated{Entity}Envelope, "{Entity}Modified");
 
                 return updated{Entity};
             });
 
         public ValueTask<{Entity}> Remove{Entity}ByIdAsync(
+            Guid {entity}Id,
+            string? deletionReason = null,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Validate{Entity}Id({entity}Id);
+
+                {Entity} maybe{Entity} = await this.storageBroker
+                    .Select{Entity}ByIdAsync({entity}Id, cancellationToken);
+
+                ValidateStorage{Entity}(maybe{Entity}, {entity}Id);
+
+                if (maybe{Entity}.IsDeleted)
+                    return maybe{Entity};
+
+                if (deletionReason is not null)
+                    maybe{Entity}.DeletionReason = deletionReason;
+
+                {Entity} audited{Entity} =
+                    await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(maybe{Entity});
+
+                {Entity} removed{Entity} = 
+                    await this.storageBroker.Update{Entity}Async(audited{Entity}, cancellationToken);
+
+                var removed{Entity}Envelope = new EventEnvelope<{Entity}> { Content = removed{Entity} };
+                await this.eventBroker.Publish{Entity}Async(removed{Entity}Envelope, "{Entity}Removed");
+
+                return removed{Entity};
+            });
+
+        public ValueTask<{Entity}> HardRemove{Entity}ByIdAsync(
             Guid {entity}Id,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -140,12 +181,15 @@ namespace {Namespace}.Services.Foundations.{Entity}s
                 Validate{Entity}Id({entity}Id);
 
                 {Entity} maybe{Entity} = await this.storageBroker
-                    .Select{Entity}ByIdAsync({entity}Id);
+                    .Select{Entity}ByIdAsync({entity}Id, cancellationToken);
 
                 ValidateStorage{Entity}(maybe{Entity}, {entity}Id);
 
-                {Entity} deleted{Entity} = await this.storageBroker.Delete{Entity}Async(maybe{Entity});
-                await this.eventBroker.Publish{Entity}Async(deleted{Entity}, "{Entity}Removed");
+                {Entity} deleted{Entity} = 
+                    await this.storageBroker.Delete{Entity}Async(maybe{Entity}, cancellationToken);
+
+                var deleted{Entity}Envelope = new EventEnvelope<{Entity}> { Content = deleted{Entity} };
+                await this.eventBroker.Publish{Entity}Async(deleted{Entity}Envelope, "{Entity}Removed");
 
                 return deleted{Entity};
             });
@@ -241,7 +285,8 @@ namespace {Namespace}.Services.Foundations.{Entity}s
         {
             if (maybe{Entity} is null)
             {
-                throw new NotFound{Entity}ServiceException(message: $"Couldn't find {entity} with {entity}Id: {{entity}Id}.");
+                throw new NotFound{Entity}ServiceException(
+                    message: $"Couldn't find {entity} with {entity}Id: {{entity}Id}.");
             }
         }
 
@@ -931,6 +976,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using {Namespace}.Models.Events;
 using {Namespace}.Models.Foundations.{Entity}s;
 using Moq;
 
@@ -954,6 +1000,9 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
             {Entity} storage{Entity} = auditApplied{Entity}.DeepClone();
             {Entity} expected{Entity} = storage{Entity}.DeepClone();
 
+            var expected{Entity}Envelope =
+                new EventEnvelope<{Entity}> { Content = storage{Entity} };
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(input{Entity}))
                     .ReturnsAsync(auditApplied{Entity});
@@ -967,12 +1016,14 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.Insert{Entity}Async(auditApplied{Entity}))
+                broker.Insert{Entity}Async(auditApplied{Entity}, TestContext.Current.CancellationToken))
                     .ReturnsAsync(storage{Entity});
 
             this.eventBrokerMock.Setup(broker =>
-                broker.Publish{Entity}Async(storage{Entity}, "{Entity}Added"))
-                    .Returns(ValueTask.CompletedTask);
+                broker.Publish{Entity}Async(
+                    It.Is<EventEnvelope<{Entity}>>(e => e.Content == storage{Entity}),
+                    "{Entity}Added"))
+                        .Returns(ValueTask.CompletedTask);
 
             // when
             {Entity} actual{Entity} =
@@ -994,12 +1045,14 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
                 Times.Once());
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.Insert{Entity}Async(auditApplied{Entity}),
+                    broker.Insert{Entity}Async(auditApplied{Entity}, TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.Publish{Entity}Async(storage{Entity}, "{Entity}Added"),
-                    Times.Once);
+                broker.Publish{Entity}Async(
+                    It.Is<EventEnvelope<{Entity}>>(e => e.Content == storage{Entity}),
+                    "{Entity}Added"),
+                        Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
@@ -1024,6 +1077,9 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
 // - {Entity}ServiceTests.RemoveById.Logic.cs
 // - {Entity}ServiceTests.RemoveById.Validations.cs
 // - {Entity}ServiceTests.RemoveById.Exceptions.cs
+// - {Entity}ServiceTests.HardRemoveById.Logic.cs
+// - {Entity}ServiceTests.HardRemoveById.Validations.cs
+// - {Entity}ServiceTests.HardRemoveById.Exceptions.cs
 //
 // All follow the AAA (Arrange-Act-Assert) pattern with:
 // - Mock setup for dependencies
