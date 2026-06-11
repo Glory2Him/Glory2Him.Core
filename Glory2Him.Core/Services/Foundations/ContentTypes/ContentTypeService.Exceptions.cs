@@ -4,8 +4,8 @@
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
-// John 14:6 (NIV) "Jesus answered, 'I am the way and the truth and the life.
-//                  No one comes to the Father except through me.'" 
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
 // https://mark.bible/mark-16-15
 // https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -14,10 +14,10 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
-using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes

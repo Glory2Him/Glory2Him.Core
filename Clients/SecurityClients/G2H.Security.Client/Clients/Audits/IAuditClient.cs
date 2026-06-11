@@ -34,8 +34,8 @@ namespace G2H.Security.Client.Clients.Audits
         /// <remarks>
         /// Typically sets:
         /// <list type="bullet">
-        ///   <item><c>CreatedBy</c> ? current user ID</item>
-        ///   <item><c>CreatedDate</c> ? current UTC timestamp</item>
+        ///   <item><c>CreatedBy</c> → current user ID</item>
+        ///   <item><c>CreatedDate</c> → current UTC timestamp</item>
         ///   <item><c>UpdatedBy</c> and <c>UpdatedDate</c> may be set to the same values initially</item>
         /// </list>
         /// <example>
@@ -64,8 +64,8 @@ namespace G2H.Security.Client.Clients.Audits
         /// <remarks>
         /// Typically sets:
         /// <list type="bullet">
-        ///   <item><c>UpdatedBy</c> ? current user ID</item>
-        ///   <item><c>UpdatedDate</c> ? current UTC timestamp</item>
+        ///   <item><c>UpdatedBy</c> → current user ID</item>
+        ///   <item><c>UpdatedDate</c> → current UTC timestamp</item>
         /// </list>
         /// <example>
         /// If user "Bob" modifies an existing record:
@@ -81,7 +81,7 @@ namespace G2H.Security.Client.Clients.Audits
             SecurityConfigurations securityConfigurations);
 
         /// <summary>
-        /// Ensures that add audit values remain unchanged during modification.
+        /// Ensures that add/delete audit values remain unchanged during modification.
         /// </summary>
         /// <typeparam name="T">The type of the entity being validated.</typeparam>
         /// <param name="entity">The modified entity.</param>
@@ -99,7 +99,33 @@ namespace G2H.Security.Client.Clients.Audits
         /// this method will restore the original "Alice" value from the stored entity.
         /// </example>
         /// </remarks>
-        ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
+            T entity,
+            T storageEntity,
+            SecurityConfigurations securityConfigurations);
+
+        /// <summary>
+        /// Ensures that add/update audit values remain unchanged during removal.
+        /// </summary>
+        /// <typeparam name="T">The type of the entity being validated.</typeparam>
+        /// <param name="entity">The entity being removed.</param>
+        /// <param name="storageEntity">The original stored entity for comparison.</param>
+        /// <param name="securityConfigurations">The security configuration settings for audit enforcement.</param>
+        /// <returns>The entity with validated audit values.</returns>
+        /// <remarks>
+        /// This method prevents overwriting of immutable audit fields:
+        /// <list type="bullet">
+        ///   <item><c>CreatedBy</c></item>
+        ///   <item><c>CreatedDate</c></item>
+        ///   <item><c>UpdatedBy</c></item>
+        ///   <item><c>UpdatedDate</c></item>
+        /// </list>
+        /// <example>
+        /// If a malicious user tries to change <c>CreatedBy</c> from "Alice" to "Bob",
+        /// this method will restore the original "Alice" value from the stored entity.
+        /// </example>
+        /// </remarks>
+        ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync<T>(
             T entity,
             T storageEntity,
             SecurityConfigurations securityConfigurations);
@@ -115,8 +141,8 @@ namespace G2H.Security.Client.Clients.Audits
         /// <remarks>
         /// Typically sets:
         /// <list type="bullet">
-        ///   <item><c>DeletedBy</c> ? current user ID</item>
-        ///   <item><c>DeletedDate</c> ? current UTC timestamp</item>
+        ///   <item><c>DeletedBy</c> → current user ID</item>
+        ///   <item><c>DeletedDate</c> → current UTC timestamp</item>
         /// </list>
         /// <example>
         /// If user "Charlie" soft-deletes a record:
@@ -129,7 +155,8 @@ namespace G2H.Security.Client.Clients.Audits
         ValueTask<T> ApplyRemoveAuditValuesAsync<T>(
             T entity,
             ClaimsPrincipal claimsPrincipal,
-            SecurityConfigurations securityConfigurations);
+            SecurityConfigurations securityConfigurations,
+            string? deletionReason = null);
 
         /// <summary>
         /// Retrieves the current user identifier from the given claims principal.
@@ -147,5 +174,4 @@ namespace G2H.Security.Client.Clients.Audits
         /// </example>
         ValueTask<string> GetUserIdAsync(ClaimsPrincipal claimsPrincipal);
     }
-
 }

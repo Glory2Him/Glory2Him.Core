@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -32,7 +32,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             SecurityConfigurations securityConfigurations) =>
         TryCatch(async () =>
         {
-            ValidateInputs(entity, userId, securityConfigurations);
+            ValidateOnApplyAddAuditValues(entity, userId, securityConfigurations);
             var auditDateTimeOffset = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             SetProperty(
@@ -42,7 +42,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             SetProperty(
                 entity,
-                propertyName: securityConfigurations.CreatedDatePropertyName,
+                propertyName: securityConfigurations.CreatedWhenPropertyName,
                 value: auditDateTimeOffset);
 
             SetProperty(
@@ -52,7 +52,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             SetProperty(
                 entity,
-                propertyName: securityConfigurations.UpdatedDatePropertyName,
+                propertyName: securityConfigurations.UpdatedWhenPropertyName,
                 value: auditDateTimeOffset);
 
             return entity;
@@ -64,10 +64,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             SecurityConfigurations securityConfigurations) =>
         TryCatch(async () =>
         {
-            ValidateInputs(entity, userId, securityConfigurations);
+            ValidateOnApplyModifyAuditValues(entity, userId, securityConfigurations);
             var auditDateTimeOffset = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
             var updatedByName = securityConfigurations.UpdatedByPropertyName;
-            var updatedDateName = securityConfigurations.UpdatedDatePropertyName;
+            var updatedDateName = securityConfigurations.UpdatedWhenPropertyName;
 
             SetProperty(
                 entity,
@@ -85,10 +85,11 @@ namespace G2H.Security.Client.Services.Foundations.Audits
         public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(
             T entity,
             string userId,
-            SecurityConfigurations securityConfigurations) =>
+            SecurityConfigurations securityConfigurations,
+            string? deletionReason) =>
         TryCatch(async () =>
         {
-            ValidateRemoveInputs(entity, userId, securityConfigurations);
+            ValidateOnApplyRemoveAuditValues(entity, userId, securityConfigurations);
             var auditDateTimeOffset = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             SetProperty(
@@ -98,13 +99,23 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             SetProperty(
                 entity,
-                propertyName: securityConfigurations.DeletedDatePropertyName,
+                propertyName: securityConfigurations.DeletedWhenPropertyName,
                 value: auditDateTimeOffset);
+
+            SetProperty(
+                entity,
+                propertyName: securityConfigurations.IsDeletedPropertyName,
+                value: true);
+
+            SetProperty(
+                entity,
+                propertyName: securityConfigurations.DeletionReasonPropertyName,
+                value: deletionReason);
 
             return entity;
         });
 
-        public ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        public ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity,
             SecurityConfigurations securityConfigurations) =>
@@ -112,11 +123,34 @@ namespace G2H.Security.Client.Services.Foundations.Audits
         {
             ValidateInputs(entity, storageEntity, securityConfigurations);
             var createdByName = securityConfigurations.CreatedByPropertyName;
-            var createdDateName = securityConfigurations.CreatedDatePropertyName;
+            var createdDateName = securityConfigurations.CreatedWhenPropertyName;
             object createdByValue = GetProperty(storageEntity, createdByName);
             object createdDateValue = GetProperty(storageEntity, createdDateName);
             SetProperty(entity, createdByName, createdByValue);
             SetProperty(entity, createdDateName, createdDateValue);
+
+            return entity;
+        });
+
+        public ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync<T>(
+            T entity,
+            T storageEntity,
+            SecurityConfigurations securityConfigurations) =>
+        TryCatch<T>(async () =>
+        {
+            ValidateInputs(entity, storageEntity, securityConfigurations);
+            var createdByName = securityConfigurations.CreatedByPropertyName;
+            var createdDateName = securityConfigurations.CreatedWhenPropertyName;
+            var updatedByName = securityConfigurations.UpdatedByPropertyName;
+            var updatedDateName = securityConfigurations.UpdatedWhenPropertyName;
+            object createdByValue = GetProperty(storageEntity, createdByName);
+            object createdDateValue = GetProperty(storageEntity, createdDateName);
+            object updatedByValue = GetProperty(storageEntity, updatedByName);
+            object updatedDateValue = GetProperty(storageEntity, updatedDateName);
+            SetProperty(entity, createdByName, createdByValue);
+            SetProperty(entity, createdDateName, createdDateValue);
+            SetProperty(entity, updatedByName, updatedByValue);
+            SetProperty(entity, updatedDateName, updatedDateValue);
 
             return entity;
         });
@@ -154,7 +188,8 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             if (entity is IDictionary<string, object> expando)
             {
-                expando[propertyName] = value;
+                if (expando.ContainsKey(propertyName))
+                    expando[propertyName] = value;
             }
             else
             {

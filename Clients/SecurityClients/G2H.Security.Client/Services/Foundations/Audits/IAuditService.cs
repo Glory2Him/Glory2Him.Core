@@ -26,12 +26,19 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             T entity,
             string userId,
             SecurityConfigurations securityConfigurations);
+
         ValueTask<T> ApplyRemoveAuditValuesAsync<T>(
             T entity,
             string userId,
+            SecurityConfigurations securityConfigurations,
+            string? deletionReason = null);
+
+        ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
+            T entity,
+            T storageEntity,
             SecurityConfigurations securityConfigurations);
 
-        ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync<T>(
             T entity,
             T storageEntity,
             SecurityConfigurations securityConfigurations);

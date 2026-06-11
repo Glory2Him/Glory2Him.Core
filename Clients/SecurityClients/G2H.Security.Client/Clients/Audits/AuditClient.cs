@@ -105,12 +105,13 @@ namespace G2H.Security.Client.Clients.Audits
         public async ValueTask<T> ApplyRemoveAuditValuesAsync<T>(
             T entity,
             ClaimsPrincipal claimsPrincipal,
-            SecurityConfigurations securityConfigurations)
+            SecurityConfigurations securityConfigurations,
+            string? deletionReason = null)
         {
             try
             {
                 return await this.auditOrchestrationService
-                    .ApplyRemoveAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
+                    .ApplyRemoveAuditValuesAsync(entity, claimsPrincipal, securityConfigurations, deletionReason);
             }
             catch (AuditOrchestrationValidationException auditOrchestrationValidationException)
             {
@@ -138,7 +139,7 @@ namespace G2H.Security.Client.Clients.Audits
             }
         }
 
-        public async ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        public async ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity,
             SecurityConfigurations securityConfigurations)
@@ -146,7 +147,43 @@ namespace G2H.Security.Client.Clients.Audits
             try
             {
                 return await this.auditOrchestrationService
-                    .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(entity, storageEntity, securityConfigurations);
+                    .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(entity, storageEntity, securityConfigurations);
+            }
+            catch (AuditOrchestrationValidationException auditOrchestrationValidationException)
+            {
+                throw CreateAuditClientValidationException(
+                    auditOrchestrationValidationException.InnerException as Xeption);
+            }
+            catch (AuditOrchestrationDependencyValidationException auditOrchestrationDependencyValidationException)
+            {
+                throw CreateAuditClientValidationException(
+                    auditOrchestrationDependencyValidationException.InnerException as Xeption);
+            }
+            catch (AuditOrchestrationDependencyException auditOrchestrationDependencyException)
+            {
+                throw CreateAuditClientDependencyException(
+                    auditOrchestrationDependencyException.InnerException as Xeption);
+            }
+            catch (AuditOrchestrationServiceException auditOrchestrationServiceException)
+            {
+                throw CreateAuditClientDependencyException(
+                    auditOrchestrationServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateAuditClientServiceException(exception);
+            }
+        }
+
+        public async ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync<T>(
+            T entity,
+            T storageEntity,
+            SecurityConfigurations securityConfigurations)
+        {
+            try
+            {
+                return await this.auditOrchestrationService
+                    .EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync(entity, storageEntity, securityConfigurations);
             }
             catch (AuditOrchestrationValidationException auditOrchestrationValidationException)
             {
@@ -229,6 +266,5 @@ namespace G2H.Security.Client.Clients.Audits
                 innerException,
                 data: innerException.Data);
         }
-
     }
 }

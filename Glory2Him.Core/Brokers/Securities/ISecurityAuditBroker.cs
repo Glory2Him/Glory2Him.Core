@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <param name="entity">The modified entity.</param>
         /// <param name="storageEntity">The original stored entity with correct creation audit values.</param>
         /// <returns>A task containing the entity with preserved creation audit values.</returns>
-        ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity);
 

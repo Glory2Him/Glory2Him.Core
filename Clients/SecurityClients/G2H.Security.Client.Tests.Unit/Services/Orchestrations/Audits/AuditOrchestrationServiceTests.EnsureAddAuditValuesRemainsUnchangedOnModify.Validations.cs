@@ -51,7 +51,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
 
             // when
             ValueTask<Person> task =
-                auditOrchestrationService.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                auditOrchestrationService.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     nullInputPerson,
                     nullStoragePerson,
                     nullSecurityConfigurations);

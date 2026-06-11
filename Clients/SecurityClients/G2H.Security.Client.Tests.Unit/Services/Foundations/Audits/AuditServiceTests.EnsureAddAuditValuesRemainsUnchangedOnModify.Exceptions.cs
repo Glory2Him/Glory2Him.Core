@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -30,16 +30,16 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             dynamic someObject = new ExpandoObject();
             someObject.Name = "John Doe";
             someObject.CreatedBy = string.Empty;
-            someObject.CreatedDate = DateTimeOffset.MinValue;
+            someObject.CreatedWhen = DateTimeOffset.MinValue;
             someObject.UpdatedBy = string.Empty;
-            someObject.UpdatedDate = DateTimeOffset.MinValue;
+            someObject.UpdatedWhen = DateTimeOffset.MinValue;
 
             dynamic someStorageObject = new ExpandoObject();
             someObject.Name = "John Doe";
             someObject.CreatedBy = string.Empty;
-            someObject.CreatedDate = DateTimeOffset.MinValue;
+            someObject.CreatedWhen = DateTimeOffset.MinValue;
             someObject.UpdatedBy = string.Empty;
-            someObject.UpdatedDate = DateTimeOffset.MinValue;
+            someObject.UpdatedWhen = DateTimeOffset.MinValue;
 
             string someUserId = GetRandomString();
             var serviceException = new Exception();
@@ -48,12 +48,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             {
                 CreatedByPropertyName = "CreatedBy",
                 CreatedByPropertyType = typeof(string),
-                CreatedDatePropertyName = "CreatedDate",
-                CreatedDatePropertyType = typeof(DateTimeOffset),
+                CreatedWhenPropertyName = "CreatedWhen",
+                CreatedWhenPropertyType = typeof(DateTimeOffset),
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
-                UpdatedDatePropertyName = "UpdatedDate",
-                UpdatedDatePropertyType = typeof(DateTimeOffset)
+                UpdatedWhenPropertyName = "UpdatedWhen",
+                UpdatedWhenPropertyType = typeof(DateTimeOffset)
             };
 
             var failedAuditServiceException =
@@ -80,7 +80,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
 
             // when
             ValueTask<ExpandoObject> ensureAddAuditValuesRemainsUnchangedOnModifyTask =
-                auditServiceMock.Object.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                auditServiceMock.Object.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     someObject,
                     someStorageObject,
                     someSecurityConfigurations);

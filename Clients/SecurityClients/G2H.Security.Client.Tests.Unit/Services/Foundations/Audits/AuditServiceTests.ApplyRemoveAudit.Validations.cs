@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -79,8 +79,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             {
                 DeletedByPropertyName = invalidInput,
                 DeletedByPropertyType = typeof(DateTime),
-                DeletedDatePropertyName = invalidInput,
-                DeletedDatePropertyType = typeof(string)
+                DeletedWhenPropertyName = invalidInput,
+                DeletedWhenPropertyType = typeof(string)
             };
 
             InvalidArgumentAuditException invalidArgumentAuditException = new InvalidArgumentAuditException(
@@ -95,11 +95,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                 values: "A type of String / Guid / Long is required");
 
             invalidArgumentAuditException.AddData(
-                key: nameof(SecurityConfigurations.DeletedDatePropertyName),
+                key: nameof(SecurityConfigurations.DeletedWhenPropertyName),
                 values: "Text is required");
 
             invalidArgumentAuditException.AddData(
-                key: nameof(SecurityConfigurations.DeletedDatePropertyType),
+                key: nameof(SecurityConfigurations.DeletedWhenPropertyType),
                 values: "A type of DateTime / DateTimeOffset is required");
 
             var expectedAuditValidationException =
@@ -129,8 +129,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             {
                 DeletedByPropertyName = "DeletedByUser",
                 DeletedByPropertyType = typeof(string),
-                DeletedDatePropertyName = "DeletedAt",
-                DeletedDatePropertyType = typeof(DateTime)
+                DeletedWhenPropertyName = "DeletedAt",
+                DeletedWhenPropertyType = typeof(DateTime)
             };
 
             InvalidArgumentAuditException invalidArgumentAuditException = new InvalidArgumentAuditException(
@@ -145,11 +145,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                     $"on entity '{typeof(Person).Name}'.");
 
             invalidArgumentAuditException.AddData(
-                key: nameof(SecurityConfigurations.DeletedDatePropertyName),
+                key: nameof(SecurityConfigurations.DeletedWhenPropertyName),
                 values:
-                    $"Property '{inputSecurityConfigurations.DeletedDatePropertyName}' not found, " +
+                    $"Property '{inputSecurityConfigurations.DeletedWhenPropertyName}' not found, " +
                     $"not settable, or not assignable from " +
-                    $"'{inputSecurityConfigurations.DeletedDatePropertyType.Name}' " +
+                    $"'{inputSecurityConfigurations.DeletedWhenPropertyType.Name}' " +
                     $"on entity '{typeof(Person).Name}'.");
 
             var expectedAuditValidationException =

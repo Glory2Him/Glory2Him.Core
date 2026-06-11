@@ -13,12 +13,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
-using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xeptions;
 

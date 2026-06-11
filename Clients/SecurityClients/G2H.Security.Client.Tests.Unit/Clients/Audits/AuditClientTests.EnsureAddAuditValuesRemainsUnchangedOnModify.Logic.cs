@@ -22,7 +22,7 @@ namespace G2H.Security.Client.Tests.Clients.Audits
     public partial class AuditClientTests
     {
         [Fact]
-        public async Task ShouldEnsureAddAuditValuesRemainsUnchangedOnModifyAsync()
+        public async Task ShouldEnsureOtherAuditValuesRemainsUnchangedOnModifyAsync()
         {
             // Given
             DateTimeOffset currentDateTime = DateTime.UtcNow;
@@ -33,7 +33,7 @@ namespace G2H.Security.Client.Tests.Clients.Audits
             var securityConfigurations = new SecurityConfigurations();
 
             this.auditOrchestrationServiceMock.Setup(service =>
-                service.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                service.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     inputPerson,
                     storagePerson,
                     securityConfigurations))
@@ -41,7 +41,7 @@ namespace G2H.Security.Client.Tests.Clients.Audits
 
             // When
             dynamic actualResult = await this.auditClient
-                .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(inputPerson, storagePerson, securityConfigurations);
+                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(inputPerson, storagePerson, securityConfigurations);
 
             // Then
             ((object)actualResult).Should().BeEquivalentTo(expectedResult);

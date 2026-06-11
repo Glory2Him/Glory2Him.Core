@@ -302,7 +302,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .ReturnsAsync(storageContentItem);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     invalidContentItem,
                     storageContentItem))
                         .ReturnsAsync(invalidContentItem);
@@ -340,7 +340,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     invalidContentItem,
                     storageContentItem),
                 Times.Once);
@@ -401,7 +401,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .ReturnsAsync(storageContentItem);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     invalidContentItem,
                     storageContentItem))
                         .ReturnsAsync(invalidContentItem);
@@ -439,7 +439,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     invalidContentItem,
                     storageContentItem),
                 Times.Once);
@@ -498,7 +498,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .ReturnsAsync(storageContentItem);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     invalidContentItem,
                     storageContentItem))
                         .ReturnsAsync(invalidContentItem);
@@ -536,7 +536,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     invalidContentItem,
                     storageContentItem),
                 Times.Once);
