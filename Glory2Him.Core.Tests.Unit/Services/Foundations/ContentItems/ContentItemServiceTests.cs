@@ -14,14 +14,17 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Moq;
 using Tynamix.ObjectFiller;
 using Xeptions;
@@ -80,6 +83,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             {
                 randomTimeInFuture,
                 randomTimeInPast
+            };
+        }
+
+        public static TheoryData<Exception, Xeption> DependencyValidationExceptions()
+        {
+            string someMessage = GetRandomString();
+            var duplicateKeyException = new DuplicateKeyException(someMessage);
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    duplicateKeyException,
+                    new AlreadyExistsContentItemException(
+                        message: "Content item already exists with the same Id.",
+                        innerException: duplicateKeyException,
+                        data: duplicateKeyException.Data)
+                },
+                {
+                    foreignKeyConstraintConflictException,
+                    new InvalidContentItemReferenceException(
+                        message: "Invalid content item reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data)
+                }
+            };
+        }
+
+        public static TheoryData<Exception, Xeption> ModifyDependencyValidationExceptions()
+        {
+            string someMessage = GetRandomString();
+            var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
+            var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    dbUpdateConcurrencyException,
+                    new LockedContentItemException(
+                        message: "Locked content item record, please try again later.",
+                        innerException: dbUpdateConcurrencyException,
+                        data: dbUpdateConcurrencyException.Data)
+                },
+                {
+                    foreignKeyConstraintConflictException,
+                    new InvalidContentItemReferenceException(
+                        message: "Invalid content item reference error occurred.",
+                        innerException: foreignKeyConstraintConflictException,
+                        data: foreignKeyConstraintConflictException.Data)
+                }
+            };
+        }
+
+        public static TheoryData<Exception, Xeption> DependencyExceptions()
+        {
+            var operationCanceledException = new OperationCanceledException();
+            var dbUpdateException = new DbUpdateException();
+
+            return new TheoryData<Exception, Xeption>
+            {
+                {
+                    operationCanceledException,
+                    new TimeoutContentItemException(
+                        message: "Content item timed out, contact support.",
+                        innerException: new TimeoutException(),
+                        data: operationCanceledException.Data)
+                },
+                {
+                    dbUpdateException,
+                    new FailedStorageContentItemException(
+                        message: "Failed content item storage error occurred, contact support.",
+                        innerException: dbUpdateException,
+                        data: dbUpdateException.Data)
+                }
             };
         }
 

@@ -4,8 +4,8 @@
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
-// John 14:6 (NIV) "Jesus answered, 'I am the way and the truth and the life.
-//                  No one comes to the Father except through me.'" 
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’" 
 // https://mark.bible/mark-16-15
 // https://john.bible/john-14-6 
 // ────────────────────────────────────────────────────────────────────────────────
@@ -13,39 +13,36 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
     public partial class ContentItemServiceTests
     {
-        [Fact]
-        public async Task ShouldThrowDependencyExceptionOnRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnRemoveByIdIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
         {
             // given
             Guid someContentItemId = Guid.NewGuid();
-            var operationCanceledException = new OperationCanceledException();
-
-            var timeoutContentItemException = new TimeoutContentItemException(
-                message: "Content item timed out, contact support.",
-                innerException: new TimeoutException(),
-                data: operationCanceledException.Data);
 
             var expectedContentItemDependencyException = new ContentItemDependencyException(
                 message: "Content item dependency error occurred, contact support.",
-                innerException: timeoutContentItemException);
+                innerException: expectedInnerException);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
                     someContentItemId,
                     TestContext.Current.CancellationToken))
-                        .ThrowsAsync(operationCanceledException);
+                        .ThrowsAsync(thrownException);
 
             // when
             ValueTask<ContentItem> removeContentItemByIdTask =
@@ -224,82 +221,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemDependencyValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowDependencyExceptionOnRemoveByIdIfDbUpdateExceptionOccursAndLogItAsync()
-        {
-            // given
-            Guid someContentItemId = Guid.NewGuid();
-            ContentItem someContentItem = CreateRandomContentItem();
-            someContentItem.IsDeleted = false;
-            var dbUpdateException = new DbUpdateException();
-
-            var failedStorageContentItemException = new FailedStorageContentItemException(
-                message: "Failed content item storage error occurred, contact support.",
-                innerException: dbUpdateException,
-                data: dbUpdateException.Data);
-
-            var expectedContentItemDependencyException = new ContentItemDependencyException(
-                message: "Content item dependency error occurred, contact support.",
-                innerException: failedStorageContentItemException);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken))
-                        .ReturnsAsync(someContentItem);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(someContentItem))
-                    .ReturnsAsync(someContentItem);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.UpdateContentItemAsync(
-                    someContentItem,
-                    TestContext.Current.CancellationToken))
-                        .ThrowsAsync(dbUpdateException);
-
-            // when
-            ValueTask<ContentItem> removeContentItemByIdTask =
-                this.contentItemService.RemoveContentItemByIdAsync(
-                    someContentItemId,
-                    cancellationToken: TestContext.Current.CancellationToken);
-
-            ContentItemDependencyException actualContentItemDependencyException =
-                await Assert.ThrowsAsync<ContentItemDependencyException>(
-                    removeContentItemByIdTask.AsTask);
-
-            // then
-            actualContentItemDependencyException.Should().BeEquivalentTo(
-                expectedContentItemDependencyException);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(someContentItem),
-                Times.Once);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.UpdateContentItemAsync(
-                    someContentItem,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemDependencyException))),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

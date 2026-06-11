@@ -125,11 +125,13 @@ Validation Phase Rules
 Only begin validation tests after the CRUD operation logic test has completed successfully.
 Validation tests must be completed one at a time and in this exact order:
 	1. Null validation
-	2. Required field validation (if applicable)
-	3. Maximum length validation (if applicable)
-	4. Minimum length validation (if applicable)
+	2. Required field validation (if applicable, all in one test, check storage broker fluent configuration)
+	3. Maximum length validation (if applicable, all in one test, check storage broker fluent configuration as well as length restrictions from indexes)
+	4. Minimum length validation (if applicable, all in one test, check storage broker fluent configuration)
+	5. Audit field tests (SameAs, NotSameAs, NotRecent)
 Rules:
 	• Implement only the validation required for the current test
+	• TryCatch may ONLY be added during this phase
 	• Do not implement future validations
 	• Do not implement exception handling yet
 	• Do not move to the exception phase early
@@ -137,12 +139,14 @@ Rules:
 Exception Phase Rules
 Only begin exception tests after all validation tests for the CRUD operation are complete.
 Exception tests must be completed one at a time and in this exact order:
-	1. Dependency exception test
-	2. Dependency validation exception test
-	3. Service exception test
+	1. Dependency exception test (combined theory tests where applicable)
+	2. OperationCanceledException
+	3. Critical dependency exception test (combined theory tests where applicable)
+	4. Dependency validation exception test (combined theory tests where applicable)
+	5. Service exception test
 Rules:
 	• Implement only the minimum exception handling required
-	• TryCatch may ONLY be added during this phase
+	• TryCatch may be added during this phase if not already added during the validation phase
 	• Do not add unrelated exception handling
 	• Do not implement exception handling for future CRUD operations
 
@@ -171,6 +175,7 @@ Incorrect sequence example:
 This is forbidden.
 
 Commit Rules
+Stop for a review checkpoint before every commit.
 Every failing state requires a FAIL commit:
 %testname% -> FAIL
 Every passing state requires a PASS commit:

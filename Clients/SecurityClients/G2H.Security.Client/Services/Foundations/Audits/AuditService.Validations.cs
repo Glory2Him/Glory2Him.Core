@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -19,7 +19,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 {
     internal partial class AuditService
     {
-        private static void ValidateInputs<T>(T entity, string userId, SecurityConfigurations securityConfigurations)
+        private static void ValidateOnApplyAddAuditValues<T>(
+            T entity,
+            string userId,
+            SecurityConfigurations securityConfigurations)
         {
             Validate(
                 (Rule: IsInvalid(entity), Parameter: nameof(entity)),
@@ -33,11 +36,11 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 (Rule: IsInvalidDataType(securityConfigurations.CreatedByPropertyType),
                     Parameter: nameof(SecurityConfigurations.CreatedByPropertyType)),
 
-                (Rule: IsInvalid(securityConfigurations.CreatedDatePropertyName),
-                    Parameter: nameof(SecurityConfigurations.CreatedDatePropertyName)),
+                (Rule: IsInvalid(securityConfigurations.CreatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
-                (Rule: IsInvalidDateType(securityConfigurations.CreatedDatePropertyType),
-                    Parameter: nameof(SecurityConfigurations.CreatedDatePropertyType)),
+                (Rule: IsInvalidDateType(securityConfigurations.CreatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyType)),
 
                 (Rule: IsInvalid(securityConfigurations.UpdatedByPropertyName),
                     Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
@@ -45,11 +48,11 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 (Rule: IsInvalidDataType(securityConfigurations.UpdatedByPropertyType),
                     Parameter: nameof(SecurityConfigurations.UpdatedByPropertyType)),
 
-                (Rule: IsInvalid(securityConfigurations.UpdatedDatePropertyName),
-                    Parameter: nameof(SecurityConfigurations.UpdatedDatePropertyName)),
+                (Rule: IsInvalid(securityConfigurations.UpdatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
 
-                (Rule: IsInvalidDateType(securityConfigurations.UpdatedDatePropertyType),
-                    Parameter: nameof(SecurityConfigurations.UpdatedDatePropertyType)));
+                (Rule: IsInvalidDateType(securityConfigurations.UpdatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyType)));
 
             Validate(
                 (Rule: IsInvalidProperty(
@@ -59,10 +62,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedDatePropertyName,
+                    securityConfigurations.CreatedWhenPropertyName,
                     entity,
-                    securityConfigurations.CreatedDatePropertyType),
-                Parameter: nameof(SecurityConfigurations.CreatedDatePropertyName)),
+                    securityConfigurations.CreatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
                     securityConfigurations.UpdatedByPropertyName,
@@ -71,13 +74,77 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedDatePropertyName,
+                    securityConfigurations.UpdatedWhenPropertyName,
                     entity,
-                    securityConfigurations.UpdatedDatePropertyType),
-                Parameter: nameof(SecurityConfigurations.UpdatedDatePropertyName)));
+                    securityConfigurations.UpdatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
         }
 
-        private static void ValidateRemoveInputs<T>(T entity, string userId, SecurityConfigurations securityConfigurations)
+        private static void ValidateOnApplyModifyAuditValues<T>(
+            T entity,
+            string userId,
+            SecurityConfigurations securityConfigurations)
+        {
+            Validate(
+                (Rule: IsInvalid(entity), Parameter: nameof(entity)),
+                (Rule: IsInvalid(userId), Parameter: nameof(userId)),
+                (Rule: IsInvalid(securityConfigurations), Parameter: nameof(SecurityConfigurations)));
+
+            Validate(
+                (Rule: IsInvalid(securityConfigurations.CreatedByPropertyName),
+                    Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
+
+                (Rule: IsInvalidDataType(securityConfigurations.CreatedByPropertyType),
+                    Parameter: nameof(SecurityConfigurations.CreatedByPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.CreatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
+
+                (Rule: IsInvalidDateType(securityConfigurations.CreatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.UpdatedByPropertyName),
+                    Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
+
+                (Rule: IsInvalidDataType(securityConfigurations.UpdatedByPropertyType),
+                    Parameter: nameof(SecurityConfigurations.UpdatedByPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.UpdatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
+
+                (Rule: IsInvalidDateType(securityConfigurations.UpdatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyType)));
+
+            Validate(
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.CreatedByPropertyName,
+                    entity,
+                    securityConfigurations.CreatedByPropertyType),
+                Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.CreatedWhenPropertyName,
+                    entity,
+                    securityConfigurations.CreatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.UpdatedByPropertyName,
+                    entity,
+                    securityConfigurations.UpdatedByPropertyType),
+                Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.UpdatedWhenPropertyName,
+                    entity,
+                    securityConfigurations.UpdatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
+        }
+
+        private static void ValidateOnApplyRemoveAuditValues<T>(
+            T entity,
+            string userId,
+            SecurityConfigurations securityConfigurations)
         {
             Validate(
                 (Rule: IsInvalid(entity), Parameter: nameof(entity)),
@@ -91,11 +158,11 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 (Rule: IsInvalidDataType(securityConfigurations.DeletedByPropertyType),
                     Parameter: nameof(SecurityConfigurations.DeletedByPropertyType)),
 
-                (Rule: IsInvalid(securityConfigurations.DeletedDatePropertyName),
-                    Parameter: nameof(SecurityConfigurations.DeletedDatePropertyName)),
+                (Rule: IsInvalid(securityConfigurations.DeletedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyName)),
 
-                (Rule: IsInvalidDateType(securityConfigurations.DeletedDatePropertyType),
-                    Parameter: nameof(SecurityConfigurations.DeletedDatePropertyType)));
+                (Rule: IsInvalidDateType(securityConfigurations.DeletedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyType)));
 
             Validate(
                 (Rule: IsInvalidProperty(
@@ -105,10 +172,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.DeletedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.DeletedDatePropertyName,
+                    securityConfigurations.DeletedWhenPropertyName,
                     entity,
-                    securityConfigurations.DeletedDatePropertyType),
-                Parameter: nameof(SecurityConfigurations.DeletedDatePropertyName)));
+                    securityConfigurations.DeletedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyName)));
         }
 
         virtual internal void ValidateInputs<T>(
@@ -128,11 +195,11 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 (Rule: IsInvalidDataType(securityConfigurations.CreatedByPropertyType),
                     Parameter: nameof(SecurityConfigurations.CreatedByPropertyType)),
 
-                (Rule: IsInvalid(securityConfigurations.CreatedDatePropertyName),
-                    Parameter: nameof(SecurityConfigurations.CreatedDatePropertyName)),
+                (Rule: IsInvalid(securityConfigurations.CreatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
-                (Rule: IsInvalidDateType(securityConfigurations.CreatedDatePropertyType),
-                    Parameter: nameof(SecurityConfigurations.CreatedDatePropertyType)),
+                (Rule: IsInvalidDateType(securityConfigurations.CreatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyType)),
 
                 (Rule: IsInvalid(securityConfigurations.UpdatedByPropertyName),
                     Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
@@ -140,11 +207,11 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 (Rule: IsInvalidDataType(securityConfigurations.UpdatedByPropertyType),
                     Parameter: nameof(SecurityConfigurations.UpdatedByPropertyType)),
 
-                (Rule: IsInvalid(securityConfigurations.UpdatedDatePropertyName),
-                    Parameter: nameof(SecurityConfigurations.UpdatedDatePropertyName)),
+                (Rule: IsInvalid(securityConfigurations.UpdatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
 
-                (Rule: IsInvalidDateType(securityConfigurations.UpdatedDatePropertyType),
-                    Parameter: nameof(SecurityConfigurations.UpdatedDatePropertyType)));
+                (Rule: IsInvalidDateType(securityConfigurations.UpdatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyType)));
 
             Validate(
                 (Rule: IsInvalidProperty(
@@ -154,10 +221,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedDatePropertyName,
+                    securityConfigurations.CreatedWhenPropertyName,
                     entity,
-                    securityConfigurations.CreatedDatePropertyType),
-                Parameter: nameof(SecurityConfigurations.CreatedDatePropertyName)),
+                    securityConfigurations.CreatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
                     securityConfigurations.UpdatedByPropertyName,
@@ -166,10 +233,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedDatePropertyName,
+                    securityConfigurations.UpdatedWhenPropertyName,
                     entity,
-                    securityConfigurations.UpdatedDatePropertyType),
-                Parameter: nameof(SecurityConfigurations.UpdatedDatePropertyName)),
+                    securityConfigurations.UpdatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
                     securityConfigurations.CreatedByPropertyName,
@@ -178,10 +245,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedDatePropertyName,
+                    securityConfigurations.CreatedWhenPropertyName,
                     storageEntity,
-                    securityConfigurations.CreatedDatePropertyType),
-                Parameter: nameof(SecurityConfigurations.CreatedDatePropertyName)),
+                    securityConfigurations.CreatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
                     securityConfigurations.UpdatedByPropertyName,
@@ -190,10 +257,10 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedDatePropertyName,
+                    securityConfigurations.UpdatedWhenPropertyName,
                     storageEntity,
-                    securityConfigurations.UpdatedDatePropertyType),
-                Parameter: nameof(SecurityConfigurations.UpdatedDatePropertyName)));
+                    securityConfigurations.UpdatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
         }
 
         private static dynamic IsInvalidProperty<T>(string propertyName, T entity, Type expectedType) => new

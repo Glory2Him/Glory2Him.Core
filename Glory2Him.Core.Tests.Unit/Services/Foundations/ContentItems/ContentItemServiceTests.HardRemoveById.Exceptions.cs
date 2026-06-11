@@ -19,32 +19,30 @@ using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Moq;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
     public partial class ContentItemServiceTests
     {
-        [Fact]
-        public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
         {
             // given
             Guid someContentItemId = Guid.NewGuid();
-            var operationCanceledException = new OperationCanceledException();
-
-            var timeoutContentItemException = new TimeoutContentItemException(
-                message: "Content item timed out, contact support.",
-                innerException: new TimeoutException(),
-                data: operationCanceledException.Data);
 
             var expectedContentItemDependencyException = new ContentItemDependencyException(
                 message: "Content item dependency error occurred, contact support.",
-                innerException: timeoutContentItemException);
+                innerException: expectedInnerException);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
                     someContentItemId,
                     TestContext.Current.CancellationToken))
-                        .ThrowsAsync(operationCanceledException);
+                        .ThrowsAsync(thrownException);
 
             // when
             ValueTask<ContentItem> hardRemoveContentItemByIdTask =
@@ -214,73 +212,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemDependencyValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfDbUpdateExceptionOccursAndLogItAsync()
-        {
-            // given
-            Guid someContentItemId = Guid.NewGuid();
-            ContentItem someContentItem = CreateRandomContentItem();
-            var dbUpdateException = new DbUpdateException();
-
-            var failedStorageContentItemException = new FailedStorageContentItemException(
-                message: "Failed content item storage error occurred, contact support.",
-                innerException: dbUpdateException,
-                data: dbUpdateException.Data);
-
-            var expectedContentItemDependencyException = new ContentItemDependencyException(
-                message: "Content item dependency error occurred, contact support.",
-                innerException: failedStorageContentItemException);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken))
-                        .ReturnsAsync(someContentItem);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.DeleteContentItemAsync(
-                    someContentItem,
-                    TestContext.Current.CancellationToken))
-                        .ThrowsAsync(dbUpdateException);
-
-            // when
-            ValueTask<ContentItem> hardRemoveContentItemByIdTask =
-                this.contentItemService.HardRemoveContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemDependencyException actualContentItemDependencyException =
-                await Assert.ThrowsAsync<ContentItemDependencyException>(
-                    hardRemoveContentItemByIdTask.AsTask);
-
-            // then
-            actualContentItemDependencyException.Should().BeEquivalentTo(
-                expectedContentItemDependencyException);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.DeleteContentItemAsync(
-                    someContentItem,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemDependencyException))),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

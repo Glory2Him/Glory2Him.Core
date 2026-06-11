@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -52,8 +52,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             {
                 DeletedByPropertyName = "DeletedBy",
                 DeletedByPropertyType = typeof(string),
-                DeletedDatePropertyName = "DeletedDate",
-                DeletedDatePropertyType = typeof(DateTimeOffset)
+                DeletedWhenPropertyName = "DeletedDate",
+                DeletedWhenPropertyType = typeof(DateTimeOffset)
             };
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -102,8 +102,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             {
                 DeletedByPropertyName = "DeletedBy",
                 DeletedByPropertyType = typeof(string),
-                DeletedDatePropertyName = "DeletedWhen",
-                DeletedDatePropertyType = typeof(DateTimeOffset)
+                DeletedWhenPropertyName = "DeletedWhen",
+                DeletedWhenPropertyType = typeof(DateTimeOffset)
             };
 
             this.dateTimeBrokerMock.Setup(broker =>

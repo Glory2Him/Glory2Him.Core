@@ -62,19 +62,20 @@ namespace G2H.Security.Client.Services.Foundations.Audits
         public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(
             T entity,
             ClaimsPrincipal claimsPrincipal,
-            SecurityConfigurations securityConfigurations) =>
+            SecurityConfigurations securityConfigurations,
+            string? deletionReason) =>
         TryCatch<T>(async () =>
         {
             ValidateInputs(entity, claimsPrincipal, securityConfigurations);
             string userId = await this.userService.GetUserIdAsync(claimsPrincipal);
 
             T updatedEntity = await this.auditService
-                .ApplyRemoveAuditValuesAsync(entity, userId, securityConfigurations);
+                .ApplyRemoveAuditValuesAsync(entity, userId, securityConfigurations, deletionReason);
 
             return updatedEntity;
         });
 
-        public ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        public ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity,
             SecurityConfigurations securityConfigurations) =>
@@ -83,7 +84,21 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             ValidateInputs(entity, storageEntity, securityConfigurations);
 
             var updatedEntity = await this.auditService
-                .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(entity, storageEntity, securityConfigurations);
+                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(entity, storageEntity, securityConfigurations);
+
+            return updatedEntity;
+        });
+
+        public ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync<T>(
+            T entity,
+            T storageEntity,
+            SecurityConfigurations securityConfigurations) =>
+        TryCatch<T>(async () =>
+        {
+            ValidateInputs(entity, storageEntity, securityConfigurations);
+
+            var updatedEntity = await this.auditService
+                .EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync<T>(entity, storageEntity, securityConfigurations);
 
             return updatedEntity;
         });

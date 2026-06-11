@@ -22,7 +22,7 @@ Because all security concerns are resolved through the `ISecurityAuditBroker` ab
   - [ApplyAddAuditValuesAsync](#applyaditvaluesasync)
   - [ApplyModifyAuditValuesAsync](#applymodifyauditvaluesasync)
   - [ApplyRemoveAuditValuesAsync](#applyremoveauditvaluesasync)
-  - [EnsureAddAuditValuesRemainsUnchangedOnModifyAsync](#ensureadauditvaluesremainsunchangedonmodifyasync)
+  - [EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync](#ensureadauditvaluesremainsunchangedonmodifyasync)
 - [User Client](#user-client)
   - [GetUserAsync](#getuserasync)
   - [GetUserIdAsync](#getuseridwasync)
@@ -99,7 +99,7 @@ public interface ISecurityAuditBroker
     ValueTask<T>      ApplyAddAuditValuesAsync<T>(T entity);
     ValueTask<T>      ApplyModifyAuditValuesAsync<T>(T entity);
     ValueTask<T>      ApplyRemoveAuditValuesAsync<T>(T entity);
-    ValueTask<T>      EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(T entity, T storageEntity);
+    ValueTask<T>      EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(T entity, T storageEntity);
     ValueTask<string> GetUserIdAsync();
 }
 ```
@@ -192,7 +192,7 @@ public ValueTask<Student> ModifyStudentAsync(
 
         // Protects CreatedBy / CreatedDate from being overwritten.
         student = await this.securityAuditBroker
-            .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(student, maybeStudent);
+            .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(student, maybeStudent);
 
         ValidateAgainstStorageStudentOnModify(
             inputStudent: student,
@@ -263,14 +263,14 @@ student.IsDeleted   = true
 
 ---
 
-### EnsureAddAuditValuesRemainsUnchangedOnModifyAsync
+### EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
 
 Guards against callers (or attackers) attempting to rewrite immutable creation audit fields. It copies `CreatedBy` and `CreatedWhen` back from the stored entity onto the incoming entity, ensuring those values can never be changed via a modify operation.
 
 ```csharp
 // Inside ModifyStudentAsync, after selecting from storage:
 student = await this.securityAuditBroker
-    .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(student, maybeStudent);
+    .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(student, maybeStudent);
 ```
 
 If a caller submits `CreatedBy = "mallory"`, this method silently restores `CreatedBy = "alice@school.edu"` from storage before validation or persistence runs.
