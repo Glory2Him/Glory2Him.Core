@@ -41,17 +41,17 @@ namespace Glory2Him.Core.Models.Events
         /// <summary>
         /// The roles assigned to the authenticated caller, used for role-based authorization decisions.
         /// </summary>
-        public IReadOnlyList<string> Roles { get; init; }
+        public IReadOnlyList<string> Roles { get; init; } = [];
 
         /// <summary>
         /// The OAuth 2.0 scopes granted to the caller, used for scope-based API access control.
         /// </summary>
-        public IReadOnlyList<string> Scopes { get; init; }
+        public IReadOnlyList<string> Scopes { get; init; } = [];
 
         /// <summary>
         /// Fine-grained permissions granted to the caller beyond role and scope level.
         /// </summary>
-        public IReadOnlyList<string> Permissions { get; init; }
+        public IReadOnlyList<string> Permissions { get; init; } = [];
 
         /// <summary>
         /// Indicates whether the caller has been successfully authenticated.

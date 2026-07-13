@@ -26,7 +26,7 @@ namespace Glory2Him.Core.Models.Foundations.Tags
         /// <summary>
         /// The tag name.
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// User identifier for who created the tag.

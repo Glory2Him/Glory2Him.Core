@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Models.Events
         /// <summary>
         /// The name of the event type, for example the name of the domain entity or operation that produced it.
         /// </summary>
-        public string EventType { get; init; }
+        public string EventType { get; init; } = string.Empty;
 
         /// <summary>
         /// The schema version of this event. Used to support event versioning and backward-compatible evolution.

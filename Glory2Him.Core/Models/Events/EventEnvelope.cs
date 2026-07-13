@@ -25,21 +25,21 @@ namespace Glory2Him.Core.Models.Events
         /// <summary>
         /// The business payload of the event, such as the domain entity that was created, updated, or deleted.
         /// </summary>
-        public T Content { get; init; }
+        public T Content { get; init; } = default!;
 
         /// <summary>
         /// The normalized identity of the authenticated caller at the time the event was created.
         /// </summary>
-        public SecurityContext SecurityContext { get; init; }
+        public SecurityContext SecurityContext { get; init; } = new SecurityContext();
 
         /// <summary>
         /// Operational information about the originating request or process, used for tracing and audit.
         /// </summary>
-        public RequestContext RequestContext { get; init; }
+        public RequestContext RequestContext { get; init; } = new RequestContext();
 
         /// <summary>
         /// Metadata describing the event instance, including its identifier, type, version, and causation.
         /// </summary>
-        public EventMetadata Metadata { get; init; }
+        public EventMetadata Metadata { get; init; } = new EventMetadata();
     }
 }
