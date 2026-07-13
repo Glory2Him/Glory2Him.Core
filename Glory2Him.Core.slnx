@@ -1,17 +1,17 @@
 <Solution>
   <Folder Name="/Clients/" />
   <Folder Name="/Clients/Security/">
-    <Project Path="Clients/SecurityClients/G2H.Security.Client/G2H.Security.Client.csproj" />
+    <Project Path="Clients/SecurityClients/G2H.Security.Client.Infrastructure/G2H.Security.Client.Infrastructure.csproj" />
     <Project Path="Clients/SecurityClients/G2H.Security.Client.Tests.Acceptance/G2H.Security.Client.Tests.Acceptance.csproj" />
     <Project Path="Clients/SecurityClients/G2H.Security.Client.Tests.Unit/G2H.Security.Client.Tests.Unit.csproj" />
-	<Project Path="Clients/SecurityClients/G2H.Security.Client.Infrastructure/G2H.Security.Client.Infrastructure.csproj" />
+    <Project Path="Clients/SecurityClients/G2H.Security.Client/G2H.Security.Client.csproj" />
   </Folder>
   <Folder Name="/Clients/Storage/">
+    <Project Path="Clients/StorageClients/G2H.StorageClient.Infrastructure/G2H.StorageClient.Infrastructure.csproj" />
     <Project Path="Clients/StorageClients/G2H.StorageClient.Tests.Acceptance/G2H.StorageClient.Tests.Acceptance.csproj" />
     <Project Path="Clients/StorageClients/G2H.StorageClient.Tests.Integrations/G2H.StorageClient.Tests.Integrations.csproj" />
     <Project Path="Clients/StorageClients/G2H.StorageClient.Tests.Unit/G2H.StorageClient.Tests.Unit.csproj" />
-    <Project Path="Clients/StorageClients/G2H.StorageClient.Infrastructure/G2H.StorageClient.Infrastructure.csproj" />
-	<Project Path="Clients/StorageClients/G2H.StorageClient/G2H.StorageClient.csproj" />
+    <Project Path="Clients/StorageClients/G2H.StorageClient/G2H.StorageClient.csproj" />
   </Folder>
   <Folder Name="/Core/">
     <Project Path="Glory2Him.Core.Infrastructure/Glory2Him.Core.Infrastructure.csproj" />
@@ -27,4 +27,5 @@
   <Folder Name="/Documentation/Prompts/">
     <File Path="Documentation/Prompt-CreateFoundationService.md" />
   </Folder>
+  <Folder Name="/Websites/" />
 </Solution>

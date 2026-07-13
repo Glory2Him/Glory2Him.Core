@@ -1,0 +1,213 @@
+name: Build
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    types:
+    - opened
+    - synchronize
+    - reopened
+    - closed
+    branches:
+    - main
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Apply Label
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: >-
+          const prefixes = [
+            'INFRA:',
+            'PROVISIONS:',
+            'RELEASES:',
+            'DATA:',
+            'BROKERS:',
+            'FOUNDATIONS:',
+            'PROCESSINGS:',
+            'ORCHESTRATIONS:',
+            'COORDINATIONS:',
+            'MANAGEMENTS:',
+            'AGGREGATIONS:',
+            'CONTROLLERS:',
+            'CLIENTS:',
+            'EXPOSERS:',
+            'PROVIDERS:',
+            'BASE:',
+            'COMPONENTS:',
+            'VIEWS:',
+            'PAGES:',
+            'ACCEPTANCE:',
+            'INTEGRATIONS:',
+            'CODE RUB:',
+            'MINOR FIX:',
+            'MEDIUM FIX:',
+            'MAJOR FIX:',
+            'DOCUMENTATION:',
+            'CONFIG:',
+            'STANDARD:',
+            'DESIGN:',
+            'BUSINESS:'
+          ];
+
+
+          const pullRequest = context.payload.pull_request;
+
+
+          if (!pullRequest) {
+            console.log('No pull request context available.');
+            return;
+          }
+
+
+          const title = context.payload.pull_request.title;
+
+          const existingLabels = context.payload.pull_request.labels.map(label => label.name);
+
+
+          for (const prefix of prefixes) {
+            if (title.startsWith(prefix)) {
+              const label = prefix.slice(0, -1);
+              if (!existingLabels.includes(label)) {
+                console.log(`Applying label: ${label}`);
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  labels: [label]
+                });
+              }
+              break;
+            }
+          }
+    permissions:
+      contents: read
+      pull-requests: write
+  build:
+    name: Build
+    runs-on: windows-latest
+    steps:
+    - name: Check out
+      uses: actions/checkout@v3
+    - name: Setup .Net
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 10.x
+    - name: Restore
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore
+    - name: Install EF Tools
+      run: dotnet tool restore
+    - name: Deploy Acceptance Database
+      run: dotnet tool run dotnet-ef database update --project G2H.StorageClient.Tests.Acceptance/G2H.StorageClient.Tests.Acceptance.csproj --startup-project G2H.StorageClient.Tests.Acceptance/G2H.StorageClient.Tests.Acceptance.csproj
+    - name: Deploy Integration Database
+      run: dotnet tool run dotnet-ef database update --project G2H.StorageClient.Tests.Integrations/G2H.StorageClient.Tests.Integrations.csproj --startup-project G2H.StorageClient.Tests.Integrations/G2H.StorageClient.Tests.Integrations.csproj
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+  add_tag:
+    name: Tag and Release
+    runs-on: ubuntu-latest
+    needs:
+    - build
+    if: >-
+      needs.build.result == 'success' && 
+
+      github.event.pull_request.merged && 
+
+      github.event.pull_request.base.ref == 'main' && 
+
+      startsWith(github.event.pull_request.title, 'RELEASES:') && 
+
+      contains(github.event.pull_request.labels.*.name, 'RELEASES')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        token: ${{ secrets.PAT_FOR_TAGGING }}
+    - name: Configure Git
+      run: >-
+        git config user.name "GitHub Action"
+
+        git config user.email "action@github.com"
+    - name: Extract Version
+      id: extract_version
+      run: >
+        # Running on Linux/Unix 
+
+        sudo apt-get install xmlstarlet
+
+        version_number=$(xmlstarlet sel -t -v "//Version" -n G2H.StorageClient/G2H.StorageClient.csproj)
+
+        echo "$version_number"
+
+        echo "version_number<<EOF" >> $GITHUB_OUTPUT 
+
+        echo "$version_number" >> $GITHUB_OUTPUT 
+
+        echo "EOF" >> $GITHUB_OUTPUT 
+      shell: bash
+    - name: Display Version
+      run: 'echo "Version number: ${{ steps.extract_version.outputs.version_number }}"'
+    - name: Extract Package Release Notes
+      id: extract_package_release_notes
+      run: >
+        # Running on Linux/Unix 
+
+        sudo apt-get install xmlstarlet
+
+        package_release_notes=$(xmlstarlet sel -t -v "//PackageReleaseNotes" -n G2H.StorageClient/G2H.StorageClient.csproj)
+
+        echo "$package_release_notes"
+
+        echo "package_release_notes<<EOF" >> $GITHUB_OUTPUT 
+
+        echo "$package_release_notes" >> $GITHUB_OUTPUT 
+
+        echo "EOF" >> $GITHUB_OUTPUT 
+      shell: bash
+    - name: Display Package Release Notes
+      run: 'echo "Package Release Notes: ${{ steps.extract_package_release_notes.outputs.package_release_notes }}"'
+    - name: Create GitHub Tag
+      run: >-
+        git tag -a "v${{ steps.extract_version.outputs.version_number }}" -m "Release - v${{ steps.extract_version.outputs.version_number }}"
+
+        git push origin --tags
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      with:
+        tag_name: v${{ steps.extract_version.outputs.version_number }}
+        release_name: Release - v${{ steps.extract_version.outputs.version_number }}
+        body: >-
+          ## Release - v${{ steps.extract_version.outputs.version_number }}
+
+
+          ### Release Notes
+
+          ${{ steps.extract_package_release_notes.outputs.package_release_notes }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.PAT_FOR_TAGGING }}
+  publish:
+    name: Publish to NuGet
+    runs-on: ubuntu-latest
+    needs:
+    - add_tag
+    if: needs.add_tag.result == 'success'
+    steps:
+    - name: Check out
+      uses: actions/checkout@v3
+    - name: Setup .Net
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 10.x
+    - name: Restore
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    - name: Pack NuGet Package
+      run: dotnet pack --configuration Release --include-symbols
+    - name: Push NuGet Package
+      run: dotnet nuget push **/bin/Release/**/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_ACCESS }} --skip-duplicate

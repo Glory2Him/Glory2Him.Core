@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -27,8 +27,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
         {
             // Given
             DateTimeOffset currentDateTime = DateTime.UtcNow;
-            string createdUserId = "CreatedUser"; //GetRandomString();
-            string modifiedUserId = "ModifiedUser"; //GetRandomString();
+            string createdUserId = "CreatedUser";
+            string modifiedUserId = "ModifiedUser";
+            string storageDeletedByUserId = "StorageDeletedUser";
 
             dynamic inputPerson = new ExpandoObject();
             inputPerson.Name = "John Doe";
@@ -36,6 +37,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             inputPerson.CreatedDate = currentDateTime;
             inputPerson.UpdatedBy = modifiedUserId;
             inputPerson.UpdatedDate = currentDateTime;
+            inputPerson.DeletedBy = modifiedUserId;
+            inputPerson.DeletedDate = currentDateTime;
+            inputPerson.IsDeleted = false;
+            inputPerson.DeletionReason = (string?)null;
 
             dynamic storagePerson = new ExpandoObject();
             storagePerson.Name = "John Doe";
@@ -43,6 +48,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             storagePerson.CreatedDate = DateTimeOffset.MinValue;
             storagePerson.UpdatedBy = createdUserId;
             storagePerson.UpdatedDate = DateTimeOffset.MinValue;
+            storagePerson.DeletedBy = storageDeletedByUserId;
+            storagePerson.DeletedDate = DateTimeOffset.MinValue;
+            storagePerson.IsDeleted = false;
+            storagePerson.DeletionReason = (string?)null;
 
             dynamic expectedResult = new ExpandoObject();
             expectedResult.Name = "John Doe";
@@ -50,6 +59,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             expectedResult.CreatedDate = DateTimeOffset.MinValue;
             expectedResult.UpdatedBy = modifiedUserId;
             expectedResult.UpdatedDate = currentDateTime;
+            expectedResult.DeletedBy = storageDeletedByUserId;
+            expectedResult.DeletedDate = DateTimeOffset.MinValue;
+            expectedResult.IsDeleted = false;     // restored from storage
+            expectedResult.DeletionReason = (string?)null; // restored from storage
 
             var securityConfigurations = new SecurityConfigurations
             {
@@ -60,7 +73,15 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
                 UpdatedWhenPropertyName = "UpdatedDate",
-                UpdatedWhenPropertyType = typeof(DateTimeOffset)
+                UpdatedWhenPropertyType = typeof(DateTimeOffset),
+                DeletedByPropertyName = "DeletedBy",
+                DeletedByPropertyType = typeof(string),
+                DeletedWhenPropertyName = "DeletedDate",
+                DeletedWhenPropertyType = typeof(DateTimeOffset),
+                IsDeletedPropertyName = "IsDeleted",
+                IsDeletedPropertyType = typeof(bool),
+                DeletionReasonPropertyName = "DeletionReason",
+                DeletionReasonPropertyType = typeof(string)
             };
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -82,6 +103,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             DateTimeOffset currentDateTime = DateTime.UtcNow;
             string createdUserId = GetRandomString();
             string modifiedUserId = GetRandomString();
+            string storageDeletedByUserId = GetRandomString();
 
             var inputPerson = new Person
             {
@@ -90,6 +112,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                 CreatedWhen = currentDateTime,
                 UpdatedBy = modifiedUserId,
                 UpdatedWhen = currentDateTime,
+                DeletedBy = modifiedUserId,
+                DeletedWhen = currentDateTime,
+                IsDeleted = true,
+                DeletionReason = "tampered",
             };
 
             var storagePerson = new Person
@@ -99,6 +125,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                 CreatedWhen = DateTimeOffset.MinValue,
                 UpdatedBy = createdUserId,
                 UpdatedWhen = DateTimeOffset.MinValue,
+                DeletedBy = storageDeletedByUserId,
+                DeletedWhen = DateTimeOffset.MinValue,
+                IsDeleted = false,
+                DeletionReason = null,
             };
 
             var expectedResult = new Person
@@ -108,6 +138,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                 CreatedWhen = DateTimeOffset.MinValue,
                 UpdatedBy = modifiedUserId,
                 UpdatedWhen = currentDateTime,
+                DeletedBy = storageDeletedByUserId,
+                DeletedWhen = DateTimeOffset.MinValue,
+                IsDeleted = false,      // restored from storage
+                DeletionReason = null,  // restored from storage
             };
 
             var securityConfigurations = new SecurityConfigurations
@@ -119,7 +153,15 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
                 UpdatedWhenPropertyName = "UpdatedWhen",
-                UpdatedWhenPropertyType = typeof(DateTimeOffset)
+                UpdatedWhenPropertyType = typeof(DateTimeOffset),
+                DeletedByPropertyName = "DeletedBy",
+                DeletedByPropertyType = typeof(string),
+                DeletedWhenPropertyName = "DeletedWhen",
+                DeletedWhenPropertyType = typeof(DateTimeOffset),
+                IsDeletedPropertyName = "IsDeleted",
+                IsDeletedPropertyType = typeof(bool),
+                DeletionReasonPropertyName = "DeletionReason",
+                DeletionReasonPropertyType = typeof(string)
             };
 
             this.dateTimeBrokerMock.Setup(broker =>

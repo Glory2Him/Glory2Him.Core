@@ -25,9 +25,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
         public async Task ShouldThrowValidationExceptionOnApplyAddAuditIfNullObjectsFoundAsync()
         {
             // given
-            Person nullPerson = null;
-            ClaimsPrincipal nullClaimsPrincipal = null;
-            SecurityConfigurations nullSecurityConfigurations = null;
+            Person? nullPerson = null;
+            ClaimsPrincipal? nullClaimsPrincipal = null;
+            SecurityConfigurations? nullSecurityConfigurations = null;
 
             InvalidArgumentAuditOrchestrationException invalidArgumentAuditException =
                 new InvalidArgumentAuditOrchestrationException(
@@ -51,11 +51,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
                     innerException: invalidArgumentAuditException);
 
             // when
-            ValueTask<Person> task =
+            ValueTask<Person?> task =
                 auditOrchestrationService.ApplyAddAuditValuesAsync(
                     nullPerson,
-                    nullClaimsPrincipal,
-                    nullSecurityConfigurations);
+                    nullClaimsPrincipal!,
+                    nullSecurityConfigurations!);
 
             AuditOrchestrationValidationException actualAuditValidationException =
                 await Assert.ThrowsAsync<AuditOrchestrationValidationException>(task.AsTask);

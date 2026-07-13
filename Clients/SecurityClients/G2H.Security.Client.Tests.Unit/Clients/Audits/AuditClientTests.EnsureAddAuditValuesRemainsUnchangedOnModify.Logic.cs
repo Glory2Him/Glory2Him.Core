@@ -22,7 +22,7 @@ namespace G2H.Security.Client.Tests.Clients.Audits
     public partial class AuditClientTests
     {
         [Fact]
-        public async Task ShouldEnsureOtherAuditValuesRemainsUnchangedOnModifyAsync()
+        public async Task ShouldEnsureAddAuditValuesRemainsUnchangedOnModifyAsync()
         {
             // Given
             DateTimeOffset currentDateTime = DateTime.UtcNow;

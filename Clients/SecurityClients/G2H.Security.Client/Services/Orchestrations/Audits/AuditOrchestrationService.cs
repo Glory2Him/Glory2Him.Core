@@ -63,7 +63,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             T entity,
             ClaimsPrincipal claimsPrincipal,
             SecurityConfigurations securityConfigurations,
-            string? deletionReason) =>
+            string? deletionReason = null) =>
         TryCatch<T>(async () =>
         {
             ValidateInputs(entity, claimsPrincipal, securityConfigurations);

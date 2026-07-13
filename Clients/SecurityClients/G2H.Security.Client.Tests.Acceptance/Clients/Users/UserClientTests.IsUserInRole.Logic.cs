@@ -24,7 +24,7 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Users
         {
             // Given
             ClaimsPrincipal claimsPrincipal = CreateRandomClaimsPrincipal();
-            string roleName = claimsPrincipal.FindAll(ClaimTypes.Role).FirstOrDefault().Value;
+            string roleName = claimsPrincipal.FindAll(ClaimTypes.Role).FirstOrDefault()!.Value;
             bool expectedResult = true;
 
             // When

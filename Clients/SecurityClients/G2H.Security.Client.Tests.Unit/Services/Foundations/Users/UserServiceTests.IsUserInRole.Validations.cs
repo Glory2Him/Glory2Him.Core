@@ -24,11 +24,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
         [InlineData("")]
         [InlineData(" ")]
         public async Task ShouldThrowValidationExceptionOnIsUserInRoleIfClaimsPrincipalIsNullAndLogItAsync(
-            string roleName)
+            string? roleName)
         {
             // given
-            ClaimsPrincipal nullClaimsPrincipal = null;
-            string invalidRoleName = roleName;
+            ClaimsPrincipal? nullClaimsPrincipal = null;
+            string? invalidRoleName = roleName;
 
             InvalidArgumentUserException invalidArgumentUserException = new InvalidArgumentUserException(
                 message: "Invalid user argument(s), correct the errors and try again.");
@@ -48,7 +48,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             // when
             ValueTask<bool> isUserInRoleTask =
-                userService.IsUserInRoleAsync(nullClaimsPrincipal, invalidRoleName);
+                userService.IsUserInRoleAsync(nullClaimsPrincipal!, invalidRoleName!);
 
             UserValidationException actualUserValidationException =
                 await Assert.ThrowsAsync<UserValidationException>(isUserInRoleTask.AsTask);

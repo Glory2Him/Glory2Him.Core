@@ -36,7 +36,8 @@ namespace G2H.Security.Client.Tests.Clients.Audits
                 service.ApplyRemoveAuditValuesAsync(
                     It.IsAny<Person>(),
                     It.IsAny<ClaimsPrincipal>(),
-                    It.IsAny<SecurityConfigurations>()))
+                    It.IsAny<SecurityConfigurations>(),
+                    It.IsAny<string>()))
                         .ReturnsAsync(updatedPerson);
 
             // When
@@ -50,7 +51,8 @@ namespace G2H.Security.Client.Tests.Clients.Audits
                 service.ApplyRemoveAuditValuesAsync(
                     It.IsAny<Person>(),
                     It.IsAny<ClaimsPrincipal>(),
-                    It.IsAny<SecurityConfigurations>()),
+                    It.IsAny<SecurityConfigurations>(),
+                    It.IsAny<string>()),
                         Times.Once);
 
             this.auditOrchestrationServiceMock.VerifyNoOtherCalls();

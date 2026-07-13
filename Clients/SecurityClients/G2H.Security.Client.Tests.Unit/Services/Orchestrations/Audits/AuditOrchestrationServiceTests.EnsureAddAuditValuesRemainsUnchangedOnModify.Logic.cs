@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -35,11 +35,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
             {
                 CreatedByPropertyName = "CreatedBy",
                 CreatedByPropertyType = typeof(string),
-                CreatedWhenPropertyName = "CreatedWhen",
+                CreatedWhenPropertyName = "CreatedDate",
                 CreatedWhenPropertyType = typeof(DateTimeOffset),
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
-                UpdatedWhenPropertyName = "UpdatedWhen",
+                UpdatedWhenPropertyName = "UpdatedDate",
                 UpdatedWhenPropertyType = typeof(DateTimeOffset)
             };
 

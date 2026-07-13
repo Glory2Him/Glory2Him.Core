@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -19,7 +19,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 {
     internal partial class AuditService
     {
-        private static void ValidateOnApplyAddAuditValues<T>(
+        virtual internal void ValidateOnApplyAddAuditValues<T>(
             T entity,
             string userId,
             SecurityConfigurations securityConfigurations)
@@ -80,7 +80,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
         }
 
-        private static void ValidateOnApplyModifyAuditValues<T>(
+        virtual internal void ValidateOnApplyModifyAuditValues<T>(
             T entity,
             string userId,
             SecurityConfigurations securityConfigurations)
@@ -141,7 +141,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
         }
 
-        private static void ValidateOnApplyRemoveAuditValues<T>(
+        virtual internal void ValidateOnApplyRemoveAuditValues<T>(
             T entity,
             string userId,
             SecurityConfigurations securityConfigurations)
@@ -152,6 +152,30 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 (Rule: IsInvalid(securityConfigurations), Parameter: nameof(SecurityConfigurations)));
 
             Validate(
+                (Rule: IsInvalid(securityConfigurations.CreatedByPropertyName),
+                    Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
+
+                (Rule: IsInvalidDataType(securityConfigurations.CreatedByPropertyType),
+                    Parameter: nameof(SecurityConfigurations.CreatedByPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.CreatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
+
+                (Rule: IsInvalidDateType(securityConfigurations.CreatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.UpdatedByPropertyName),
+                    Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
+
+                (Rule: IsInvalidDataType(securityConfigurations.UpdatedByPropertyType),
+                    Parameter: nameof(SecurityConfigurations.UpdatedByPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.UpdatedWhenPropertyName),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
+
+                (Rule: IsInvalidDateType(securityConfigurations.UpdatedWhenPropertyType),
+                    Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyType)),
+
                 (Rule: IsInvalid(securityConfigurations.DeletedByPropertyName),
                     Parameter: nameof(SecurityConfigurations.DeletedByPropertyName)),
 
@@ -162,9 +186,45 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                     Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyName)),
 
                 (Rule: IsInvalidDateType(securityConfigurations.DeletedWhenPropertyType),
-                    Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyType)));
+                    Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.IsDeletedPropertyName),
+                    Parameter: nameof(SecurityConfigurations.IsDeletedPropertyName)),
+
+                (Rule: IsInvalidBoolType(securityConfigurations.IsDeletedPropertyType),
+                    Parameter: nameof(SecurityConfigurations.IsDeletedPropertyType)),
+
+                (Rule: IsInvalid(securityConfigurations.DeletionReasonPropertyName),
+                    Parameter: nameof(SecurityConfigurations.DeletionReasonPropertyName)),
+
+                (Rule: IsInvalidDataType(securityConfigurations.DeletionReasonPropertyType),
+                    Parameter: nameof(SecurityConfigurations.DeletionReasonPropertyType)));
 
             Validate(
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.CreatedByPropertyName,
+                    entity,
+                    securityConfigurations.CreatedByPropertyType),
+                Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.CreatedWhenPropertyName,
+                    entity,
+                    securityConfigurations.CreatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.UpdatedByPropertyName,
+                    entity,
+                    securityConfigurations.UpdatedByPropertyType),
+                Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.UpdatedWhenPropertyName,
+                    entity,
+                    securityConfigurations.UpdatedWhenPropertyType),
+                Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
+
                 (Rule: IsInvalidProperty(
                     securityConfigurations.DeletedByPropertyName,
                     entity,
@@ -175,7 +235,19 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                     securityConfigurations.DeletedWhenPropertyName,
                     entity,
                     securityConfigurations.DeletedWhenPropertyType),
-                Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyName)));
+                Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.IsDeletedPropertyName,
+                    entity,
+                    securityConfigurations.IsDeletedPropertyType),
+                Parameter: nameof(SecurityConfigurations.IsDeletedPropertyName)),
+
+                (Rule: IsInvalidProperty(
+                    securityConfigurations.DeletionReasonPropertyName,
+                    entity,
+                    securityConfigurations.DeletionReasonPropertyType),
+                Parameter: nameof(SecurityConfigurations.DeletionReasonPropertyName)));
         }
 
         virtual internal void ValidateInputs<T>(
@@ -324,6 +396,12 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 type == typeof(byte[]) ||
                 type == typeof(bool),
             Message = "A type of String / Guid / Long is required"
+        };
+
+        private static dynamic IsInvalidBoolType(Type type) => new
+        {
+            Condition = type != typeof(bool),
+            Message = "A type of Boolean is required"
         };
 
         private static dynamic IsInvalidDateType(Type type) => new

@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -30,16 +30,16 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             dynamic someObject = new ExpandoObject();
             someObject.Name = "John Doe";
             someObject.CreatedBy = string.Empty;
-            someObject.CreatedWhen = DateTimeOffset.MinValue;
+            someObject.CreatedDate = DateTimeOffset.MinValue;
             someObject.UpdatedBy = string.Empty;
-            someObject.UpdatedWhen = DateTimeOffset.MinValue;
+            someObject.UpdatedDate = DateTimeOffset.MinValue;
 
             dynamic someStorageObject = new ExpandoObject();
             someObject.Name = "John Doe";
             someObject.CreatedBy = string.Empty;
-            someObject.CreatedWhen = DateTimeOffset.MinValue;
+            someObject.CreatedDate = DateTimeOffset.MinValue;
             someObject.UpdatedBy = string.Empty;
-            someObject.UpdatedWhen = DateTimeOffset.MinValue;
+            someObject.UpdatedDate = DateTimeOffset.MinValue;
 
             string someUserId = GetRandomString();
             var serviceException = new Exception();
@@ -48,11 +48,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             {
                 CreatedByPropertyName = "CreatedBy",
                 CreatedByPropertyType = typeof(string),
-                CreatedWhenPropertyName = "CreatedWhen",
+                CreatedWhenPropertyName = "CreatedDate",
                 CreatedWhenPropertyType = typeof(DateTimeOffset),
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
-                UpdatedWhenPropertyName = "UpdatedWhen",
+                UpdatedWhenPropertyName = "UpdatedDate",
                 UpdatedWhenPropertyType = typeof(DateTimeOffset)
             };
 
