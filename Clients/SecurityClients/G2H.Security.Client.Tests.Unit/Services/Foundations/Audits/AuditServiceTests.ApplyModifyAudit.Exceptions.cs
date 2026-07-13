@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.Security.Client.Models.Clients;
 using G2H.Security.Client.Models.Foundations.Audits.Exceptions;
+using G2H.Security.Client.Services.Foundations.Audits;
 using Moq;
 
 namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
@@ -57,13 +58,21 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                     message: "Audit service error occurred, please contact support.",
                     innerException: failedAuditServiceException);
 
-            dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .Throws(serviceException);
+            Mock<AuditService> auditServiceMock = new Mock<AuditService>(this.dateTimeBrokerMock.Object)
+            {
+                CallBase = true
+            };
+
+            auditServiceMock.Setup(broker =>
+                broker.ValidateOnApplyModifyAuditValues(
+                    It.IsAny<object>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityConfigurations>()))
+                        .Throws(serviceException);
 
             // when
             ValueTask<ExpandoObject> applyModifyAuditTask =
-                auditService.ApplyModifyAuditValuesAsync(someObject, someUserId, someSecurityConfigurations);
+                auditServiceMock.Object.ApplyModifyAuditValuesAsync(someObject, someUserId, someSecurityConfigurations);
 
             AuditServiceException actualAuditServiceException =
                 await Assert.ThrowsAsync<AuditServiceException>(
@@ -73,11 +82,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             actualAuditServiceException.Should()
                 .BeEquivalentTo(expectedAuditServiceException);
 
-            dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                    Times.Once);
+            auditServiceMock.Verify(broker =>
+                broker.ValidateOnApplyModifyAuditValues(
+                    It.IsAny<object>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityConfigurations>()),
+                        Times.Once);
 
-            dateTimeBrokerMock.VerifyNoOtherCalls();
+            auditServiceMock.VerifyNoOtherCalls();
         }
     }
 }

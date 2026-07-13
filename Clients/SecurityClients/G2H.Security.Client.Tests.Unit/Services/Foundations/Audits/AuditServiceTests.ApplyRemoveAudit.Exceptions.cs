@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.Security.Client.Models.Clients;
 using G2H.Security.Client.Models.Foundations.Audits.Exceptions;
+using G2H.Security.Client.Services.Foundations.Audits;
 using Moq;
 
 namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
@@ -32,17 +33,19 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             someObject.CreatedDate = DateTimeOffset.MinValue;
             someObject.UpdatedBy = string.Empty;
             someObject.UpdatedDate = DateTimeOffset.MinValue;
-            someObject.DeletedBy = string.Empty;
-            someObject.DeletedDate = DateTimeOffset.MinValue;
             string someUserId = GetRandomString();
             var serviceException = new Exception();
 
             var someSecurityConfigurations = new SecurityConfigurations
             {
-                DeletedByPropertyName = "DeletedBy",
-                DeletedByPropertyType = typeof(string),
-                DeletedWhenPropertyName = "DeletedDate",
-                DeletedWhenPropertyType = typeof(DateTimeOffset)
+                CreatedByPropertyName = "CreatedBy",
+                CreatedByPropertyType = typeof(string),
+                CreatedWhenPropertyName = "CreatedDate",
+                CreatedWhenPropertyType = typeof(DateTimeOffset),
+                UpdatedByPropertyName = "UpdatedBy",
+                UpdatedByPropertyType = typeof(string),
+                UpdatedWhenPropertyName = "UpdatedDate",
+                UpdatedWhenPropertyType = typeof(DateTimeOffset)
             };
 
             var failedAuditServiceException =
@@ -55,27 +58,38 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                     message: "Audit service error occurred, please contact support.",
                     innerException: failedAuditServiceException);
 
-            dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .Throws(serviceException);
+            Mock<AuditService> auditServiceMock = new Mock<AuditService>(this.dateTimeBrokerMock.Object)
+            {
+                CallBase = true
+            };
+
+            auditServiceMock.Setup(broker =>
+                broker.ValidateOnApplyRemoveAuditValues(
+                    It.IsAny<object>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityConfigurations>()))
+                        .Throws(serviceException);
 
             // when
-            ValueTask<ExpandoObject> applyModifyAuditTask =
-                auditService.ApplyRemoveAuditValuesAsync(someObject, someUserId, someSecurityConfigurations);
+            ValueTask<ExpandoObject> applyRemoveAuditTask =
+                auditServiceMock.Object.ApplyRemoveAuditValuesAsync(someObject, someUserId, someSecurityConfigurations, null);
 
             AuditServiceException actualAuditServiceException =
                 await Assert.ThrowsAsync<AuditServiceException>(
-                    applyModifyAuditTask.AsTask);
+                    applyRemoveAuditTask.AsTask);
 
             // then
             actualAuditServiceException.Should()
                 .BeEquivalentTo(expectedAuditServiceException);
 
-            dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                    Times.Once);
+            auditServiceMock.Verify(broker =>
+                broker.ValidateOnApplyRemoveAuditValues(
+                    It.IsAny<object>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityConfigurations>()),
+                        Times.Once);
 
-            dateTimeBrokerMock.VerifyNoOtherCalls();
+            auditServiceMock.VerifyNoOtherCalls();
         }
     }
 }

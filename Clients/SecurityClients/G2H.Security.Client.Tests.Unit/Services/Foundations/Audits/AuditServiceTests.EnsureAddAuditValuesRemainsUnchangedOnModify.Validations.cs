@@ -24,9 +24,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
         public async Task ShouldThrowValidationExceptionOnEnsureAddAuditValuesIfNullsFoundAsync()
         {
             // given
-            Person nullInputPerson = null;
-            Person nullStoragePerson = null;
-            SecurityConfigurations nullSecurityConfigurations = null;
+            Person? nullInputPerson = null;
+            Person? nullStoragePerson = null;
+            SecurityConfigurations? nullSecurityConfigurations = null;
 
             InvalidArgumentAuditException invalidArgumentAuditException = new InvalidArgumentAuditException(
                 message: "Invalid audit argument(s), correct the errors and try again.");
@@ -49,11 +49,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                     innerException: invalidArgumentAuditException);
 
             // when
-            ValueTask<Person> applyAddAuditTask =
+            ValueTask<Person?> applyAddAuditTask =
                 auditService.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     nullInputPerson,
                     nullStoragePerson,
-                    nullSecurityConfigurations);
+                    nullSecurityConfigurations!);
 
             AuditValidationException actualAuditValidationException =
                 await Assert.ThrowsAsync<AuditValidationException>(applyAddAuditTask.AsTask);

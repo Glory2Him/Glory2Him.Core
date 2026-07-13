@@ -243,20 +243,20 @@ namespace G2H.Security.Client.Clients.Audits
             }
         }
 
-        private static AuditClientValidationException CreateAuditClientValidationException(Xeption innerException)
+        private static AuditClientValidationException CreateAuditClientValidationException(Xeption? innerException)
         {
             return new AuditClientValidationException(
                 message: "Audit client validation error occurred, fix the error and try again.",
-                innerException,
-                data: innerException.Data);
+                innerException!,
+                data: innerException?.Data!);
         }
 
-        private static AuditClientDependencyException CreateAuditClientDependencyException(Xeption innerException)
+        private static AuditClientDependencyException CreateAuditClientDependencyException(Xeption? innerException)
         {
             return new AuditClientDependencyException(
                 message: "Audit client dependency error occurred, please contact support.",
-                innerException,
-                data: innerException.Data);
+                innerException!,
+                data: innerException?.Data!);
         }
 
         private static AuditClientServiceException CreateAuditClientServiceException(Exception innerException)

@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -26,12 +26,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
         [InlineData("")]
         [InlineData(" ")]
         public async Task ShouldThrowValidationExceptionOnApplyRemoveAuditIfNullObjectsFoundAsync(
-            string invalidInput)
+            string? invalidInput)
         {
             // given
-            Person nullPerson = null;
-            string invalidUserId = invalidInput;
-            SecurityConfigurations nullSecurityConfigurations = null;
+            Person? nullPerson = null;
+            string? invalidUserId = invalidInput;
+            SecurityConfigurations? nullSecurityConfigurations = null;
 
             InvalidArgumentAuditException invalidArgumentAuditException = new InvalidArgumentAuditException(
                 message: "Invalid audit argument(s), correct the errors and try again.");
@@ -54,8 +54,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                     innerException: invalidArgumentAuditException);
 
             // when
-            ValueTask<Person> applyRemoveAuditTask =
-                auditService.ApplyRemoveAuditValuesAsync(nullPerson, invalidUserId, nullSecurityConfigurations);
+            ValueTask<Person?> applyRemoveAuditTask =
+                auditService.ApplyRemoveAuditValuesAsync(nullPerson, invalidUserId!, nullSecurityConfigurations!);
 
             AuditValidationException actualAuditValidationException =
                 await Assert.ThrowsAsync<AuditValidationException>(applyRemoveAuditTask.AsTask);
@@ -70,21 +70,65 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
         [InlineData("")]
         [InlineData(" ")]
         public async Task ShouldThrowValidationExceptionOnApplyRemoveAuditIfConfigurationNotPopulatedFoundAsync(
-            string invalidInput)
+            string? invalidInput)
         {
             // given
             Person inputPerson = new Person();
             string inputUserId = GetRandomString();
             SecurityConfigurations invalidSecurityConfigurations = new SecurityConfigurations
             {
-                DeletedByPropertyName = invalidInput,
+                CreatedByPropertyName = invalidInput!,
+                CreatedByPropertyType = typeof(DateTime),
+                CreatedWhenPropertyName = invalidInput!,
+                CreatedWhenPropertyType = typeof(string),
+                UpdatedByPropertyName = invalidInput!,
+                UpdatedByPropertyType = typeof(DateTimeOffset),
+                UpdatedWhenPropertyName = invalidInput!,
+                UpdatedWhenPropertyType = typeof(string),
+                DeletedByPropertyName = invalidInput!,
                 DeletedByPropertyType = typeof(DateTime),
-                DeletedWhenPropertyName = invalidInput,
-                DeletedWhenPropertyType = typeof(string)
+                DeletedWhenPropertyName = invalidInput!,
+                DeletedWhenPropertyType = typeof(string),
+                IsDeletedPropertyName = invalidInput!,
+                IsDeletedPropertyType = typeof(string),
+                DeletionReasonPropertyName = invalidInput!,
+                DeletionReasonPropertyType = typeof(DateTimeOffset)
             };
 
             InvalidArgumentAuditException invalidArgumentAuditException = new InvalidArgumentAuditException(
                 message: "Invalid audit argument(s), correct the errors and try again.");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.CreatedByPropertyName),
+                values: "Text is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.CreatedByPropertyType),
+                values: "A type of String / Guid / Long is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.CreatedWhenPropertyName),
+                values: "Text is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.CreatedWhenPropertyType),
+                values: "A type of DateTime / DateTimeOffset is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.UpdatedByPropertyName),
+                values: "Text is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.UpdatedByPropertyType),
+                values: "A type of String / Guid / Long is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.UpdatedWhenPropertyName),
+                values: "Text is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.UpdatedWhenPropertyType),
+                values: "A type of DateTime / DateTimeOffset is required");
 
             invalidArgumentAuditException.AddData(
                 key: nameof(SecurityConfigurations.DeletedByPropertyName),
@@ -101,6 +145,22 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             invalidArgumentAuditException.AddData(
                 key: nameof(SecurityConfigurations.DeletedWhenPropertyType),
                 values: "A type of DateTime / DateTimeOffset is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.IsDeletedPropertyName),
+                values: "Text is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.IsDeletedPropertyType),
+                values: "A type of Boolean is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.DeletionReasonPropertyName),
+                values: "Text is required");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.DeletionReasonPropertyType),
+                values: "A type of String / Guid / Long is required");
 
             var expectedAuditValidationException =
                 new AuditValidationException(
@@ -127,14 +187,58 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             string inputUserId = GetRandomString();
             SecurityConfigurations inputSecurityConfigurations = new SecurityConfigurations
             {
+                CreatedByPropertyName = "CreatedByUser",
+                CreatedByPropertyType = typeof(string),
+                CreatedWhenPropertyName = "CreatedAt",
+                CreatedWhenPropertyType = typeof(DateTime),
+                UpdatedByPropertyName = "UpdatedByUser",
+                UpdatedByPropertyType = typeof(string),
+                UpdatedWhenPropertyName = "UpdatedAt",
+                UpdatedWhenPropertyType = typeof(DateTime),
                 DeletedByPropertyName = "DeletedByUser",
                 DeletedByPropertyType = typeof(string),
                 DeletedWhenPropertyName = "DeletedAt",
-                DeletedWhenPropertyType = typeof(DateTime)
+                DeletedWhenPropertyType = typeof(DateTimeOffset),
+                IsDeletedPropertyName = "IsDeletedFlag",
+                IsDeletedPropertyType = typeof(bool),
+                DeletionReasonPropertyName = "DeleteReason",
+                DeletionReasonPropertyType = typeof(string)
             };
 
             InvalidArgumentAuditException invalidArgumentAuditException = new InvalidArgumentAuditException(
                 message: "Invalid audit argument(s), correct the errors and try again.");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.CreatedByPropertyName),
+                values:
+                    $"Property '{inputSecurityConfigurations.CreatedByPropertyName}' not found, " +
+                    $"not settable, or not assignable from " +
+                    $"'{inputSecurityConfigurations.CreatedByPropertyType.Name}' " +
+                    $"on entity '{typeof(Person).Name}'.");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.CreatedWhenPropertyName),
+                values:
+                    $"Property '{inputSecurityConfigurations.CreatedWhenPropertyName}' not found, " +
+                    $"not settable, or not assignable from " +
+                    $"'{inputSecurityConfigurations.CreatedWhenPropertyType.Name}' " +
+                    $"on entity '{typeof(Person).Name}'.");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.UpdatedByPropertyName),
+                values:
+                    $"Property '{inputSecurityConfigurations.UpdatedByPropertyName}' not found, " +
+                    $"not settable, or not assignable from " +
+                    $"'{inputSecurityConfigurations.UpdatedByPropertyType.Name}' " +
+                    $"on entity '{typeof(Person).Name}'.");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.UpdatedWhenPropertyName),
+                values:
+                    $"Property '{inputSecurityConfigurations.UpdatedWhenPropertyName}' not found, " +
+                    $"not settable, or not assignable from " +
+                    $"'{inputSecurityConfigurations.UpdatedWhenPropertyType.Name}' " +
+                    $"on entity '{typeof(Person).Name}'.");
 
             invalidArgumentAuditException.AddData(
                 key: nameof(SecurityConfigurations.DeletedByPropertyName),
@@ -150,6 +254,22 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                     $"Property '{inputSecurityConfigurations.DeletedWhenPropertyName}' not found, " +
                     $"not settable, or not assignable from " +
                     $"'{inputSecurityConfigurations.DeletedWhenPropertyType.Name}' " +
+                    $"on entity '{typeof(Person).Name}'.");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.IsDeletedPropertyName),
+                values:
+                    $"Property '{inputSecurityConfigurations.IsDeletedPropertyName}' not found, " +
+                    $"not settable, or not assignable from " +
+                    $"'{inputSecurityConfigurations.IsDeletedPropertyType.Name}' " +
+                    $"on entity '{typeof(Person).Name}'.");
+
+            invalidArgumentAuditException.AddData(
+                key: nameof(SecurityConfigurations.DeletionReasonPropertyName),
+                values:
+                    $"Property '{inputSecurityConfigurations.DeletionReasonPropertyName}' not found, " +
+                    $"not settable, or not assignable from " +
+                    $"'{inputSecurityConfigurations.DeletionReasonPropertyType.Name}' " +
                     $"on entity '{typeof(Person).Name}'.");
 
             var expectedAuditValidationException =

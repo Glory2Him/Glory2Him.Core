@@ -17,7 +17,7 @@ namespace G2H.Security.Client.Brokers.DateTimes
 {
     internal class DateTimeBroker : IDateTimeBroker
     {
-        public ValueTask<DateTimeOffset> GetCurrentDateTimeOffsetAsync() =>
-            ValueTask.FromResult(DateTimeOffset.UtcNow);
+        public async ValueTask<DateTimeOffset> GetCurrentDateTimeOffsetAsync() =>
+            DateTimeOffset.UtcNow;
     }
 }

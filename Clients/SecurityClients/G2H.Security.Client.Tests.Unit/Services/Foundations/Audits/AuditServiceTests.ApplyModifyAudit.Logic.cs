@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -36,6 +36,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             person.CreatedDate = DateTimeOffset.MinValue;
             person.UpdatedBy = createdUserId;
             person.UpdatedDate = DateTimeOffset.MinValue;
+            person.DeletedBy = (string?)null;
+            person.DeletedDate = DateTimeOffset.MinValue;
+            person.IsDeleted = false;
+            person.DeletionReason = (string?)null;
 
             dynamic expectedResult = new ExpandoObject();
             expectedResult.Name = "John Doe";
@@ -43,6 +47,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
             expectedResult.CreatedDate = DateTimeOffset.MinValue;
             expectedResult.UpdatedBy = modifiedUserId;
             expectedResult.UpdatedDate = currentDateTime;
+            expectedResult.DeletedBy = (string?)null;
+            expectedResult.DeletedDate = DateTimeOffset.MinValue;
+            expectedResult.IsDeleted = false;
+            expectedResult.DeletionReason = (string?)null;
 
             var securityConfigurations = new SecurityConfigurations
             {
@@ -53,7 +61,15 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
                 UpdatedWhenPropertyName = "UpdatedDate",
-                UpdatedWhenPropertyType = typeof(DateTimeOffset)
+                UpdatedWhenPropertyType = typeof(DateTimeOffset),
+                DeletedByPropertyName = "DeletedBy",
+                DeletedByPropertyType = typeof(string),
+                DeletedWhenPropertyName = "DeletedDate",
+                DeletedWhenPropertyType = typeof(DateTimeOffset),
+                IsDeletedPropertyName = "IsDeleted",
+                IsDeletedPropertyType = typeof(bool),
+                DeletionReasonPropertyName = "DeletionReason",
+                DeletionReasonPropertyType = typeof(string)
             };
 
             this.dateTimeBrokerMock.Setup(broker =>

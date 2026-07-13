@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -54,6 +54,18 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 entity,
                 propertyName: securityConfigurations.UpdatedWhenPropertyName,
                 value: auditDateTimeOffset);
+
+            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletedByPropertyName, securityConfigurations.DeletedByPropertyType))
+                SetProperty(entity, securityConfigurations.DeletedByPropertyName, null);
+
+            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletedWhenPropertyName, securityConfigurations.DeletedWhenPropertyType))
+                SetProperty(entity, securityConfigurations.DeletedWhenPropertyName, null);
+
+            if (HasWritablePropertyOfType(entity, securityConfigurations.IsDeletedPropertyName, securityConfigurations.IsDeletedPropertyType))
+                SetProperty(entity, securityConfigurations.IsDeletedPropertyName, false);
+
+            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletionReasonPropertyName, securityConfigurations.DeletionReasonPropertyType))
+                SetProperty(entity, securityConfigurations.DeletionReasonPropertyName, null);
 
             return entity;
         });
@@ -123,11 +135,27 @@ namespace G2H.Security.Client.Services.Foundations.Audits
         {
             ValidateInputs(entity, storageEntity, securityConfigurations);
             var createdByName = securityConfigurations.CreatedByPropertyName;
-            var createdDateName = securityConfigurations.CreatedWhenPropertyName;
-            object createdByValue = GetProperty(storageEntity, createdByName);
-            object createdDateValue = GetProperty(storageEntity, createdDateName);
+            var createdWhenName = securityConfigurations.CreatedWhenPropertyName;
+            var deletedByName = securityConfigurations.DeletedByPropertyName;
+            var deletedWhenName = securityConfigurations.DeletedWhenPropertyName;
+            var isDeletedName = securityConfigurations.IsDeletedPropertyName;
+            var deletionReasonName = securityConfigurations.DeletionReasonPropertyName;
+            object? createdByValue = GetProperty(storageEntity, createdByName);
+            object? createdWhenValue = GetProperty(storageEntity, createdWhenName);
             SetProperty(entity, createdByName, createdByValue);
-            SetProperty(entity, createdDateName, createdDateValue);
+            SetProperty(entity, createdWhenName, createdWhenValue);
+
+            if (HasWritablePropertyOfType(entity, deletedByName, securityConfigurations.DeletedByPropertyType))
+                SetProperty(entity, deletedByName, GetProperty(storageEntity, deletedByName));
+
+            if (HasWritablePropertyOfType(entity, deletedWhenName, securityConfigurations.DeletedWhenPropertyType))
+                SetProperty(entity, deletedWhenName, GetProperty(storageEntity, deletedWhenName));
+
+            if (HasWritablePropertyOfType(entity, isDeletedName, securityConfigurations.IsDeletedPropertyType))
+                SetProperty(entity, isDeletedName, GetProperty(storageEntity, isDeletedName));
+
+            if (HasWritablePropertyOfType(entity, deletionReasonName, securityConfigurations.DeletionReasonPropertyType))
+                SetProperty(entity, deletionReasonName, GetProperty(storageEntity, deletionReasonName));
 
             return entity;
         });
@@ -140,22 +168,22 @@ namespace G2H.Security.Client.Services.Foundations.Audits
         {
             ValidateInputs(entity, storageEntity, securityConfigurations);
             var createdByName = securityConfigurations.CreatedByPropertyName;
-            var createdDateName = securityConfigurations.CreatedWhenPropertyName;
+            var createdWhenName = securityConfigurations.CreatedWhenPropertyName;
             var updatedByName = securityConfigurations.UpdatedByPropertyName;
-            var updatedDateName = securityConfigurations.UpdatedWhenPropertyName;
-            object createdByValue = GetProperty(storageEntity, createdByName);
-            object createdDateValue = GetProperty(storageEntity, createdDateName);
-            object updatedByValue = GetProperty(storageEntity, updatedByName);
-            object updatedDateValue = GetProperty(storageEntity, updatedDateName);
+            var updatedWhenName = securityConfigurations.UpdatedWhenPropertyName;
+            object? createdByValue = GetProperty(storageEntity, createdByName);
+            object? createdWhenValue = GetProperty(storageEntity, createdWhenName);
+            object? updatedByValue = GetProperty(storageEntity, updatedByName);
+            object? updatedWhenValue = GetProperty(storageEntity, updatedWhenName);
             SetProperty(entity, createdByName, createdByValue);
-            SetProperty(entity, createdDateName, createdDateValue);
+            SetProperty(entity, createdWhenName, createdWhenValue);
             SetProperty(entity, updatedByName, updatedByValue);
-            SetProperty(entity, updatedDateName, updatedDateValue);
+            SetProperty(entity, updatedWhenName, updatedWhenValue);
 
             return entity;
         });
 
-        private object GetProperty<T>(T obj, string propertyName)
+        private object? GetProperty<T>(T obj, string propertyName)
         {
             if (obj is IDictionary<string, object> expando)
             {
@@ -179,7 +207,25 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             return prop.GetValue(obj);
         }
 
-        private static void SetProperty<T>(T entity, string propertyName, object value)
+        private static bool HasWritablePropertyOfType<T>(T entity, string propertyName, Type expectedType)
+        {
+            if (entity == null || string.IsNullOrWhiteSpace(propertyName) || expectedType == null)
+                return false;
+
+            if (entity is IDictionary<string, object> expandoCheck)
+                return expandoCheck.ContainsKey(propertyName);
+
+            var property = entity.GetType().GetProperty(propertyName);
+
+            if (property == null || !property.CanWrite)
+                return false;
+
+            var underlyingType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+
+            return underlyingType.IsAssignableFrom(expectedType);
+        }
+
+        private static void SetProperty<T>(T entity, string propertyName, object? value)
         {
             if (entity == null || string.IsNullOrWhiteSpace(propertyName))
             {
@@ -188,8 +234,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             if (entity is IDictionary<string, object> expando)
             {
-                if (expando.ContainsKey(propertyName))
-                    expando[propertyName] = value;
+                expando[propertyName] = value!;
             }
             else
             {

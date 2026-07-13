@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -26,12 +26,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
         [InlineData("")]
         [InlineData(" ")]
         public async Task ShouldThrowValidationExceptionOnApplyAddAuditIfNullObjectsFoundAsync(
-            string invalidInput)
+            string? invalidInput)
         {
             // given
-            Person nullPerson = null;
-            string invalidUserId = invalidInput;
-            SecurityConfigurations nullSecurityConfigurations = null;
+            Person? nullPerson = null;
+            string? invalidUserId = invalidInput;
+            SecurityConfigurations? nullSecurityConfigurations = null;
 
             InvalidArgumentAuditException invalidArgumentAuditException = new InvalidArgumentAuditException(
                 message: "Invalid audit argument(s), correct the errors and try again.");
@@ -54,8 +54,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
                     innerException: invalidArgumentAuditException);
 
             // when
-            ValueTask<Person> applyAddAuditTask =
-                auditService.ApplyAddAuditValuesAsync(nullPerson, invalidUserId, nullSecurityConfigurations);
+            ValueTask<Person?> applyAddAuditTask =
+                auditService.ApplyAddAuditValuesAsync(nullPerson, invalidUserId!, nullSecurityConfigurations!);
 
             AuditValidationException actualAuditValidationException =
                 await Assert.ThrowsAsync<AuditValidationException>(applyAddAuditTask.AsTask);
@@ -70,20 +70,20 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
         [InlineData("")]
         [InlineData(" ")]
         public async Task ShouldThrowValidationExceptionOnApplyAddAuditIfConfigurationNotPopulatedFoundAsync(
-            string invalidInput)
+            string? invalidInput)
         {
             // given
             Person inputPerson = new Person();
             string inputUserId = GetRandomString();
             SecurityConfigurations invalidSecurityConfigurations = new SecurityConfigurations
             {
-                CreatedByPropertyName = invalidInput,
+                CreatedByPropertyName = invalidInput!,
                 CreatedByPropertyType = typeof(DateTime),
-                CreatedWhenPropertyName = invalidInput,
+                CreatedWhenPropertyName = invalidInput!,
                 CreatedWhenPropertyType = typeof(string),
-                UpdatedByPropertyName = invalidInput,
+                UpdatedByPropertyName = invalidInput!,
                 UpdatedByPropertyType = typeof(DateTimeOffset),
-                UpdatedWhenPropertyName = invalidInput,
+                UpdatedWhenPropertyName = invalidInput!,
                 UpdatedWhenPropertyType = typeof(string)
             };
 

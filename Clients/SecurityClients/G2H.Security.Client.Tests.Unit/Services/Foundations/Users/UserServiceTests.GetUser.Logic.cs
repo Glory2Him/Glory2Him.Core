@@ -28,12 +28,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
             ClaimsPrincipal claimsPrincipal = CreateRandomClaimsPrincipal(userId);
 
             User expectedUser = new User(
-                userId: claimsPrincipal.FindFirst("oid")?.Value,
-                givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value,
-                surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value,
-                displayName: claimsPrincipal.FindFirst("displayName")?.Value,
-                email: claimsPrincipal.FindFirst(ClaimTypes.Email)?.Value,
-                jobTitle: claimsPrincipal.FindFirst("jobTitle")?.Value,
+                userId: claimsPrincipal.FindFirst("oid")?.Value!,
+                givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
+                surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
+                displayName: claimsPrincipal.FindFirst("displayName")?.Value!,
+                email: claimsPrincipal.FindFirst(ClaimTypes.Email)?.Value!,
+                jobTitle: claimsPrincipal.FindFirst("jobTitle")?.Value!,
                 roles: claimsPrincipal.FindAll(ClaimTypes.Role).Select(role => role.Value).ToList(),
                 claims: claimsPrincipal.Claims.ToList());
 

@@ -13,7 +13,9 @@
 using System.Security.Claims;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Clients;
 using G2H.Security.Client.Models.Orchestrations.Audits.Exceptions;
+using G2H.Security.Client.Tests.Unit.Models;
 
 namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
 {
@@ -23,7 +25,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
         public async Task ShouldThrowValidationExceptionOnGetCurrentUserIdAsync()
         {
             // given
-            ClaimsPrincipal nullClaimsPrincipal = null;
+            ClaimsPrincipal? nullClaimsPrincipal = null;
 
             InvalidArgumentAuditOrchestrationException invalidArgumentAuditException =
                 new InvalidArgumentAuditOrchestrationException(
@@ -40,7 +42,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Orchestrations.Audits
 
             // when
             ValueTask<string> task =
-                auditOrchestrationService.GetCurrentUserIdAsync(nullClaimsPrincipal);
+                auditOrchestrationService.GetCurrentUserIdAsync(nullClaimsPrincipal!);
 
             AuditOrchestrationValidationException actualAuditValidationException =
                 await Assert.ThrowsAsync<AuditOrchestrationValidationException>(task.AsTask);

@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -41,6 +41,9 @@ namespace G2H.Security.Client.Tests.Clients.Audits
             var updatedPerson = inputPerson.DeepClone();
             updatedPerson.CreatedBy = securityUserId;
             updatedPerson.UpdatedBy = securityUserId;
+            updatedPerson.DeletedBy = null;
+            updatedPerson.IsDeleted = false;
+            updatedPerson.DeletionReason = null;
             var expectedResult = updatedPerson;
 
             var inputSecurityConfigurations = new SecurityConfigurations
@@ -52,7 +55,15 @@ namespace G2H.Security.Client.Tests.Clients.Audits
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
                 UpdatedWhenPropertyName = "UpdatedWhen",
-                UpdatedWhenPropertyType = typeof(DateTimeOffset)
+                UpdatedWhenPropertyType = typeof(DateTimeOffset),
+                DeletedByPropertyName = "DeletedBy",
+                DeletedByPropertyType = typeof(string),
+                DeletedWhenPropertyName = "DeletedWhen",
+                DeletedWhenPropertyType = typeof(DateTimeOffset),
+                IsDeletedPropertyName = "IsDeleted",
+                IsDeletedPropertyType = typeof(bool),
+                DeletionReasonPropertyName = "DeletionReason",
+                DeletionReasonPropertyType = typeof(string)
             };
 
             // When
@@ -62,7 +73,8 @@ namespace G2H.Security.Client.Tests.Clients.Audits
             // Then
             actualResult.Should().BeEquivalentTo(expectedResult, options =>
                 options.Excluding(ctx =>
-                    ctx.Path == "CreatedWhen" || ctx.Path == "UpdatedWhen"));
+                    ctx.Path == "CreatedWhen" ||
+                    ctx.Path == "UpdatedWhen"));
 
             actualResult.CreatedWhen.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
             actualResult.UpdatedWhen.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));

@@ -29,8 +29,8 @@ namespace G2H.Security.Client.Clients
             InitializeClients(serviceProvider);
         }
 
-        public IUserClient Users { get; private set; }
-        public IAuditClient Audits { get; private set; }
+        public IUserClient Users { get; private set; } = null!;
+        public IAuditClient Audits { get; private set; } = null!;
 
         private void InitializeClients(IServiceProvider serviceProvider)
         {

@@ -23,7 +23,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
         public async Task ShouldThrowValidationExceptionOnGetUserIdIfClaimsPrincipalIsNullAndLogItAsync()
         {
             // given
-            ClaimsPrincipal nullClaimsPrincipal = null;
+            ClaimsPrincipal? nullClaimsPrincipal = null;
 
             InvalidArgumentUserException invalidArgumentUserException = new InvalidArgumentUserException(
                 message: "Invalid user argument(s), correct the errors and try again.");
@@ -39,7 +39,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             // when
             ValueTask<string> getUserIdTask =
-                userService.GetUserIdAsync(nullClaimsPrincipal);
+                userService.GetUserIdAsync(nullClaimsPrincipal!);
 
             UserValidationException actualUserValidationException =
                 await Assert.ThrowsAsync<UserValidationException>(getUserIdTask.AsTask);

@@ -31,12 +31,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
             bool expectedResult = hasClaimType;
 
             User expectedUser = new User(
-                userId: claimsPrincipal.FindFirst("oid")?.Value,
-                givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value,
-                surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value,
-                displayName: claimsPrincipal.FindFirst("displayName")?.Value,
-                email: claimsPrincipal.FindFirst(ClaimTypes.Email)?.Value,
-                jobTitle: claimsPrincipal.FindFirst("jobTitle")?.Value,
+                userId: claimsPrincipal.FindFirst("oid")?.Value!,
+                givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
+                surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
+                displayName: claimsPrincipal.FindFirst("displayName")?.Value!,
+                email: claimsPrincipal.FindFirst(ClaimTypes.Email)?.Value!,
+                jobTitle: claimsPrincipal.FindFirst("jobTitle")?.Value!,
                 roles: claimsPrincipal.FindAll(ClaimTypes.Role).Select(role => role.Value).ToList(),
                 claims: claimsPrincipal.Claims.ToList());
 
@@ -54,21 +54,21 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
             string userId = GetRandomString();
             ClaimsPrincipal claimsPrincipal = CreateRandomClaimsPrincipal(userId);
             string claimType = "displayName";
-            string claimValue = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == claimType)?.Value;
+            string? claimValue = claimsPrincipal.Claims.FirstOrDefault(c => c.Type == claimType)?.Value;
             bool expectedResult = true;
 
             User expectedUser = new User(
-                userId: claimsPrincipal.FindFirst("oid")?.Value,
-                givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value,
-                surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value,
-                displayName: claimsPrincipal.FindFirst("displayName")?.Value,
-                email: claimsPrincipal.FindFirst(ClaimTypes.Email)?.Value,
-                jobTitle: claimsPrincipal.FindFirst("jobTitle")?.Value,
+                userId: claimsPrincipal.FindFirst("oid")?.Value!,
+                givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
+                surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
+                displayName: claimsPrincipal.FindFirst("displayName")?.Value!,
+                email: claimsPrincipal.FindFirst(ClaimTypes.Email)?.Value!,
+                jobTitle: claimsPrincipal.FindFirst("jobTitle")?.Value!,
                 roles: claimsPrincipal.FindAll(ClaimTypes.Role).Select(role => role.Value).ToList(),
                 claims: claimsPrincipal.Claims.ToList());
 
             // When
-            bool actualResult = await this.userService.UserHasClaimAsync(claimsPrincipal, claimType, claimValue);
+            bool actualResult = await this.userService.UserHasClaimAsync(claimsPrincipal, claimType, claimValue!);
 
             // Then
             actualResult.Should().Be(expectedResult);

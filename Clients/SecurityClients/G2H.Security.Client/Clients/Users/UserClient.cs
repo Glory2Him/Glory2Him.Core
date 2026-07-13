@@ -292,28 +292,28 @@ namespace G2H.Security.Client.Clients.Users
             }
         }
 
-        private static UserClientValidationException CreateUserClientValidationException(Xeption innerException)
+        private static UserClientValidationException CreateUserClientValidationException(Xeption? innerException)
         {
             return new UserClientValidationException(
                 message: "User client validation error occurred, fix errors and try again.",
-                innerException,
-                data: innerException.Data);
+                innerException!,
+                data: innerException?.Data!);
         }
 
-        private static UserClientDependencyException CreateUserClientDependencyException(Xeption innerException)
+        private static UserClientDependencyException CreateUserClientDependencyException(Xeption? innerException)
         {
             return new UserClientDependencyException(
                 message: "User client dependency error occurred, please contact support.",
-                innerException,
-                data: innerException.Data);
+                innerException!,
+                data: innerException?.Data!);
         }
 
         private static UserClientServiceException CreateUserClientServiceException(Exception innerException)
         {
             return new UserClientServiceException(
                 message: "User client service error occurred, please contact support.",
-                innerException,
-                data: innerException.Data);
+                innerException!,
+                data: innerException?.Data!);
         }
     }
 }

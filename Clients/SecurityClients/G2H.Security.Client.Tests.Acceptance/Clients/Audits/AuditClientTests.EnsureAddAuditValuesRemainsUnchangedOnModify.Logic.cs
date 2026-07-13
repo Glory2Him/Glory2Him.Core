@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -22,7 +22,7 @@ namespace G2H.Security.Client.Tests.Clients.Audits
     public partial class AuditClientTests
     {
         [Fact]
-        public async Task ShouldEnsureOtherAuditValuesRemainsUnchangedOnModifyAsync()
+        public async Task ShouldEnsureAddAuditValuesRemainsUnchangedOnModifyAsync()
         {
             // Given
             DateTimeOffset currentDateTime = DateTime.UtcNow;
@@ -33,7 +33,11 @@ namespace G2H.Security.Client.Tests.Clients.Audits
                 CreatedBy = GetRandomString(),
                 CreatedWhen = currentDateTime,
                 UpdatedBy = GetRandomString(),
-                UpdatedWhen = currentDateTime
+                UpdatedWhen = currentDateTime,
+                DeletedBy = GetRandomString(),
+                DeletedWhen = currentDateTime,
+                IsDeleted = true,
+                DeletionReason = GetRandomString()
             };
 
             Person storagePerson = new Person
@@ -42,7 +46,11 @@ namespace G2H.Security.Client.Tests.Clients.Audits
                 CreatedBy = GetRandomString(),
                 CreatedWhen = currentDateTime.AddDays(-1),
                 UpdatedBy = GetRandomString(),
-                UpdatedWhen = currentDateTime.AddDays(-1)
+                UpdatedWhen = currentDateTime.AddDays(-1),
+                DeletedBy = null,
+                DeletedWhen = DateTimeOffset.MinValue,
+                IsDeleted = false,
+                DeletionReason = null
             };
 
             Person updatedPerson = new Person
@@ -51,7 +59,11 @@ namespace G2H.Security.Client.Tests.Clients.Audits
                 CreatedBy = storagePerson.CreatedBy,
                 CreatedWhen = storagePerson.CreatedWhen,
                 UpdatedBy = inputPerson.UpdatedBy,
-                UpdatedWhen = inputPerson.UpdatedWhen
+                UpdatedWhen = inputPerson.UpdatedWhen,
+                DeletedBy = storagePerson.DeletedBy,
+                DeletedWhen = storagePerson.DeletedWhen,
+                IsDeleted = storagePerson.IsDeleted,
+                DeletionReason = storagePerson.DeletionReason
             };
 
             Person expectedResult = updatedPerson.DeepClone();
@@ -65,7 +77,15 @@ namespace G2H.Security.Client.Tests.Clients.Audits
                 UpdatedByPropertyName = "UpdatedBy",
                 UpdatedByPropertyType = typeof(string),
                 UpdatedWhenPropertyName = "UpdatedWhen",
-                UpdatedWhenPropertyType = typeof(DateTimeOffset)
+                UpdatedWhenPropertyType = typeof(DateTimeOffset),
+                DeletedByPropertyName = "DeletedBy",
+                DeletedByPropertyType = typeof(string),
+                DeletedWhenPropertyName = "DeletedWhen",
+                DeletedWhenPropertyType = typeof(DateTimeOffset),
+                IsDeletedPropertyName = "IsDeleted",
+                IsDeletedPropertyType = typeof(bool),
+                DeletionReasonPropertyName = "DeletionReason",
+                DeletionReasonPropertyType = typeof(string)
             };
 
             // When

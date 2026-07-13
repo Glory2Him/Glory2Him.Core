@@ -25,11 +25,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
         [InlineData("")]
         [InlineData(" ")]
         public async Task ShouldThrowValidationExceptionOnGetUserClaimValuesIfClaimsPrincipalAndTypeIsInvalidAsync(
-                    string claimType)
+                    string? claimType)
         {
             // given
-            ClaimsPrincipal nullClaimsPrincipal = null;
-            string invalidClaimType = claimType;
+            ClaimsPrincipal? nullClaimsPrincipal = null;
+            string? invalidClaimType = claimType;
 
             InvalidArgumentUserException invalidArgumentUserException = new InvalidArgumentUserException(
                 message: "Invalid user argument(s), correct the errors and try again.");
@@ -49,7 +49,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             // when
             ValueTask<IReadOnlyList<string>> getUserClaimValueAsyncTask =
-                userService.GetUserClaimValuesAsync(nullClaimsPrincipal, invalidClaimType);
+                userService.GetUserClaimValuesAsync(nullClaimsPrincipal!, invalidClaimType!);
 
             UserValidationException actualUserValidationException =
                 await Assert.ThrowsAsync<UserValidationException>(getUserClaimValueAsyncTask.AsTask);

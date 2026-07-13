@@ -23,7 +23,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
         public async Task ShouldThrowValidationExceptionOnIsUserAuthenticatedIfClaimsPrincipalIsNullAndLogItAsync()
         {
             // given
-            ClaimsPrincipal nullClaimsPrincipal = null;
+            ClaimsPrincipal? nullClaimsPrincipal = null;
 
             InvalidArgumentUserException invalidArgumentUserException = new InvalidArgumentUserException(
                 message: "Invalid user argument(s), correct the errors and try again.");
@@ -39,7 +39,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             // when
             ValueTask<bool> isUserAuthenticatedTask =
-                userService.IsUserAuthenticatedAsync(nullClaimsPrincipal);
+                userService.IsUserAuthenticatedAsync(nullClaimsPrincipal!);
 
             UserValidationException actualUserValidationException =
                 await Assert.ThrowsAsync<UserValidationException>(isUserAuthenticatedTask.AsTask);
