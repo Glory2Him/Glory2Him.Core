@@ -1,0 +1,75 @@
+@page "/"
+@inherits HomeBase
+
+<PageTitle>Glory 2 Him — Sharing the Gospel</PageTitle>
+
+@if (IsLoading)
+{
+    <section class="py-5">
+        <div class="container text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </section>
+}
+else if (HasError)
+{
+    <section class="py-5">
+        <div class="container">
+            <div class="alert alert-danger text-center mb-0" role="alert">@ErrorMessage</div>
+        </div>
+    </section>
+}
+else if (!Posts.Any())
+{
+    <section class="py-5">
+        <div class="container">
+            <div class="alert alert-info text-center mb-0" role="alert">No posts have been published yet.</div>
+        </div>
+    </section>
+}
+else
+{
+    <!-- Featured START -->
+    <section class="pt-4 pb-0">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-12">
+                    <h1 class="h2">Latest from the Journal</h1>
+                    <p class="text-muted">Stories, reflections and encouragement — all glory to Him.</p>
+                </div>
+                @foreach (PostView post in FeaturedPosts)
+                {
+                    <div class="col-md-6">
+                        <PostCardComponent Post="post" ShowExcerpt="true" />
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+    <!-- Featured END -->
+
+    <!-- Post grid START -->
+    <section class="pt-4">
+        <div class="container">
+            <div class="row g-4">
+                @foreach (PostView post in LatestPosts)
+                {
+                    <div class="col-sm-6 col-lg-4">
+                        <PostCardComponent Post="post" />
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+    <!-- Post grid END -->
+
+    <!-- Newsletter START -->
+    <section class="pt-4 pb-5">
+        <div class="container">
+            <NewsletterComponent />
+        </div>
+    </section>
+    <!-- Newsletter END -->
+}

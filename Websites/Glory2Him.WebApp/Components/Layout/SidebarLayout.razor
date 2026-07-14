@@ -1,0 +1,24 @@
+@inherits LayoutComponentBase
+@layout MainLayout
+@using Glory2Him.WebApp.Components.Navigation
+
+@* Shared shell for the authenticated areas (dashboard, admin, account profile):
+   CoreUI-style left sidebar menu, restyled in Blogzine/Bootstrap. *@
+
+<section class="py-4">
+    <div class="container">
+        <div class="row g-4">
+            <!-- Sidebar -->
+            <aside class="col-lg-3">
+                <div class="card card-body border p-3">
+                    <NavMenu />
+                </div>
+            </aside>
+
+            <!-- Content -->
+            <div class="col-lg-9">
+                @Body
+            </div>
+        </div>
+    </div>
+</section>

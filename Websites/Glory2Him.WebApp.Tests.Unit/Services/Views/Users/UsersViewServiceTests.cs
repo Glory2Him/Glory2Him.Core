@@ -1,0 +1,53 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://mark.bible/mark-16-15
+// https://john.bible/john-14-6
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Glory2Him.WebApp.Brokers.Identities;
+using Glory2Him.WebApp.Brokers.Loggings;
+using Glory2Him.WebApp.Models.Foundations.Users;
+using Glory2Him.WebApp.Services.Views.Users;
+using Moq;
+using Tynamix.ObjectFiller;
+
+namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
+{
+    public partial class UsersViewServiceTests
+    {
+        private readonly Mock<IIdentityBroker> identityBrokerMock;
+        private readonly Mock<ILoggingBroker> loggingBrokerMock;
+        private readonly IUsersViewService usersViewService;
+
+        public UsersViewServiceTests()
+        {
+            this.identityBrokerMock = new Mock<IIdentityBroker>();
+            this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            this.usersViewService = new UsersViewService(
+                identityBroker: this.identityBrokerMock.Object,
+                loggingBroker: this.loggingBrokerMock.Object);
+        }
+
+        private static string GetRandomString() =>
+            new MnemonicString().GetValue();
+
+        private static List<AppUser> CreateRandomAppUsers(int count) =>
+            Enumerable.Range(0, count).Select(_ => new AppUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = GetRandomString(),
+                Email = $"{GetRandomString()}@glory2him.local",
+                IsDisabled = false,
+            }).ToList();
+    }
+}

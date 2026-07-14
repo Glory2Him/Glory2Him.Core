@@ -1,0 +1,139 @@
+@page "/admin/users"
+@rendermode InteractiveServer
+@layout Glory2Him.WebApp.Components.Layout.SidebarLayout
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Models.Views.Navigations
+@using Glory2Him.WebApp.Models.Views.Users
+@inherits UsersPageBase
+
+@* InteractiveServer: the DataTable, manage modal, and delete dialog all need a live circuit. *@
+
+<PageTitle>Users — Glory 2 Him</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Users</h1>
+    <BreadcrumbComponent Items="Crumbs" />
+</div>
+<hr />
+
+@if (IsLoading)
+{
+    <div class="text-center py-5">
+        <Spinner />
+    </div>
+}
+else if (HasError)
+{
+    <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+}
+else if (!Users.Any())
+{
+    <div class="alert alert-info" role="alert">No users found.</div>
+}
+else
+{
+    <Card>
+        <DataTable TItem="UserView" Items="Users" Columns="Columns" PageSize="10">
+            <RowActions Context="user">
+                <Button Color="outline-primary" CssClass="btn-sm" OnClick="() => OpenManageModal(user)">
+                    Manage
+                </Button>
+                <Button Color="outline-danger" CssClass="btn-sm" OnClick="() => OpenDeleteDialog(user)">
+                    Delete
+                </Button>
+            </RowActions>
+        </DataTable>
+    </Card>
+}
+
+@* Manage user modal *@
+<Modal Title="@ManageTitle" Visible="IsManageModalVisible" OnClose="CloseManageModal">
+    <ChildContent>
+        @if (SelectedUser is not null)
+        {
+            <dl class="row mb-3">
+                <dt class="col-4">Username</dt>
+                <dd class="col-8">@SelectedUser.UserName</dd>
+                <dt class="col-4">Email</dt>
+                <dd class="col-8">@SelectedUser.Email</dd>
+                <dt class="col-4">Status</dt>
+                <dd class="col-8">
+                    <span class="badge @(SelectedUser.IsDisabled ? "text-bg-danger" : "text-bg-success")">
+                        @(SelectedUser.IsDisabled ? "Disabled" : "Active")
+                    </span>
+                </dd>
+            </dl>
+
+            <FormSwitch Label="Administrator"
+                        Value="SelectedUser.Roles.Contains(AdministratorsRole)"
+                        ValueChanged="@(_ => ToggleAdministratorAsync(SelectedUser))" />
+
+            <FormSwitch Label="Account disabled"
+                        Value="SelectedUser.IsDisabled"
+                        ValueChanged="@(_ => ToggleDisabledAsync(SelectedUser))" />
+        }
+    </ChildContent>
+    <FooterContent>
+        <Button Color="secondary" OnClick="CloseManageModal">Close</Button>
+    </FooterContent>
+</Modal>
+
+@* Delete confirmation *@
+<ConfirmDialog Visible="IsDeleteDialogVisible"
+               Title="Delete user"
+               Message="@DeleteMessage"
+               ConfirmText="Delete"
+               OnConfirm="ConfirmDeleteAsync"
+               OnCancel="CloseDeleteDialog" />
+
+@code {
+    private static readonly BreadcrumbItem[] Crumbs = new[]
+    {
+        new BreadcrumbItem("Admin"),
+        new BreadcrumbItem("Users", "admin/users", IsActive: true),
+    };
+
+    private string ManageTitle =>
+        SelectedUser is null ? "Manage user" : $"Manage {SelectedUser.UserName}";
+
+    private string DeleteMessage =>
+        SelectedUser is null
+            ? "Are you sure?"
+            : $"Delete user \"{SelectedUser.UserName}\"? This cannot be undone.";
+
+    private readonly IReadOnlyList<DataTableColumn<UserView>> Columns =
+        new List<DataTableColumn<UserView>>
+        {
+            new DataTableColumn<UserView>
+            {
+                Title = "Username",
+                Value = user => user.UserName,
+            },
+            new DataTableColumn<UserView>
+            {
+                Title = "Email",
+                Value = user => user.Email,
+            },
+            new DataTableColumn<UserView>
+            {
+                Title = "Roles",
+                Value = user => string.Join(", ", user.Roles),
+                CellTemplate = user =>
+                    @<span>
+                        @foreach (string role in user.Roles)
+                        {
+                            <span class="badge text-bg-primary me-1">@role</span>
+                        }
+                    </span>,
+            },
+            new DataTableColumn<UserView>
+            {
+                Title = "Status",
+                Value = user => user.IsDisabled ? "Disabled" : "Active",
+                CellTemplate = user =>
+                    @<span class="badge @(user.IsDisabled ? "text-bg-danger" : "text-bg-success")">
+                        @(user.IsDisabled ? "Disabled" : "Active")
+                    </span>,
+            },
+        };
+}

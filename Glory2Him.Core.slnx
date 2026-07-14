@@ -27,5 +27,8 @@
   <Folder Name="/Documentation/Prompts/">
     <File Path="Documentation/Prompt-CreateFoundationService.md" />
   </Folder>
-  <Folder Name="/Websites/" />
+  <Folder Name="/Websites/">
+    <Project Path="Websites/Glory2Him.WebApp.Tests.Unit/Glory2Him.WebApp.Tests.Unit.csproj" />
+    <Project Path="Websites/Glory2Him.WebApp/Glory2Him.WebApp.csproj" />
+  </Folder>
 </Solution>

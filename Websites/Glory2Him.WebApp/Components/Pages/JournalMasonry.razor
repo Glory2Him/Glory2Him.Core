@@ -1,0 +1,72 @@
+@page "/post-grid-masonry-filter"
+@inherits CategoriesBase
+
+@* Filterable masonry journal (Blogzine post-grid-masonry-filter.html). Uses the isotope vendor
+   library already loaded by App.razor — its init runs on DOMContentLoaded, which is why the whole
+   site uses full-document navigation (see App.razor / render-mode notes). *@
+
+<PageTitle>Journal — masonry — Glory 2 Him</PageTitle>
+
+<PageHeaderComponent Title="Journal — masonry filter" />
+
+<section class="pt-4 pb-5">
+    <div class="container">
+        @if (IsLoading)
+        {
+            <div class="text-center py-5"><Spinner /></div>
+        }
+        else if (HasError)
+        {
+            <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+        }
+        else if (!Posts.Any())
+        {
+            <div class="alert alert-info" role="alert">No posts have been published yet.</div>
+        }
+        else
+        {
+            <!-- Filter pills (isotope) -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="grid-menu" data-target=".filter-container">
+                        <ul class="nav nav-pills justify-content-start mb-3">
+                            <li class="nav-item">
+                                <span class="nav-link disabled ps-0">Show me:</span>
+                            </li>
+                            <li class="nav-item">
+                                <a data-filter="*" class="nav-link active">All posts</a>
+                            </li>
+                            @foreach (string category in Categories)
+                            {
+                                <li class="nav-item">
+                                    <a data-filter=".@CategoryClass(category)" class="nav-link">@category</a>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Masonry grid -->
+            <div class="row filter-container overflow-hidden" data-isotope='{"layoutMode": "masonry"}'>
+                @foreach (PostView post in Posts)
+                {
+                    <div class="col-sm-6 col-lg-4 grid-item @CategoryClass(post.Category)">
+                        <PostCardComponent Post="post" ShowExcerpt="true" />
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private IEnumerable<string> Categories =>
+        Posts.Select(post => post.Category)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(category => category);
+
+    // isotope filters on a CSS class per category (e.g. "Faith" -> "faith-category").
+    private static string CategoryClass(string category) =>
+        category.ToLowerInvariant().Replace(" ", "-") + "-category";
+}

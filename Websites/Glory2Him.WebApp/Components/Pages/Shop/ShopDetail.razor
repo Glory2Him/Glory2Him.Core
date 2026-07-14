@@ -1,0 +1,75 @@
+@page "/shop-detail"
+@page "/shop-detail/{Slug}"
+@rendermode InteractiveServer
+@inherits ShopDetailBase
+
+@* InteractiveServer: quantity selector + add-to-cart update live cart state. *@
+
+<PageTitle>@(Product?.Name ?? "Product") — Glory 2 Him</PageTitle>
+
+@if (IsLoading)
+{
+    <section class="py-5"><div class="container text-center"><Spinner /></div></section>
+}
+else if (HasError)
+{
+    <section class="py-5"><div class="container"><div class="alert alert-danger mb-0">@ErrorMessage</div></div></section>
+}
+else if (Product is null)
+{
+    <section class="py-5"><div class="container"><div class="alert alert-info mb-0">This product could not be found.</div></div></section>
+}
+else
+{
+    <section class="pt-4 pb-5">
+        <div class="container">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="/">Home</a></li>
+                    <li class="breadcrumb-item"><a href="shop-grid">Shop</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">@Product.Name</li>
+                </ol>
+            </nav>
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <img class="rounded-3 w-100" src="@Product.ImageUrl" alt="@Product.Name" />
+                </div>
+                <div class="col-md-6">
+                    @if (!string.IsNullOrWhiteSpace(Product.Badge))
+                    {
+                        <span class="badge @Product.BadgeCss mb-2">@Product.Badge</span>
+                    }
+                    <h1 class="h2">@Product.Name</h1>
+                    <div class="mb-2">
+                        @for (int star = 1; star <= 5; star++)
+                        {
+                            <i class="fas @(Product.Rating >= star ? "fa-star" : (Product.Rating >= star - 0.5 ? "fa-star-half-alt" : "fa-star")) text-warning small"></i>
+                        }
+                        <span class="ms-2 small text-body-secondary">@Product.Rating.ToString("0.0")</span>
+                    </div>
+                    <h3 class="text-success mb-3">@Product.Price.ToString("C")</h3>
+                    <p>@Product.Description</p>
+
+                    @if (WasAdded)
+                    {
+                        <div class="alert alert-success py-2" role="alert">
+                            Added to your cart. <a href="my-cart" class="alert-link">View cart</a>.
+                        </div>
+                    }
+
+                    <div class="d-flex align-items-center gap-3 mt-3">
+                        <div class="input-group" style="max-width: 140px">
+                            <button class="btn btn-outline-secondary" type="button" @onclick="() => Quantity = System.Math.Max(1, Quantity - 1)">-</button>
+                            <input class="form-control text-center" type="text" value="@Quantity" readonly />
+                            <button class="btn btn-outline-secondary" type="button" @onclick="() => Quantity++">+</button>
+                        </div>
+                        <button class="btn btn-primary mb-0" @onclick="AddToCart">
+                            <i class="bi bi-cart me-2"></i>Add to cart
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+}

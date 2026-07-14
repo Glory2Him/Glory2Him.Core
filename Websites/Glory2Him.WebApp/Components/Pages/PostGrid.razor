@@ -1,0 +1,36 @@
+@page "/post-grid"
+@inherits CategoriesBase
+
+@* Post grid layout (Blogzine post-grid.html) — reuses the shared posts loader + PostCardComponent. *@
+
+<PageTitle>Post grid — Glory 2 Him</PageTitle>
+
+<PageHeaderComponent Title="Post grid" />
+
+<section class="pt-4 pb-5">
+    <div class="container">
+        @if (IsLoading)
+        {
+            <div class="text-center py-5"><Spinner /></div>
+        }
+        else if (HasError)
+        {
+            <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+        }
+        else if (!Posts.Any())
+        {
+            <div class="alert alert-info" role="alert">No posts have been published yet.</div>
+        }
+        else
+        {
+            <div class="row g-4">
+                @foreach (PostView post in Posts)
+                {
+                    <div class="col-sm-6 col-lg-4">
+                        <PostCardComponent Post="post" />
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>

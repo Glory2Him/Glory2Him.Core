@@ -1,0 +1,17 @@
+@namespace Glory2Him.WebApp.Components.CoreUI
+
+@* Reusable newsletter sign-up call to action. Presentational only (ts-ui-001). *@
+
+<div class="bg-primary bg-opacity-10 p-4 p-sm-5 rounded-3 text-center">
+    <h2 class="mb-2">@Heading</h2>
+    <p class="mb-4">@Subheading</p>
+    <form class="row row-cols-sm-auto g-2 justify-content-center align-items-center">
+        <div class="col-12">
+            <label class="visually-hidden" for="newsletter-email">Email address</label>
+            <input type="email" class="form-control" id="newsletter-email" placeholder="Enter your email address" />
+        </div>
+        <div class="col-12">
+            <button type="submit" class="btn btn-primary m-0">@ButtonText</button>
+        </div>
+    </form>
+</div>

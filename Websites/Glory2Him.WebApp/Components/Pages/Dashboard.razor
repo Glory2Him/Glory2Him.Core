@@ -1,0 +1,108 @@
+@page "/dashboard"
+@rendermode InteractiveServer
+@layout Glory2Him.WebApp.Components.Layout.SidebarLayout
+@attribute [Authorize]
+@using Glory2Him.WebApp.Components.Navigation
+@using Glory2Him.WebApp.Models.Views.Navigations
+@inherits DashboardBase
+
+@* InteractiveServer: the CoreUI Chart (ApexCharts) needs a live circuit for its JS interop. *@
+
+<PageTitle>Dashboard — Glory 2 Him</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">Dashboard</h1>
+    <BreadcrumbComponent Items="Crumbs" />
+</div>
+<hr />
+
+@if (IsLoading)
+{
+    <div class="text-center py-5">
+        <Spinner />
+    </div>
+}
+else if (HasError)
+{
+    <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+}
+else
+{
+    <!-- Counters (Blogzine dashboard counter row, powered by the CoreUI StatTile) -->
+    <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <StatTile Variant="StatTileVariant.Green" Icon="bi-file-earmark-text-fill"
+                      Value="@PostCount.ToString()" Label="Posts" />
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatTile Variant="StatTileVariant.Na" Icon="bi-people-fill"
+                      Value="@UserCount.ToString()" Label="Users" />
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatTile Variant="StatTileVariant.Amber" Icon="bi-star-fill"
+                      Value="@FeaturedCount.ToString()" Label="Featured" />
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <StatTile Variant="StatTileVariant.Red" Icon="bi-suit-heart-fill"
+                      Value="@CategoryCount.ToString()" Label="Categories" />
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-7">
+            <Card Title="Posts by category">
+                <Chart ChartType="donut" Labels="CategoryLabels" Datasets="CategoryDatasets" Height="300" />
+            </Card>
+        </div>
+        <div class="col-xl-5">
+            <Card Title="At a glance">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span>Total posts</span><strong>@PostCount</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span>Featured posts</span><strong>@FeaturedCount</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span>Categories</span><strong>@CategoryCount</strong>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between px-0">
+                        <span>Registered users</span><strong>@UserCount</strong>
+                    </li>
+                </ul>
+            </Card>
+        </div>
+    </div>
+
+    <!-- Latest posts -->
+    <Card Title="Latest posts">
+        @if (!Posts.Any())
+        {
+            <div class="alert alert-info mb-0" role="alert">No posts have been published yet.</div>
+        }
+        else
+        {
+            <div class="list-group list-group-flush">
+                @foreach (PostView post in Posts.Take(5))
+                {
+                    <div class="list-group-item d-flex align-items-center px-0">
+                        <img class="w-60 rounded" src="@post.ImageUrl" alt="@post.Title" style="max-width:60px" />
+                        <div class="ms-3">
+                            <a href="post-single/@post.Slug" class="h6 mb-0 d-block">@post.Title</a>
+                            <p class="small mb-0 text-body-secondary">
+                                @post.PublishedDate.ToString("MMM dd, yyyy") · @post.Category
+                            </p>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </Card>
+}
+
+@code {
+    private static readonly BreadcrumbItem[] Crumbs = new[]
+    {
+        new BreadcrumbItem("Dashboard", "dashboard", IsActive: true),
+    };
+}
