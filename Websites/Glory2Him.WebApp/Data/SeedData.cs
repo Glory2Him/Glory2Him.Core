@@ -44,8 +44,30 @@ namespace Glory2Him.WebApp.Data
             await EnsureRoleAsync(roleManager, AdministratorsRole);
             await EnsureRoleAsync(roleManager, UsersRole);
 
-            await EnsureUserAsync(userManager, "Admin", "Admin", AdministratorsRole);
-            await EnsureUserAsync(userManager, "User", "User", UsersRole);
+            await EnsureUserAsync(
+                userManager,
+                userName: "admin",
+                password: "admin",
+                roleName: AdministratorsRole,
+                name: "Admin",
+                surname: "User");
+
+            await EnsureUserAsync(
+                userManager,
+                userName: "user",
+                password: "user",
+                roleName: UsersRole,
+                name: "Normal",
+                surname: "User");
+
+            await EnsureUserAsync(
+                userManager,
+                userName: "cjdutoit",
+                password: "P@ssword!",
+                roleName: AdministratorsRole,
+                name: "Christo",
+                surname: "du Toit",
+                dateOfBirth: new DateOnly(1977, 10, 8));
         }
 
         // LocalDB creates databases with AUTO_CLOSE ON (inherited from the model database), which
@@ -92,7 +114,10 @@ namespace Glory2Him.WebApp.Data
             UserManager<AppUser> userManager,
             string userName,
             string password,
-            string roleName)
+            string roleName,
+            string name,
+            string surname,
+            DateOnly? dateOfBirth = null)
         {
             AppUser existingUser = await userManager.FindByNameAsync(userName);
 
@@ -102,7 +127,10 @@ namespace Glory2Him.WebApp.Data
                 {
                     UserName = userName,
                     Email = $"{userName}@glory2him.local",
-                    EmailConfirmed = true
+                    EmailConfirmed = true,
+                    Name = name,
+                    Surname = surname,
+                    DateOfBirth = dateOfBirth
                 };
 
                 await userManager.CreateAsync(newUser, password);

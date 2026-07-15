@@ -26,5 +26,34 @@ namespace Glory2Him.WebApp.Models.Foundations.Users
         public byte[]? ProfileImage { get; set; }
 
         public string? ProfileImageContentType { get; set; }
+
+        // Personal details. Name and Surname are required (stored NOT NULL with an empty-string
+        // default for any legacy rows); DateOfBirth and PreferredName are optional.
+        public string Name { get; set; } = string.Empty;
+
+        public string Surname { get; set; } = string.Empty;
+
+        public DateOnly? DateOfBirth { get; set; }
+
+        public string? PreferredName { get; set; }
+
+        // A friendly display name: preferred name if given, otherwise "Name Surname", falling back
+        // to the username when personal details are not yet completed.
+        public string DisplayName
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(PreferredName))
+                {
+                    return PreferredName;
+                }
+
+                string fullName = $"{Name} {Surname}".Trim();
+
+                return string.IsNullOrWhiteSpace(fullName)
+                    ? UserName ?? string.Empty
+                    : fullName;
+            }
+        }
     }
 }

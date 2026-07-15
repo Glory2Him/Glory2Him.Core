@@ -39,6 +39,34 @@
                             <ValidationMessage For="() => Input.Email" class="text-danger" />
                         </div>
 
+                        <!-- Name / Surname -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="Input.Name">First name</label>
+                                <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" autocomplete="given-name" aria-required="true" placeholder="First name" />
+                                <ValidationMessage For="() => Input.Name" class="text-danger" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="Input.Surname">Surname</label>
+                                <InputText @bind-Value="Input.Surname" id="Input.Surname" class="form-control" autocomplete="family-name" aria-required="true" placeholder="Surname" />
+                                <ValidationMessage For="() => Input.Surname" class="text-danger" />
+                            </div>
+                        </div>
+
+                        <!-- Preferred name / Date of birth (optional) -->
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="Input.PreferredName">Preferred name <span class="text-body-secondary">(optional)</span></label>
+                                <InputText @bind-Value="Input.PreferredName" id="Input.PreferredName" class="form-control" placeholder="Preferred name" />
+                                <ValidationMessage For="() => Input.PreferredName" class="text-danger" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label" for="Input.DateOfBirth">Date of birth <span class="text-body-secondary">(optional)</span></label>
+                                <InputDate @bind-Value="Input.DateOfBirth" id="Input.DateOfBirth" class="form-control" />
+                                <ValidationMessage For="() => Input.DateOfBirth" class="text-danger" />
+                            </div>
+                        </div>
+
                         <!-- Password -->
                         <div class="mb-3">
                             <label class="form-label" for="Input.Password">Password</label>
@@ -98,8 +126,13 @@
     {
         var user = CreateUser();
 
-        // Accounts are keyed by username (Spec default users admin/user); a placeholder email
-        // satisfies the email-backed Identity store without requiring an email address at signup.
+        user.Name = Input.Name;
+        user.Surname = Input.Surname;
+        user.PreferredName = string.IsNullOrWhiteSpace(Input.PreferredName) ? null : Input.PreferredName;
+        user.DateOfBirth = Input.DateOfBirth;
+
+        // Accounts are keyed by username; a placeholder email satisfies the email-backed Identity
+        // store without requiring an email address at signup.
         var email = $"{Input.Email}@glory2him.local";
 
         await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
@@ -166,6 +199,24 @@
         [Required]
         [Display(Name = "Username")]
         public string Email { get; set; } = "";
+
+        [Required]
+        [StringLength(100, MinimumLength = 1)]
+        [Display(Name = "First name")]
+        public string Name { get; set; } = "";
+
+        [Required]
+        [StringLength(100, MinimumLength = 1)]
+        [Display(Name = "Surname")]
+        public string Surname { get; set; } = "";
+
+        [StringLength(100)]
+        [Display(Name = "Preferred name")]
+        public string? PreferredName { get; set; }
+
+        [DataType(DataType.Date)]
+        [Display(Name = "Date of birth")]
+        public DateOnly? DateOfBirth { get; set; }
 
         [Required]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 4)]

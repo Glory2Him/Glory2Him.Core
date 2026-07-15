@@ -31,6 +31,38 @@
                 <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
                 <label for="username" class="form-label">Username</label>
             </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" placeholder="First name" />
+                        <label for="Input.Name" class="form-label">First name</label>
+                        <ValidationMessage For="() => Input.Name" class="text-danger" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.Surname" id="Input.Surname" class="form-control" placeholder="Surname" />
+                        <label for="Input.Surname" class="form-label">Surname</label>
+                        <ValidationMessage For="() => Input.Surname" class="text-danger" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.PreferredName" id="Input.PreferredName" class="form-control" placeholder="Preferred name" />
+                        <label for="Input.PreferredName" class="form-label">Preferred name (optional)</label>
+                        <ValidationMessage For="() => Input.PreferredName" class="text-danger" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputDate @bind-Value="Input.DateOfBirth" id="Input.DateOfBirth" class="form-control" placeholder="Date of birth" />
+                        <label for="Input.DateOfBirth" class="form-label">Date of birth (optional)</label>
+                        <ValidationMessage For="() => Input.DateOfBirth" class="text-danger" />
+                    </div>
+                </div>
+            </div>
             <div class="form-floating mb-3">
                 <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
                 <label for="Input.PhoneNumber" class="form-label">Phone number</label>
@@ -67,6 +99,10 @@
         phoneNumber = await UserManager.GetPhoneNumberAsync(user);
 
         Input.PhoneNumber ??= phoneNumber;
+        Input.Name ??= user.Name;
+        Input.Surname ??= user.Surname;
+        Input.PreferredName ??= user.PreferredName;
+        Input.DateOfBirth ??= user.DateOfBirth;
     }
 
     private async Task OnValidSubmitAsync()
@@ -87,12 +123,42 @@
             }
         }
 
+        user.Name = Input.Name ?? string.Empty;
+        user.Surname = Input.Surname ?? string.Empty;
+        user.PreferredName = string.IsNullOrWhiteSpace(Input.PreferredName) ? null : Input.PreferredName;
+        user.DateOfBirth = Input.DateOfBirth;
+
+        var updateResult = await UserManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to update your profile.", HttpContext);
+            return;
+        }
+
         await SignInManager.RefreshSignInAsync(user);
         RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
     }
 
     private sealed class InputModel
     {
+        [Required]
+        [StringLength(100, MinimumLength = 1)]
+        [Display(Name = "First name")]
+        public string? Name { get; set; }
+
+        [Required]
+        [StringLength(100, MinimumLength = 1)]
+        [Display(Name = "Surname")]
+        public string? Surname { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Preferred name")]
+        public string? PreferredName { get; set; }
+
+        [DataType(DataType.Date)]
+        [Display(Name = "Date of birth")]
+        public DateOnly? DateOfBirth { get; set; }
+
         [Phone]
         [Display(Name = "Phone number")]
         public string? PhoneNumber { get; set; }
