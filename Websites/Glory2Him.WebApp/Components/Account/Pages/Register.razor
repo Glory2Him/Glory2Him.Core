@@ -33,9 +33,16 @@
 
                         <!-- Username -->
                         <div class="mb-3">
-                            <label class="form-label" for="Input.Email">Username</label>
-                            <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="Username" />
+                            <label class="form-label" for="Input.Username">Username</label>
+                            <InputText @bind-Value="Input.Username" id="Input.Username" class="form-control" autocomplete="username" aria-required="true" placeholder="Username" />
                             <small class="form-text">This is the name you will sign in with.</small>
+                            <ValidationMessage For="() => Input.Username" class="text-danger" />
+                        </div>
+
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label class="form-label" for="Input.Email">Email address</label>
+                            <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="email" aria-required="true" placeholder="you@example.com" />
                             <ValidationMessage For="() => Input.Email" class="text-danger" />
                         </div>
 
@@ -131,13 +138,10 @@
         user.PreferredName = string.IsNullOrWhiteSpace(Input.PreferredName) ? null : Input.PreferredName;
         user.DateOfBirth = Input.DateOfBirth;
 
-        // Accounts are keyed by username; a placeholder email satisfies the email-backed Identity
-        // store without requiring an email address at signup.
-        var email = $"{Input.Email}@glory2him.local";
-
-        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+        // Accounts are keyed by username (used to sign in); the email is captured separately.
+        await UserStore.SetUserNameAsync(user, Input.Username, CancellationToken.None);
         var emailStore = GetEmailStore();
-        await emailStore.SetEmailAsync(user, email, CancellationToken.None);
+        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
         var result = await UserManager.CreateAsync(user, Input.Password);
 
         if (!result.Succeeded)
@@ -157,7 +161,7 @@
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
 
-        await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
+        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
 
         if (UserManager.Options.SignIn.RequireConfirmedAccount)
         {
@@ -197,7 +201,13 @@
     private sealed class InputModel
     {
         [Required]
+        [StringLength(256, MinimumLength = 1)]
         [Display(Name = "Username")]
+        public string Username { get; set; } = "";
+
+        [Required]
+        [EmailAddress]
+        [Display(Name = "Email address")]
         public string Email { get; set; } = "";
 
         [Required]
