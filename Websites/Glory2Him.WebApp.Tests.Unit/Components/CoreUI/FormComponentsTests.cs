@@ -30,13 +30,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
         {
             // given
             string randomLabel = GetRandomString();
-            string? capturedValue = null;
+            string capturedValue = null;
 
             IRenderedComponent<FormText> renderedText =
                 Render<FormText>(parameters => parameters
                     .Add(text => text.Label, randomLabel)
                     .Add(text => text.ValueChanged,
-                        EventCallback.Factory.Create<string?>(
+                        EventCallback.Factory.Create<string>(
                             this, value => capturedValue = value)));
 
             // when
@@ -57,13 +57,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
                 new SelectOption { Value = "2", Text = "Two" },
             };
 
-            string? capturedValue = null;
+            string capturedValue = null;
 
             IRenderedComponent<FormSelect> renderedSelect =
                 Render<FormSelect>(parameters => parameters
                     .Add(select => select.Options, options)
                     .Add(select => select.ValueChanged,
-                        EventCallback.Factory.Create<string?>(
+                        EventCallback.Factory.Create<string>(
                             this, value => capturedValue = value)));
 
             // when

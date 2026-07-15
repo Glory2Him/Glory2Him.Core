@@ -95,7 +95,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
         {
             // given
             ProductView product = CreateRandomProduct();
-            ProductView? captured = null;
+            ProductView captured = null;
 
             IRenderedComponent<ProductCardComponent> renderedCard =
                 Render<ProductCardComponent>(parameters => parameters

@@ -11,20 +11,20 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 
-namespace Glory2Him.WebApp.Models.Views.Users
+namespace Glory2Him.WebApp.Models.Views.Profiles
 {
-    public class UserView
+    public class ProfileView
     {
         public Guid Id { get; set; }
         public string UserName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public bool IsDisabled { get; set; }
-        public List<string> Roles { get; set; } = new List<string>();
         public bool HasProfileImage { get; set; }
+
+        // Short content hash used to bust the browser cache when the image changes.
         public string? ImageVersion { get; set; }
 
+        // Resolves to the serving endpoint when an image is set, otherwise null (initials fallback).
         public string? ImageUrl =>
             HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
     }

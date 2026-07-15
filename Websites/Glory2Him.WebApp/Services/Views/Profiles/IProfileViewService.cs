@@ -11,21 +11,27 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
+using Glory2Him.WebApp.Brokers.Images;
+using Glory2Him.WebApp.Models.Views.Profiles;
 
-namespace Glory2Him.WebApp.Models.Views.Users
+namespace Glory2Him.WebApp.Services.Views.Profiles
 {
-    public class UserView
+    public interface IProfileViewService
     {
-        public Guid Id { get; set; }
-        public string UserName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public bool IsDisabled { get; set; }
-        public List<string> Roles { get; set; } = new List<string>();
-        public bool HasProfileImage { get; set; }
-        public string? ImageVersion { get; set; }
+        ValueTask<ProfileView> RetrieveProfileByIdAsync(Guid userId);
 
-        public string? ImageUrl =>
-            HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
+        // Validates (size + image content type), resizes to a square WebP avatar, and persists it.
+        ValueTask SetProfileImageAsync(
+            Guid userId,
+            Stream imageStream,
+            long byteLength,
+            string contentType);
+
+        ValueTask RemoveProfileImageAsync(Guid userId);
+
+        // Returns the stored avatar bytes for the serving endpoint, or null when none is set.
+        ValueTask<ProcessedImage?> RetrieveProfileImageAsync(Guid userId);
     }
 }

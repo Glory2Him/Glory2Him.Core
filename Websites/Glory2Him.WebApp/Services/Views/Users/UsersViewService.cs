@@ -10,8 +10,10 @@
 // https://john.bible/john-14-6
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Glory2Him.WebApp.Brokers.Identities;
 using Glory2Him.WebApp.Brokers.Loggings;
@@ -110,7 +112,21 @@ namespace Glory2Him.WebApp.Services.Views.Users
                 Email = user.Email ?? string.Empty,
                 IsDisabled = user.IsDisabled,
                 Roles = roles.ToList(),
+                HasProfileImage = user.ProfileImage is { Length: > 0 },
+                ImageVersion = ComputeImageVersion(user.ProfileImage),
             };
+        }
+
+        private static string? ComputeImageVersion(byte[]? bytes)
+        {
+            if (bytes is null || bytes.Length == 0)
+            {
+                return null;
+            }
+
+            byte[] hash = SHA256.HashData(bytes);
+
+            return Convert.ToHexString(hash, 0, 4).ToLowerInvariant();
         }
     }
 }

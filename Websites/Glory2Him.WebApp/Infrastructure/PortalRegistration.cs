@@ -13,7 +13,9 @@
 using System;
 using Glory2Him.WebApp.Brokers.DateTimes;
 using Glory2Him.WebApp.Brokers.Identities;
+using Glory2Him.WebApp.Brokers.Images;
 using Glory2Him.WebApp.Brokers.Loggings;
+using Glory2Him.WebApp.Brokers.Profiles;
 using Glory2Him.WebApp.Components.Account;
 using Glory2Him.WebApp.Data;
 using Glory2Him.WebApp.Models.Foundations.Roles;
@@ -21,6 +23,7 @@ using Glory2Him.WebApp.Models.Foundations.Users;
 using Glory2Him.WebApp.Services.Cart;
 using Glory2Him.WebApp.Services.Views.Posts;
 using Glory2Him.WebApp.Services.Views.Products;
+using Glory2Him.WebApp.Services.Views.Profiles;
 using Glory2Him.WebApp.Services.Views.Users;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -38,6 +41,8 @@ namespace Glory2Him.WebApp.Infrastructure
         {
             services.AddTransient<IDateTimeBroker, DateTimeBroker>();
             services.AddTransient<ILoggingBroker, LoggingBroker>();
+            services.AddTransient<IImageProcessingBroker, ImageProcessingBroker>();
+            services.AddTransient<IProfileImageBroker, ProfileImageBroker>();
 
             return services;
         }
@@ -65,13 +70,26 @@ namespace Glory2Him.WebApp.Infrastructure
             })
                 .AddIdentityCookies();
 
-            services.AddDbContext<SecurityDbContext>(options =>
+            void ConfigureSecurityDb(DbContextOptionsBuilder options) =>
                 options.UseSqlServer(
                     securityConnectionString,
                     sqlServerOptions => sqlServerOptions.EnableRetryOnFailure(
                         maxRetryCount: 5,
                         maxRetryDelay: TimeSpan.FromSeconds(3),
-                        errorNumbersToAdd: LocalDbTransientErrorNumbers)));
+                        errorNumbersToAdd: LocalDbTransientErrorNumbers));
+
+            // optionsLifetime is Singleton so the singleton DbContextFactory below can share the
+            // same DbContextOptions as the scoped context Identity uses.
+            services.AddDbContext<SecurityDbContext>(
+                ConfigureSecurityDb,
+                contextLifetime: ServiceLifetime.Scoped,
+                optionsLifetime: ServiceLifetime.Singleton);
+
+            // A separate factory used for concurrency-safe reads/writes (e.g. profile avatars) so
+            // components rendering in parallel do not contend on the request-scoped DbContext above.
+            services.AddDbContextFactory<SecurityDbContext>(
+                ConfigureSecurityDb,
+                lifetime: ServiceLifetime.Singleton);
 
             services.AddIdentityCore<AppUser>(options =>
             {
@@ -105,6 +123,7 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddTransient<IPostsViewService, PostsViewService>();
             services.AddTransient<IUsersViewService, UsersViewService>();
             services.AddTransient<IProductsViewService, ProductsViewService>();
+            services.AddTransient<IProfileViewService, ProfileViewService>();
 
             // The demo cart holds per-user state for the circuit lifetime.
             services.AddScoped<ICartService, CartService>();

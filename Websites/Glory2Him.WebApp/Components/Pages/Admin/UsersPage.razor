@@ -106,6 +106,14 @@ else
         {
             new DataTableColumn<UserView>
             {
+                Title = "",
+                Sortable = false,
+                Value = user => user.UserName,
+                CellTemplate = user =>
+                    @<AvatarComponent Name="@user.UserName" ImageUrl="@user.ImageUrl" SizePx="36" />,
+            },
+            new DataTableColumn<UserView>
+            {
                 Title = "Username",
                 Value = user => user.UserName,
             },

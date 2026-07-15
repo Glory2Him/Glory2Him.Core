@@ -1,0 +1,48 @@
+@namespace Glory2Him.WebApp.Components.Account.Shared
+@rendermode InteractiveServer
+@using Glory2Him.WebApp.Components.CoreUI
+
+@* Interactive island (embedded in the static-SSR Profile page): shows the current avatar and lets
+   the user upload a new profile image or remove it. Upload is validated + resized server-side by
+   the ProfileViewService (ts-ui-001: all work delegated to the view service). *@
+
+<div class="d-flex align-items-center flex-wrap gap-3">
+    <AvatarComponent Name="@Name" ImageUrl="@ImageUrl" SizePx="96" />
+
+    <div>
+        @if (IsBusy)
+        {
+            <div class="d-flex align-items-center mb-2">
+                <Spinner />
+                <span class="ms-2">Processing…</span>
+            </div>
+        }
+
+        <label class="btn btn-primary btn-sm mb-0 @(IsBusy ? "disabled" : "")">
+            <i class="bi bi-upload me-1"></i>Upload image
+            <InputFile OnChange="OnFileSelectedAsync" accept="image/png,image/jpeg,image/webp,image/gif"
+                       hidden disabled="@IsBusy" />
+        </label>
+
+        @if (HasImage)
+        {
+            <button type="button" class="btn btn-outline-danger btn-sm mb-0 ms-2"
+                    @onclick="RemoveAsync" disabled="@IsBusy">
+                <i class="bi bi-trash me-1"></i>Remove
+            </button>
+        }
+
+        <div class="form-text mt-2">
+            PNG, JPEG, or WebP up to 5 MB. Images are cropped square and resized to 256×256.
+        </div>
+
+        @if (!string.IsNullOrEmpty(StatusMessage))
+        {
+            <div class="alert alert-success py-2 mt-2 mb-0" role="alert">@StatusMessage</div>
+        }
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger py-2 mt-2 mb-0" role="alert">@ErrorMessage</div>
+        }
+    </div>
+</div>

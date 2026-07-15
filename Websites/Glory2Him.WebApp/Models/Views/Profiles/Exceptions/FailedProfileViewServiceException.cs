@@ -11,21 +11,14 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
+using Xeptions;
 
-namespace Glory2Him.WebApp.Models.Views.Users
+namespace Glory2Him.WebApp.Models.Views.Profiles.Exceptions
 {
-    public class UserView
+    public class FailedProfileViewServiceException : Xeption
     {
-        public Guid Id { get; set; }
-        public string UserName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public bool IsDisabled { get; set; }
-        public List<string> Roles { get; set; } = new List<string>();
-        public bool HasProfileImage { get; set; }
-        public string? ImageVersion { get; set; }
-
-        public string? ImageUrl =>
-            HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
+        public FailedProfileViewServiceException(string message, Exception innerException)
+            : base(message, innerException)
+        { }
     }
 }

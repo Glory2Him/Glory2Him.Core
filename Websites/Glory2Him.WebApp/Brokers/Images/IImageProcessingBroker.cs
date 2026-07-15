@@ -10,22 +10,17 @@
 // https://john.bible/john-14-6
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
-using System.Collections.Generic;
+using System.IO;
+using System.Threading.Tasks;
 
-namespace Glory2Him.WebApp.Models.Views.Users
+namespace Glory2Him.WebApp.Brokers.Images
 {
-    public class UserView
+    // SkiaSharp is an external image library, so it is wrapped by this broker. Services depend on
+    // the broker, never on SkiaSharp directly.
+    public interface IImageProcessingBroker
     {
-        public Guid Id { get; set; }
-        public string UserName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public bool IsDisabled { get; set; }
-        public List<string> Roles { get; set; } = new List<string>();
-        public bool HasProfileImage { get; set; }
-        public string? ImageVersion { get; set; }
-
-        public string? ImageUrl =>
-            HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
+        // Center-crops the source image to a square, resizes it to squareSize x squareSize, and
+        // encodes it as WebP. Returns the encoded bytes + content type.
+        ValueTask<ProcessedImage> CreateSquareAvatarAsync(Stream imageStream, int squareSize);
     }
 }

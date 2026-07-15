@@ -14,6 +14,14 @@
 <h3>Profile</h3>
 <StatusMessage />
 
+@if (user is not null)
+{
+    <div class="card card-body border mb-4">
+        <h5 class="mb-3">Profile image</h5>
+        <ProfileImageManager UserId="user.Id" Name="@(username ?? user.UserName ?? string.Empty)" />
+    </div>
+}
+
 <div class="row">
     <div class="col-xl-6">
         <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">

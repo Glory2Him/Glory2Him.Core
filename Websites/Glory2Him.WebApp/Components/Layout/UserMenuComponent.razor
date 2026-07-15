@@ -61,10 +61,9 @@
         <div class="nav-item dropdown ms-3">
             <a class="nav-link p-0" role="button" href="#" id="profileMenu"
                data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
-                <div class="avatar avatar-sm">
-                    <img class="avatar-img rounded-circle" src="assets/images/avatar/07.jpg"
-                         alt="@context.User.Identity?.Name" />
-                </div>
+                <Glory2Him.WebApp.Components.CoreUI.AvatarComponent
+                    Name="@(context.User.Identity?.Name ?? string.Empty)"
+                    ImageUrl="@AvatarImageUrl" SizePx="36" />
             </a>
             <ul class="dropdown-menu dropdown-menu-end shadow rounded" aria-labelledby="profileMenu" style="min-width: 15rem;">
                 <li class="px-3 py-2 bg-light rounded-top">
@@ -110,4 +109,53 @@
 
 @code {
     private const int NotificationCount = 3;
+
+    [Inject]
+    private Glory2Him.WebApp.Services.Views.Profiles.IProfileViewService ProfileViewService { get; set; } = default!;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    // The signed-in user's avatar URL (null → the AvatarComponent shows initials). Resolved from
+    // the NameIdentifier claim; a lookup failure degrades gracefully to initials.
+    private string? AvatarImageUrl { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        AvatarImageUrl = null;
+
+        if (AuthenticationStateTask is null)
+        {
+            return;
+        }
+
+        AuthenticationState authenticationState = await AuthenticationStateTask;
+        System.Security.Claims.ClaimsPrincipal principal = authenticationState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        string? idValue =
+            principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(idValue, out Guid userId))
+        {
+            return;
+        }
+
+        try
+        {
+            Glory2Him.WebApp.Models.Views.Profiles.ProfileView profile =
+                await ProfileViewService.RetrieveProfileByIdAsync(userId);
+
+            AvatarImageUrl = profile.ImageUrl;
+        }
+        catch
+        {
+            // Fall back to the initials avatar if the profile can't be resolved.
+            AvatarImageUrl = null;
+        }
+    }
 }

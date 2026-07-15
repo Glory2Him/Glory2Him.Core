@@ -10,22 +10,7 @@
 // https://john.bible/john-14-6
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
-using System.Collections.Generic;
-
-namespace Glory2Him.WebApp.Models.Views.Users
+namespace Glory2Him.WebApp.Brokers.Images
 {
-    public class UserView
-    {
-        public Guid Id { get; set; }
-        public string UserName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public bool IsDisabled { get; set; }
-        public List<string> Roles { get; set; } = new List<string>();
-        public bool HasProfileImage { get; set; }
-        public string? ImageVersion { get; set; }
-
-        public string? ImageUrl =>
-            HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
-    }
+    public sealed record ProcessedImage(byte[] Bytes, string ContentType);
 }

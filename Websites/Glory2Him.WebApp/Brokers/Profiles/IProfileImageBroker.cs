@@ -11,21 +11,18 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
+using System.Threading.Tasks;
+using Glory2Him.WebApp.Models.Foundations.Users;
 
-namespace Glory2Him.WebApp.Models.Views.Users
+namespace Glory2Him.WebApp.Brokers.Profiles
 {
-    public class UserView
+    // Reads/writes the profile image using a short-lived DbContext from a factory, so avatar
+    // lookups (rendered by several components at once — header, page, island) never contend on the
+    // request-scoped Identity DbContext ("a second operation was started on this context").
+    public interface IProfileImageBroker
     {
-        public Guid Id { get; set; }
-        public string UserName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public bool IsDisabled { get; set; }
-        public List<string> Roles { get; set; } = new List<string>();
-        public bool HasProfileImage { get; set; }
-        public string? ImageVersion { get; set; }
+        ValueTask<AppUser?> SelectUserByIdAsync(Guid userId);
 
-        public string? ImageUrl =>
-            HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
+        ValueTask UpdateProfileImageAsync(Guid userId, byte[]? imageBytes, string? contentType);
     }
 }

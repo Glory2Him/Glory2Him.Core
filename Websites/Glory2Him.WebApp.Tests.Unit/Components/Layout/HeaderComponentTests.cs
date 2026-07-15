@@ -14,8 +14,10 @@ using Bunit;
 using Bunit.TestDoubles;
 using FluentAssertions;
 using Glory2Him.WebApp.Components.Layout;
+using Glory2Him.WebApp.Services.Views.Profiles;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
 {
@@ -24,6 +26,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
         public HeaderComponentTests()
         {
             Services.AddSingleton<AntiforgeryStateProvider, FakeAntiforgeryStateProvider>();
+            Services.AddSingleton(Mock.Of<IProfileViewService>());
         }
 
         [Fact]

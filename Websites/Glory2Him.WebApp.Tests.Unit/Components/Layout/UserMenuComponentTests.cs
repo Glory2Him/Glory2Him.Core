@@ -14,8 +14,10 @@ using Bunit;
 using Bunit.TestDoubles;
 using FluentAssertions;
 using Glory2Him.WebApp.Components.Layout;
+using Glory2Him.WebApp.Services.Views.Profiles;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
 {
@@ -24,6 +26,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
         public UserMenuComponentTests()
         {
             Services.AddSingleton<AntiforgeryStateProvider, FakeAntiforgeryStateProvider>();
+            Services.AddSingleton(Mock.Of<IProfileViewService>());
         }
 
         [Fact]
@@ -54,8 +57,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
             // then
             renderedMenu.Find("#notificationMenu").Should().NotBeNull();
             renderedMenu.Find("#profileMenu").Should().NotBeNull();
-            renderedMenu.Find("img.avatar-img").GetAttribute("src")
-                .Should().Be("assets/images/avatar/07.jpg");
+            // No uploaded image in this test → the AvatarComponent shows initials.
+            renderedMenu.Find("span[role='img']").TextContent.Trim().Should().Be("AD");
             renderedMenu.Markup.Should().Contain("Admin");
             renderedMenu.Markup.Should().Contain("Account/Manage");
             renderedMenu.Find("form[action='Account/Logout']").Should().NotBeNull();

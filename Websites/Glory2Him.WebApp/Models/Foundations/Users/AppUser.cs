@@ -20,5 +20,11 @@ namespace Glory2Him.WebApp.Models.Foundations.Users
         // Soft-delete / disable flag (Spec Section 11.9): a disabled account is locked out and
         // hidden from normal use but retained, preferred over a hard delete.
         public bool IsDisabled { get; set; }
+
+        // Optional profile image, stored as a server-resized 256x256 WebP (see
+        // ImageProcessingBroker). When null the UI falls back to an initials avatar.
+        public byte[]? ProfileImage { get; set; }
+
+        public string? ProfileImageContentType { get; set; }
     }
 }

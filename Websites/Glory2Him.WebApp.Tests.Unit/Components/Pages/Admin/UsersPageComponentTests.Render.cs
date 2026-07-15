@@ -55,8 +55,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
             // when
             IRenderedComponent<UsersPage> renderedPage = Render<UsersPage>();
 
-            // then
-            renderedPage.FindAll("thead th")[0].TextContent.Trim().Should().Be("Username");
+            // then (column 0 is the avatar; "Username" is the first titled column)
+            renderedPage.FindAll("thead th")[1].TextContent.Trim().Should().Be("Username");
 
             foreach (UserView user in users)
             {

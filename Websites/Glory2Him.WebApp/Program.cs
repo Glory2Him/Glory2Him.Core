@@ -45,6 +45,28 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
+// Serves a user's stored profile avatar (or 404 → the UI falls back to an initials avatar).
+// The URL carries a content-hash version (?v=), so the image is safely long-cached and busts
+// automatically when it changes.
+app.MapGet("/profile-image/{userId:guid}", async (
+    Guid userId,
+    HttpContext httpContext,
+    Glory2Him.WebApp.Services.Views.Profiles.IProfileViewService profileViewService) =>
+{
+    Glory2Him.WebApp.Brokers.Images.ProcessedImage? image =
+        await profileViewService.RetrieveProfileImageAsync(userId);
+
+    if (image is null)
+    {
+        return Results.NotFound();
+    }
+
+    // The ?v= content hash changes whenever the image changes, so this URL is immutable.
+    httpContext.Response.Headers.CacheControl = "private, max-age=86400";
+
+    return Results.Bytes(image.Bytes, image.ContentType);
+});
+
 // A seed failure (e.g. a transient LocalDB cold-start error) is retried a few times so it can
 // self-heal in-process; after the final attempt it is logged but must not stop the app from
 // serving (the seed is idempotent and also re-runs on the next start).
