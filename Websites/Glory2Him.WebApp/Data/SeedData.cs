@@ -49,6 +49,7 @@ namespace Glory2Him.WebApp.Data
                 userName: "admin",
                 password: "admin",
                 roleName: AdministratorsRole,
+                email: "admin@g2h.org",
                 name: "Admin",
                 surname: "User");
 
@@ -57,6 +58,7 @@ namespace Glory2Him.WebApp.Data
                 userName: "user",
                 password: "user",
                 roleName: UsersRole,
+                email: "user@g2h.org",
                 name: "Normal",
                 surname: "User");
 
@@ -65,6 +67,7 @@ namespace Glory2Him.WebApp.Data
                 userName: "cjdutoit",
                 password: "P@ssword!",
                 roleName: AdministratorsRole,
+                email: "christo@dutoit.co.uk",
                 name: "Christo",
                 surname: "du Toit",
                 dateOfBirth: new DateOnly(1977, 10, 8));
@@ -115,6 +118,7 @@ namespace Glory2Him.WebApp.Data
             string userName,
             string password,
             string roleName,
+            string email,
             string name,
             string surname,
             DateOnly? dateOfBirth = null)
@@ -126,7 +130,7 @@ namespace Glory2Him.WebApp.Data
                 var newUser = new AppUser
                 {
                     UserName = userName,
-                    Email = $"{userName}@glory2him.local",
+                    Email = email,
                     EmailConfirmed = true,
                     Name = name,
                     Surname = surname,
