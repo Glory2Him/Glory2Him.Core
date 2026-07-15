@@ -1,20 +1,21 @@
-﻿@page "/Account/Register"
+@page "/Account/Register"
+@rendermode InteractiveServer
 
 @using System.ComponentModel.DataAnnotations
-@using System.Text
-@using System.Text.Encodings.Web
 @using Microsoft.AspNetCore.Identity
-@using Microsoft.AspNetCore.WebUtilities
 @using Glory2Him.WebApp.Data
 @using Glory2Him.WebApp.Models.Foundations.Users
+@using Glory2Him.WebApp.Services.Views.Registrations
 
 @inject UserManager<AppUser> UserManager
 @inject IUserStore<AppUser> UserStore
-@inject SignInManager<AppUser> SignInManager
-@inject IEmailSender<AppUser> EmailSender
-@inject ILogger<Register> Logger
+@inject IRegistrationViewService RegistrationViewService
 @inject NavigationManager NavigationManager
-@inject IdentityRedirectManager RedirectManager
+@inject ILogger<Register> Logger
+
+@* Interactive island: real-time username availability + suggestions and a friendly
+   "email already registered" hint. On success it redirects to the login page (cookie sign-in
+   needs a static request, so we do not auto-sign-in here). *@
 
 <PageTitle>Sign up — Glory 2 Him</PageTitle>
 
@@ -25,24 +26,76 @@
                 <div class="bg-primary bg-opacity-10 rounded p-4 p-sm-5">
                     <h2>Create your free account</h2>
 
-                    <StatusMessage Message="@Message" />
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger mt-3" role="alert">@errorMessage</div>
+                    }
 
-                    <EditForm Model="Input" method="post" OnValidSubmit="RegisterUser" FormName="register" class="mt-4">
+                    <EditForm Model="Input" OnValidSubmit="RegisterUser" FormName="register" class="mt-4">
                         <DataAnnotationsValidator />
                         <ValidationSummary class="text-danger" role="alert" />
 
                         <!-- Username -->
                         <div class="mb-3">
                             <label class="form-label" for="Input.Username">Username</label>
-                            <InputText @bind-Value="Input.Username" id="Input.Username" class="form-control" autocomplete="username" aria-required="true" placeholder="Username" />
+                            <div class="position-relative">
+                                <input value="@Input.Username" @oninput="OnUsernameInput"
+                                       id="Input.Username" class="@UsernameInputClass"
+                                       autocomplete="username" aria-required="true" placeholder="Username" />
+                                <span class="position-absolute top-50 end-0 translate-middle-y me-3">
+                                    @switch (usernameStatus)
+                                    {
+                                        case AvailabilityStatus.Checking:
+                                            <span class="spinner-border spinner-border-sm text-secondary"></span>
+                                            break;
+                                        case AvailabilityStatus.Available:
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                            break;
+                                        case AvailabilityStatus.Taken:
+                                            <i class="bi bi-x-circle-fill text-danger"></i>
+                                            break;
+                                    }
+                                </span>
+                            </div>
                             <small class="form-text">This is the name you will sign in with.</small>
+                            @if (usernameStatus == AvailabilityStatus.Available)
+                            {
+                                <div class="text-success small mt-1"><i class="bi bi-check2 me-1"></i>@Input.Username is available</div>
+                            }
+                            else if (usernameStatus == AvailabilityStatus.Taken)
+                            {
+                                <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>@Input.Username is already taken</div>
+                                @if (suggestions.Any())
+                                {
+                                    <div class="mt-2 small">
+                                        <span class="text-body-secondary">Try one of these:</span>
+                                        @foreach (string suggestion in suggestions)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2 ms-1 mb-1"
+                                                    @onclick="() => UseSuggestionAsync(suggestion)">
+                                                @suggestion
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            }
                             <ValidationMessage For="() => Input.Username" class="text-danger" />
                         </div>
 
                         <!-- Email -->
                         <div class="mb-3">
                             <label class="form-label" for="Input.Email">Email address</label>
-                            <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="email" aria-required="true" placeholder="you@example.com" />
+                            <input value="@Input.Email" @oninput="OnEmailInput"
+                                   id="Input.Email" class="form-control"
+                                   autocomplete="email" aria-required="true" placeholder="you@example.com" />
+                            @if (emailInUse)
+                            {
+                                <div class="text-danger small mt-1">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    An account with this email already exists.
+                                    <a href="@LoginWithEmailUrl">Sign in instead</a>.
+                                </div>
+                            }
                             <ValidationMessage For="() => Input.Email" class="text-danger" />
                         </div>
 
@@ -91,22 +144,15 @@
                         <!-- Button -->
                         <div class="row align-items-center">
                             <div class="col-sm-4">
-                                <button type="submit" class="btn btn-success">Sign me up</button>
+                                <button type="submit" class="btn btn-success" disabled="@isSubmitting">Sign me up</button>
                             </div>
                             <div class="col-sm-8 text-sm-end">
                                 <span>
-                                    Have an account?
-                                    <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))"><u>Sign in</u></a>
+                                    Have an account? <a href="Account/Login"><u>Sign in</u></a>
                                 </span>
                             </div>
                         </div>
                     </EditForm>
-
-                    <hr />
-
-                    <div class="text-center">
-                        <ExternalLoginPicker />
-                    </div>
                 </div>
             </div>
         </div>
@@ -114,94 +160,188 @@
 </section>
 
 @code {
-    private IEnumerable<IdentityError>? identityErrors;
+    private enum AvailabilityStatus { None, Checking, Available, Taken }
 
-    [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = default!;
+    private InputModel Input { get; set; } = new();
+    private AvailabilityStatus usernameStatus = AvailabilityStatus.None;
+    private List<string> suggestions = new();
+    private bool emailInUse;
+    private bool isSubmitting;
+    private string? errorMessage;
 
-    [SupplyParameterFromQuery]
-    private string? ReturnUrl { get; set; }
+    private CancellationTokenSource? usernameDebounce;
+    private CancellationTokenSource? emailDebounce;
 
-    private string? Message => identityErrors is null ? null : $"Error: {string.Join(", ", identityErrors.Select(error => error.Description))}";
-
-    protected override void OnInitialized()
+    private string UsernameInputClass => usernameStatus switch
     {
-        Input ??= new();
+        AvailabilityStatus.Available => "form-control is-valid",
+        AvailabilityStatus.Taken => "form-control is-invalid",
+        _ => "form-control"
+    };
+
+    private string LoginWithEmailUrl =>
+        NavigationManager.GetUriWithQueryParameters(
+            "Account/Login", new Dictionary<string, object?> { ["username"] = Input.Email });
+
+    private async Task OnUsernameInput(ChangeEventArgs args)
+    {
+        Input.Username = args.Value?.ToString() ?? string.Empty;
+        await DebouncedUsernameCheckAsync();
     }
 
-    public async Task RegisterUser(EditContext editContext)
+    private async Task OnEmailInput(ChangeEventArgs args)
     {
-        var user = CreateUser();
-
-        user.Name = Input.Name;
-        user.Surname = Input.Surname;
-        user.PreferredName = string.IsNullOrWhiteSpace(Input.PreferredName) ? null : Input.PreferredName;
-        user.DateOfBirth = Input.DateOfBirth;
-
-        // Accounts are keyed by username (used to sign in); the email is captured separately.
-        await UserStore.SetUserNameAsync(user, Input.Username, CancellationToken.None);
-        var emailStore = GetEmailStore();
-        await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
-        var result = await UserManager.CreateAsync(user, Input.Password);
-
-        if (!result.Succeeded)
-        {
-            identityErrors = result.Errors;
-            return;
-        }
-
-        await UserManager.AddToRoleAsync(user, "Users");
-
-        Logger.LogInformation("User created a new account with password.");
-
-        var userId = await UserManager.GetUserIdAsync(user);
-        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
-        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
-
-        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
-
-        if (UserManager.Options.SignIn.RequireConfirmedAccount)
-        {
-            RedirectManager.RedirectTo(
-                "Account/RegisterConfirmation",
-                new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
-        }
-        else
-        {
-            await SignInManager.SignInAsync(user, isPersistent: false);
-            RedirectManager.RedirectTo(ReturnUrl);
-        }
+        Input.Email = args.Value?.ToString() ?? string.Empty;
+        await DebouncedEmailCheckAsync();
     }
 
-    private AppUser CreateUser()
+    private async Task DebouncedUsernameCheckAsync()
     {
+        suggestions.Clear();
+        usernameStatus = AvailabilityStatus.Checking;
+
+        usernameDebounce?.Cancel();
+        usernameDebounce = new CancellationTokenSource();
+        CancellationToken token = usernameDebounce.Token;
+
         try
         {
-            return Activator.CreateInstance<AppUser>();
+            await Task.Delay(450, token);
+
+            string candidate = Input.Username?.Trim() ?? string.Empty;
+
+            if (candidate.Length < RegistrationViewService.MinimumUsernameLength)
+            {
+                usernameStatus = AvailabilityStatus.None;
+                return;
+            }
+
+            bool available = await RegistrationViewService.IsUsernameAvailableAsync(candidate);
+
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (available)
+            {
+                usernameStatus = AvailabilityStatus.Available;
+            }
+            else
+            {
+                usernameStatus = AvailabilityStatus.Taken;
+                suggestions = await RegistrationViewService.SuggestUsernamesAsync(
+                    Input.Name ?? string.Empty,
+                    Input.Surname ?? string.Empty,
+                    Input.PreferredName);
+            }
+
+            StateHasChanged();
         }
-        catch
+        catch (TaskCanceledException)
         {
-            throw new InvalidOperationException($"Can't create an instance of '{nameof(AppUser)}'. " +
-                $"Ensure that '{nameof(AppUser)}' is not an abstract class and has a parameterless constructor.");
+            // Superseded by a newer keystroke.
         }
     }
 
-    private IUserEmailStore<AppUser> GetEmailStore()
+    private async Task DebouncedEmailCheckAsync()
     {
-        if (!UserManager.SupportsUserEmail)
+        emailDebounce?.Cancel();
+        emailDebounce = new CancellationTokenSource();
+        CancellationToken token = emailDebounce.Token;
+
+        try
         {
-            throw new NotSupportedException("The default UI requires a user store with email support.");
+            await Task.Delay(450, token);
+
+            string candidate = Input.Email?.Trim() ?? string.Empty;
+
+            emailInUse = candidate.Contains('@')
+                && await RegistrationViewService.IsEmailInUseAsync(candidate);
+
+            if (!token.IsCancellationRequested)
+            {
+                StateHasChanged();
+            }
         }
-        return (IUserEmailStore<AppUser>)UserStore;
+        catch (TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task UseSuggestionAsync(string suggestion)
+    {
+        Input.Username = suggestion;
+        usernameStatus = AvailabilityStatus.Available;
+        suggestions.Clear();
+        await Task.CompletedTask;
+    }
+
+    private async Task RegisterUser()
+    {
+        errorMessage = null;
+        isSubmitting = true;
+
+        try
+        {
+            // Re-check on the server so a name taken between typing and submit is still caught.
+            if (!await RegistrationViewService.IsUsernameAvailableAsync(Input.Username))
+            {
+                usernameStatus = AvailabilityStatus.Taken;
+                errorMessage = "That username is already taken. Please choose another.";
+                return;
+            }
+
+            if (await RegistrationViewService.IsEmailInUseAsync(Input.Email))
+            {
+                emailInUse = true;
+                errorMessage = "An account with this email already exists. Please sign in instead.";
+                return;
+            }
+
+            var user = new AppUser
+            {
+                Name = Input.Name,
+                Surname = Input.Surname,
+                PreferredName = string.IsNullOrWhiteSpace(Input.PreferredName) ? null : Input.PreferredName,
+                DateOfBirth = Input.DateOfBirth,
+                EmailConfirmed = true,
+            };
+
+            await UserStore.SetUserNameAsync(user, Input.Username, CancellationToken.None);
+            var emailStore = (IUserEmailStore<AppUser>)UserStore;
+            await emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
+
+            IdentityResult result = await UserManager.CreateAsync(user, Input.Password);
+
+            if (!result.Succeeded)
+            {
+                errorMessage = string.Join(" ", result.Errors.Select(error => error.Description));
+                return;
+            }
+
+            await UserManager.AddToRoleAsync(user, "Users");
+            Logger.LogInformation("New account created for {UserName}.", Input.Username);
+
+            NavigationManager.NavigateTo(
+                NavigationManager.GetUriWithQueryParameters(
+                    "Account/Login",
+                    new Dictionary<string, object?>
+                    {
+                        ["registered"] = true,
+                        ["username"] = Input.Username,
+                    }));
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
     }
 
     private sealed class InputModel
     {
         [Required]
-        [StringLength(256, MinimumLength = 1)]
+        [StringLength(256, MinimumLength = 3)]
         [Display(Name = "Username")]
         public string Username { get; set; } = "";
 

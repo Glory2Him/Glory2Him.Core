@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using Glory2Him.WebApp.Brokers.Accounts;
 using Glory2Him.WebApp.Brokers.DateTimes;
 using Glory2Him.WebApp.Brokers.Identities;
 using Glory2Him.WebApp.Brokers.Images;
@@ -24,6 +25,7 @@ using Glory2Him.WebApp.Services.Cart;
 using Glory2Him.WebApp.Services.Views.Posts;
 using Glory2Him.WebApp.Services.Views.Products;
 using Glory2Him.WebApp.Services.Views.Profiles;
+using Glory2Him.WebApp.Services.Views.Registrations;
 using Glory2Him.WebApp.Services.Views.Users;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -43,6 +45,7 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddTransient<ILoggingBroker, LoggingBroker>();
             services.AddTransient<IImageProcessingBroker, ImageProcessingBroker>();
             services.AddTransient<IProfileImageBroker, ProfileImageBroker>();
+            services.AddTransient<IAccountBroker, AccountBroker>();
 
             return services;
         }
@@ -124,6 +127,7 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddTransient<IUsersViewService, UsersViewService>();
             services.AddTransient<IProductsViewService, ProductsViewService>();
             services.AddTransient<IProfileViewService, ProfileViewService>();
+            services.AddTransient<IRegistrationViewService, RegistrationViewService>();
 
             // The demo cart holds per-user state for the circuit lifetime.
             services.AddScoped<ICartService, CartService>();
