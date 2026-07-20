@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Threading;
@@ -41,7 +40,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(expectedContentItem);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Removed))
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    ContentItemEventOperation.Removed))
                     .Returns(new ValueTask<EventPublishResult<ContentItem>>(
                         new EventPublishResult<ContentItem>()));
 
@@ -65,7 +66,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Removed),
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    ContentItemEventOperation.Removed),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
 //                  No one comes to the Father except through me.’"
-// https://mark.bible/mark-16-15
 // https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -39,8 +38,8 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid BibleReferenceRemovedEventAddressId =
             new Guid("019f814e-89c1-70c1-9991-6d52f85829d1");
 
-        internal static readonly IReadOnlyDictionary<BibleReferenceEventOperation, Guid> BibleReferenceEventAddressIds =
-            new Dictionary<BibleReferenceEventOperation, Guid>
+        internal static readonly IReadOnlyDictionary<BibleReferenceEventOperation, Guid>
+            BibleReferenceEventAddressIds = new Dictionary<BibleReferenceEventOperation, Guid>
             {
                 { BibleReferenceEventOperation.Adding, BibleReferenceAddingEventAddressId },
                 { BibleReferenceEventOperation.Modifying, BibleReferenceModifyingEventAddressId },

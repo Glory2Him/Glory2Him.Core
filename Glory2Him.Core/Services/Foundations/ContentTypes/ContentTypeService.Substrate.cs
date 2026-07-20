@@ -1,17 +1,17 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
 //                  No one comes to the Father except through me.’"
-// https://mark.bible/mark-16-15
 // https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
@@ -41,13 +41,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentTypeEventEnvelope(envelope);
 
-                if (await AlreadyProcessedAsync(envelope, nameof(OnAddingContentTypeAsync), cancellationToken))
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope,
+                    EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
+                    cancellationToken);
+
+                if (alreadyProcessed)
                     return null;
 
                 ContentType addedContentType =
                     await DoAddContentTypeAsync(envelope.Content, envelope, cancellationToken);
 
-                await RecordEventProcessedAsync(envelope, nameof(OnAddingContentTypeAsync), cancellationToken);
+                await RecordEventProcessedAsync(
+                    envelope,
+                    EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
+                    cancellationToken);
 
                 return await this.eventEnvelopeFactory.CreateNextAsync(envelope, addedContentType);
             });
@@ -60,13 +68,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentTypeEventEnvelope(envelope);
 
-                if (await AlreadyProcessedAsync(envelope, nameof(OnModifyingContentTypeAsync), cancellationToken))
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope,
+                    EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
+                    cancellationToken);
+
+                if (alreadyProcessed)
                     return null;
 
                 ContentType modifiedContentType =
                     await DoModifyContentTypeAsync(envelope.Content, envelope, cancellationToken);
 
-                await RecordEventProcessedAsync(envelope, nameof(OnModifyingContentTypeAsync), cancellationToken);
+                await RecordEventProcessedAsync(
+                    envelope,
+                    EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
+                    cancellationToken);
 
                 return await this.eventEnvelopeFactory.CreateNextAsync(envelope, modifiedContentType);
             });
@@ -79,7 +95,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentTypeEventEnvelope(envelope);
 
-                if (await AlreadyProcessedAsync(envelope, nameof(OnRemovingContentTypeByIdAsync), cancellationToken))
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope,
+                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                    cancellationToken);
+
+                if (alreadyProcessed)
                     return null;
 
                 ContentType removedContentType =
@@ -89,7 +110,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                         envelope,
                         cancellationToken);
 
-                await RecordEventProcessedAsync(envelope, nameof(OnRemovingContentTypeByIdAsync), cancellationToken);
+                await RecordEventProcessedAsync(
+                    envelope,
+                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                    cancellationToken);
 
                 return await this.eventEnvelopeFactory.CreateNextAsync(envelope, removedContentType);
             });
@@ -113,23 +137,23 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<ContentType> envelope,
-            string handlerName,
+            string receiverName,
             CancellationToken cancellationToken) =>
             await this.storageBroker.SelectProcessedEventExistsAsync(
                 envelope.Metadata.EventId,
-                receiverName: $"{nameof(ContentTypeService)}.{handlerName}",
+                receiverName,
                 cancellationToken);
 
         private async ValueTask RecordEventProcessedAsync(
             EventEnvelope<ContentType> envelope,
-            string handlerName,
+            string receiverName,
             CancellationToken cancellationToken) =>
             await this.storageBroker.InsertProcessedEventAsync(
                 new ProcessedEvent
                 {
                     Id = await this.identifierBroker.GetIdentifierAsync(),
                     EventId = envelope.Metadata.EventId,
-                    ReceiverName = $"{nameof(ContentTypeService)}.{handlerName}",
+                    ReceiverName = receiverName,
                     ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
                 },
                 cancellationToken);

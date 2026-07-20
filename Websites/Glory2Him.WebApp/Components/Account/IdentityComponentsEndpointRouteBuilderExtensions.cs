@@ -1,5 +1,19 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
 using System.Security.Claims;
 using System.Text.Json;
+using Glory2Him.WebApp.Components.Account.Pages;
+using Glory2Him.WebApp.Components.Account.Pages.Manage;
+using Glory2Him.WebApp.Models.Foundations.Users;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -7,10 +21,6 @@ using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Primitives;
-using Glory2Him.WebApp.Components.Account.Pages;
-using Glory2Him.WebApp.Components.Account.Pages.Manage;
-using Glory2Him.WebApp.Data;
-using Glory2Him.WebApp.Models.Foundations.Users;
 
 namespace Microsoft.AspNetCore.Routing;
 
