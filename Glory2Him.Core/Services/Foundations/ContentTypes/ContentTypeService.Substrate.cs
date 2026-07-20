@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
-using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes
@@ -157,15 +156,5 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
                 },
                 cancellationToken);
-
-        private static void ValidateContentTypeEventEnvelope(EventEnvelope<ContentType> envelope)
-        {
-            if (envelope is null || envelope.Content is null)
-            {
-                throw new InvalidContentTypeEventException(
-                    message: "Invalid content type event. " +
-                        "The event envelope and its content are required.");
-            }
-        }
     }
 }

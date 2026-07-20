@@ -105,6 +105,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.UpdatedWhen)));
         }
 
+        private static void ValidateContentTypeEventEnvelope(EventEnvelope<ContentType> envelope)
+        {
+            if (envelope is null || envelope.Content is null)
+            {
+                throw new InvalidContentTypeEventException(
+                    message: "Invalid content type event. " +
+                        "The event envelope and its content are required.");
+            }
+        }
+
         private static void ValidateAgainstStorageContentTypeOnModify(
             ContentType inputContentType,
             ContentType storageContentType)

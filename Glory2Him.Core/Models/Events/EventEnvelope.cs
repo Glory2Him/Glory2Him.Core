@@ -40,5 +40,10 @@ namespace Glory2Him.Core.Models.Events
         /// Metadata describing the event instance, including its identifier, type, version, and causation.
         /// </summary>
         public EventMetadata Metadata { get; init; } = new EventMetadata();
+
+        /// <summary>
+        /// The cryptographic signature details proving the envelope has not been tampered with since it was created.
+        /// </summary>
+        public EnvelopeIntegrity Integrity { get; init; }
     }
 }

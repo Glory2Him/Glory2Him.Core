@@ -121,7 +121,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // the request payload is the remove instruction: the id and optional reason
                 var removeRequest = new ContentType
                 {
                     Id = contentTypeId,
