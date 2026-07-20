@@ -1,33 +1,57 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
+//                  No one comes to the Father except through me.’"
 // https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+// https://john.bible/john-14-6
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingRoles;
-using LeVent.Clients;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<EventEnvelope<ApprovalSettingRole>> ApprovalSettingRoleEvents { get; set; }
+        public ValueTask<EventPublishResult<ApprovalSettingRole>> PublishApprovalSettingRoleAsync(
+            EventEnvelope<ApprovalSettingRole> envelope,
+            ApprovalSettingRoleEventOperation operation) =>
+                PublishEventAsync(
+                    EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
+                    nameof(ApprovalSettingRole),
+                    envelope,
+                    operation);
 
-        public ValueTask PublishApprovalSettingRoleAsync(EventEnvelope<ApprovalSettingRole> envelope, string? eventName = null) =>
-            this.ApprovalSettingRoleEvents.PublishEventAsync(envelope, eventName);
+        public ValueTask SubscribeToApprovalSettingRoleEventAsync(
+            EventSubscription subscription,
+            ApprovalSettingRoleEventOperation operation,
+            Func<EventEnvelope<ApprovalSettingRole>, CancellationToken, ValueTask> approvalSettingRoleEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
+                    subscription,
+                    operation,
+                    approvalSettingRoleEventHandler,
+                    cancellationToken);
 
-        public void SubscribeToApprovalSettingRoleEvent(
-            Func<EventEnvelope<ApprovalSettingRole>, ValueTask> approvalSettingRoleEventHandler,
-            string? eventName = null) =>
-                this.ApprovalSettingRoleEvents.RegisterEventHandler(approvalSettingRoleEventHandler, eventName);
+        public ValueTask SubscribeToApprovalSettingRoleEventAsync(
+            EventSubscription subscription,
+            ApprovalSettingRoleEventOperation operation,
+            Func<EventEnvelope<ApprovalSettingRole>, CancellationToken, ValueTask<EventEnvelope<ApprovalSettingRole>?>> approvalSettingRoleEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
+                    subscription,
+                    operation,
+                    approvalSettingRoleEventHandler,
+                    cancellationToken);
     }
 }

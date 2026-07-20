@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
-    public interface IContentItemService
+    public partial interface IContentItemService
     {
         ValueTask<ContentItem> AddContentItemAsync(
             ContentItem contentItem,

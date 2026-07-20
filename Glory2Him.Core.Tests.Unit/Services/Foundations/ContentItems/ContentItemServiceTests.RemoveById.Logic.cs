@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -42,7 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .ReturnsAsync(storageContentItem);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageContentItem))
+                broker.ApplyRemoveAuditValuesAsync(storageContentItem, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditedContentItem);
 
             this.storageBrokerMock.Setup(broker =>
@@ -50,8 +50,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(expectedContentItem);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemRemoved"))
-                    .Returns(ValueTask.CompletedTask);
+                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                        new EventPublishResult<ContentItem>()));
 
             // when
             ContentItem actualContentItem =
@@ -70,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageContentItem),
+                broker.ApplyRemoveAuditValuesAsync(storageContentItem, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -78,7 +79,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemRemoved"),
+                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Removed),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
@@ -110,7 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .ReturnsAsync(storageContentItem);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageContentItem))
+                broker.ApplyRemoveAuditValuesAsync(storageContentItem, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditedContentItem);
 
             this.storageBrokerMock.Setup(broker =>
@@ -118,8 +119,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(expectedContentItem);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemRemoved"))
-                    .Returns(ValueTask.CompletedTask);
+                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                        new EventPublishResult<ContentItem>()));
 
             // when
             ContentItem actualContentItem =
@@ -138,7 +140,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageContentItem),
+                broker.ApplyRemoveAuditValuesAsync(storageContentItem, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -146,7 +148,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemRemoved"),
+                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Removed),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

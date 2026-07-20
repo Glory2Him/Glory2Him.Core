@@ -1,0 +1,147 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://mark.bible/mark-16-15
+// https://john.bible/john-14-6
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System.Threading;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+
+namespace Glory2Him.Core.Services.Foundations.ContentItems
+{
+    /// <summary>
+    /// The event path of the service: request handlers the event substrate dispatches to,
+    /// one per request address (<c>ContentItem-Adding</c>, <c>-Modifying</c>,
+    /// <c>-RemovingById</c>, <c>-RetrievingById</c>). Handlers receive the full request
+    /// envelope — including the original caller's <c>SecurityContext</c> — converge on the
+    /// same private <c>DoXAsync</c> methods the non-event path uses (which publish the
+    /// past-tense facts), and return the outcome as the delivery's reply envelope. Mutating
+    /// handlers are guarded by the <c>ProcessedEvents</c> table so replayed or duplicated
+    /// requests are not applied twice; a deduplicated delivery replies <c>null</c>. Failures
+    /// are categorized into the service's typed exceptions and rethrown so the substrate
+    /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
+    /// </summary>
+    public partial class ContentItemService
+    {
+        public ValueTask<EventEnvelope<ContentItem>?> OnAddingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemEventEnvelope(envelope);
+
+                if (await AlreadyProcessedAsync(envelope, nameof(OnAddingContentItemAsync), cancellationToken))
+                    return null;
+
+                ContentItem addedContentItem =
+                    await DoAddContentItemAsync(envelope.Content, envelope, cancellationToken);
+
+                await RecordEventProcessedAsync(envelope, nameof(OnAddingContentItemAsync), cancellationToken);
+
+                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, addedContentItem);
+            });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnModifyingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemEventEnvelope(envelope);
+
+                if (await AlreadyProcessedAsync(envelope, nameof(OnModifyingContentItemAsync), cancellationToken))
+                    return null;
+
+                ContentItem modifiedContentItem =
+                    await DoModifyContentItemAsync(envelope.Content, envelope, cancellationToken);
+
+                await RecordEventProcessedAsync(envelope, nameof(OnModifyingContentItemAsync), cancellationToken);
+
+                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, modifiedContentItem);
+            });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnRemovingContentItemByIdAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemEventEnvelope(envelope);
+
+                if (await AlreadyProcessedAsync(envelope, nameof(OnRemovingContentItemByIdAsync), cancellationToken))
+                    return null;
+
+                ContentItem removedContentItem =
+                    await DoRemoveContentItemByIdAsync(
+                        envelope.Content.Id,
+                        envelope.Content.DeletionReason,
+                        envelope,
+                        cancellationToken);
+
+                await RecordEventProcessedAsync(envelope, nameof(OnRemovingContentItemByIdAsync), cancellationToken);
+
+                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, removedContentItem);
+            });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemEventEnvelope(envelope);
+
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
+                ContentItem retrievedContentItem =
+                    await RetrieveContentItemByIdAsync(envelope.Content.Id, cancellationToken);
+
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    envelope,
+                    retrievedContentItem);
+            });
+
+        private async ValueTask<bool> AlreadyProcessedAsync(
+            EventEnvelope<ContentItem> envelope,
+            string handlerName,
+            CancellationToken cancellationToken) =>
+            await this.storageBroker.SelectProcessedEventExistsAsync(
+                envelope.Metadata.EventId,
+                receiverName: $"{nameof(ContentItemService)}.{handlerName}",
+                cancellationToken);
+
+        private async ValueTask RecordEventProcessedAsync(
+            EventEnvelope<ContentItem> envelope,
+            string handlerName,
+            CancellationToken cancellationToken) =>
+            await this.storageBroker.InsertProcessedEventAsync(
+                new ProcessedEvent
+                {
+                    Id = await this.identifierBroker.GetIdentifierAsync(),
+                    EventId = envelope.Metadata.EventId,
+                    ReceiverName = $"{nameof(ContentItemService)}.{handlerName}",
+                    ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
+                },
+                cancellationToken);
+
+        private static void ValidateContentItemEventEnvelope(EventEnvelope<ContentItem> envelope)
+        {
+            if (envelope is null || envelope.Content is null)
+            {
+                throw new InvalidContentItemEventException(
+                    message: "Invalid content item event. " +
+                        "The event envelope and its content are required.");
+            }
+        }
+    }
+}

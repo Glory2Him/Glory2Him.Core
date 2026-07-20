@@ -1,33 +1,57 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
 // Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
+//                  No one comes to the Father except through me.’"
 // https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+// https://john.bible/john-14-6
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
-using LeVent.Clients;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<EventEnvelope<Link>> LinkEvents { get; set; }
+        public ValueTask<EventPublishResult<Link>> PublishLinkAsync(
+            EventEnvelope<Link> envelope,
+            LinkEventOperation operation) =>
+                PublishEventAsync(
+                    EventBrokerIdentifiers.LinkEventAddressIds,
+                    nameof(Link),
+                    envelope,
+                    operation);
 
-        public ValueTask PublishLinkAsync(EventEnvelope<Link> envelope, string? eventName = null) =>
-            this.LinkEvents.PublishEventAsync(envelope, eventName);
+        public ValueTask SubscribeToLinkEventAsync(
+            EventSubscription subscription,
+            LinkEventOperation operation,
+            Func<EventEnvelope<Link>, CancellationToken, ValueTask> linkEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    EventBrokerIdentifiers.LinkEventAddressIds,
+                    subscription,
+                    operation,
+                    linkEventHandler,
+                    cancellationToken);
 
-        public void SubscribeToLinkEvent(
-            Func<EventEnvelope<Link>, ValueTask> linkEventHandler,
-            string? eventName = null) =>
-                this.LinkEvents.RegisterEventHandler(linkEventHandler, eventName);
+        public ValueTask SubscribeToLinkEventAsync(
+            EventSubscription subscription,
+            LinkEventOperation operation,
+            Func<EventEnvelope<Link>, CancellationToken, ValueTask<EventEnvelope<Link>?>> linkEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    EventBrokerIdentifiers.LinkEventAddressIds,
+                    subscription,
+                    operation,
+                    linkEventHandler,
+                    cancellationToken);
     }
 }

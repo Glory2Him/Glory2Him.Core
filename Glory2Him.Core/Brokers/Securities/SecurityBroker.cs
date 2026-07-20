@@ -11,9 +11,11 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using G2H.Security.Client.Clients;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Securities;
 using Microsoft.AspNetCore.Http;
 
@@ -112,6 +114,37 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <returns>True if the user has the claim; otherwise, false.</returns>
         public async ValueTask<bool> UserHasClaimAsync(string claimType) =>
             await this.securityClient.Users.UserHasClaimAsync(claimsPrincipal, claimType);
+
+        /// <summary>
+        /// Normalizes the current caller into a <see cref="SecurityContext"/> suitable for
+        /// carrying on an <see cref="Glory2Him.Core.Models.Events.EventEnvelope{T}"/>, so
+        /// event handlers can evaluate the original actor without depending on the HTTP context.
+        /// </summary>
+        /// <returns>The current caller's <see cref="SecurityContext"/>.</returns>
+        public async ValueTask<SecurityContext> GetCurrentSecurityContextAsync()
+        {
+            bool isAuthenticated = await IsCurrentUserAuthenticatedAsync();
+
+            if (isAuthenticated is false)
+            {
+                return new SecurityContext
+                {
+                    IsAuthenticated = false,
+                    AuthenticationType = AuthenticationType.Unknown
+                };
+            }
+
+            User user = await GetCurrentUserAsync();
+
+            return new SecurityContext
+            {
+                SubjectId = user.UserId,
+                Username = user.Email,
+                Roles = user.Roles?.ToList() ?? [],
+                IsAuthenticated = true,
+                AuthenticationType = AuthenticationType.User
+            };
+        }
 
         /// <summary>
         /// Extracts a <see cref="ClaimsPrincipal"/> from a given JWT token.

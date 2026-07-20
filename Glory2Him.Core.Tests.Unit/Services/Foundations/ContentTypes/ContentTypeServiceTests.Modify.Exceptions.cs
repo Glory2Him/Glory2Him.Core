@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -17,6 +17,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Microsoft.Data.SqlClient;
+using Glory2Him.Core.Models.Events;
 using Moq;
 using Xeptions;
 
@@ -38,7 +39,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 innerException: expectedInnerException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType))
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
                     .ThrowsAsync(thrownException);
 
             // when
@@ -56,7 +57,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeDependencyException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType),
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -112,7 +113,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 innerException: failedStorageContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType))
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
                     .ThrowsAsync(sqlException);
 
             // when
@@ -130,7 +131,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeDependencyException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType),
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -159,7 +160,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 innerException: expectedInnerException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType))
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
                     .ThrowsAsync(thrownException);
 
             // when
@@ -177,7 +178,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeDependencyValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType),
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -209,7 +210,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 innerException: failedContentTypeServiceException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType))
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
                     .ThrowsAsync(serviceException);
 
             // when
@@ -227,7 +228,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeServiceException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentType),
+                broker.ApplyModifyAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

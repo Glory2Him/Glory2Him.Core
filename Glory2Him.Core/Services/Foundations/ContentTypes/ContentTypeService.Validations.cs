@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -12,6 +12,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 
@@ -19,10 +20,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
     public partial class ContentTypeService
     {
-        private async ValueTask ValidateOnAddContentTypeAsync(ContentType contentType)
+        private async ValueTask ValidateOnAddContentTypeAsync(
+            ContentType contentType,
+            SecurityContext securityContext)
         {
             ValidateContentTypeIsNotNull(contentType);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
@@ -63,10 +66,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.CreatedWhen)));
         }
 
-        private async ValueTask ValidateOnModifyContentTypeAsync(ContentType contentType)
+        private async ValueTask ValidateOnModifyContentTypeAsync(
+            ContentType contentType,
+            SecurityContext securityContext)
         {
             ValidateContentTypeIsNotNull(contentType);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",

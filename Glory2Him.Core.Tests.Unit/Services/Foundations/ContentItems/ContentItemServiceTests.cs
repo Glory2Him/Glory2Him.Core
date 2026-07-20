@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,12 +14,16 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -35,7 +39,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
     {
         private readonly Mock<IStorageBroker> storageBrokerMock;
         private readonly Mock<IDateTimeBroker> dateTimeBrokerMock;
+        private readonly Mock<IIdentifierBroker> identifierBrokerMock;
         private readonly Mock<IEventBroker> eventBrokerMock;
+        private readonly Mock<IEventEnvelopeFactory> eventEnvelopeFactoryMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemService contentItemService;
@@ -44,14 +50,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             this.storageBrokerMock = new Mock<IStorageBroker>();
             this.dateTimeBrokerMock = new Mock<IDateTimeBroker>();
+            this.identifierBrokerMock = new Mock<IIdentifierBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
+            this.eventEnvelopeFactoryMock = new Mock<IEventEnvelopeFactory>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateAsync(It.IsAny<ContentItem>()))
+                    .Returns((ContentItem content) =>
+                        new ValueTask<EventEnvelope<ContentItem>>(
+                            new EventEnvelope<ContentItem> { Content = content }));
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateNextAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<ContentItem>()))
+                        .Returns((EventEnvelope<ContentItem> sourceEnvelope, ContentItem content) =>
+                            new ValueTask<EventEnvelope<ContentItem>>(
+                                new EventEnvelope<ContentItem> { Content = content }));
 
             this.contentItemService = new ContentItemService(
                 storageBroker: this.storageBrokerMock.Object,
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
+                identifierBroker: this.identifierBrokerMock.Object,
                 eventBroker: this.eventBrokerMock.Object,
+                eventEnvelopeFactory: this.eventEnvelopeFactoryMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }

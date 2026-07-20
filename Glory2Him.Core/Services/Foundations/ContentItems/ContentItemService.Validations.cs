@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -12,6 +12,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 
@@ -19,10 +20,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     public partial class ContentItemService
     {
-        private async ValueTask ValidateOnAddContentItem(ContentItem contentItem)
+        private async ValueTask ValidateOnAddContentItem(
+            ContentItem contentItem,
+            SecurityContext securityContext)
         {
             ValidateContentItemIsNotNull(contentItem);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
@@ -62,10 +65,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     Parameter: nameof(ContentItem.CreatedWhen)));
         }
 
-        private async ValueTask ValidateOnModifyContentItem(ContentItem contentItem)
+        private async ValueTask ValidateOnModifyContentItem(
+            ContentItem contentItem,
+            SecurityContext securityContext)
         {
             ValidateContentItemIsNotNull(contentItem);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",

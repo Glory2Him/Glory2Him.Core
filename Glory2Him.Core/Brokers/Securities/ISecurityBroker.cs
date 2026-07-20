@@ -11,6 +11,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -22,5 +23,6 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<bool> IsInRoleAsync(string roleName);
         ValueTask<bool> UserHasClaimAsync(string claimType, string claimValue);
         ValueTask<bool> UserHasClaimAsync(string claimType);
+        ValueTask<SecurityContext> GetCurrentSecurityContextAsync();
     }
 }

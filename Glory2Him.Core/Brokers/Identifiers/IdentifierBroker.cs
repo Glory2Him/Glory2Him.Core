@@ -18,6 +18,6 @@ namespace Glory2Him.Core.Brokers.Identifiers
     public class IdentifierBroker : IIdentifierBroker
     {
         public async ValueTask<Guid> GetIdentifierAsync() =>
-            Guid.NewGuid();
+            Guid.CreateVersion7();
     }
 }

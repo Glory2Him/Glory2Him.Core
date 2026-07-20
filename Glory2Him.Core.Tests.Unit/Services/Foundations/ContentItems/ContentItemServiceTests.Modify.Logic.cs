@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -39,7 +39,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(inputContentItem))
+                broker.ApplyModifyAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditAppliedContentItem);
 
             this.storageBrokerMock.Setup(broker =>
@@ -67,8 +67,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(updatedContentItem);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemModified"))
-                    .Returns(ValueTask.CompletedTask);
+                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                        new EventPublishResult<ContentItem>()));
 
             // when
             ContentItem actualContentItem =
@@ -80,7 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(),
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -88,7 +89,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyModifyAuditValuesAsync(inputContentItem),
+                    broker.ApplyModifyAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -108,7 +109,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemModified"),
+                    broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Modified),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

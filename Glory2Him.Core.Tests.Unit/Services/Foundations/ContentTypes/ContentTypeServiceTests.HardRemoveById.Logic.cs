@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -41,8 +41,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     .ReturnsAsync(expectedContentType);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishContentTypeAsync(It.IsAny<EventEnvelope<ContentType>>(), "ContentTypeRemoved"))
-                    .Returns(ValueTask.CompletedTask);
+                broker.PublishContentTypeAsync(It.IsAny<EventEnvelope<ContentType>>(), ContentTypeEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<ContentType>>(
+                        new EventPublishResult<ContentType>()));
 
             // when
             ContentType actualContentType =
@@ -64,7 +65,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.PublishContentTypeAsync(It.IsAny<EventEnvelope<ContentType>>(), "ContentTypeRemoved"),
+                broker.PublishContentTypeAsync(It.IsAny<EventEnvelope<ContentType>>(), ContentTypeEventOperation.Removed),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

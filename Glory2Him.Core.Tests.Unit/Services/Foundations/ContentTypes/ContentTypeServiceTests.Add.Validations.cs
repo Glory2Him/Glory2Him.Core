@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
+using Glory2Him.Core.Models.Events;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
@@ -36,7 +37,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     innerException: nullContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(nullContentType))
+                broker.ApplyAddAuditValuesAsync(nullContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(nullContentType);
 
             // when
@@ -54,7 +55,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(nullContentType),
+                broker.ApplyAddAuditValuesAsync(nullContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -121,11 +122,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     innerException: invalidContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType))
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidText);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -147,11 +148,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType),
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -201,11 +202,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     innerException: invalidContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType))
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -227,11 +228,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType),
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -274,11 +275,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     innerException: invalidContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType))
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -300,11 +301,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType),
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -349,11 +350,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     innerException: invalidContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType))
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -375,11 +376,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType),
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -422,11 +423,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     innerException: invalidContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType))
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -448,11 +449,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType),
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -500,11 +501,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     innerException: invalidContentTypeException);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType))
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(invalidContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -526,11 +527,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 expectedContentTypeValidationException);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidContentType),
+                broker.ApplyAddAuditValuesAsync(invalidContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(),
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>

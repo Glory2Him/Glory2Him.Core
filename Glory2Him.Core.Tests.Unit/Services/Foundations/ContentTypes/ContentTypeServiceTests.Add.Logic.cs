@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -34,11 +34,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             ContentType expectedContentType = storageContentType.DeepClone();
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(inputContentType))
+                broker.ApplyAddAuditValuesAsync(inputContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditAppliedContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditAppliedContentType.CreatedBy);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -50,8 +50,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     .ReturnsAsync(storageContentType);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishContentTypeAsync(It.IsAny<EventEnvelope<ContentType>>(), "ContentTypeAdded"))
-                    .Returns(ValueTask.CompletedTask);
+                broker.PublishContentTypeAsync(It.IsAny<EventEnvelope<ContentType>>(), ContentTypeEventOperation.Added))
+                    .Returns(new ValueTask<EventPublishResult<ContentType>>(
+                        new EventPublishResult<ContentType>()));
 
             // when
             ContentType actualContentType =
@@ -63,11 +64,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             actualContentType.Should().BeEquivalentTo(expectedContentType);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyAddAuditValuesAsync(inputContentType),
+                    broker.ApplyAddAuditValuesAsync(inputContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(),
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
@@ -81,7 +82,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishContentTypeAsync(
                     It.IsAny<EventEnvelope<ContentType>>(),
-                    "ContentTypeAdded"),
+                    ContentTypeEventOperation.Added),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

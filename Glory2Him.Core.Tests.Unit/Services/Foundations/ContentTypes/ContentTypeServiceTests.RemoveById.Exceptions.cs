@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Glory2Him.Core.Models.Events;
 using Moq;
 using Xeptions;
 
@@ -179,7 +180,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                         .ReturnsAsync(someContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(someContentType))
+                broker.ApplyRemoveAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(someContentType);
 
             this.storageBrokerMock.Setup(broker =>
@@ -209,7 +210,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(someContentType),
+                broker.ApplyRemoveAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

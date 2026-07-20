@@ -14,6 +14,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
@@ -26,6 +27,55 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
     {
         private delegate ValueTask<ContentItem> ReturningContentItemFunction();
         private delegate ValueTask<IQueryable<ContentItem>> ReturningContentItemsFunction();
+
+        private delegate ValueTask<EventEnvelope<ContentItem>?>
+            ReturningContentItemEventEnvelopeFunction();
+
+        // The event-path wrapper: categorizes failures around received event content into the
+        // service's typed exceptions and ALWAYS rethrows, so the substrate records the
+        // delivery as Error and drives retries. Exceptions already categorized by nested
+        // service calls pass through unwrapped.
+        private async ValueTask<EventEnvelope<ContentItem>?> TryCatchSubstrate(
+            ReturningContentItemEventEnvelopeFunction returningContentItemEventEnvelopeFunction)
+        {
+            try
+            {
+                return await returningContentItemEventEnvelopeFunction();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidContentItemEventException invalidContentItemEventException)
+            {
+                throw await CreateAndLogValidationException(invalidContentItemEventException);
+            }
+            catch (ContentItemValidationException)
+            {
+                throw;
+            }
+            catch (ContentItemDependencyValidationException)
+            {
+                throw;
+            }
+            catch (ContentItemDependencyException)
+            {
+                throw;
+            }
+            catch (ContentItemServiceException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException = new FailedContentItemServiceException(
+                    message: "Failed content item service error occurred, contact support.",
+                    innerException: exception,
+                    data: exception.Data);
+
+                throw await CreateAndLogServiceException(failedContentItemServiceException);
+            }
+        }
 
         private async ValueTask<ContentItem> TryCatch(ReturningContentItemFunction returningContentItemFunction)
         {
