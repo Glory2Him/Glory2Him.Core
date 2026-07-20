@@ -40,7 +40,10 @@ namespace G2H.Security.Client.Tests.Clients.Audits
 
             // When
             dynamic actualResult = await this.auditClient
-                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(inputPerson, storagePerson, securityConfigurations);
+                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputPerson,
+                    storagePerson,
+                    securityConfigurations);
 
             // Then
             ((object)actualResult).Should().BeEquivalentTo(expectedResult);

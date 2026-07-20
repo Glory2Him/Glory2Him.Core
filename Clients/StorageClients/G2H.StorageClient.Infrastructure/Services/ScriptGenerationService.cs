@@ -97,7 +97,8 @@ namespace G2H.StorageClient.Infrastructure.Services
                                     Run =
                                         $"dotnet tool run dotnet-ef database update " +
                                         $"--project {acceptanceTestProjectName}/{acceptanceTestProjectName}.csproj " +
-                                        $"--startup-project {acceptanceTestProjectName}/{acceptanceTestProjectName}.csproj"
+                                        $"--startup-project {acceptanceTestProjectName}/" +
+                                        $"{acceptanceTestProjectName}.csproj"
                                 },
 
                                 new GithubTask
@@ -106,7 +107,8 @@ namespace G2H.StorageClient.Infrastructure.Services
                                     Run =
                                         $"dotnet tool run dotnet-ef database update " +
                                         $"--project {integrationTestProjectName}/{integrationTestProjectName}.csproj " +
-                                        $"--startup-project {integrationTestProjectName}/{integrationTestProjectName}.csproj"
+                                        $"--startup-project {integrationTestProjectName}/" +
+                                        $"{integrationTestProjectName}.csproj"
                                 },
 
                                 new TestTask

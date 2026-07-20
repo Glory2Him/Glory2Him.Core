@@ -26,7 +26,8 @@ namespace Microsoft.AspNetCore.Routing;
 
 internal static class IdentityComponentsEndpointRouteBuilderExtensions
 {
-    // These endpoints are required by the Identity Razor components defined in the /Components/Account/Pages directory of this project.
+    // These endpoints are required by the Identity Razor components defined in the /Components/Account/Pages
+    // directory of this project.
     public static IEndpointConventionBuilder MapAdditionalIdentityEndpoints(this IEndpointRouteBuilder endpoints)
     {
         ArgumentNullException.ThrowIfNull(endpoints);
@@ -120,7 +121,10 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
                 "/Account/Manage/ExternalLogins",
                 QueryString.Create("Action", ExternalLogins.LinkLoginCallbackAction));
 
-            var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl, signInManager.UserManager.GetUserId(context.User));
+            var properties = signInManager.ConfigureExternalAuthenticationProperties(
+                provider,
+                redirectUrl,
+                signInManager.UserManager.GetUserId(context.User));
             return TypedResults.Challenge(properties, [provider]);
         });
 

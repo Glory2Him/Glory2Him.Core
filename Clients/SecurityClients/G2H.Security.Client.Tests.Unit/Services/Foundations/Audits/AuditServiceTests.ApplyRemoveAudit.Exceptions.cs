@@ -71,7 +71,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
 
             // when
             ValueTask<ExpandoObject> applyRemoveAuditTask =
-                auditServiceMock.Object.ApplyRemoveAuditValuesAsync(someObject, someUserId, someSecurityConfigurations, null);
+                auditServiceMock.Object.ApplyRemoveAuditValuesAsync(
+                    someObject,
+                    someUserId,
+                    someSecurityConfigurations,
+                    null);
 
             AuditServiceException actualAuditServiceException =
                 await Assert.ThrowsAsync<AuditServiceException>(

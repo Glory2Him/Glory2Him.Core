@@ -36,10 +36,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     message: "Content type validation error occurred, fix the errors and try again.",
                     innerException: nullContentTypeException);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(nullContentType, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(nullContentType);
-
             // when
             ValueTask<ContentType> modifyContentTypeTask =
                 this.contentTypeService.ModifyContentTypeAsync(
@@ -53,10 +49,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             // then
             actualContentTypeValidationException.Should().BeEquivalentTo(
                 expectedContentTypeValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(nullContentType, It.IsAny<SecurityContext>()),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

@@ -161,6 +161,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateContentTypeIsNotNull(contentType);
+
             contentType = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(contentType, inboundEnvelope.SecurityContext);
 
@@ -184,6 +186,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateContentTypeIsNotNull(contentType);
+
             contentType = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(contentType, inboundEnvelope.SecurityContext);
 

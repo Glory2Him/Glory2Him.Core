@@ -30,9 +30,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         private delegate ValueTask<EventEnvelope<ContentType>?>
             ReturningContentTypeEventEnvelopeFunction();
 
-        // The event-path wrapper: categorizes failures around received event content into the
-        // service's typed exceptions and ALWAYS rethrows, so the substrate records the
-        // delivery as Error and drives retries. Exceptions already categorized by nested
+        // The event-path wrapper: categorizes failures with the same taxonomy as the
+        // non-event TryCatch (so the two entry paths cannot diverge), plus the envelope
+        // guard that only exists on this path, and ALWAYS rethrows so the substrate records
+        // the delivery as Error and drives retries. Exceptions already categorized by nested
         // service calls pass through unwrapped.
         private async ValueTask<EventEnvelope<ContentType>?> TryCatchSubstrate(
             ReturningContentTypeEventEnvelopeFunction returningContentTypeEventEnvelopeFunction)
@@ -41,6 +42,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 return await returningContentTypeEventEnvelopeFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutContentTypeException = new TimeoutContentTypeException(
+                    message: "Content type timed out, contact support.",
+                    innerException: new TimeoutException(),
+                    data: operationCanceledException.Data);
+
+                throw await CreateAndLogDependencyException(timeoutContentTypeException);
+            }
             catch (OperationCanceledException)
             {
                 throw;
@@ -48,6 +59,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (InvalidContentTypeEventException invalidContentTypeEventException)
             {
                 throw await CreateAndLogValidationException(invalidContentTypeEventException);
+            }
+            catch (NullContentTypeException nullContentTypeException)
+            {
+                throw await CreateAndLogValidationException(nullContentTypeException);
+            }
+            catch (InvalidContentTypeException invalidContentTypeException)
+            {
+                throw await CreateAndLogValidationException(invalidContentTypeException);
+            }
+            catch (NotFoundContentTypeException notFoundContentTypeException)
+            {
+                throw await CreateAndLogValidationException(notFoundContentTypeException);
             }
             catch (ContentTypeValidationException)
             {
@@ -64,6 +87,51 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (ContentTypeServiceException)
             {
                 throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentTypeException = new FailedStorageContentTypeException(
+                    message: "Failed content type storage error occurred, contact support.",
+                    innerException: sqlException,
+                    data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyException(failedStorageContentTypeException);
+            }
+            catch (DuplicateKeyException duplicateKeyException)
+            {
+                var alreadyExistsContentTypeException = new AlreadyExistsContentTypeException(
+                    message: "Content type already exists with the same Id.",
+                    innerException: duplicateKeyException,
+                    data: duplicateKeyException.Data);
+
+                throw await CreateAndLogDependencyValidationException(alreadyExistsContentTypeException);
+            }
+            catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
+            {
+                var invalidContentTypeReferenceException = new InvalidContentTypeReferenceException(
+                    message: "Invalid content type reference error occurred.",
+                    innerException: foreignKeyConstraintConflictException,
+                    data: foreignKeyConstraintConflictException.Data);
+
+                throw await CreateAndLogDependencyValidationException(invalidContentTypeReferenceException);
+            }
+            catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
+            {
+                var lockedContentTypeException = new LockedContentTypeException(
+                    message: "Locked content type record, please try again later.",
+                    innerException: dbUpdateConcurrencyException,
+                    data: dbUpdateConcurrencyException.Data);
+
+                throw await CreateAndLogDependencyValidationException(lockedContentTypeException);
+            }
+            catch (DbUpdateException dbUpdateException)
+            {
+                var failedStorageContentTypeException = new FailedStorageContentTypeException(
+                    message: "Failed content type storage error occurred, contact support.",
+                    innerException: dbUpdateException,
+                    data: dbUpdateException.Data);
+
+                throw await CreateAndLogDependencyException(failedStorageContentTypeException);
             }
             catch (Exception exception)
             {

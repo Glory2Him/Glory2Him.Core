@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
@@ -23,25 +24,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 {
     public partial class ContentTypeServiceTests
     {
-        [Fact]
-        public async Task ShouldThrowDependencyExceptionOnAddIfOperationCanceledExceptionOccursAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnAddIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
         {
             // given
             ContentType someContentType = CreateRandomContentType();
-            var operationCanceledException = new OperationCanceledException();
-
-            var timeoutContentTypeException = new TimeoutContentTypeException(
-                message: "Content type timed out, contact support.",
-                innerException: new TimeoutException(),
-                data: operationCanceledException.Data);
 
             var expectedContentTypeDependencyException = new ContentTypeDependencyException(
                 message: "Content type dependency error occurred, contact support.",
-                innerException: timeoutContentTypeException);
+                innerException: expectedInnerException);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyAddAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
-                    .ThrowsAsync(operationCanceledException);
+                    .ThrowsAsync(thrownException);
 
             // when
             ValueTask<ContentType> addContentTypeTask =
@@ -65,6 +63,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentTypeDependencyException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnAddIfCancellationRequestedAndLogItAsync()
+        {
+            // given
+            ContentType someContentType = CreateRandomContentType();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<ContentType> addContentTypeTask =
+                this.contentTypeService.AddContentTypeAsync(
+                    someContentType,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                addContentTypeTask.AsTask);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

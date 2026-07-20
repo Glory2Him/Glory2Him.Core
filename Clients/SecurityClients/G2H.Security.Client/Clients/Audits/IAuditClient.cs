@@ -130,7 +130,8 @@ namespace G2H.Security.Client.Clients.Audits
             SecurityConfigurations securityConfigurations);
 
         /// <summary>
-        /// Applies audit values when an entity is being removed (soft-delete OR where temporal tables needs the history).
+        /// Applies audit values when an entity is being removed (soft-delete OR where temporal tables needs
+        /// the history).
         /// </summary>
         /// <typeparam name="T">The type of the entity being audited.</typeparam>
         /// <param name="entity">The entity to apply audit values to.</param>

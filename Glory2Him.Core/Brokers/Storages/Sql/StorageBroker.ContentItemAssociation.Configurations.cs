@@ -27,10 +27,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                     tableBuilder.HasCheckConstraint(
                         name: "CK_ContentItemAssociation_ScopeConsistency",
                         sql:
-                            $"(({nameof(ContentItemAssociation.LinkedContentScope)} = N'{nameof(Scope.AllVersions)}' AND " +
+                            $"(({nameof(ContentItemAssociation.LinkedContentScope)} = " +
+                            $"N'{nameof(Scope.AllVersions)}' AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemGroupId)} IS NOT NULL AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemId)} IS NULL) OR " +
-                            $"({nameof(ContentItemAssociation.LinkedContentScope)} = N'{nameof(Scope.ThisVersionOnly)}' AND " +
+                            $"({nameof(ContentItemAssociation.LinkedContentScope)} = " +
+                            $"N'{nameof(Scope.ThisVersionOnly)}' AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemId)} IS NOT NULL AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemGroupId)} IS NULL))");
                 });

@@ -88,7 +88,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
 
             // When
             dynamic actualResult = await this.auditService
-                .EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync(inputPerson, storagePerson, securityConfigurations);
+                .EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync(
+                    inputPerson,
+                    storagePerson,
+                    securityConfigurations);
 
             // Then
             ((object)actualResult).Should().BeEquivalentTo(expectedResult);
@@ -147,7 +150,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Audits
 
             // When
             var actualResult = await this.auditService
-                .EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync(inputPerson, storagePerson, securityConfigurations);
+                .EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync(
+                    inputPerson,
+                    storagePerson,
+                    securityConfigurations);
 
             // Then
             ((object)actualResult).Should().BeEquivalentTo(expectedResult);

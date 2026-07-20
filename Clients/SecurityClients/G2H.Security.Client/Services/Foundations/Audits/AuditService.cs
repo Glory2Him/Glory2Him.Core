@@ -54,17 +54,37 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 propertyName: securityConfigurations.UpdatedWhenPropertyName,
                 value: auditDateTimeOffset);
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletedByPropertyName, securityConfigurations.DeletedByPropertyType))
+            if (HasWritablePropertyOfType(
+                entity,
+                securityConfigurations.DeletedByPropertyName,
+                securityConfigurations.DeletedByPropertyType))
+            {
                 SetProperty(entity, securityConfigurations.DeletedByPropertyName, null);
+            }
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletedWhenPropertyName, securityConfigurations.DeletedWhenPropertyType))
+            if (HasWritablePropertyOfType(
+                entity,
+                securityConfigurations.DeletedWhenPropertyName,
+                securityConfigurations.DeletedWhenPropertyType))
+            {
                 SetProperty(entity, securityConfigurations.DeletedWhenPropertyName, null);
+            }
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.IsDeletedPropertyName, securityConfigurations.IsDeletedPropertyType))
+            if (HasWritablePropertyOfType(
+                entity,
+                securityConfigurations.IsDeletedPropertyName,
+                securityConfigurations.IsDeletedPropertyType))
+            {
                 SetProperty(entity, securityConfigurations.IsDeletedPropertyName, false);
+            }
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletionReasonPropertyName, securityConfigurations.DeletionReasonPropertyType))
+            if (HasWritablePropertyOfType(
+                entity,
+                securityConfigurations.DeletionReasonPropertyName,
+                securityConfigurations.DeletionReasonPropertyType))
+            {
                 SetProperty(entity, securityConfigurations.DeletionReasonPropertyName, null);
+            }
 
             return entity;
         });
@@ -153,8 +173,11 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             if (HasWritablePropertyOfType(entity, isDeletedName, securityConfigurations.IsDeletedPropertyType))
                 SetProperty(entity, isDeletedName, GetProperty(storageEntity, isDeletedName));
 
-            if (HasWritablePropertyOfType(entity, deletionReasonName, securityConfigurations.DeletionReasonPropertyType))
+            if (HasWritablePropertyOfType(
+                entity, deletionReasonName, securityConfigurations.DeletionReasonPropertyType))
+            {
                 SetProperty(entity, deletionReasonName, GetProperty(storageEntity, deletionReasonName));
+            }
 
             return entity;
         });
