@@ -284,7 +284,7 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers
                         .ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionName,
 
-                    Description = "Handles retrieve requests: retrieves a approval setting by id " +
+                    Description = "Handles retrieve requests: retrieves an approval setting by id " +
                         "and replies with it on the delivery."
                 },
                 operation: ApprovalSettingEventOperation.RetrievingById,
