@@ -18,9 +18,11 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
+using Glory2Him.Core.Services.Foundations.Links;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
@@ -30,6 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IContentTypeService> contentTypeServiceMock;
         private readonly Mock<IContentItemService> contentItemServiceMock;
+        private readonly Mock<ILinkService> linkServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -37,11 +40,13 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.contentTypeServiceMock = new Mock<IContentTypeService>();
             this.contentItemServiceMock = new Mock<IContentItemService>();
+            this.linkServiceMock = new Mock<ILinkService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
                 contentTypeService: this.contentTypeServiceMock.Object,
-                contentItemService: this.contentItemServiceMock.Object);
+                contentItemService: this.contentItemServiceMock.Object,
+                linkService: this.linkServiceMock.Object);
         }
 
         private void VerifyContentTypeSubscription(
@@ -79,6 +84,26 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
                         ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyLinkSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            LinkEventOperation expectedOperation,
+            Func<EventEnvelope<Link>, CancellationToken,
+                ValueTask<EventEnvelope<Link>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToLinkEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Link>, CancellationToken,
+                        ValueTask<EventEnvelope<Link>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -170,9 +195,44 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ContentItemEventOperation.RetrievingById,
                 expectedHandler: this.contentItemServiceMock.Object.OnRetrievingContentItemByIdAsync);
 
+            VerifyLinkSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionName,
+                expectedOperation: LinkEventOperation.Adding,
+                expectedHandler: this.linkServiceMock.Object.OnAddingLinkAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionName,
+                expectedOperation: LinkEventOperation.Modifying,
+                expectedHandler: this.linkServiceMock.Object.OnModifyingLinkAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionName,
+                expectedOperation: LinkEventOperation.RemovingById,
+                expectedHandler: this.linkServiceMock.Object.OnRemovingLinkByIdAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionName,
+                expectedOperation: LinkEventOperation.HardRemovingById,
+                expectedHandler: this.linkServiceMock.Object.OnHardRemovingLinkByIdAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionName,
+                expectedOperation: LinkEventOperation.RetrievingById,
+                expectedHandler: this.linkServiceMock.Object.OnRetrievingLinkByIdAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.linkServiceMock.VerifyNoOtherCalls();
         }
     }
 }

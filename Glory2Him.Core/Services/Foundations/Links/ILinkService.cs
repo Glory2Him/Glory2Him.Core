@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -10,56 +10,36 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Links;
 
-namespace Glory2Him.Core.Brokers.Storages.Sql
+namespace Glory2Him.Core.Services.Foundations.Links
 {
-    public partial interface IStorageBroker
+    public partial interface ILinkService
     {
-        ValueTask<Link> InsertLinkAsync(
+        ValueTask<Link> AddLinkAsync(
             Link link,
             CancellationToken cancellationToken = default);
 
-        ValueTask<IQueryable<Link>> SelectAllLinksAsync(
+        ValueTask<IQueryable<Link>> RetrieveAllLinksAsync(
             CancellationToken cancellationToken = default);
 
-        ValueTask<Link> SelectLinkByIdAsync(
+        ValueTask<Link> RetrieveLinkByIdAsync(
             Guid linkId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Link> UpdateLinkAsync(
+        ValueTask<Link> ModifyLinkAsync(
             Link link,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Link> DeleteLinkAsync(
-            Link link,
+        ValueTask<Link> RemoveLinkByIdAsync(
+            Guid linkId,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
 
-        ValueTask BulkInsertLinksAsync(
-            List<Link> links,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpdateLinksAsync(
-            List<Link> links,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkDeleteLinksAsync(
-            List<Link> links,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<IEnumerable<Link>> BulkReadLinksAsync(
-            List<Link> links,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpsertLinksAsync(
-            List<Link> links,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<bool> ExistsLinkAsync(
+        ValueTask<Link> HardRemoveLinkByIdAsync(
             Guid linkId,
             CancellationToken cancellationToken = default);
     }
