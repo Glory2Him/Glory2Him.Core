@@ -10,8 +10,11 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Moq;
@@ -21,31 +24,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
     public partial class ContentItemServiceTests
     {
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfIdIsInvalidAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnModifyingContentItemEventWhenEnvelopeIsInvalidAsync()
         {
             // given
-            var invalidContentItemId = Guid.Empty;
+            EventEnvelope<ContentItem>? nullEnvelope = null;
 
-            var invalidContentItemException = new InvalidContentItemException(
-                message: "Content item is invalid, fix the errors and try again.");
+            var invalidContentItemEventException =
+                new InvalidContentItemEventException(
+                    message: "Invalid content item event. " +
+                        "The event envelope, its content and metadata are required.");
 
-            invalidContentItemException.UpsertDataList(
-                key: nameof(ContentItem.Id),
-                value: "Id is required");
-
-            var expectedContentItemValidationException = new ContentItemValidationException(
-                message: "Content item validation error occurred, fix the errors and try again.",
-                innerException: invalidContentItemException);
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemEventException);
 
             // when
-            ValueTask<ContentItem> removeContentItemByIdTask =
-                this.contentItemService.RemoveContentItemByIdAsync(
-                    invalidContentItemId,
-                    cancellationToken: TestContext.Current.CancellationToken);
+            ValueTask<EventEnvelope<ContentItem>?> onModifyingTask =
+                this.contentItemService.OnModifyingContentItemAsync(
+                    nullEnvelope!,
+                    TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =
                 await Assert.ThrowsAsync<ContentItemValidationException>(
-                    removeContentItemByIdTask.AsTask);
+                    onModifyingTask.AsTask);
 
             // then
             actualContentItemValidationException.Should().BeEquivalentTo(
@@ -57,50 +59,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfContentItemNotFoundAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnModifyingContentItemEventWhenContentItemNotFoundAsync()
         {
             // given
-            Guid someContentItemId = Guid.NewGuid();
-            ContentItem noContentItem = null;
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem inputContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
+            ContentItem noContentItem = null!;
+
+            var requestEnvelope = new EventEnvelope<ContentItem>
+            {
+                Content = inputContentItem,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
 
             var notFoundContentItemException = new NotFoundContentItemException(
-                message: $"Content item not found with id: {someContentItemId}.");
+                message: $"Content item not found with id: {inputContentItem.Id}.");
 
             var expectedContentItemValidationException = new ContentItemValidationException(
                 message: "Content item validation error occurred, fix the errors and try again.",
                 innerException: notFoundContentItemException);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectContentItemByIdAsync(
-                    someContentItemId,
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
                     TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputContentItem);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(
+                    inputContentItem.Id,
+                    It.IsAny<CancellationToken>()))
                         .ReturnsAsync(noContentItem);
 
             // when
-            ValueTask<ContentItem> removeContentItemByIdTask =
-                this.contentItemService.RemoveContentItemByIdAsync(
-                    someContentItemId,
-                    cancellationToken: TestContext.Current.CancellationToken);
+            ValueTask<EventEnvelope<ContentItem>?> onModifyingTask =
+                this.contentItemService.OnModifyingContentItemAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =
                 await Assert.ThrowsAsync<ContentItemValidationException>(
-                    removeContentItemByIdTask.AsTask);
+                    onModifyingTask.AsTask);
 
-            // then
+            // then: the raw not-found from the shared do-work is categorized the same way
+            // the non-event path categorizes it — the event path must not degrade it to a
+            // service exception.
             actualContentItemValidationException.Should().BeEquivalentTo(
                 expectedContentItemValidationException);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken),
+                    inputContentItem.Id,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -108,12 +138,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     SameExceptionAs(expectedContentItemValidationException))),
                 Times.Once);
 
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
-
     }
 }

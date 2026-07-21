@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -28,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             IQueryable<ContentItem> expectedContentItems = storageContentItems;
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentItemsAsync())
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItems);
 
             // when
@@ -40,7 +41,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualContentItems.Should().BeEquivalentTo(expectedContentItems);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentItemsAsync(),
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

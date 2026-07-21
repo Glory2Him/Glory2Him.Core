@@ -192,6 +192,20 @@ namespace Glory2Him.Core.Registrations
             await this.eventBroker.SubscribeToContentItemEventAsync(
                 subscription: new EventSubscription
                 {
+                    Id = EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "content item, publishes ContentItemHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ContentItemEventOperation.HardRemovingById,
+                contentItemEventHandler: this.contentItemService.OnHardRemovingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemEventAsync(
+                subscription: new EventSubscription
+                {
                     Id = EventBrokerIdentifiers.ContentItemOnRetrievingContentItemByIdSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentItemOnRetrievingContentItemByIdSubscriptionName,
 

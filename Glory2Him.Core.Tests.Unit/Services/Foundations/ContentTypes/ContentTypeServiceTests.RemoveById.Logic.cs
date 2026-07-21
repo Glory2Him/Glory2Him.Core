@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -184,6 +185,43 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.dateTimeBrokerMock.Verify(broker =>
                     broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Exactly(2));
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnEarlyOnRemoveByIdIfAlreadyDeletedAsync()
+        {
+            // given
+            ContentType alreadyDeletedContentType = CreateRandomContentType();
+            alreadyDeletedContentType.IsDeleted = true;
+            Guid someContentTypeId = alreadyDeletedContentType.Id;
+            ContentType expectedContentType = alreadyDeletedContentType;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(alreadyDeletedContentType);
+
+            // when
+            ContentType actualContentType =
+                await this.contentTypeService.RemoveContentTypeByIdAsync(
+                    someContentTypeId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualContentType.Should().BeEquivalentTo(expectedContentType);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

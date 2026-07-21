@@ -38,6 +38,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
 
+        ValueTask<EventEnvelope<ContentItem>?> OnHardRemovingContentItemByIdAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
+
         ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);

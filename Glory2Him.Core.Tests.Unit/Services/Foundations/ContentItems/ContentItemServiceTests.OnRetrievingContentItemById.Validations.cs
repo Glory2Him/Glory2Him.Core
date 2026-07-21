@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             var invalidContentItemEventException =
                 new InvalidContentItemEventException(
                     message: "Invalid content item event. " +
-                        "The event envelope and its content are required.");
+                        "The event envelope, its content and metadata are required.");
 
             var expectedContentItemValidationException =
                 new ContentItemValidationException(

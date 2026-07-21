@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -24,45 +25,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 {
     public partial class ContentItemServiceTests
     {
-        [Theory]
-        [MemberData(nameof(DependencyExceptions))]
-        public async Task ShouldThrowDependencyExceptionOnModifyIfErrorOccursAndLogItAsync(
-            Exception thrownException,
-            Xeption expectedInnerException)
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnHardRemovingContentItemByIdEventIfCancellationRequestedAsync()
         {
             // given
-            ContentItem someContentItem = CreateRandomContentItem();
-
-            var expectedContentItemDependencyException = new ContentItemDependencyException(
-                message: "Content item dependency error occurred, contact support.",
-                innerException: expectedInnerException);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()))
-                    .ThrowsAsync(thrownException);
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemService.ModifyContentItemAsync(
-                    someContentItem,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemDependencyException actualContentItemDependencyException =
-                await Assert.ThrowsAsync<ContentItemDependencyException>(
-                    modifyContentItemTask.AsTask);
+            ValueTask<EventEnvelope<ContentItem>?> onHardRemovingTask =
+                this.contentItemService.OnHardRemovingContentItemByIdAsync(
+                    requestEnvelope,
+                    cancellationToken);
 
             // then
-            actualContentItemDependencyException.Should().BeEquivalentTo(
-                expectedContentItemDependencyException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemDependencyException))),
-                Times.Once);
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onHardRemovingTask.AsTask);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
@@ -72,10 +50,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowDependencyExceptionOnModifyIfOperationCanceledExceptionOccursAndLogItAsync()
+        public async Task ShouldThrowDependencyExceptionOnHardRemovingContentItemByIdEventIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
-            ContentItem someContentItem = CreateRandomContentItem();
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
             var operationCanceledException = new OperationCanceledException();
 
             var timeoutException =
@@ -91,27 +69,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 message: "Content item dependency error occurred, contact support.",
                 innerException: timeoutContentItemException);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()))
-                    .ThrowsAsync(operationCanceledException);
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemService.ModifyContentItemAsync(
-                    someContentItem,
+            ValueTask<EventEnvelope<ContentItem>?> onHardRemovingTask =
+                this.contentItemService.OnHardRemovingContentItemByIdAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemDependencyException actualContentItemDependencyException =
                 await Assert.ThrowsAsync<ContentItemDependencyException>(
-                    modifyContentItemTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentItemDependencyException.Should().BeEquivalentTo(
                 expectedContentItemDependencyException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -119,41 +96,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnModifyIfCancellationRequestedAsync()
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnHardRemovingContentItemByIdEventIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
         {
             // given
-            ContentItem someContentItem = CreateRandomContentItem();
-            var cancellationToken = new CancellationToken(canceled: true);
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
+
+            var expectedContentItemDependencyException = new ContentItemDependencyException(
+                message: "Content item dependency error occurred, contact support.",
+                innerException: expectedInnerException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(thrownException);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemService.ModifyContentItemAsync(
-                    someContentItem,
-                    cancellationToken);
+            ValueTask<EventEnvelope<ContentItem>?> onHardRemovingTask =
+                this.contentItemService.OnHardRemovingContentItemByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemDependencyException actualContentItemDependencyException =
+                await Assert.ThrowsAsync<ContentItemDependencyException>(
+                    onHardRemovingTask.AsTask);
 
             // then
-            await Assert.ThrowsAsync<OperationCanceledException>(
-                modifyContentItemTask.AsTask);
+            actualContentItemDependencyException.Should().BeEquivalentTo(
+                expectedContentItemDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemDependencyException))),
+                Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowCriticalDependencyExceptionOnModifyIfSqlErrorOccursAndLogItAsync()
+        public async Task ShouldThrowCriticalDependencyExceptionOnHardRemovingContentItemByIdEventIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            ContentItem someContentItem = CreateRandomContentItem();
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
             SqlException sqlException = GetSqlException();
 
             var failedStorageContentItemException = new FailedStorageContentItemException(
@@ -165,27 +160,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 message: "Content item dependency error occurred, contact support.",
                 innerException: failedStorageContentItemException);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()))
-                    .ThrowsAsync(sqlException);
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(sqlException);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemService.ModifyContentItemAsync(
-                    someContentItem,
+            ValueTask<EventEnvelope<ContentItem>?> onHardRemovingTask =
+                this.contentItemService.OnHardRemovingContentItemByIdAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemDependencyException actualContentItemDependencyException =
                 await Assert.ThrowsAsync<ContentItemDependencyException>(
-                    modifyContentItemTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentItemDependencyException.Should().BeEquivalentTo(
                 expectedContentItemDependencyException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogCriticalAsync(It.Is(
@@ -193,46 +187,43 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Theory]
         [MemberData(nameof(ModifyDependencyValidationExceptions))]
-        public async Task ShouldThrowDependencyValidationExceptionOnModifyIfErrorOccursAndLogItAsync(
+        public async Task ShouldThrowDependencyValidationExceptionOnHardRemovingContentItemByIdEventIfErrorOccursAndLogItAsync(
             Exception thrownException,
             Xeption expectedInnerException)
         {
             // given
-            ContentItem someContentItem = CreateRandomContentItem();
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
 
             var expectedContentItemDependencyValidationException = new ContentItemDependencyValidationException(
                 message: "Content item dependency validation error occurred, fix the errors and try again.",
                 innerException: expectedInnerException);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()))
-                    .ThrowsAsync(thrownException);
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(thrownException);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemService.ModifyContentItemAsync(
-                    someContentItem,
+            ValueTask<EventEnvelope<ContentItem>?> onHardRemovingTask =
+                this.contentItemService.OnHardRemovingContentItemByIdAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemDependencyValidationException actualContentItemDependencyValidationException =
                 await Assert.ThrowsAsync<ContentItemDependencyValidationException>(
-                    modifyContentItemTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentItemDependencyValidationException.Should().BeEquivalentTo(
                 expectedContentItemDependencyValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -240,17 +231,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowServiceExceptionOnModifyIfServiceErrorOccursAndLogItAsync()
+        public async Task ShouldThrowServiceExceptionOnHardRemovingContentItemByIdEventIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            ContentItem someContentItem = CreateRandomContentItem();
+            EventEnvelope<ContentItem> requestEnvelope = CreateRandomContentItemRequestEnvelope();
             var serviceException = new Exception();
 
             var failedContentItemServiceException = new FailedContentItemServiceException(
@@ -262,27 +251,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 message: "Content item service error occurred, contact support.",
                 innerException: failedContentItemServiceException);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()))
-                    .ThrowsAsync(serviceException);
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemService.ModifyContentItemAsync(
-                    someContentItem,
+            ValueTask<EventEnvelope<ContentItem>?> onHardRemovingTask =
+                this.contentItemService.OnHardRemovingContentItemByIdAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemServiceException actualContentItemServiceException =
                 await Assert.ThrowsAsync<ContentItemServiceException>(
-                    modifyContentItemTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentItemServiceException.Should().BeEquivalentTo(
                 expectedContentItemServiceException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyModifyAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -290,8 +278,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

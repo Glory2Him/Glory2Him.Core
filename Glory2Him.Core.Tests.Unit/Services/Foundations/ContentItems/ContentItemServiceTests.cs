@@ -59,7 +59,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 factory.CreateAsync(It.IsAny<ContentItem>()))
                     .Returns((ContentItem content) =>
                         new ValueTask<EventEnvelope<ContentItem>>(
-                            new EventEnvelope<ContentItem> { Content = content }));
+                            new EventEnvelope<ContentItem>
+                            {
+                                Content = content,
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
 
             this.eventEnvelopeFactoryMock.Setup(factory =>
                 factory.CreateNextAsync(
@@ -67,7 +71,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     It.IsAny<ContentItem>()))
                         .Returns((EventEnvelope<ContentItem> sourceEnvelope, ContentItem content) =>
                             new ValueTask<EventEnvelope<ContentItem>>(
-                                new EventEnvelope<ContentItem> { Content = content }));
+                                new EventEnvelope<ContentItem>
+                                {
+                                    Content = content,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
 
             this.contentItemService = new ContentItemService(
                 storageBroker: this.storageBrokerMock.Object,
@@ -162,6 +170,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
             var operationCanceledException = new OperationCanceledException();
+            var timeoutException = new TimeoutException("The dependency operation timed out.");
             var dbUpdateException = new DbUpdateException();
 
             return new TheoryData<Exception, Xeption>
@@ -169,9 +178,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 {
                     operationCanceledException,
                     new TimeoutContentItemException(
-                        message: "Content item timed out, contact support.",
-                        innerException: new TimeoutException(),
-                        data: operationCanceledException.Data)
+                        message: "Failed content item timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data)
                 },
                 {
                     dbUpdateException,
@@ -210,6 +219,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
         private static ContentItem CreateRandomContentItem() =>
             CreateContentItemFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
+
+        private static EventEnvelope<ContentItem> CreateRandomContentItemRequestEnvelope() =>
+            new EventEnvelope<ContentItem>
+            {
+                Content = new ContentItem { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
 
         private static ContentItem CreateRandomContentItem(DateTimeOffset dateTimeOffset, string userId = "") =>
             CreateContentItemFiller(dateTimeOffset, userId).Create();

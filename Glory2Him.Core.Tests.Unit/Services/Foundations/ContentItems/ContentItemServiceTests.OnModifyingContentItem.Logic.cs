@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -26,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
     public partial class ContentItemServiceTests
     {
         [Fact]
-        public async Task ShouldModifyContentItemAsync()
+        public async Task ShouldModifyContentItemAndReplyOnModifyingContentItemEventAsync()
         {
             // given
             string randomUserId = GetRandomString();
@@ -39,6 +39,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem auditPreservedContentItem = auditAppliedContentItem.DeepClone();
             ContentItem updatedContentItem = auditPreservedContentItem.DeepClone();
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
+
+            var requestEnvelope = new EventEnvelope<ContentItem>
+            {
+                Content = inputContentItem,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(false);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
@@ -68,6 +81,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.UpdateContentItemAsync(auditPreservedContentItem, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(updatedContentItem);
 
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(Guid.NewGuid());
+
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishContentItemAsync(
                     It.IsAny<EventEnvelope<ContentItem>>(),
@@ -76,46 +93,45 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         new EventPublishResult<ContentItem>()));
 
             // when
-            ContentItem actualContentItem =
-                await this.contentItemService.ModifyContentItemAsync(
-                    inputContentItem,
+            EventEnvelope<ContentItem>? actualReplyEnvelope =
+                await this.contentItemService.OnModifyingContentItemAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualContentItem.Should().BeEquivalentTo(expectedContentItem);
+            actualReplyEnvelope.Should().NotBeNull();
+            actualReplyEnvelope!.Content.Should().BeEquivalentTo(expectedContentItem);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                    broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Exactly(3));
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyModifyAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()),
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectContentItemByIdAsync(
-                        auditAppliedContentItem.Id,
-                        It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                    broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
-                        auditAppliedContentItem,
-                        storageContentItem),
+                broker.SelectContentItemByIdAsync(
+                    auditAppliedContentItem.Id,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateContentItemAsync(auditPreservedContentItem, It.IsAny<CancellationToken>()),
+                broker.UpdateContentItemAsync(auditPreservedContentItem, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishContentItemAsync(
-                        It.IsAny<EventEnvelope<ContentItem>>(),
-                        ContentItemEventOperation.Modified),
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    ContentItemEventOperation.Modified),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.EventId == requestEnvelope.Metadata.EventId
+                            && processedEvent.ReceiverName ==
+                                EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName),
+                    TestContext.Current.CancellationToken),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -126,9 +142,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldSkipModifyAndReplyNullWhenModifyingContentItemEventAlreadyProcessedAsync()
+        {
+            // given
+            var requestEnvelope = new EventEnvelope<ContentItem>
+            {
+                Content = new ContentItem { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(true);
+
+            // when
+            EventEnvelope<ContentItem>? actualReplyEnvelope =
+                await this.contentItemService.OnModifyingContentItemAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then: no work, no fact, no reply — the duplicate is acknowledged silently
+            actualReplyEnvelope.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

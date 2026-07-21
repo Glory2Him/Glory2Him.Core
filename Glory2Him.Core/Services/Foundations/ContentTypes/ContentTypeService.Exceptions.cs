@@ -62,19 +62,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             }
             catch (InvalidContentTypeEventException invalidContentTypeEventException)
             {
-                throw await CreateAndLogValidationException(exception: invalidContentTypeEventException);
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentTypeEventException);
             }
             catch (NullContentTypeException nullContentTypeException)
             {
-                throw await CreateAndLogValidationException(exception: nullContentTypeException);
+                throw await CreateAndLogValidationExceptionAsync(exception: nullContentTypeException);
             }
             catch (InvalidContentTypeException invalidContentTypeException)
             {
-                throw await CreateAndLogValidationException(exception: invalidContentTypeException);
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentTypeException);
             }
             catch (NotFoundContentTypeException notFoundContentTypeException)
             {
-                throw await CreateAndLogValidationException(exception: notFoundContentTypeException);
+                throw await CreateAndLogValidationExceptionAsync(exception: notFoundContentTypeException);
             }
             catch (ContentTypeValidationException)
             {
@@ -99,7 +99,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentTypeException);
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageContentTypeException);
             }
             catch (DuplicateKeyException duplicateKeyException)
             {
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: duplicateKeyException,
                     data: duplicateKeyException.Data);
 
-                throw await CreateAndLogDependencyValidationException(alreadyExistsContentTypeException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsContentTypeException);
             }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
@@ -117,7 +117,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: foreignKeyConstraintConflictException,
                     data: foreignKeyConstraintConflictException.Data);
 
-                throw await CreateAndLogDependencyValidationException(invalidContentTypeReferenceException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(invalidContentTypeReferenceException);
             }
             catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
             {
@@ -126,7 +126,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: dbUpdateConcurrencyException,
                     data: dbUpdateConcurrencyException.Data);
 
-                throw await CreateAndLogDependencyValidationException(lockedContentTypeException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(lockedContentTypeException);
             }
             catch (DbUpdateException dbUpdateException)
             {
@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: dbUpdateException,
                     data: dbUpdateException.Data);
 
-                throw await CreateAndLogDependencyException(failedStorageContentTypeException);
+                throw await CreateAndLogDependencyExceptionAsync(failedStorageContentTypeException);
             }
             catch (Exception exception)
             {
@@ -144,7 +144,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: exception,
                     data: exception.Data);
 
-                throw await CreateAndLogServiceException(failedContentTypeServiceException);
+                throw await CreateAndLogServiceExceptionAsync(failedContentTypeServiceException);
             }
         }
 
@@ -174,15 +174,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             }
             catch (NullContentTypeException nullContentTypeException)
             {
-                throw await CreateAndLogValidationException(exception: nullContentTypeException);
+                throw await CreateAndLogValidationExceptionAsync(exception: nullContentTypeException);
             }
             catch (InvalidContentTypeException invalidContentTypeException)
             {
-                throw await CreateAndLogValidationException(exception: invalidContentTypeException);
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentTypeException);
             }
             catch (NotFoundContentTypeException notFoundContentTypeException)
             {
-                throw await CreateAndLogValidationException(exception: notFoundContentTypeException);
+                throw await CreateAndLogValidationExceptionAsync(exception: notFoundContentTypeException);
             }
             catch (SqlException sqlException)
             {
@@ -191,7 +191,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentTypeException);
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageContentTypeException);
             }
             catch (DuplicateKeyException duplicateKeyException)
             {
@@ -200,7 +200,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: duplicateKeyException,
                     data: duplicateKeyException.Data);
 
-                throw await CreateAndLogDependencyValidationException(alreadyExistsContentTypeException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsContentTypeException);
             }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
@@ -209,7 +209,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: foreignKeyConstraintConflictException,
                     data: foreignKeyConstraintConflictException.Data);
 
-                throw await CreateAndLogDependencyValidationException(invalidContentTypeReferenceException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(invalidContentTypeReferenceException);
             }
             catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
             {
@@ -218,7 +218,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: dbUpdateConcurrencyException,
                     data: dbUpdateConcurrencyException.Data);
 
-                throw await CreateAndLogDependencyValidationException(lockedContentTypeException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(lockedContentTypeException);
             }
             catch (DbUpdateException dbUpdateException)
             {
@@ -227,7 +227,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: dbUpdateException,
                     data: dbUpdateException.Data);
 
-                throw await CreateAndLogDependencyException(failedStorageContentTypeException);
+                throw await CreateAndLogDependencyExceptionAsync(failedStorageContentTypeException);
             }
             catch (Exception exception)
             {
@@ -236,7 +236,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: exception,
                     data: exception.Data);
 
-                throw await CreateAndLogServiceException(failedContentTypeServiceException);
+                throw await CreateAndLogServiceExceptionAsync(failedContentTypeServiceException);
             }
         }
 
@@ -272,7 +272,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentTypeException);
+                throw await CreateAndLogCriticalDependencyExceptionAsync(exception: failedStorageContentTypeException);
             }
             catch (Exception exception)
             {
@@ -281,11 +281,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: exception,
                     data: exception.Data);
 
-                throw await CreateAndLogServiceException(failedContentTypeServiceException);
+                throw await CreateAndLogServiceExceptionAsync(failedContentTypeServiceException);
             }
         }
 
-        private async ValueTask<ContentTypeValidationException> CreateAndLogValidationException(Xeption exception)
+        private async ValueTask<ContentTypeValidationException> CreateAndLogValidationExceptionAsync(Xeption exception)
         {
             var contentTypeValidationException = new ContentTypeValidationException(
                 message: "Content type validation error occurred, fix the errors and try again.",
@@ -296,7 +296,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             return contentTypeValidationException;
         }
 
-        private async ValueTask<ContentTypeDependencyException> CreateAndLogDependencyException(Xeption exception)
+        private async ValueTask<ContentTypeDependencyException> CreateAndLogDependencyExceptionAsync(Xeption exception)
         {
             var contentTypeDependencyException = new ContentTypeDependencyException(
                 message: "Content type dependency error occurred, contact support.",
@@ -307,6 +307,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             return contentTypeDependencyException;
         }
 
+        // Intentionally a named twin of CreateAndLogDependencyExceptionAsync (same wrapper,
+        // same LogError): timeouts categorize as a non-critical dependency failure, but keep
+        // their own seam so the call site reads as a timeout and the behavior can diverge
+        // later without touching generic dependency handling. Mirrors The Standard's
+        // EventHighway EventAddressV2Service.
         private async ValueTask<ContentTypeDependencyException>
             CreateAndLogTimeoutDependencyExceptionAsync(Xeption exception)
         {
@@ -321,7 +326,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         }
 
         private async ValueTask<ContentTypeDependencyException>
-            CreateAndLogCriticalDependencyException(Xeption exception)
+            CreateAndLogCriticalDependencyExceptionAsync(Xeption exception)
         {
             var contentTypeDependencyException = new ContentTypeDependencyException(
                 message: "Content type dependency error occurred, contact support.",
@@ -332,7 +337,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             return contentTypeDependencyException;
         }
 
-        private async ValueTask<ContentTypeDependencyValidationException> CreateAndLogDependencyValidationException(
+        private async ValueTask<ContentTypeDependencyValidationException> CreateAndLogDependencyValidationExceptionAsync(
             Xeption exception)
         {
             var contentTypeDependencyValidationException = new ContentTypeDependencyValidationException(
@@ -344,7 +349,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             return contentTypeDependencyValidationException;
         }
 
-        private async ValueTask<ContentTypeServiceException> CreateAndLogServiceException(Xeption exception)
+        private async ValueTask<ContentTypeServiceException> CreateAndLogServiceExceptionAsync(Xeption exception)
         {
             var contentTypeServiceException = new ContentTypeServiceException(
                 message: "Content type service error occurred, contact support.",

@@ -22,12 +22,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
     /// <summary>
     /// The event path of the service: request handlers the event substrate dispatches to,
     /// one per request address (<c>ContentItem-Adding</c>, <c>-Modifying</c>,
-    /// <c>-RemovingById</c>, <c>-RetrievingById</c>). Handlers receive the full request
-    /// envelope — including the original caller's <c>SecurityContext</c> — converge on the
-    /// same private <c>DoXAsync</c> methods the non-event path uses (which publish the
-    /// past-tense facts), and return the outcome as the delivery's reply envelope. Mutating
-    /// handlers are guarded by the <c>ProcessedEvents</c> table so replayed or duplicated
-    /// requests are not applied twice; a deduplicated delivery replies <c>null</c>. Failures
+    /// <c>-RemovingById</c>, <c>-HardRemovingById</c>, <c>-RetrievingById</c>). Handlers
+    /// receive the full request envelope — including the original caller's
+    /// <c>SecurityContext</c> — converge on the same private <c>DoXAsync</c> methods the
+    /// non-event path uses (which publish the past-tense facts and record both the inbound
+    /// and outbound event ids in the <c>ProcessedEvents</c> table), and return the outcome
+    /// as the delivery's reply envelope. Mutating handlers check that table first so replayed
+    /// or duplicated requests — including a published fact ever looping back into a request
+    /// handler — are not applied twice; a deduplicated delivery replies <c>null</c>. Failures
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
@@ -54,7 +56,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-
                 return await this.eventEnvelopeFactory.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedContentItem);
@@ -79,11 +80,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ContentItem modifiedContentItem = await DoModifyContentItemAsync(
                     contentItem: envelope.Content,
                     inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
-
-                await RecordEventProcessedAsync(
-                    envelope: envelope,
-                    receiverName: EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeFactory.CreateNextAsync(
@@ -113,14 +109,35 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                await RecordEventProcessedAsync(
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: removedContentItem);
+            });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnHardRemovingContentItemByIdAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemEventEnvelope(envelope);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
-                    receiverName: EventBrokerIdentifiers.ContentItemOnRemovingContentItemByIdSubscriptionName,
+                    receiverName: EventBrokerIdentifiers.ContentItemOnHardRemovingContentItemByIdSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                ContentItem deletedContentItem = await DoHardRemoveContentItemByIdAsync(
+                    contentItemId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeFactory.CreateNextAsync(
                     sourceEnvelope: envelope,
-                    content: removedContentItem);
+                    content: deletedContentItem);
             });
 
         public ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
@@ -166,11 +183,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         private static void ValidateContentItemEventEnvelope(EventEnvelope<ContentItem> envelope)
         {
-            if (envelope is null || envelope.Content is null)
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
             {
                 throw new InvalidContentItemEventException(
                     message: "Invalid content item event. " +
-                        "The event envelope and its content are required.");
+                        "The event envelope, its content and metadata are required.");
             }
         }
     }

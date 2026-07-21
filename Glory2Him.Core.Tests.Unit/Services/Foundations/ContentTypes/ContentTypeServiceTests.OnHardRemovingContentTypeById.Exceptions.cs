@@ -26,21 +26,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
     public partial class ContentTypeServiceTests
     {
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnRemovingContentTypeByIdEventIfCancellationRequestedAsync()
+        public async Task ShouldThrowOperationCanceledExceptionOnHardRemovingContentTypeByIdEventIfCancellationRequestedAsync()
         {
             // given
             EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
             var cancellationToken = new CancellationToken(canceled: true);
 
             // when
-            ValueTask<EventEnvelope<ContentType>?> onRemovingTask =
-                this.contentTypeService.OnRemovingContentTypeByIdAsync(
+            ValueTask<EventEnvelope<ContentType>?> onHardRemovingTask =
+                this.contentTypeService.OnHardRemovingContentTypeByIdAsync(
                     requestEnvelope,
                     cancellationToken);
 
             // then
             await Assert.ThrowsAsync<OperationCanceledException>(
-                onRemovingTask.AsTask);
+                onHardRemovingTask.AsTask);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
@@ -49,52 +49,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Theory]
-        [MemberData(nameof(DependencyExceptions))]
-        public async Task ShouldThrowDependencyExceptionOnRemovingContentTypeByIdEventIfErrorOccursAndLogItAsync(
-            Exception thrownException,
-            Xeption expectedInnerException)
-        {
-            // given
-            EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
-
-            var expectedContentTypeDependencyException = new ContentTypeDependencyException(
-                message: "Content type dependency error occurred, contact support.",
-                innerException: expectedInnerException);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectProcessedEventExistsAsync(
-                    requestEnvelope.Metadata.EventId,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
-                    TestContext.Current.CancellationToken))
-                        .ThrowsAsync(thrownException);
-
-            // when
-            ValueTask<EventEnvelope<ContentType>?> onRemovingTask =
-                this.contentTypeService.OnRemovingContentTypeByIdAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
-
-            ContentTypeDependencyException actualContentTypeDependencyException =
-                await Assert.ThrowsAsync<ContentTypeDependencyException>(
-                    onRemovingTask.AsTask);
-
-            // then
-            actualContentTypeDependencyException.Should().BeEquivalentTo(
-                expectedContentTypeDependencyException);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentTypeDependencyException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
         [Fact]
-        public async Task ShouldThrowDependencyExceptionOnRemovingContentTypeByIdEventIfOperationCanceledExceptionOccursAndLogItAsync()
+        public async Task ShouldThrowDependencyExceptionOnHardRemovingContentTypeByIdEventIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
             EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
@@ -116,30 +72,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectProcessedEventExistsAsync(
                     requestEnvelope.Metadata.EventId,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                    EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
                     TestContext.Current.CancellationToken))
                         .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<EventEnvelope<ContentType>?> onRemovingTask =
-                this.contentTypeService.OnRemovingContentTypeByIdAsync(
+            ValueTask<EventEnvelope<ContentType>?> onHardRemovingTask =
+                this.contentTypeService.OnHardRemovingContentTypeByIdAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentTypeDependencyException actualContentTypeDependencyException =
                 await Assert.ThrowsAsync<ContentTypeDependencyException>(
-                    onRemovingTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentTypeDependencyException.Should().BeEquivalentTo(
                 expectedContentTypeDependencyException);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectProcessedEventExistsAsync(
-                    requestEnvelope.Metadata.EventId,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -147,13 +96,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnHardRemovingContentTypeByIdEventIfErrorOccursAndLogItAsync(
+            Exception thrownException,
+            Xeption expectedInnerException)
+        {
+            // given
+            EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
+
+            var expectedContentTypeDependencyException = new ContentTypeDependencyException(
+                message: "Content type dependency error occurred, contact support.",
+                innerException: expectedInnerException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectProcessedEventExistsAsync(
+                    requestEnvelope.Metadata.EventId,
+                    EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(thrownException);
+
+            // when
+            ValueTask<EventEnvelope<ContentType>?> onHardRemovingTask =
+                this.contentTypeService.OnHardRemovingContentTypeByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeDependencyException actualContentTypeDependencyException =
+                await Assert.ThrowsAsync<ContentTypeDependencyException>(
+                    onHardRemovingTask.AsTask);
+
+            // then
+            actualContentTypeDependencyException.Should().BeEquivalentTo(
+                expectedContentTypeDependencyException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowCriticalDependencyExceptionOnRemovingContentTypeByIdEventIfSqlErrorOccursAndLogItAsync()
+        public async Task ShouldThrowCriticalDependencyExceptionOnHardRemovingContentTypeByIdEventIfSqlErrorOccursAndLogItAsync()
         {
             // given
             EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
@@ -171,19 +163,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectProcessedEventExistsAsync(
                     requestEnvelope.Metadata.EventId,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                    EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
                     TestContext.Current.CancellationToken))
                         .ThrowsAsync(sqlException);
 
             // when
-            ValueTask<EventEnvelope<ContentType>?> onRemovingTask =
-                this.contentTypeService.OnRemovingContentTypeByIdAsync(
+            ValueTask<EventEnvelope<ContentType>?> onHardRemovingTask =
+                this.contentTypeService.OnHardRemovingContentTypeByIdAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentTypeDependencyException actualContentTypeDependencyException =
                 await Assert.ThrowsAsync<ContentTypeDependencyException>(
-                    onRemovingTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentTypeDependencyException.Should().BeEquivalentTo(
@@ -201,7 +193,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
         [Theory]
         [MemberData(nameof(ModifyDependencyValidationExceptions))]
-        public async Task ShouldThrowDependencyValidationExceptionOnRemovingContentTypeByIdEventIfErrorOccursAndLogItAsync(
+        public async Task ShouldThrowDependencyValidationExceptionOnHardRemovingContentTypeByIdEventIfErrorOccursAndLogItAsync(
             Exception thrownException,
             Xeption expectedInnerException)
         {
@@ -215,19 +207,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectProcessedEventExistsAsync(
                     requestEnvelope.Metadata.EventId,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                    EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
                     TestContext.Current.CancellationToken))
                         .ThrowsAsync(thrownException);
 
             // when
-            ValueTask<EventEnvelope<ContentType>?> onRemovingTask =
-                this.contentTypeService.OnRemovingContentTypeByIdAsync(
+            ValueTask<EventEnvelope<ContentType>?> onHardRemovingTask =
+                this.contentTypeService.OnHardRemovingContentTypeByIdAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentTypeDependencyValidationException actualContentTypeDependencyValidationException =
                 await Assert.ThrowsAsync<ContentTypeDependencyValidationException>(
-                    onRemovingTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentTypeDependencyValidationException.Should().BeEquivalentTo(
@@ -244,7 +236,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         }
 
         [Fact]
-        public async Task ShouldThrowServiceExceptionOnRemovingContentTypeByIdEventIfServiceErrorOccursAndLogItAsync()
+        public async Task ShouldThrowServiceExceptionOnHardRemovingContentTypeByIdEventIfServiceErrorOccursAndLogItAsync()
         {
             // given
             EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
@@ -262,19 +254,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectProcessedEventExistsAsync(
                     requestEnvelope.Metadata.EventId,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                    EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
                     TestContext.Current.CancellationToken))
                         .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<EventEnvelope<ContentType>?> onRemovingTask =
-                this.contentTypeService.OnRemovingContentTypeByIdAsync(
+            ValueTask<EventEnvelope<ContentType>?> onHardRemovingTask =
+                this.contentTypeService.OnHardRemovingContentTypeByIdAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentTypeServiceException actualContentTypeServiceException =
                 await Assert.ThrowsAsync<ContentTypeServiceException>(
-                    onRemovingTask.AsTask);
+                    onHardRemovingTask.AsTask);
 
             // then
             actualContentTypeServiceException.Should().BeEquivalentTo(

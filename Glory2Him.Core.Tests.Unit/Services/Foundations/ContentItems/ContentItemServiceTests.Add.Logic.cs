@@ -29,29 +29,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldAddContentItemAsync()
         {
             // given
-            string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            ContentItem randomContentItem = CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+            ContentItem randomContentItem = CreateContentItemFiller(randomDateTimeOffset).Create();
             ContentItem inputContentItem = randomContentItem;
             ContentItem auditAppliedContentItem = inputContentItem.DeepClone();
-            auditAppliedContentItem.CreatedBy = randomUserId;
-            auditAppliedContentItem.CreatedWhen = randomDateTimeOffset;
-            auditAppliedContentItem.UpdatedBy = randomUserId;
-            auditAppliedContentItem.UpdatedWhen = randomDateTimeOffset;
             ContentItem storageContentItem = auditAppliedContentItem.DeepClone();
             ContentItem expectedContentItem = storageContentItem.DeepClone();
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(randomUserId);
+                    .ReturnsAsync(auditAppliedContentItem.CreatedBy);
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(auditAppliedContentItem);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
@@ -72,24 +67,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
 
             this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyAddAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
                     broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
                     broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Exactly(3));
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.InsertProcessedEventAsync(
-                    It.Is<ProcessedEvent>(processedEvent =>
-                        processedEvent.ReceiverName ==
-                            EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName),
-                    It.IsAny<CancellationToken>()),
-                Times.Exactly(2));
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyAddAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()),
-                Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
                     broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()),
@@ -100,6 +87,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     It.IsAny<EventEnvelope<ContentItem>>(),
                     ContentItemEventOperation.Added),
                 Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

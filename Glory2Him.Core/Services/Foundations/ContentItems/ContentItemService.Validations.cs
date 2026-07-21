@@ -113,6 +113,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
+        private static void ValidateOnHardRemoveContentItemById(Guid contentItemId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
+
         private static void ValidateStorageContentItem(ContentItem maybeContentItem, Guid contentItemId)
         {
             if (maybeContentItem is null)
@@ -235,12 +240,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             int pastThreshold = 90;
             int futureThreshold = 0;
             DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
-
-            if (currentDateTime == default)
-            {
-                return (false, default, default);
-            }
-
             DateTimeOffset startDate = currentDateTime.AddSeconds(-pastThreshold);
             DateTimeOffset endDate = currentDateTime.AddSeconds(futureThreshold);
             bool isNotRecent = date < startDate || date > endDate;

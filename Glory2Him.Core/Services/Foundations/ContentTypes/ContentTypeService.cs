@@ -70,6 +70,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentTypeIsNotNull(contentType);
 
                 EventEnvelope<ContentType> envelope =
                     await this.eventEnvelopeFactory.CreateAsync(content: contentType);
@@ -111,6 +112,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentTypeIsNotNull(contentType);
 
                 EventEnvelope<ContentType> envelope =
                     await this.eventEnvelopeFactory.CreateAsync(content: contentType);
@@ -171,8 +173,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateContentTypeIsNotNull(contentType);
-
             contentType = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: contentType, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,8 +210,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateContentTypeIsNotNull(contentType);
-
             contentType = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: contentType, securityContext: inboundEnvelope.SecurityContext);
 

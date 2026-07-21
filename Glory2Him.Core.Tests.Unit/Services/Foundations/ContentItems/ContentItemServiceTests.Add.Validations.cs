@@ -35,10 +35,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     message: "Content item validation error occurred, fix the errors and try again.",
                     innerException: nullContentItemException);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(nullContentItem, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(nullContentItem);
-
             // when
             ValueTask<ContentItem> addContentItemTask =
                 this.contentItemService.AddContentItemAsync(
@@ -52,10 +48,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // then
             actualContentItemValidationException.Should().BeEquivalentTo(
                 expectedContentItemValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(nullContentItem, It.IsAny<SecurityContext>()),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -77,6 +69,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             string invalidText)
         {
             // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            DateTimeOffset startDate = randomDateTimeOffset.AddSeconds(-90);
+            DateTimeOffset endDate = randomDateTimeOffset;
+
             var invalidContentItem = new ContentItem
             {
                 Id = Guid.Empty,
@@ -119,7 +115,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.CreatedWhen),
-                values: "Date is required");
+                values: new[]
+                {
+                    "Date is required",
+
+                    "Date is not recent. Expected a value between " +
+                        $"{startDate} and {endDate} but found {default(DateTimeOffset)}"
+                });
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.UpdatedWhen),
@@ -140,7 +142,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(default(DateTimeOffset));
+                    .ReturnsAsync(randomDateTimeOffset);
 
             // when
             ValueTask<ContentItem> addContentItemTask =

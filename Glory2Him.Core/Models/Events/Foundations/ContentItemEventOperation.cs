@@ -27,9 +27,11 @@ namespace Glory2Him.Core.Models.Events.Foundations
         Adding,
         Modifying,
         RemovingById,
+        HardRemovingById,
         RetrievingById,
         Added,
         Modified,
-        Removed
+        Removed,
+        HardRemoved
     }
 }
