@@ -1,0 +1,96 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Models.Foundations.ContentItemAssociations.Exceptions;
+using Moq;
+
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
+{
+    public partial class ContentItemAssociationServiceTests
+    {
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrievingContentItemAssociationByIdEventWhenEnvelopeIsInvalidAsync()
+        {
+            // given
+            EventEnvelope<ContentItemAssociation>? nullEnvelope = null;
+
+            var invalidContentItemAssociationEventException =
+                new InvalidContentItemAssociationEventException(
+                    message: "Invalid content item association event. " +
+                        "The event envelope, its content and metadata are required.");
+
+            var expectedContentItemAssociationValidationException =
+                new ContentItemAssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemAssociationEventException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemAssociation>?> onRetrieveTask =
+                this.contentItemAssociationService.OnRetrievingContentItemAssociationByIdAsync(
+                    nullEnvelope!,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemAssociationValidationException actualContentItemAssociationValidationException =
+                await Assert.ThrowsAsync<ContentItemAssociationValidationException>(
+                    onRetrieveTask.AsTask);
+
+            // then
+            actualContentItemAssociationValidationException.Should().BeEquivalentTo(
+                expectedContentItemAssociationValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemAssociationValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldPassThroughNotFoundValidationExceptionOnRetrievingContentItemAssociationByIdEventAsync()
+        {
+            // given
+            var requestEnvelope = new EventEnvelope<ContentItemAssociation>
+            {
+                Content = new ContentItemAssociation { Id = Guid.NewGuid() }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemAssociationByIdAsync(
+                    requestEnvelope.Content.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync((ContentItemAssociation?)null);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemAssociation>?> onRetrieveTask =
+                this.contentItemAssociationService.OnRetrievingContentItemAssociationByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemAssociationValidationException actualContentItemAssociationValidationException =
+                await Assert.ThrowsAsync<ContentItemAssociationValidationException>(
+                    onRetrieveTask.AsTask);
+
+            // then: the nested retrieve's categorized exception surfaces unwrapped —
+            // the substrate wrapper must not double-wrap it.
+            actualContentItemAssociationValidationException.InnerException
+                .Should().BeOfType<NotFoundContentItemAssociationException>();
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+        }
+    }
+}
