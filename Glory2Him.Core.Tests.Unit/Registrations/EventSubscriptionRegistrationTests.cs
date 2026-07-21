@@ -17,9 +17,11 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ContentItems;
+using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Moq;
 
@@ -30,6 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IContentTypeService> contentTypeServiceMock;
         private readonly Mock<IContentItemService> contentItemServiceMock;
+        private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -37,11 +40,13 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.contentTypeServiceMock = new Mock<IContentTypeService>();
             this.contentItemServiceMock = new Mock<IContentItemService>();
+            this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
                 contentTypeService: this.contentTypeServiceMock.Object,
-                contentItemService: this.contentItemServiceMock.Object);
+                contentItemService: this.contentItemServiceMock.Object,
+                contentItemSettingService: this.contentItemSettingServiceMock.Object);
         }
 
         private void VerifyContentTypeSubscription(
@@ -79,6 +84,26 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
                         ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyContentItemSettingSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ContentItemSettingEventOperation expectedOperation,
+            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItemSetting>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToContentItemSettingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItemSetting>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -170,9 +195,55 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ContentItemEventOperation.RetrievingById,
                 expectedHandler: this.contentItemServiceMock.Object.OnRetrievingContentItemByIdAsync);
 
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnAddingContentItemSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnAddingContentItemSettingSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.Adding,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnAddingContentItemSettingAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnModifyingContentItemSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnModifyingContentItemSettingSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.Modifying,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnModifyingContentItemSettingAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.RemovingById,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnRemovingContentItemSettingByIdAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.HardRemovingById,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnHardRemovingContentItemSettingByIdAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.RetrievingById,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnRetrievingContentItemSettingByIdAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.contentItemSettingServiceMock.VerifyNoOtherCalls();
         }
     }
 }
