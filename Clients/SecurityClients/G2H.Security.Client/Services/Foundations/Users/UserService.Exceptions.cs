@@ -28,11 +28,11 @@ namespace G2H.Security.Client.Services.Foundations.Users
             }
             catch (InvalidArgumentUserException invalidArgumentUserException)
             {
-                throw await CreateAndLogValidationExceptionAsync(invalidArgumentUserException);
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidArgumentUserException);
             }
             catch (ClaimNotFoundUserException claimNotFoundUserException)
             {
-                throw await CreateAndLogValidationExceptionAsync(claimNotFoundUserException);
+                throw await CreateAndLogValidationExceptionAsync(exception: claimNotFoundUserException);
             }
             catch (Exception exception)
             {
@@ -41,7 +41,7 @@ namespace G2H.Security.Client.Services.Foundations.Users
                         message: "Failed user service error occurred, please contact support.",
                         innerException: exception);
 
-                throw await CreateAndLogServiceExceptionAsync(failedUserServiceException);
+                throw await CreateAndLogServiceExceptionAsync(exception: failedUserServiceException);
             }
         }
 

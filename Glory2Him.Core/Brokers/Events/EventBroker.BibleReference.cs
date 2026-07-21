@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<BibleReference> envelope,
             BibleReferenceEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.BibleReferenceEventAddressIds,
-                    nameof(BibleReference),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.BibleReferenceEventAddressIds,
+                    entityName: nameof(BibleReference),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToBibleReferenceEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> bibleReferenceEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.BibleReferenceEventAddressIds,
-                    subscription,
-                    operation,
-                    bibleReferenceEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.BibleReferenceEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: bibleReferenceEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToBibleReferenceEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<BibleReference>?>> bibleReferenceEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.BibleReferenceEventAddressIds,
-                    subscription,
-                    operation,
-                    bibleReferenceEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.BibleReferenceEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: bibleReferenceEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 
@@ -83,7 +84,7 @@ namespace Glory2Him.Core.Registrations
 
             // ── ContentType request handlers ─────────────────────────────────────
             await this.eventBroker.SubscribeToContentTypeEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
@@ -91,12 +92,12 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles add requests: stores the content type, publishes " +
                         "ContentType-Added, and replies with the added entity."
                 },
-                ContentTypeEventOperation.Adding,
-                this.contentTypeService.OnAddingContentTypeAsync,
-                cancellationToken);
+                operation: ContentTypeEventOperation.Adding,
+                contentTypeEventHandler: this.contentTypeService.OnAddingContentTypeAsync,
+                cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentTypeEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
@@ -104,12 +105,12 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles modify requests: updates the content type, publishes " +
                         "ContentType-Modified, and replies with the updated entity."
                 },
-                ContentTypeEventOperation.Modifying,
-                this.contentTypeService.OnModifyingContentTypeAsync,
-                cancellationToken);
+                operation: ContentTypeEventOperation.Modifying,
+                contentTypeEventHandler: this.contentTypeService.OnModifyingContentTypeAsync,
+                cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentTypeEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
@@ -117,12 +118,26 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles remove requests: soft-deletes the content type, " +
                         "publishes ContentType-Removed, and replies with the removed entity."
                 },
-                ContentTypeEventOperation.RemovingById,
-                this.contentTypeService.OnRemovingContentTypeByIdAsync,
-                cancellationToken);
+                operation: ContentTypeEventOperation.RemovingById,
+                contentTypeEventHandler: this.contentTypeService.OnRemovingContentTypeByIdAsync,
+                cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentTypeEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "content type, publishes ContentTypeHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ContentTypeEventOperation.HardRemovingById,
+                contentTypeEventHandler: this.contentTypeService.OnHardRemovingContentTypeByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentTypeEventAsync(
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentTypeOnRetrievingContentTypeByIdSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentTypeOnRetrievingContentTypeByIdSubscriptionName,
@@ -130,13 +145,13 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles retrieve requests: retrieves a content type by id " +
                         "and replies with it on the delivery."
                 },
-                ContentTypeEventOperation.RetrievingById,
-                this.contentTypeService.OnRetrievingContentTypeByIdAsync,
-                cancellationToken);
+                operation: ContentTypeEventOperation.RetrievingById,
+                contentTypeEventHandler: this.contentTypeService.OnRetrievingContentTypeByIdAsync,
+                cancellationToken: cancellationToken);
 
             // ── ContentItem request handlers ─────────────────────────────────────
             await this.eventBroker.SubscribeToContentItemEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
@@ -144,12 +159,12 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles add requests: stores the content item, publishes " +
                         "ContentItem-Added, and replies with the added entity."
                 },
-                ContentItemEventOperation.Adding,
-                this.contentItemService.OnAddingContentItemAsync,
-                cancellationToken);
+                operation: ContentItemEventOperation.Adding,
+                contentItemEventHandler: this.contentItemService.OnAddingContentItemAsync,
+                cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
@@ -157,12 +172,12 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles modify requests: updates the content item, publishes " +
                         "ContentItem-Modified, and replies with the updated entity."
                 },
-                ContentItemEventOperation.Modifying,
-                this.contentItemService.OnModifyingContentItemAsync,
-                cancellationToken);
+                operation: ContentItemEventOperation.Modifying,
+                contentItemEventHandler: this.contentItemService.OnModifyingContentItemAsync,
+                cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentItemOnRemovingContentItemByIdSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentItemOnRemovingContentItemByIdSubscriptionName,
@@ -170,12 +185,12 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles remove requests: soft-deletes the content item, " +
                         "publishes ContentItem-Removed, and replies with the removed entity."
                 },
-                ContentItemEventOperation.RemovingById,
-                this.contentItemService.OnRemovingContentItemByIdAsync,
-                cancellationToken);
+                operation: ContentItemEventOperation.RemovingById,
+                contentItemEventHandler: this.contentItemService.OnRemovingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
-                new EventSubscription
+                subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers.ContentItemOnRetrievingContentItemByIdSubscriptionId,
                     Name = EventBrokerIdentifiers.ContentItemOnRetrievingContentItemByIdSubscriptionName,
@@ -183,9 +198,9 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles retrieve requests: retrieves a content item by id " +
                         "and replies with it on the delivery."
                 },
-                ContentItemEventOperation.RetrievingById,
-                this.contentItemService.OnRetrievingContentItemByIdAsync,
-                cancellationToken);
+                operation: ContentItemEventOperation.RetrievingById,
+                contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
         }
     }
 }

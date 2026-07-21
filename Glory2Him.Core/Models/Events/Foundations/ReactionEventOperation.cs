@@ -9,20 +9,20 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-namespace Glory2Him.Core.Models.Events
+namespace Glory2Him.Core.Models.Events.Foundations
 {
     /// <summary>
-    /// The operations a <c>Approval</c> event can represent — requests (present tense:
+    /// The operations a <c>Reaction</c> event can represent — requests (present tense:
     /// <see cref="Adding"/>, <see cref="Modifying"/>, <see cref="RemovingById"/>,
     /// <see cref="RetrievingById"/>) answered by responder handlers, and facts (past tense:
     /// <see cref="Added"/>, <see cref="Modified"/>, <see cref="Removed"/>) published by
     /// the service after the work is done. Every operation maps to its own event address (for
-    /// example <c>Approval-Adding</c>) and composes the stored event name (for example
-    /// <c>"ApprovalAdding"</c>). Entity-specific operations may be appended here (with a
+    /// example <c>Reaction-Adding</c>) and composes the stored event name (for example
+    /// <c>"ReactionAdding"</c>). Entity-specific operations may be appended here (with a
     /// matching event address in <c>EventBrokerIdentifiers</c>) without affecting any other
     /// entity.
     /// </summary>
-    public enum ApprovalEventOperation
+    public enum ReactionEventOperation
     {
         Adding,
         Modifying,

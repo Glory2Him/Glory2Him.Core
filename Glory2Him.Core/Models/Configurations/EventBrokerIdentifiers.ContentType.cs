@@ -11,7 +11,7 @@
 
 using System;
 using System.Collections.Generic;
-using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 
 namespace Glory2Him.Core.Models.Configurations
 {
@@ -25,6 +25,9 @@ namespace Glory2Him.Core.Models.Configurations
 
         public static readonly Guid ContentTypeRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-7bbe-83b0-c311d0d3c4e2");
+
+        public static readonly Guid ContentTypeHardRemovingByIdEventAddressId =
+            new Guid("019f8152-4b7d-7a91-8c25-6e3fd18a94c7");
 
         public static readonly Guid ContentTypeRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-72c3-b9e0-ceb41f647ac3");
@@ -44,10 +47,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentTypeEventOperation.Adding, ContentTypeAddingEventAddressId },
                 { ContentTypeEventOperation.Modifying, ContentTypeModifyingEventAddressId },
                 { ContentTypeEventOperation.RemovingById, ContentTypeRemovingByIdEventAddressId },
+                { ContentTypeEventOperation.HardRemovingById, ContentTypeHardRemovingByIdEventAddressId },
                 { ContentTypeEventOperation.RetrievingById, ContentTypeRetrievingByIdEventAddressId },
                 { ContentTypeEventOperation.Added, ContentTypeAddedEventAddressId },
                 { ContentTypeEventOperation.Modified, ContentTypeModifiedEventAddressId },
-                { ContentTypeEventOperation.Removed, ContentTypeRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("ContentTypeHardRemoved" vs "ContentTypeRemoved").
+                { ContentTypeEventOperation.Removed, ContentTypeRemovedEventAddressId },
+                { ContentTypeEventOperation.HardRemoved, ContentTypeRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentTypeEventAddresses =
@@ -56,6 +65,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentTypeAddingEventAddressId, "ContentType-Adding" },
                 { ContentTypeModifyingEventAddressId, "ContentType-Modifying" },
                 { ContentTypeRemovingByIdEventAddressId, "ContentType-RemovingById" },
+                { ContentTypeHardRemovingByIdEventAddressId, "ContentType-HardRemovingById" },
                 { ContentTypeRetrievingByIdEventAddressId, "ContentType-RetrievingById" },
                 { ContentTypeAddedEventAddressId, "ContentType-Added" },
                 { ContentTypeModifiedEventAddressId, "ContentType-Modified" },
@@ -77,6 +87,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ContentTypeOnRemovingContentTypeByIdSubscriptionName =
             "ContentTypeService.OnRemovingContentTypeById";
+        public static readonly Guid ContentTypeOnHardRemovingContentTypeByIdSubscriptionId =
+            new Guid("019f8152-4b7d-7f38-b1a9-2d84c56e07f1");
+
+        public const string ContentTypeOnHardRemovingContentTypeByIdSubscriptionName =
+            "ContentTypeService.OnHardRemovingContentTypeById";
+
         public static readonly Guid ContentTypeOnRetrievingContentTypeByIdSubscriptionId =
             new Guid("019f8150-13e6-717a-98ae-be13a25bbf50");
 

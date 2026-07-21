@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Attachments;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<Attachment> envelope,
             AttachmentEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.AttachmentEventAddressIds,
-                    nameof(Attachment),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.AttachmentEventAddressIds,
+                    entityName: nameof(Attachment),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToAttachmentEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> attachmentEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.AttachmentEventAddressIds,
-                    subscription,
-                    operation,
-                    attachmentEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.AttachmentEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: attachmentEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToAttachmentEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<Attachment>?>> attachmentEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.AttachmentEventAddressIds,
-                    subscription,
-                    operation,
-                    attachmentEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.AttachmentEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: attachmentEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

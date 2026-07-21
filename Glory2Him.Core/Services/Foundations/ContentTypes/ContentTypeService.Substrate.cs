@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -21,12 +21,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
     /// <summary>
     /// The event path of the service: request handlers the event substrate dispatches to,
     /// one per request address (<c>ContentType-Adding</c>, <c>-Modifying</c>,
-    /// <c>-RemovingById</c>, <c>-RetrievingById</c>). Handlers receive the full request
-    /// envelope — including the original caller's <c>SecurityContext</c> — converge on the
-    /// same private <c>DoXAsync</c> methods the non-event path uses (which publish the
-    /// past-tense facts), and return the outcome as the delivery's reply envelope. Mutating
-    /// handlers are guarded by the <c>ProcessedEvents</c> table so replayed or duplicated
-    /// requests are not applied twice; a deduplicated delivery replies <c>null</c>. Failures
+    /// <c>-RemovingById</c>, <c>-HardRemovingById</c>, <c>-RetrievingById</c>). Handlers
+    /// receive the full request envelope — including the original caller's
+    /// <c>SecurityContext</c> — converge on the same private <c>DoXAsync</c> methods the
+    /// non-event path uses (which publish the past-tense facts and record both the inbound
+    /// and outbound event ids in the <c>ProcessedEvents</c> table), and return the outcome
+    /// as the delivery's reply envelope. Mutating handlers check that table first so replayed
+    /// or duplicated requests — including a published fact ever looping back into a request
+    /// handler — are not applied twice; a deduplicated delivery replies <c>null</c>. Failures
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
@@ -41,22 +43,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 ValidateContentTypeEventEnvelope(envelope);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
+                    cancellationToken: cancellationToken);
 
                 if (alreadyProcessed)
                     return null;
 
-                ContentType addedContentType =
-                    await DoAddContentTypeAsync(envelope.Content, envelope, cancellationToken);
+                ContentType addedContentType = await DoAddContentTypeAsync(
+                    contentType: envelope.Content,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
 
-                await RecordEventProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
-                    cancellationToken);
-
-                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, addedContentType);
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: addedContentType);
             });
 
         public ValueTask<EventEnvelope<ContentType>?> OnModifyingContentTypeAsync(
@@ -68,22 +69,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 ValidateContentTypeEventEnvelope(envelope);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
+                    cancellationToken: cancellationToken);
 
                 if (alreadyProcessed)
                     return null;
 
-                ContentType modifiedContentType =
-                    await DoModifyContentTypeAsync(envelope.Content, envelope, cancellationToken);
+                ContentType modifiedContentType = await DoModifyContentTypeAsync(
+                    contentType: envelope.Content,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
 
-                await RecordEventProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
-                    cancellationToken);
-
-                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, modifiedContentType);
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: modifiedContentType);
             });
 
         public ValueTask<EventEnvelope<ContentType>?> OnRemovingContentTypeByIdAsync(
@@ -95,26 +95,48 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 ValidateContentTypeEventEnvelope(envelope);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                    cancellationToken: cancellationToken);
 
                 if (alreadyProcessed)
                     return null;
 
-                ContentType removedContentType =
-                    await DoRemoveContentTypeByIdAsync(
-                        envelope.Content.Id,
-                        envelope.Content.DeletionReason,
-                        envelope,
-                        cancellationToken);
+                ContentType removedContentType = await DoRemoveContentTypeByIdAsync(
+                    contentTypeId: envelope.Content.Id,
+                    deletionReason: envelope.Content.DeletionReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
 
-                await RecordEventProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
-                    cancellationToken);
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: removedContentType);
+            });
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, removedContentType);
+        public ValueTask<EventEnvelope<ContentType>?> OnHardRemovingContentTypeByIdAsync(
+            EventEnvelope<ContentType> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentTypeEventEnvelope(envelope);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                ContentType deletedContentType = await DoHardRemoveContentTypeByIdAsync(
+                    contentTypeId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: deletedContentType);
             });
 
         public ValueTask<EventEnvelope<ContentType>?> OnRetrievingContentTypeByIdAsync(
@@ -126,12 +148,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 ValidateContentTypeEventEnvelope(envelope);
 
                 // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                ContentType retrievedContentType =
-                    await RetrieveContentTypeByIdAsync(envelope.Content.Id, cancellationToken);
+                ContentType retrievedContentType = await RetrieveContentTypeByIdAsync(
+                    contentTypeId: envelope.Content.Id,
+                    cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeFactory.CreateNextAsync(
-                    envelope,
-                    retrievedContentType);
+                    sourceEnvelope: envelope,
+                    content: retrievedContentType);
             });
 
         private async ValueTask<bool> AlreadyProcessedAsync(
@@ -139,22 +162,22 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             string receiverName,
             CancellationToken cancellationToken) =>
             await this.storageBroker.SelectProcessedEventExistsAsync(
-                envelope.Metadata.EventId,
-                receiverName,
-                cancellationToken);
+                eventId: envelope.Metadata.EventId,
+                receiverName: receiverName,
+                cancellationToken: cancellationToken);
 
         private async ValueTask RecordEventProcessedAsync(
             EventEnvelope<ContentType> envelope,
             string receiverName,
             CancellationToken cancellationToken) =>
             await this.storageBroker.InsertProcessedEventAsync(
-                new ProcessedEvent
+                processedEvent: new ProcessedEvent
                 {
                     Id = await this.identifierBroker.GetIdentifierAsync(),
                     EventId = envelope.Metadata.EventId,
                     ReceiverName = receiverName,
                     ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
                 },
-                cancellationToken);
+                cancellationToken: cancellationToken);
     }
 }

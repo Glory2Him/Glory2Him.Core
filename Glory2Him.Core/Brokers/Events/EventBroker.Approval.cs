@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<Approval> envelope,
             ApprovalEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.ApprovalEventAddressIds,
-                    nameof(Approval),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalEventAddressIds,
+                    entityName: nameof(Approval),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToApprovalEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> approvalEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ApprovalEventAddressIds,
-                    subscription,
-                    operation,
-                    approvalEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToApprovalEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<Approval>?>> approvalEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ApprovalEventAddressIds,
-                    subscription,
-                    operation,
-                    approvalEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

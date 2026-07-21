@@ -9,7 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-namespace Glory2Him.Core.Models.Events
+namespace Glory2Him.Core.Models.Events.Foundations
 {
     /// <summary>
     /// The operations a <c>ContentItemAssociation</c> event can represent — requests (present tense:

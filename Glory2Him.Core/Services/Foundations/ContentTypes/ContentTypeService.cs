@@ -20,7 +20,9 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes
@@ -70,9 +72,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 cancellationToken.ThrowIfCancellationRequested();
 
                 EventEnvelope<ContentType> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(contentType);
+                    await this.eventEnvelopeFactory.CreateAsync(content: contentType);
 
-                return await DoAddContentTypeAsync(contentType, envelope, cancellationToken);
+                return await DoAddContentTypeAsync(
+                    contentType: contentType,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<IQueryable<ContentType>> RetrieveAllContentTypesAsync(
@@ -81,13 +86,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllContentTypesAsync();
+                return await this.storageBroker.SelectAllContentTypesAsync(cancellationToken);
             });
 
-        public async ValueTask<ContentType> RetrieveContentTypeByIdAsync(
+        public ValueTask<ContentType> RetrieveContentTypeByIdAsync(
             Guid contentTypeId,
             CancellationToken cancellationToken = default) =>
-            await TryCatch(async () =>
+            TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRetrieveContentTypeById(contentTypeId);
@@ -108,9 +113,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 cancellationToken.ThrowIfCancellationRequested();
 
                 EventEnvelope<ContentType> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(contentType);
+                    await this.eventEnvelopeFactory.CreateAsync(content: contentType);
 
-                return await DoModifyContentTypeAsync(contentType, envelope, cancellationToken);
+                return await DoModifyContentTypeAsync(
+                    contentType: contentType,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentType> RemoveContentTypeByIdAsync(
@@ -128,13 +136,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 };
 
                 EventEnvelope<ContentType> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(removeRequest);
+                    await this.eventEnvelopeFactory.CreateAsync(content: removeRequest);
 
                 return await DoRemoveContentTypeByIdAsync(
-                    contentTypeId,
-                    deletionReason,
-                    envelope,
-                    cancellationToken);
+                    contentTypeId: contentTypeId,
+                    deletionReason: deletionReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentType> HardRemoveContentTypeByIdAsync(
@@ -143,17 +151,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveContentTypeById(contentTypeId);
 
-                ContentType maybeContentType =
-                    await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
-
-                ValidateStorageContentType(maybeContentType, contentTypeId);
+                var hardRemoveRequest = new ContentType
+                {
+                    Id = contentTypeId
+                };
 
                 EventEnvelope<ContentType> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(maybeContentType);
+                    await this.eventEnvelopeFactory.CreateAsync(content: hardRemoveRequest);
 
-                return await DoHardRemoveContentTypeAsync(maybeContentType, envelope, cancellationToken);
+                return await DoHardRemoveContentTypeByIdAsync(
+                    contentTypeId: contentTypeId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         private async ValueTask<ContentType> DoAddContentTypeAsync(
@@ -164,19 +174,33 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             ValidateContentTypeIsNotNull(contentType);
 
             contentType = await this.securityAuditBroker
-                .ApplyAddAuditValuesAsync(contentType, inboundEnvelope.SecurityContext);
+                .ApplyAddAuditValuesAsync(entity: contentType, securityContext: inboundEnvelope.SecurityContext);
 
-            await ValidateOnAddContentTypeAsync(contentType, inboundEnvelope.SecurityContext);
+            await ValidateOnAddContentTypeAsync(
+                contentType: contentType,
+                securityContext: inboundEnvelope.SecurityContext);
 
             ContentType addedContentType =
                 await this.storageBroker.InsertContentTypeAsync(contentType, cancellationToken);
 
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
+                cancellationToken: cancellationToken);
+
             EventEnvelope<ContentType> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, addedContentType);
+                await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: addedContentType);
 
             await this.eventBroker.PublishContentTypeAsync(
-                outboundEnvelope,
-                ContentTypeEventOperation.Added);
+                envelope: outboundEnvelope,
+                operation: ContentTypeEventOperation.Added);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
+                cancellationToken: cancellationToken);
 
             return addedContentType;
         }
@@ -189,17 +213,22 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             ValidateContentTypeIsNotNull(contentType);
 
             contentType = await this.securityAuditBroker
-                .ApplyModifyAuditValuesAsync(contentType, inboundEnvelope.SecurityContext);
+                .ApplyModifyAuditValuesAsync(entity: contentType, securityContext: inboundEnvelope.SecurityContext);
 
-            await ValidateOnModifyContentTypeAsync(contentType, inboundEnvelope.SecurityContext);
+            await ValidateOnModifyContentTypeAsync(
+                contentType: contentType,
+                securityContext: inboundEnvelope.SecurityContext);
 
-            ContentType maybeContentType =
-                await this.storageBroker.SelectContentTypeByIdAsync(contentType.Id, cancellationToken);
+            ContentType maybeContentType = await this.storageBroker.SelectContentTypeByIdAsync(
+                contentTypeId: contentType.Id,
+                cancellationToken: cancellationToken);
 
-            ValidateStorageContentType(maybeContentType, contentType.Id);
+            ValidateStorageContentType(maybeContentType, contentTypeId: contentType.Id);
 
             contentType = await this.securityAuditBroker
-                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(contentType, maybeContentType);
+                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    entity: contentType,
+                    storageEntity: maybeContentType);
 
             ValidateAgainstStorageContentTypeOnModify(
                 inputContentType: contentType,
@@ -208,12 +237,24 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             ContentType updatedContentType =
                 await this.storageBroker.UpdateContentTypeAsync(contentType, cancellationToken);
 
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
+                cancellationToken: cancellationToken);
+
             EventEnvelope<ContentType> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, updatedContentType);
+                await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: updatedContentType);
 
             await this.eventBroker.PublishContentTypeAsync(
-                outboundEnvelope,
-                ContentTypeEventOperation.Modified);
+                envelope: outboundEnvelope,
+                operation: ContentTypeEventOperation.Modified);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
+                cancellationToken: cancellationToken);
 
             return updatedContentType;
         }
@@ -224,7 +265,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateOnRetrieveContentTypeById(contentTypeId);
+            ValidateOnRemoveContentTypeById(contentTypeId);
 
             ContentType maybeContentType =
                 await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
@@ -239,36 +280,68 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
             ContentType auditedContentType =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
-                    maybeContentType,
-                    inboundEnvelope.SecurityContext);
+                    entity: maybeContentType,
+                    securityContext: inboundEnvelope.SecurityContext);
 
-            ContentType removedContentType =
-                await this.storageBroker.UpdateContentTypeAsync(auditedContentType, cancellationToken);
+            ContentType removedContentType = await this.storageBroker.UpdateContentTypeAsync(
+                contentType: auditedContentType,
+                cancellationToken: cancellationToken);
+
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                cancellationToken: cancellationToken);
 
             EventEnvelope<ContentType> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, removedContentType);
+                await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: removedContentType);
 
             await this.eventBroker.PublishContentTypeAsync(
-                outboundEnvelope,
-                ContentTypeEventOperation.Removed);
+                envelope: outboundEnvelope,
+                operation: ContentTypeEventOperation.Removed);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
+                cancellationToken: cancellationToken);
 
             return removedContentType;
         }
 
-        private async ValueTask<ContentType> DoHardRemoveContentTypeAsync(
-            ContentType contentType,
+        private async ValueTask<ContentType> DoHardRemoveContentTypeByIdAsync(
+            Guid contentTypeId,
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateOnHardRemoveContentTypeById(contentTypeId);
+
+            ContentType maybeContentType =
+                await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
+
+            ValidateStorageContentType(maybeContentType, contentTypeId);
+
             ContentType deletedContentType =
-                await this.storageBroker.DeleteContentTypeAsync(contentType, cancellationToken);
+                await this.storageBroker.DeleteContentTypeAsync(maybeContentType, cancellationToken);
+
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
+                cancellationToken: cancellationToken);
 
             EventEnvelope<ContentType> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, deletedContentType);
+                await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: deletedContentType);
 
             await this.eventBroker.PublishContentTypeAsync(
-                outboundEnvelope,
-                ContentTypeEventOperation.Removed);
+                envelope: outboundEnvelope,
+                operation: ContentTypeEventOperation.HardRemoved);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
+                cancellationToken: cancellationToken);
 
             return deletedContentType;
         }

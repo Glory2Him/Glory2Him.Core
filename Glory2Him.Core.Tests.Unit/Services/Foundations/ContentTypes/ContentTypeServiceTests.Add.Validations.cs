@@ -69,6 +69,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             string invalidText)
         {
             // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            DateTimeOffset startDate = randomDateTimeOffset.AddSeconds(-90);
+            DateTimeOffset endDate = randomDateTimeOffset;
+
             var invalidContentType = new ContentType
             {
                 Id = Guid.Empty,
@@ -101,7 +105,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             invalidContentTypeException.AddData(
                 key: nameof(ContentType.CreatedWhen),
-                values: "Date is required");
+                values: new[]
+                {
+                    "Date is required",
+
+                    "Date is not recent. Expected a value between " +
+                        $"{startDate} and {endDate} but found {default(DateTimeOffset)}"
+                });
 
             invalidContentTypeException.AddData(
                 key: nameof(ContentType.UpdatedWhen),
@@ -122,7 +132,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(default(DateTimeOffset));
+                    .ReturnsAsync(randomDateTimeOffset);
 
             // when
             ValueTask<ContentType> addContentTypeTask =

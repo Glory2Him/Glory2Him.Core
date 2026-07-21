@@ -107,11 +107,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 
         private static void ValidateContentTypeEventEnvelope(EventEnvelope<ContentType> envelope)
         {
-            if (envelope is null || envelope.Content is null)
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
             {
                 throw new InvalidContentTypeEventException(
                     message: "Invalid content type event. " +
-                        "The event envelope and its content are required.");
+                        "The event envelope, its content and metadata are required.");
             }
         }
 
@@ -139,6 +139,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         }
 
         private static void ValidateOnRetrieveContentTypeById(Guid contentTypeId) =>
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
+
+        private static void ValidateOnRemoveContentTypeById(Guid contentTypeId) =>
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
+
+        private static void ValidateOnHardRemoveContentTypeById(Guid contentTypeId) =>
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
@@ -236,12 +246,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             int pastThreshold = 90;
             int futureThreshold = 0;
             DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
-
-            if (currentDateTime == default)
-            {
-                return (false, default, default);
-            }
-
             DateTimeOffset startDate = currentDateTime.AddSeconds(-pastThreshold);
             DateTimeOffset endDate = currentDateTime.AddSeconds(futureThreshold);
             bool isNotRecent = date < startDate || date > endDate;

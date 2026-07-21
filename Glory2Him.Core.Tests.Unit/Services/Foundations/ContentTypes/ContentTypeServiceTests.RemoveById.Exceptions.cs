@@ -77,7 +77,65 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         }
 
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnRemoveByIdIfCancellationRequestedAndLogItAsync()
+        public async Task ShouldThrowDependencyExceptionOnRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someContentTypeId = Guid.NewGuid();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutContentTypeException =
+                new TimeoutContentTypeException(
+                    message: "Failed content type timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedContentTypeDependencyException = new ContentTypeDependencyException(
+                message: "Content type dependency error occurred, contact support.",
+                innerException: timeoutContentTypeException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<ContentType> removeContentTypeByIdTask =
+                this.contentTypeService.RemoveContentTypeByIdAsync(
+                    someContentTypeId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentTypeDependencyException actualContentTypeDependencyException =
+                await Assert.ThrowsAsync<ContentTypeDependencyException>(
+                    removeContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeDependencyException.Should().BeEquivalentTo(
+                expectedContentTypeDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRemoveByIdIfCancellationRequestedAsync()
         {
             // given
             Guid someContentTypeId = Guid.NewGuid();

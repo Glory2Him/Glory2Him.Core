@@ -30,39 +30,41 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             }
             catch (InvalidArgumentAuditOrchestrationException invalidArgumentAuditOrchestrationException)
             {
-                throw await CreateAndLogValidationExceptionAsync(invalidArgumentAuditOrchestrationException);
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidArgumentAuditOrchestrationException);
             }
             catch (UserValidationException userValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(userValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(exception: userValidationException);
             }
             catch (UserDependencyValidationException userDependencyValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(userDependencyValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: userDependencyValidationException);
             }
             catch (AuditValidationException auditValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(auditValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(exception: auditValidationException);
             }
             catch (AuditDependencyValidationException auditDependencyValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(auditDependencyValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: auditDependencyValidationException);
             }
             catch (UserDependencyException userDependencyException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(userDependencyException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: userDependencyException);
             }
             catch (AuditDependencyException auditDependencyException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(auditDependencyException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: auditDependencyException);
             }
             catch (UserServiceException userServiceException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(userServiceException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: userServiceException);
             }
             catch (AuditServiceException auditServiceException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(auditServiceException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: auditServiceException);
             }
             catch (Exception exception)
             {
@@ -71,7 +73,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                         message: "Failed audit orchestration service error occurred, please contact support.",
                         innerException: exception);
 
-                throw await CreateAndLogServiceExceptionAsync(failedAuditOrchestrationServiceException);
+                throw await CreateAndLogServiceExceptionAsync(exception: failedAuditOrchestrationServiceException);
             }
         }
 

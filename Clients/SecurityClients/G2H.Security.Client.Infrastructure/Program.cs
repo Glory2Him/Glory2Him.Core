@@ -24,7 +24,7 @@ namespace G2H.Security.Client.Infrastructure
                 projectName: "G2H.Security.Client",
                 dotNetVersion: "10.x");
 
-            scriptGenerationService.GeneratePrLintScript("main");
+            scriptGenerationService.GeneratePrLintScript(branchName: "main");
         }
     }
 }

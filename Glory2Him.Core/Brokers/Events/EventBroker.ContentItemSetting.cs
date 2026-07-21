@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<ContentItemSetting> envelope,
             ContentItemSettingEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.ContentItemSettingEventAddressIds,
-                    nameof(ContentItemSetting),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemSettingEventAddressIds,
+                    entityName: nameof(ContentItemSetting),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToContentItemSettingEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> contentItemSettingEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ContentItemSettingEventAddressIds,
-                    subscription,
-                    operation,
-                    contentItemSettingEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemSettingEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentItemSettingEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToContentItemSettingEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<ContentItemSetting>?>> contentItemSettingEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ContentItemSettingEventAddressIds,
-                    subscription,
-                    operation,
-                    contentItemSettingEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemSettingEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentItemSettingEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Comments;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<Comment> envelope,
             CommentEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.CommentEventAddressIds,
-                    nameof(Comment),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.CommentEventAddressIds,
+                    entityName: nameof(Comment),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToCommentEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> commentEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.CommentEventAddressIds,
-                    subscription,
-                    operation,
-                    commentEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.CommentEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: commentEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToCommentEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<Comment>?>> commentEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.CommentEventAddressIds,
-                    subscription,
-                    operation,
-                    commentEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.CommentEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: commentEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

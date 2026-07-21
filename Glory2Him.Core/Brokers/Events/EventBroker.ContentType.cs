@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<ContentType> envelope,
             ContentTypeEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.ContentTypeEventAddressIds,
-                    nameof(ContentType),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.ContentTypeEventAddressIds,
+                    entityName: nameof(ContentType),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToContentTypeEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> contentTypeEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ContentTypeEventAddressIds,
-                    subscription,
-                    operation,
-                    contentTypeEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ContentTypeEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentTypeEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToContentTypeEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<ContentType>?>> contentTypeEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ContentTypeEventAddressIds,
-                    subscription,
-                    operation,
-                    contentTypeEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ContentTypeEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentTypeEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

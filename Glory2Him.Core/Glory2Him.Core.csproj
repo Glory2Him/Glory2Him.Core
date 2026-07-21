@@ -97,4 +97,9 @@
 	  <ProjectReference Include="..\Clients\StorageClients\G2H.StorageClient\G2H.StorageClient.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <Folder Include="Models\Events\Orchestrations\" />
+	  <Folder Include="Models\Events\Processings\" />
+	</ItemGroup>
+
 </Project>

@@ -83,7 +83,7 @@ namespace G2H.Security.Client.Services.Foundations.Users
         public ValueTask<string> GetUserClaimValueAsync(ClaimsPrincipal claimsPrincipal, string type) =>
         TryCatch(async () =>
         {
-            ValidateOnGetUserClaimValue(claimsPrincipal, type);
+            ValidateOnGetUserClaimValue(claimsPrincipal: claimsPrincipal, claimType: type);
 
             var claim = claimsPrincipal.FindFirst(type);
 
@@ -98,7 +98,7 @@ namespace G2H.Security.Client.Services.Foundations.Users
         public ValueTask<IReadOnlyList<string>> GetUserClaimValuesAsync(ClaimsPrincipal claimsPrincipal, string type) =>
         TryCatch<IReadOnlyList<string>>(async () =>
         {
-            ValidateOnGetUserClaimValue(claimsPrincipal, type);
+            ValidateOnGetUserClaimValue(claimsPrincipal: claimsPrincipal, claimType: type);
 
             var values = claimsPrincipal.FindAll(type)
                 .Select(c => c.Value)

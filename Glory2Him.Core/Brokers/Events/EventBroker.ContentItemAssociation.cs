@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<ContentItemAssociation> envelope,
             ContentItemAssociationEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.ContentItemAssociationEventAddressIds,
-                    nameof(ContentItemAssociation),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemAssociationEventAddressIds,
+                    entityName: nameof(ContentItemAssociation),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToContentItemAssociationEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> contentItemAssociationEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ContentItemAssociationEventAddressIds,
-                    subscription,
-                    operation,
-                    contentItemAssociationEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemAssociationEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentItemAssociationEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToContentItemAssociationEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<ContentItemAssociation>?>> contentItemAssociationEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ContentItemAssociationEventAddressIds,
-                    subscription,
-                    operation,
-                    contentItemAssociationEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemAssociationEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentItemAssociationEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

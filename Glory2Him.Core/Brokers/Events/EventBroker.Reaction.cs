@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Reactions;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<Reaction> envelope,
             ReactionEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.ReactionEventAddressIds,
-                    nameof(Reaction),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.ReactionEventAddressIds,
+                    entityName: nameof(Reaction),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToReactionEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> reactionEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ReactionEventAddressIds,
-                    subscription,
-                    operation,
-                    reactionEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ReactionEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: reactionEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToReactionEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<Reaction>?>> reactionEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ReactionEventAddressIds,
-                    subscription,
-                    operation,
-                    reactionEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ReactionEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: reactionEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

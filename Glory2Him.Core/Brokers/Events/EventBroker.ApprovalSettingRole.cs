@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingRoles;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<ApprovalSettingRole> envelope,
             ApprovalSettingRoleEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
-                    nameof(ApprovalSettingRole),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
+                    entityName: nameof(ApprovalSettingRole),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToApprovalSettingRoleEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> approvalSettingRoleEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
-                    subscription,
-                    operation,
-                    approvalSettingRoleEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalSettingRoleEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToApprovalSettingRoleEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<ApprovalSettingRole>?>> approvalSettingRoleEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
-                    subscription,
-                    operation,
-                    approvalSettingRoleEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalSettingRoleEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalSettingRoleEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

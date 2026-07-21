@@ -45,12 +45,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
             {
-                var timeoutContentTypeException = new TimeoutContentTypeException(
-                    message: "Content type timed out, contact support.",
-                    innerException: new TimeoutException(),
-                    data: operationCanceledException.Data);
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
 
-                throw await CreateAndLogDependencyException(timeoutContentTypeException);
+                var timeoutContentTypeException =
+                    new TimeoutContentTypeException(
+                        message: "Failed content type timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentTypeException);
             }
             catch (OperationCanceledException)
             {
@@ -58,19 +62,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             }
             catch (InvalidContentTypeEventException invalidContentTypeEventException)
             {
-                throw await CreateAndLogValidationException(invalidContentTypeEventException);
+                throw await CreateAndLogValidationException(exception: invalidContentTypeEventException);
             }
             catch (NullContentTypeException nullContentTypeException)
             {
-                throw await CreateAndLogValidationException(nullContentTypeException);
+                throw await CreateAndLogValidationException(exception: nullContentTypeException);
             }
             catch (InvalidContentTypeException invalidContentTypeException)
             {
-                throw await CreateAndLogValidationException(invalidContentTypeException);
+                throw await CreateAndLogValidationException(exception: invalidContentTypeException);
             }
             catch (NotFoundContentTypeException notFoundContentTypeException)
             {
-                throw await CreateAndLogValidationException(notFoundContentTypeException);
+                throw await CreateAndLogValidationException(exception: notFoundContentTypeException);
             }
             catch (ContentTypeValidationException)
             {
@@ -95,7 +99,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(failedStorageContentTypeException);
+                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentTypeException);
             }
             catch (DuplicateKeyException duplicateKeyException)
             {
@@ -136,7 +140,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (Exception exception)
             {
                 var failedContentTypeServiceException = new FailedContentTypeServiceException(
-                    message: "Failed content type service error occurred, contact support.",
+                    message: "Failed content type service error occurred, please contact support.",
                     innerException: exception,
                     data: exception.Data);
 
@@ -153,12 +157,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
             {
-                var timeoutContentTypeException = new TimeoutContentTypeException(
-                    message: "Content type timed out, contact support.",
-                    innerException: new TimeoutException(),
-                    data: operationCanceledException.Data);
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
 
-                throw await CreateAndLogDependencyException(timeoutContentTypeException);
+                var timeoutContentTypeException =
+                    new TimeoutContentTypeException(
+                        message: "Failed content type timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentTypeException);
             }
             catch (OperationCanceledException)
             {
@@ -166,15 +174,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             }
             catch (NullContentTypeException nullContentTypeException)
             {
-                throw await CreateAndLogValidationException(nullContentTypeException);
+                throw await CreateAndLogValidationException(exception: nullContentTypeException);
             }
             catch (InvalidContentTypeException invalidContentTypeException)
             {
-                throw await CreateAndLogValidationException(invalidContentTypeException);
+                throw await CreateAndLogValidationException(exception: invalidContentTypeException);
             }
             catch (NotFoundContentTypeException notFoundContentTypeException)
             {
-                throw await CreateAndLogValidationException(notFoundContentTypeException);
+                throw await CreateAndLogValidationException(exception: notFoundContentTypeException);
             }
             catch (SqlException sqlException)
             {
@@ -183,7 +191,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(failedStorageContentTypeException);
+                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentTypeException);
             }
             catch (DuplicateKeyException duplicateKeyException)
             {
@@ -242,12 +250,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
             {
-                var timeoutContentTypeException = new TimeoutContentTypeException(
-                    message: "Content type timed out, contact support.",
-                    innerException: new TimeoutException(),
-                    data: operationCanceledException.Data);
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
 
-                throw await CreateAndLogDependencyException(timeoutContentTypeException);
+                var timeoutContentTypeException =
+                    new TimeoutContentTypeException(
+                        message: "Failed content type timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(exception: timeoutContentTypeException);
             }
             catch (OperationCanceledException)
             {
@@ -260,7 +272,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(failedStorageContentTypeException);
+                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentTypeException);
             }
             catch (Exception exception)
             {
@@ -289,6 +301,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             var contentTypeDependencyException = new ContentTypeDependencyException(
                 message: "Content type dependency error occurred, contact support.",
                 innerException: exception);
+
+            await this.loggingBroker.LogErrorAsync(contentTypeDependencyException);
+
+            return contentTypeDependencyException;
+        }
+
+        private async ValueTask<ContentTypeDependencyException>
+            CreateAndLogTimeoutDependencyExceptionAsync(Xeption exception)
+        {
+            var contentTypeDependencyException =
+                new ContentTypeDependencyException(
+                    message: "Content type dependency error occurred, contact support.",
+                    innerException: exception);
 
             await this.loggingBroker.LogErrorAsync(contentTypeDependencyException);
 

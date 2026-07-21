@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Microsoft.Data.SqlClient;
@@ -23,10 +24,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
     public partial class ContentTypeServiceTests
     {
         [Fact]
-        public async Task ShouldThrowDependencyExceptionOnRetrieveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrievingContentTypeByIdEventIfCancellationRequestedAsync()
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
+            EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<ContentType>?> onRetrievingTask =
+                this.contentTypeService.OnRetrievingContentTypeByIdAsync(
+                    requestEnvelope,
+                    cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(
+                onRetrievingTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnRetrievingContentTypeByIdEventIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
             var operationCanceledException = new OperationCanceledException();
 
             var timeoutException =
@@ -44,28 +69,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentTypeByIdAsync(
-                    someContentTypeId,
-                    TestContext.Current.CancellationToken))
+                    requestEnvelope.Content.Id,
+                    It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<ContentType> retrieveContentTypeByIdTask =
-                this.contentTypeService.RetrieveContentTypeByIdAsync(
-                    someContentTypeId,
+            ValueTask<EventEnvelope<ContentType>?> onRetrievingTask =
+                this.contentTypeService.OnRetrievingContentTypeByIdAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentTypeDependencyException actualContentTypeDependencyException =
                 await Assert.ThrowsAsync<ContentTypeDependencyException>(
-                    retrieveContentTypeByIdTask.AsTask);
+                    onRetrievingTask.AsTask);
 
-            // then
+            // then: the nested retrieve categorizes the timeout and logs it exactly once —
+            // the substrate wrapper must not double-wrap or re-log it.
             actualContentTypeDependencyException.Should().BeEquivalentTo(
                 expectedContentTypeDependencyException);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectContentTypeByIdAsync(
-                    someContentTypeId,
-                    TestContext.Current.CancellationToken),
+                    requestEnvelope.Content.Id,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -74,17 +100,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowCriticalDependencyExceptionOnRetrieveByIdIfSqlErrorOccursAndLogItAsync()
+        public async Task ShouldPassThroughDependencyExceptionOnRetrievingContentTypeByIdEventAsync()
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
+            EventEnvelope<ContentType> requestEnvelope = CreateRandomContentTypeRequestEnvelope();
             SqlException sqlException = GetSqlException();
 
             var failedStorageContentTypeException = new FailedStorageContentTypeException(
@@ -98,29 +123,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentTypeByIdAsync(
-                    someContentTypeId,
-                    TestContext.Current.CancellationToken))
+                    requestEnvelope.Content.Id,
+                    It.IsAny<CancellationToken>()))
                         .ThrowsAsync(sqlException);
 
             // when
-            ValueTask<ContentType> retrieveContentTypeByIdTask =
-                this.contentTypeService.RetrieveContentTypeByIdAsync(
-                    someContentTypeId,
+            ValueTask<EventEnvelope<ContentType>?> onRetrievingTask =
+                this.contentTypeService.OnRetrievingContentTypeByIdAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentTypeDependencyException actualContentTypeDependencyException =
                 await Assert.ThrowsAsync<ContentTypeDependencyException>(
-                    retrieveContentTypeByIdTask.AsTask);
+                    onRetrievingTask.AsTask);
 
-            // then
+            // then: the nested retrieve's categorized exception surfaces unwrapped and is
+            // logged exactly once — the substrate wrapper must not double-wrap or re-log it.
             actualContentTypeDependencyException.Should().BeEquivalentTo(
                 expectedContentTypeDependencyException);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectContentTypeByIdAsync(
-                    someContentTypeId,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogCriticalAsync(It.Is(
@@ -128,42 +148,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveByIdIfCancellationRequestedAsync()
+        public async Task ShouldThrowServiceExceptionOnRetrievingContentTypeByIdEventIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
-            var cancellationToken = new CancellationToken(canceled: true);
-
-            // when
-            ValueTask<ContentType> retrieveContentTypeByIdTask =
-                this.contentTypeService.RetrieveContentTypeByIdAsync(
-                    someContentTypeId,
-                    cancellationToken);
-
-            // then
-            await Assert.ThrowsAsync<OperationCanceledException>(
-                retrieveContentTypeByIdTask.AsTask);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldThrowServiceExceptionOnRetrieveByIdIfServiceErrorOccursAndLogItAsync()
-        {
-            // given
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType storageContentType = CreateRandomContentType();
             var serviceException = new Exception();
+
+            var requestEnvelope = new EventEnvelope<ContentType>
+            {
+                Content = new ContentType { Id = storageContentType.Id },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
 
             var failedContentTypeServiceException = new FailedContentTypeServiceException(
                 message: "Failed content type service error occurred, please contact support.",
@@ -176,29 +176,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentTypeByIdAsync(
-                    someContentTypeId,
-                    TestContext.Current.CancellationToken))
-                        .ThrowsAsync(serviceException);
+                    storageContentType.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentType);
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateNextAsync(requestEnvelope, storageContentType))
+                    .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<ContentType> retrieveContentTypeByIdTask =
-                this.contentTypeService.RetrieveContentTypeByIdAsync(
-                    someContentTypeId,
+            ValueTask<EventEnvelope<ContentType>?> onRetrievingTask =
+                this.contentTypeService.OnRetrievingContentTypeByIdAsync(
+                    requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentTypeServiceException actualContentTypeServiceException =
                 await Assert.ThrowsAsync<ContentTypeServiceException>(
-                    retrieveContentTypeByIdTask.AsTask);
+                    onRetrievingTask.AsTask);
 
             // then
             actualContentTypeServiceException.Should().BeEquivalentTo(
                 expectedContentTypeServiceException);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectContentTypeByIdAsync(
-                    someContentTypeId,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -206,8 +204,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

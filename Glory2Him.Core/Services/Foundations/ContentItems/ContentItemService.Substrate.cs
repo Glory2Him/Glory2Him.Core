@@ -42,22 +42,22 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ValidateContentItemEventEnvelope(envelope);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
+                    cancellationToken: cancellationToken);
 
                 if (alreadyProcessed)
                     return null;
 
-                ContentItem addedContentItem =
-                    await DoAddContentItemAsync(envelope.Content, envelope, cancellationToken);
+                ContentItem addedContentItem = await DoAddContentItemAsync(
+                    contentItem: envelope.Content,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
 
-                await RecordEventProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
-                    cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, addedContentItem);
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: addedContentItem);
             });
 
         public ValueTask<EventEnvelope<ContentItem>?> OnModifyingContentItemAsync(
@@ -69,22 +69,26 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ValidateContentItemEventEnvelope(envelope);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
+                    cancellationToken: cancellationToken);
 
                 if (alreadyProcessed)
                     return null;
 
-                ContentItem modifiedContentItem =
-                    await DoModifyContentItemAsync(envelope.Content, envelope, cancellationToken);
+                ContentItem modifiedContentItem = await DoModifyContentItemAsync(
+                    contentItem: envelope.Content,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
 
                 await RecordEventProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName,
+                    cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, modifiedContentItem);
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: modifiedContentItem);
             });
 
         public ValueTask<EventEnvelope<ContentItem>?> OnRemovingContentItemByIdAsync(
@@ -96,26 +100,27 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ValidateContentItemEventEnvelope(envelope);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentItemOnRemovingContentItemByIdSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentItemOnRemovingContentItemByIdSubscriptionName,
+                    cancellationToken: cancellationToken);
 
                 if (alreadyProcessed)
                     return null;
 
-                ContentItem removedContentItem =
-                    await DoRemoveContentItemByIdAsync(
-                        envelope.Content.Id,
-                        envelope.Content.DeletionReason,
-                        envelope,
-                        cancellationToken);
+                ContentItem removedContentItem = await DoRemoveContentItemByIdAsync(
+                    contentItemId: envelope.Content.Id,
+                    deletionReason: envelope.Content.DeletionReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
 
                 await RecordEventProcessedAsync(
-                    envelope,
-                    EventBrokerIdentifiers.ContentItemOnRemovingContentItemByIdSubscriptionName,
-                    cancellationToken);
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers.ContentItemOnRemovingContentItemByIdSubscriptionName,
+                    cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(envelope, removedContentItem);
+                return await this.eventEnvelopeFactory.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: removedContentItem);
             });
 
         public ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
@@ -127,12 +132,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 ValidateContentItemEventEnvelope(envelope);
 
                 // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                ContentItem retrievedContentItem =
-                    await RetrieveContentItemByIdAsync(envelope.Content.Id, cancellationToken);
+                ContentItem retrievedContentItem = await RetrieveContentItemByIdAsync(
+                    contentItemId: envelope.Content.Id,
+                    cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeFactory.CreateNextAsync(
-                    envelope,
-                    retrievedContentItem);
+                    sourceEnvelope: envelope,
+                    content: retrievedContentItem);
             });
 
         private async ValueTask<bool> AlreadyProcessedAsync(
@@ -140,23 +146,23 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             string receiverName,
             CancellationToken cancellationToken) =>
             await this.storageBroker.SelectProcessedEventExistsAsync(
-                envelope.Metadata.EventId,
-                receiverName,
-                cancellationToken);
+                eventId: envelope.Metadata.EventId,
+                receiverName: receiverName,
+                cancellationToken: cancellationToken);
 
         private async ValueTask RecordEventProcessedAsync(
             EventEnvelope<ContentItem> envelope,
             string receiverName,
             CancellationToken cancellationToken) =>
             await this.storageBroker.InsertProcessedEventAsync(
-                new ProcessedEvent
+                processedEvent: new ProcessedEvent
                 {
                     Id = await this.identifierBroker.GetIdentifierAsync(),
                     EventId = envelope.Metadata.EventId,
                     ReceiverName = receiverName,
                     ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
                 },
-                cancellationToken);
+                cancellationToken: cancellationToken);
 
         private static void ValidateContentItemEventEnvelope(EventEnvelope<ContentItem> envelope)
         {

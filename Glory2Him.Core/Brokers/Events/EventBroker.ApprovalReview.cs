@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<ApprovalReview> envelope,
             ApprovalReviewEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
-                    nameof(ApprovalReview),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
+                    entityName: nameof(ApprovalReview),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToApprovalReviewEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> approvalReviewEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
-                    subscription,
-                    operation,
-                    approvalReviewEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalReviewEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToApprovalReviewEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<ApprovalReview>?>> approvalReviewEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
-                    subscription,
-                    operation,
-                    approvalReviewEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalReviewEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

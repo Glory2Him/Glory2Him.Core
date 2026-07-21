@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
             catch (InvalidContentItemEventException invalidContentItemEventException)
             {
-                throw await CreateAndLogValidationException(invalidContentItemEventException);
+                throw await CreateAndLogValidationException(exception: invalidContentItemEventException);
             }
             catch (ContentItemValidationException)
             {
@@ -72,7 +72,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: exception,
                     data: exception.Data);
 
-                throw await CreateAndLogServiceException(failedContentItemServiceException);
+                throw await CreateAndLogServiceException(exception: failedContentItemServiceException);
             }
         }
 
@@ -90,7 +90,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: new TimeoutException(),
                     data: operationCanceledException.Data);
 
-                throw await CreateAndLogDependencyException(timeoutContentItemException);
+                throw await CreateAndLogDependencyException(exception: timeoutContentItemException);
             }
             catch (OperationCanceledException)
             {
@@ -98,11 +98,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
             catch (NullContentItemException nullContentItemException)
             {
-                throw await CreateAndLogValidationException(nullContentItemException);
+                throw await CreateAndLogValidationException(exception: nullContentItemException);
             }
             catch (InvalidContentItemException invalidContentItemException)
             {
-                throw await CreateAndLogValidationException(invalidContentItemException);
+                throw await CreateAndLogValidationException(exception: invalidContentItemException);
             }
             catch (SqlException sqlException)
             {
@@ -111,11 +111,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(failedStorageContentItemException);
+                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentItemException);
             }
             catch (NotFoundContentItemException notFoundContentItemException)
             {
-                throw await CreateAndLogValidationException(notFoundContentItemException);
+                throw await CreateAndLogValidationException(exception: notFoundContentItemException);
             }
             catch (DuplicateKeyException duplicateKeyException)
             {
@@ -124,7 +124,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: duplicateKeyException,
                     data: duplicateKeyException.Data);
 
-                throw await CreateAndLogDependencyValidationException(alreadyExistsContentItemException);
+                throw await CreateAndLogDependencyValidationException(exception: alreadyExistsContentItemException);
             }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
@@ -133,7 +133,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: foreignKeyConstraintConflictException,
                     data: foreignKeyConstraintConflictException.Data);
 
-                throw await CreateAndLogDependencyValidationException(invalidContentItemReferenceException);
+                throw await CreateAndLogDependencyValidationException(
+                    exception: invalidContentItemReferenceException);
             }
             catch (DbUpdateConcurrencyException dbUpdateConcurrencyException)
             {
@@ -142,7 +143,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: dbUpdateConcurrencyException,
                     data: dbUpdateConcurrencyException.Data);
 
-                throw await CreateAndLogDependencyValidationException(lockedContentItemException);
+                throw await CreateAndLogDependencyValidationException(exception: lockedContentItemException);
             }
             catch (DbUpdateException dbUpdateException)
             {
@@ -151,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: dbUpdateException,
                     data: dbUpdateException.Data);
 
-                throw await CreateAndLogDependencyException(failedStorageContentItemException);
+                throw await CreateAndLogDependencyException(exception: failedStorageContentItemException);
             }
             catch (Exception exception)
             {
@@ -160,7 +161,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: exception,
                     data: exception.Data);
 
-                throw await CreateAndLogServiceException(failedContentItemServiceException);
+                throw await CreateAndLogServiceException(exception: failedContentItemServiceException);
             }
         }
 
@@ -179,7 +180,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: new TimeoutException(),
                     data: operationCanceledException.Data);
 
-                throw await CreateAndLogDependencyException(timeoutContentItemException);
+                throw await CreateAndLogDependencyException(exception: timeoutContentItemException);
             }
             catch (OperationCanceledException)
             {
@@ -192,7 +193,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: sqlException,
                     data: sqlException.Data);
 
-                throw await CreateAndLogCriticalDependencyException(failedStorageContentItemException);
+                throw await CreateAndLogCriticalDependencyException(exception: failedStorageContentItemException);
             }
             catch (Exception exception)
             {
@@ -201,7 +202,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     innerException: exception,
                     data: exception.Data);
 
-                throw await CreateAndLogServiceException(failedContentItemServiceException);
+                throw await CreateAndLogServiceException(exception: failedContentItemServiceException);
             }
         }
 
@@ -211,7 +212,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item validation error occurred, fix the errors and try again.",
                 innerException: exception);
 
-            await this.loggingBroker.LogErrorAsync(contentItemValidationException);
+            await this.loggingBroker.LogErrorAsync(exception: contentItemValidationException);
 
             return contentItemValidationException;
         }
@@ -223,7 +224,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item dependency error occurred, contact support.",
                 innerException: exception);
 
-            await this.loggingBroker.LogCriticalAsync(contentItemDependencyException);
+            await this.loggingBroker.LogCriticalAsync(exception: contentItemDependencyException);
 
             return contentItemDependencyException;
         }
@@ -235,7 +236,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item dependency validation error occurred, fix the errors and try again.",
                 innerException: exception);
 
-            await this.loggingBroker.LogErrorAsync(contentItemDependencyValidationException);
+            await this.loggingBroker.LogErrorAsync(exception: contentItemDependencyValidationException);
 
             return contentItemDependencyValidationException;
         }
@@ -246,7 +247,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item dependency error occurred, contact support.",
                 innerException: exception);
 
-            await this.loggingBroker.LogErrorAsync(contentItemDependencyException);
+            await this.loggingBroker.LogErrorAsync(exception: contentItemDependencyException);
 
             return contentItemDependencyException;
         }
@@ -257,7 +258,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item service error occurred, contact support.",
                 innerException: exception);
 
-            await this.loggingBroker.LogErrorAsync(contentItemServiceException);
+            await this.loggingBroker.LogErrorAsync(exception: contentItemServiceException);
 
             return contentItemServiceException;
         }

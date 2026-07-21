@@ -28,7 +28,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             }
             catch (InvalidArgumentAuditException invalidArgumentAuditException)
             {
-                throw await CreateAndLogValidationExceptionAsync(invalidArgumentAuditException);
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidArgumentAuditException);
             }
             catch (Exception exception)
             {
@@ -37,7 +37,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                         message: "Failed audit service error occurred, please contact support.",
                         innerException: exception);
 
-                throw await CreateAndLogServiceExceptionAsync(failedAuditServiceException);
+                throw await CreateAndLogServiceExceptionAsync(exception: failedAuditServiceException);
             }
         }
 

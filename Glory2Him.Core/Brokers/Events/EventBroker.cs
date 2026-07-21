@@ -152,16 +152,16 @@ namespace Glory2Him.Core.Brokers.Events
             where TOperation : struct, Enum
         {
             return SubscribeToEventAsync(
-                eventAddressIds,
-                subscription,
-                operation,
-                async (EventEnvelope<T> envelope, CancellationToken handlerCancellationToken) =>
+                eventAddressIds: eventAddressIds,
+                subscription: subscription,
+                operation: operation,
+                eventHandler: async (EventEnvelope<T> envelope, CancellationToken handlerCancellationToken) =>
                 {
                     await eventHandler(envelope, handlerCancellationToken);
 
                     return null;
                 },
-                cancellationToken);
+                cancellationToken: cancellationToken);
         }
 
         private async ValueTask SubscribeToEventAsync<T, TOperation>(

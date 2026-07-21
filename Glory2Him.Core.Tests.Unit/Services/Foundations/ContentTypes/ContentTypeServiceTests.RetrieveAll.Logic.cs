@@ -28,7 +28,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             IQueryable<ContentType> expectedContentTypes = storageContentTypes;
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectAllContentTypesAsync())
+                broker.SelectAllContentTypesAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentTypes);
 
             // when
@@ -40,7 +40,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             actualContentTypes.Should().BeEquivalentTo(expectedContentTypes);
 
             this.storageBrokerMock.Verify(broker =>
-                broker.SelectAllContentTypesAsync(),
+                broker.SelectAllContentTypesAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

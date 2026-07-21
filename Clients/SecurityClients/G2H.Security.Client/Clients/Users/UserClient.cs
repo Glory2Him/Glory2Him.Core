@@ -165,7 +165,10 @@ namespace G2H.Security.Client.Clients.Users
         {
             try
             {
-                return await userService.UserHasClaimAsync(claimsPrincipal, type, value);
+                return await userService.UserHasClaimAsync(
+                    claimsPrincipal: claimsPrincipal,
+                    claimType: type,
+                    claimValue: value);
             }
             catch (UserValidationException userValidationException)
             {
@@ -197,7 +200,7 @@ namespace G2H.Security.Client.Clients.Users
         {
             try
             {
-                return await userService.UserHasClaimAsync(claimsPrincipal, type);
+                return await userService.UserHasClaimAsync(claimsPrincipal: claimsPrincipal, claimType: type);
             }
             catch (UserValidationException userValidationException)
             {

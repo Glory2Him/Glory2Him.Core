@@ -16,6 +16,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
@@ -108,6 +109,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                                 EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName),
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
 
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();

@@ -11,7 +11,7 @@
 
 using System;
 using System.Collections.Generic;
-using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 
 namespace Glory2Him.Core.Models.Configurations
 {

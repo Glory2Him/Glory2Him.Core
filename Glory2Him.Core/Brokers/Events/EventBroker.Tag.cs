@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<Tag> envelope,
             TagEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.TagEventAddressIds,
-                    nameof(Tag),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.TagEventAddressIds,
+                    entityName: nameof(Tag),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToTagEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> tagEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.TagEventAddressIds,
-                    subscription,
-                    operation,
-                    tagEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.TagEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: tagEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToTagEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<Tag>?>> tagEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.TagEventAddressIds,
-                    subscription,
-                    operation,
-                    tagEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.TagEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: tagEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

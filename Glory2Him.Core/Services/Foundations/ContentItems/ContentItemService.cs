@@ -20,7 +20,9 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
@@ -70,9 +72,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
 
                 EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(contentItem);
+                    await this.eventEnvelopeFactory.CreateAsync(content: contentItem);
 
-                return await DoAddContentItemAsync(contentItem, envelope, cancellationToken);
+                return await DoAddContentItemAsync(
+                    contentItem: contentItem,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
@@ -92,10 +97,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRetrieveContentItemById(contentItemId);
 
-                ContentItem maybeContentItem =
-                    await this.storageBroker.SelectContentItemByIdAsync(
-                        contentItemId,
-                        cancellationToken);
+                ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
 
                 ValidateStorageContentItem(maybeContentItem, contentItemId);
 
@@ -110,9 +114,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
 
                 EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(contentItem);
+                    await this.eventEnvelopeFactory.CreateAsync(content: contentItem);
 
-                return await DoModifyContentItemAsync(contentItem, envelope, cancellationToken);
+                return await DoModifyContentItemAsync(
+                    contentItem: contentItem,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentItem> RemoveContentItemByIdAsync(
@@ -131,13 +138,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 };
 
                 EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(removeRequest);
+                    await this.eventEnvelopeFactory.CreateAsync(content: removeRequest);
 
                 return await DoRemoveContentItemByIdAsync(
-                    contentItemId,
-                    deletionReason,
-                    envelope,
-                    cancellationToken);
+                    contentItemId: contentItemId,
+                    deletionReason: deletionReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentItem> HardRemoveContentItemByIdAsync(
@@ -148,15 +155,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateOnRemoveContentItemById(contentItemId);
 
-                ContentItem maybeContentItem =
-                    await this.storageBroker.SelectContentItemByIdAsync(contentItemId, cancellationToken);
+                ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
 
                 ValidateStorageContentItem(maybeContentItem, contentItemId);
 
                 EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(maybeContentItem);
+                    await this.eventEnvelopeFactory.CreateAsync(content: maybeContentItem);
 
-                return await DoHardRemoveContentItemAsync(maybeContentItem, envelope, cancellationToken);
+                return await DoHardRemoveContentItemAsync(
+                    contentItem: maybeContentItem,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         private async ValueTask<ContentItem> DoAddContentItemAsync(
@@ -164,20 +175,33 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            contentItem = await this.securityAuditBroker
-                .ApplyAddAuditValuesAsync(contentItem, inboundEnvelope.SecurityContext);
+            contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(
+                entity: contentItem,
+                securityContext: inboundEnvelope.SecurityContext);
 
             await ValidateOnAddContentItem(contentItem, inboundEnvelope.SecurityContext);
 
-            ContentItem addedContentItem =
-                await this.storageBroker.InsertContentItemAsync(contentItem, cancellationToken);
+            ContentItem addedContentItem = await this.storageBroker.InsertContentItemAsync(
+                contentItem: contentItem,
+                cancellationToken: cancellationToken);
 
-            EventEnvelope<ContentItem> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, addedContentItem);
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            EventEnvelope<ContentItem> outboundEnvelope = await this.eventEnvelopeFactory.CreateNextAsync(
+                sourceEnvelope: inboundEnvelope,
+                content: addedContentItem);
 
             await this.eventBroker.PublishContentItemAsync(
-                outboundEnvelope,
-                ContentItemEventOperation.Added);
+                envelope: outboundEnvelope,
+                operation: ContentItemEventOperation.Added);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
+                cancellationToken: cancellationToken);
 
             return addedContentItem;
         }
@@ -187,32 +211,37 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            contentItem = await this.securityAuditBroker
-                .ApplyModifyAuditValuesAsync(contentItem, inboundEnvelope.SecurityContext);
+            contentItem = await this.securityAuditBroker.ApplyModifyAuditValuesAsync(
+                entity: contentItem,
+                securityContext: inboundEnvelope.SecurityContext);
 
             await ValidateOnModifyContentItem(contentItem, inboundEnvelope.SecurityContext);
 
-            ContentItem maybeContentItem =
-                await this.storageBroker.SelectContentItemByIdAsync(contentItem.Id, cancellationToken);
+            ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
+                contentItemId: contentItem.Id,
+                cancellationToken: cancellationToken);
 
             ValidateStorageContentItem(maybeContentItem, contentItem.Id);
 
-            contentItem = await this.securityAuditBroker
-                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(contentItem, maybeContentItem);
+            contentItem = await this.securityAuditBroker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                entity: contentItem,
+                storageEntity: maybeContentItem);
 
             ValidateAgainstStorageContentItemOnModify(
                 inputContentItem: contentItem,
                 storageContentItem: maybeContentItem);
 
-            ContentItem updatedContentItem =
-                await this.storageBroker.UpdateContentItemAsync(contentItem, cancellationToken);
+            ContentItem updatedContentItem = await this.storageBroker.UpdateContentItemAsync(
+                contentItem: contentItem,
+                cancellationToken: cancellationToken);
 
-            EventEnvelope<ContentItem> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, updatedContentItem);
+            EventEnvelope<ContentItem> outboundEnvelope = await this.eventEnvelopeFactory.CreateNextAsync(
+                sourceEnvelope: inboundEnvelope,
+                content: updatedContentItem);
 
             await this.eventBroker.PublishContentItemAsync(
-                outboundEnvelope,
-                ContentItemEventOperation.Modified);
+                envelope: outboundEnvelope,
+                operation: ContentItemEventOperation.Modified);
 
             return updatedContentItem;
         }
@@ -225,8 +254,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         {
             ValidateOnRemoveContentItemById(contentItemId);
 
-            ContentItem maybeContentItem =
-                await this.storageBroker.SelectContentItemByIdAsync(contentItemId, cancellationToken);
+            ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
+                contentItemId: contentItemId,
+                cancellationToken: cancellationToken);
 
             ValidateStorageContentItem(maybeContentItem, contentItemId);
 
@@ -234,20 +264,23 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 return maybeContentItem;
 
             maybeContentItem = await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
-                    maybeContentItem,
-                    inboundEnvelope.SecurityContext);
+                entity: maybeContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
+
             maybeContentItem.IsDeleted = true;
             maybeContentItem.DeletionReason = deletionReason;
 
-            ContentItem deletedContentItem =
-                await this.storageBroker.UpdateContentItemAsync(maybeContentItem, cancellationToken);
+            ContentItem deletedContentItem = await this.storageBroker.UpdateContentItemAsync(
+                contentItem: maybeContentItem,
+                cancellationToken: cancellationToken);
 
-            EventEnvelope<ContentItem> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, deletedContentItem);
+            EventEnvelope<ContentItem> outboundEnvelope = await this.eventEnvelopeFactory.CreateNextAsync(
+                sourceEnvelope: inboundEnvelope,
+                content: deletedContentItem);
 
             await this.eventBroker.PublishContentItemAsync(
-                outboundEnvelope,
-                ContentItemEventOperation.Removed);
+                envelope: outboundEnvelope,
+                operation: ContentItemEventOperation.Removed);
 
             return deletedContentItem;
         }
@@ -257,15 +290,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ContentItem deletedContentItem =
-                await this.storageBroker.DeleteContentItemAsync(contentItem, cancellationToken);
+            ContentItem deletedContentItem = await this.storageBroker.DeleteContentItemAsync(
+                contentItem: contentItem,
+                cancellationToken: cancellationToken);
 
-            EventEnvelope<ContentItem> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(inboundEnvelope, deletedContentItem);
+            EventEnvelope<ContentItem> outboundEnvelope = await this.eventEnvelopeFactory.CreateNextAsync(
+                sourceEnvelope: inboundEnvelope,
+                content: deletedContentItem);
 
             await this.eventBroker.PublishContentItemAsync(
-                outboundEnvelope,
-                ContentItemEventOperation.Removed);
+                envelope: outboundEnvelope,
+                operation: ContentItemEventOperation.Removed);
 
             return deletedContentItem;
         }

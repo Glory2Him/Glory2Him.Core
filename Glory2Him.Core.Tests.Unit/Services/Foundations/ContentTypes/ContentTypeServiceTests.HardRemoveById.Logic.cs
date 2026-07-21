@@ -13,8 +13,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
@@ -42,7 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.eventBrokerMock.Setup(broker =>
                 broker.PublishContentTypeAsync(
                     It.IsAny<EventEnvelope<ContentType>>(),
-                    ContentTypeEventOperation.Removed))
+                    ContentTypeEventOperation.HardRemoved))
                     .Returns(new ValueTask<EventPublishResult<ContentType>>(
                         new EventPublishResult<ContentType>()));
 
@@ -68,8 +71,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             this.eventBrokerMock.Verify(broker =>
                 broker.PublishContentTypeAsync(
                     It.IsAny<EventEnvelope<ContentType>>(),
-                    ContentTypeEventOperation.Removed),
+                    ContentTypeEventOperation.HardRemoved),
                 Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

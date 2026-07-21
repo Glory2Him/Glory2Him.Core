@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Links;
 
 namespace Glory2Him.Core.Brokers.Events
@@ -24,10 +25,10 @@ namespace Glory2Him.Core.Brokers.Events
             EventEnvelope<Link> envelope,
             LinkEventOperation operation) =>
                 PublishEventAsync(
-                    EventBrokerIdentifiers.LinkEventAddressIds,
-                    nameof(Link),
-                    envelope,
-                    operation);
+                    eventAddressIds: EventBrokerIdentifiers.LinkEventAddressIds,
+                    entityName: nameof(Link),
+                    envelope: envelope,
+                    operation: operation);
 
         public ValueTask SubscribeToLinkEventAsync(
             EventSubscription subscription,
@@ -36,11 +37,11 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask> linkEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.LinkEventAddressIds,
-                    subscription,
-                    operation,
-                    linkEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.LinkEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: linkEventHandler,
+                    cancellationToken: cancellationToken);
 
         public ValueTask SubscribeToLinkEventAsync(
             EventSubscription subscription,
@@ -49,10 +50,10 @@ namespace Glory2Him.Core.Brokers.Events
                 ValueTask<EventEnvelope<Link>?>> linkEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    EventBrokerIdentifiers.LinkEventAddressIds,
-                    subscription,
-                    operation,
-                    linkEventHandler,
-                    cancellationToken);
+                    eventAddressIds: EventBrokerIdentifiers.LinkEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: linkEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

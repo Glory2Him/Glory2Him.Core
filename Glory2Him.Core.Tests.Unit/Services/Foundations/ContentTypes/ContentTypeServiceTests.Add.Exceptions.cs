@@ -24,6 +24,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 {
     public partial class ContentTypeServiceTests
     {
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnAddIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            ContentType someContentType = CreateRandomContentType();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutContentTypeException =
+                new TimeoutContentTypeException(
+                    message: "Failed content type timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedContentTypeDependencyException = new ContentTypeDependencyException(
+                message: "Content type dependency error occurred, contact support.",
+                innerException: timeoutContentTypeException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
+                    .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<ContentType> addContentTypeTask =
+                this.contentTypeService.AddContentTypeAsync(
+                    someContentType,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeDependencyException actualContentTypeDependencyException =
+                await Assert.ThrowsAsync<ContentTypeDependencyException>(
+                    addContentTypeTask.AsTask);
+
+            // then
+            actualContentTypeDependencyException.Should().BeEquivalentTo(
+                expectedContentTypeDependencyException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Theory]
         [MemberData(nameof(DependencyExceptions))]
         public async Task ShouldThrowDependencyExceptionOnAddIfErrorOccursAndLogItAsync(
@@ -72,7 +126,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         }
 
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnAddIfCancellationRequestedAndLogItAsync()
+        public async Task ShouldThrowOperationCanceledExceptionOnAddIfCancellationRequestedAsync()
         {
             // given
             ContentType someContentType = CreateRandomContentType();
