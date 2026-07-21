@@ -10,56 +10,36 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingRoles;
 
-namespace Glory2Him.Core.Brokers.Storages.Sql
+namespace Glory2Him.Core.Services.Foundations.ApprovalSettingRoles
 {
-    public partial interface IStorageBroker
+    public partial interface IApprovalSettingRoleService
     {
-        ValueTask<ApprovalSettingRole> InsertApprovalSettingRoleAsync(
+        ValueTask<ApprovalSettingRole> AddApprovalSettingRoleAsync(
             ApprovalSettingRole approvalSettingRole,
             CancellationToken cancellationToken = default);
 
-        ValueTask<IQueryable<ApprovalSettingRole>> SelectAllApprovalSettingRolesAsync(
+        ValueTask<IQueryable<ApprovalSettingRole>> RetrieveAllApprovalSettingRolesAsync(
             CancellationToken cancellationToken = default);
 
-        ValueTask<ApprovalSettingRole> SelectApprovalSettingRoleByIdAsync(
+        ValueTask<ApprovalSettingRole> RetrieveApprovalSettingRoleByIdAsync(
             Guid approvalSettingRoleId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<ApprovalSettingRole> UpdateApprovalSettingRoleAsync(
+        ValueTask<ApprovalSettingRole> ModifyApprovalSettingRoleAsync(
             ApprovalSettingRole approvalSettingRole,
             CancellationToken cancellationToken = default);
 
-        ValueTask<ApprovalSettingRole> DeleteApprovalSettingRoleAsync(
-            ApprovalSettingRole approvalSettingRole,
+        ValueTask<ApprovalSettingRole> RemoveApprovalSettingRoleByIdAsync(
+            Guid approvalSettingRoleId,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
 
-        ValueTask BulkInsertApprovalSettingRolesAsync(
-            List<ApprovalSettingRole> approvalSettingRoles,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpdateApprovalSettingRolesAsync(
-            List<ApprovalSettingRole> approvalSettingRoles,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkDeleteApprovalSettingRolesAsync(
-            List<ApprovalSettingRole> approvalSettingRoles,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<IEnumerable<ApprovalSettingRole>> BulkReadApprovalSettingRolesAsync(
-            List<ApprovalSettingRole> approvalSettingRoles,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpsertApprovalSettingRolesAsync(
-            List<ApprovalSettingRole> approvalSettingRoles,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<bool> ExistsApprovalSettingRoleAsync(
+        ValueTask<ApprovalSettingRole> HardRemoveApprovalSettingRoleByIdAsync(
             Guid approvalSettingRoleId,
             CancellationToken cancellationToken = default);
     }
