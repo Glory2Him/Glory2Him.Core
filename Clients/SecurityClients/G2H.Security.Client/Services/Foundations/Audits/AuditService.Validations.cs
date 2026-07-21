@@ -1,13 +1,12 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -56,27 +55,27 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             Validate(
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedByPropertyName,
-                    entity,
-                    securityConfigurations.CreatedByPropertyType),
+                    propertyName: securityConfigurations.CreatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.CreatedWhenPropertyType),
+                    propertyName: securityConfigurations.CreatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedByPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedByPropertyType),
+                    propertyName: securityConfigurations.UpdatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedWhenPropertyType),
+                    propertyName: securityConfigurations.UpdatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
         }
 
@@ -117,27 +116,27 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             Validate(
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedByPropertyName,
-                    entity,
-                    securityConfigurations.CreatedByPropertyType),
+                    propertyName: securityConfigurations.CreatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.CreatedWhenPropertyType),
+                    propertyName: securityConfigurations.CreatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedByPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedByPropertyType),
+                    propertyName: securityConfigurations.UpdatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedWhenPropertyType),
+                    propertyName: securityConfigurations.UpdatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
         }
 
@@ -202,51 +201,51 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             Validate(
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedByPropertyName,
-                    entity,
-                    securityConfigurations.CreatedByPropertyType),
+                    propertyName: securityConfigurations.CreatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.CreatedWhenPropertyType),
+                    propertyName: securityConfigurations.CreatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedByPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedByPropertyType),
+                    propertyName: securityConfigurations.UpdatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedWhenPropertyType),
+                    propertyName: securityConfigurations.UpdatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.DeletedByPropertyName,
-                    entity,
-                    securityConfigurations.DeletedByPropertyType),
+                    propertyName: securityConfigurations.DeletedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.DeletedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.DeletedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.DeletedWhenPropertyName,
-                    entity,
-                    securityConfigurations.DeletedWhenPropertyType),
+                    propertyName: securityConfigurations.DeletedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.DeletedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.DeletedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.IsDeletedPropertyName,
-                    entity,
-                    securityConfigurations.IsDeletedPropertyType),
+                    propertyName: securityConfigurations.IsDeletedPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.IsDeletedPropertyType),
                 Parameter: nameof(SecurityConfigurations.IsDeletedPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.DeletionReasonPropertyName,
-                    entity,
-                    securityConfigurations.DeletionReasonPropertyType),
+                    propertyName: securityConfigurations.DeletionReasonPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.DeletionReasonPropertyType),
                 Parameter: nameof(SecurityConfigurations.DeletionReasonPropertyName)));
         }
 
@@ -287,51 +286,51 @@ namespace G2H.Security.Client.Services.Foundations.Audits
 
             Validate(
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedByPropertyName,
-                    entity,
-                    securityConfigurations.CreatedByPropertyType),
+                    propertyName: securityConfigurations.CreatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.CreatedWhenPropertyType),
+                    propertyName: securityConfigurations.CreatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.CreatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedByPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedByPropertyType),
+                    propertyName: securityConfigurations.UpdatedByPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedWhenPropertyName,
-                    entity,
-                    securityConfigurations.UpdatedWhenPropertyType),
+                    propertyName: securityConfigurations.UpdatedWhenPropertyName,
+                    entity: entity,
+                    expectedType: securityConfigurations.UpdatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedByPropertyName,
-                    storageEntity,
-                    securityConfigurations.CreatedByPropertyType),
+                    propertyName: securityConfigurations.CreatedByPropertyName,
+                    entity: storageEntity,
+                    expectedType: securityConfigurations.CreatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.CreatedWhenPropertyName,
-                    storageEntity,
-                    securityConfigurations.CreatedWhenPropertyType),
+                    propertyName: securityConfigurations.CreatedWhenPropertyName,
+                    entity: storageEntity,
+                    expectedType: securityConfigurations.CreatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.CreatedWhenPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedByPropertyName,
-                    storageEntity,
-                    securityConfigurations.UpdatedByPropertyType),
+                    propertyName: securityConfigurations.UpdatedByPropertyName,
+                    entity: storageEntity,
+                    expectedType: securityConfigurations.UpdatedByPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedByPropertyName)),
 
                 (Rule: IsInvalidProperty(
-                    securityConfigurations.UpdatedWhenPropertyName,
-                    storageEntity,
-                    securityConfigurations.UpdatedWhenPropertyType),
+                    propertyName: securityConfigurations.UpdatedWhenPropertyName,
+                    entity: storageEntity,
+                    expectedType: securityConfigurations.UpdatedWhenPropertyType),
                 Parameter: nameof(SecurityConfigurations.UpdatedWhenPropertyName)));
         }
 

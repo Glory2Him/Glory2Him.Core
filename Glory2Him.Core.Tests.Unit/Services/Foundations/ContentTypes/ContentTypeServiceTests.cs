@@ -1,25 +1,28 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
@@ -35,7 +38,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
     {
         private readonly Mock<IStorageBroker> storageBrokerMock;
         private readonly Mock<IDateTimeBroker> dateTimeBrokerMock;
+        private readonly Mock<IIdentifierBroker> identifierBrokerMock;
         private readonly Mock<IEventBroker> eventBrokerMock;
+        private readonly Mock<IEventEnvelopeFactory> eventEnvelopeFactoryMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentTypeService contentTypeService;
@@ -44,14 +49,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         {
             this.storageBrokerMock = new Mock<IStorageBroker>();
             this.dateTimeBrokerMock = new Mock<IDateTimeBroker>();
+            this.identifierBrokerMock = new Mock<IIdentifierBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
+            this.eventEnvelopeFactoryMock = new Mock<IEventEnvelopeFactory>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateAsync(It.IsAny<ContentType>()))
+                    .Returns((ContentType content) =>
+                        new ValueTask<EventEnvelope<ContentType>>(
+                            new EventEnvelope<ContentType>
+                            {
+                                Content = content,
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateNextAsync(
+                    It.IsAny<EventEnvelope<ContentType>>(),
+                    It.IsAny<ContentType>()))
+                        .Returns((EventEnvelope<ContentType> sourceEnvelope, ContentType content) =>
+                            new ValueTask<EventEnvelope<ContentType>>(
+                                new EventEnvelope<ContentType>
+                                {
+                                    Content = content,
+                                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                                }));
 
             this.contentTypeService = new ContentTypeService(
                 storageBroker: this.storageBrokerMock.Object,
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
+                identifierBroker: this.identifierBrokerMock.Object,
                 eventBroker: this.eventBrokerMock.Object,
+                eventEnvelopeFactory: this.eventEnvelopeFactoryMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
@@ -93,6 +124,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
             var operationCanceledException = new OperationCanceledException();
+            var timeoutException = new TimeoutException("The dependency operation timed out.");
             var dbUpdateException = new DbUpdateException();
 
             return new TheoryData<Exception, Xeption>
@@ -100,9 +132,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 {
                     operationCanceledException,
                     new TimeoutContentTypeException(
-                        message: "Content type timed out, contact support.",
-                        innerException: new TimeoutException(),
-                        data: operationCanceledException.Data)
+                        message: "Failed content type timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data)
                 },
                 {
                     dbUpdateException,
@@ -166,6 +198,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
         private static ContentType CreateRandomContentType() =>
             CreateContentTypeFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
+
+        private static EventEnvelope<ContentType> CreateRandomContentTypeRequestEnvelope() =>
+            new EventEnvelope<ContentType>
+            {
+                Content = new ContentType { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
 
         private static ContentType CreateRandomModifyContentType(
             DateTimeOffset dateTimeOffset,

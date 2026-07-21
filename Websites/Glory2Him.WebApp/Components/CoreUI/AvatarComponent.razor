@@ -1,0 +1,21 @@
+@namespace Glory2Him.WebApp.Components.CoreUI
+
+@* Reusable avatar. Renders the user's profile image when one is set, otherwise a deterministic
+   initials circle (colour derived from the name). Presentational only (ts-ui-001). *@
+
+<div class="avatar @SizeCssClass" style="width:@(SizePx)px;height:@(SizePx)px;">
+    @if (!string.IsNullOrWhiteSpace(ImageUrl))
+    {
+        <img class="avatar-img rounded-circle"
+             style="width:@(SizePx)px;height:@(SizePx)px;object-fit:cover;"
+             src="@ImageUrl" alt="@Name" />
+    }
+    else
+    {
+        <span class="avatar-img rounded-circle d-inline-flex align-items-center justify-content-center text-white fw-bold"
+              style="width:@(SizePx)px;height:@(SizePx)px;background-color:@BackgroundColor;font-size:@(FontSizePx)px;"
+              role="img" aria-label="@Name" title="@Name">
+            @Initials
+        </span>
+    }
+</div>

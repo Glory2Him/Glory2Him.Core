@@ -3,26 +3,39 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial interface IEventBroker
     {
-        ValueTask PublishContentItemAsync(EventEnvelope<ContentItem> envelope, string? eventName = null);
+        ValueTask<EventPublishResult<ContentItem>> PublishContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            ContentItemEventOperation operation);
 
-        void SubscribeToContentItemEvent(
-            Func<EventEnvelope<ContentItem>, ValueTask> contentItemEventHandler,
-            string? eventName = null);
+        ValueTask SubscribeToContentItemEventAsync(
+            EventSubscription subscription,
+            ContentItemEventOperation operation,
+            Func<EventEnvelope<ContentItem>, CancellationToken,
+                ValueTask> contentItemEventHandler,
+            CancellationToken cancellationToken = default);
+
+        ValueTask SubscribeToContentItemEventAsync(
+            EventSubscription subscription,
+            ContentItemEventOperation operation,
+            Func<EventEnvelope<ContentItem>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItem>?>> contentItemEventHandler,
+            CancellationToken cancellationToken = default);
     }
 }

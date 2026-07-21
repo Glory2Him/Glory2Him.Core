@@ -31,23 +31,26 @@
 		<PackageReference Include="EFxceptions" Version="10.0.0" />
 		<PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
 		<PackageReference Include="Xeption" Version="2.9.0" />
-		<PackageReference Include="LeVent" Version="1.2.0" />
+		<PackageReference Include="EventHighway" Version="2.2.0" />
+		<PackageReference Include="EventHighway.Abstractions" Version="2.2.0" />
+		<PackageReference Include="EventHighway.EventHandlers" Version="2.2.0" />
+		<PackageReference Include="EventHighway.SqlServer" Version="2.2.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.11" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.9" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer.HierarchyId" Version="10.0.9" />
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9">
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer.HierarchyId" Version="10.0.10" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.9">
+		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.9" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.9" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.9" />
-		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.9" />
+		<PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.10" />
 	</ItemGroup>
 	
 	<ItemGroup>
@@ -92,6 +95,11 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\Clients\SecurityClients\G2H.Security.Client\G2H.Security.Client.csproj" />
 	  <ProjectReference Include="..\Clients\StorageClients\G2H.StorageClient\G2H.StorageClient.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Models\Events\Orchestrations\" />
+	  <Folder Include="Models\Events\Processings\" />
 	</ItemGroup>
 
 </Project>

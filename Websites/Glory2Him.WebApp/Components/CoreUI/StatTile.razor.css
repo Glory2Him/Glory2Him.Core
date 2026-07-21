@@ -1,0 +1,9 @@
+/* The tile now uses Blogzine/Bootstrap card + contextual colours (see StatTile.razor).
+   These classes remain as styling hooks for the RAG variants without overriding the theme. */
+.stat-tile {
+    height: 100%;
+}
+
+.stat-tile-value {
+    line-height: 1.2;
+}

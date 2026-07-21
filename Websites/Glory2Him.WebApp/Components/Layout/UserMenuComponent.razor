@@ -1,0 +1,161 @@
+@namespace Glory2Him.WebApp.Components.Layout
+@using Microsoft.AspNetCore.Components.Authorization
+
+@* CoreUI-style notification bell + profile avatar dropdown, restyled to the Blogzine theme and
+   made Identity-aware. Bootstrap dropdowns (data-bs-toggle) work under static SSR via the loaded
+   bootstrap.bundle.min.js. Presentational only — no service access (ts-ui-001). *@
+
+<AuthorizeView>
+    <Authorized>
+        @* Notification bell *@
+        <div class="nav-item dropdown ms-2">
+            <a class="nav-link position-relative p-0" role="button" href="#" id="notificationMenu"
+               data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+               aria-label="Notifications">
+                <i class="bi bi-bell fs-4"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger p-1">
+                    <span class="visually-hidden">unread notifications</span>
+                </span>
+            </a>
+            <div class="dropdown-menu dropdown-menu-end shadow rounded p-0" aria-labelledby="notificationMenu" style="min-width: 20rem;">
+                <div class="d-flex justify-content-between align-items-center bg-light px-3 py-2 rounded-top">
+                    <span class="fw-bold">Notifications</span>
+                    <span class="badge text-bg-danger">@NotificationCount new</span>
+                </div>
+                <ul class="list-unstyled mb-0">
+                    <li>
+                        <a class="dropdown-item d-flex align-items-start py-2 border-bottom" href="#">
+                            <i class="bi bi-heart-fill text-danger me-2 mt-1"></i>
+                            <span>
+                                <span class="d-block">Someone liked your post</span>
+                                <small class="text-body-secondary">2 hours ago</small>
+                            </span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-start py-2 border-bottom" href="#">
+                            <i class="bi bi-chat-left-text-fill text-primary me-2 mt-1"></i>
+                            <span>
+                                <span class="d-block">New comment on your article</span>
+                                <small class="text-body-secondary">Yesterday</small>
+                            </span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item d-flex align-items-start py-2" href="#">
+                            <i class="bi bi-person-plus-fill text-success me-2 mt-1"></i>
+                            <span>
+                                <span class="d-block">A new subscriber joined</span>
+                                <small class="text-body-secondary">3 days ago</small>
+                            </span>
+                        </a>
+                    </li>
+                </ul>
+                <a class="dropdown-item text-center text-primary border-top py-2 rounded-bottom" href="#">
+                    View all notifications
+                </a>
+            </div>
+        </div>
+
+        @* Profile avatar + account menu *@
+        <div class="nav-item dropdown ms-3">
+            <a class="nav-link p-0" role="button" href="#" id="profileMenu"
+               data-bs-toggle="dropdown" aria-expanded="false" aria-label="Account menu">
+                <Glory2Him.WebApp.Components.CoreUI.AvatarComponent
+                    Name="@(context.User.Identity?.Name ?? string.Empty)"
+                    ImageUrl="@AvatarImageUrl" SizePx="36" />
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end shadow rounded" aria-labelledby="profileMenu" style="min-width: 15rem;">
+                <li class="px-3 py-2 bg-light rounded-top">
+                    <span class="d-block text-uppercase small text-body-secondary">Account</span>
+                    <span class="fw-bold">@context.User.Identity?.Name</span>
+                </li>
+                <li><a class="dropdown-item d-flex align-items-center" href="dashboard"><i class="bi bi-bell fa-fw me-2"></i>Updates <span class="badge text-bg-primary ms-auto">8</span></a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="#"><i class="bi bi-envelope fa-fw me-2"></i>Messages <span class="badge text-bg-success ms-auto">42</span></a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="#"><i class="bi bi-check2-square fa-fw me-2"></i>Tasks</a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="#"><i class="bi bi-chat-left fa-fw me-2"></i>Comments</a></li>
+
+                <li><hr class="dropdown-divider" /></li>
+                <li class="px-3 pt-1"><span class="d-block text-uppercase small text-body-secondary">Settings</span></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="Account/Manage"><i class="bi bi-person fa-fw me-2"></i>Profile</a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="Account/Manage/Email"><i class="bi bi-gear fa-fw me-2"></i>Settings</a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="Account/Manage/ChangePassword"><i class="bi bi-shield-lock fa-fw me-2"></i>Password</a></li>
+                <AuthorizeView Roles="Administrators" Context="adminContext">
+                    <li><a class="dropdown-item d-flex align-items-center" href="admin/posts"><i class="bi bi-files fa-fw me-2"></i>Projects</a></li>
+                </AuthorizeView>
+
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="" />
+                        <button type="submit" class="dropdown-item d-flex align-items-center text-danger">
+                            <i class="bi bi-box-arrow-right fa-fw me-2"></i>Logout
+                        </button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        @* Anonymous: a simple sign-in icon in the same spot *@
+        <div class="nav-item ms-2">
+            <a class="nav-link p-0" href="Account/Login" aria-label="Sign in">
+                <i class="bi bi-person-circle fs-4"></i>
+            </a>
+        </div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private const int NotificationCount = 3;
+
+    [Inject]
+    private Glory2Him.WebApp.Services.Views.Profiles.IProfileViewService ProfileViewService { get; set; } = default!;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    // The signed-in user's avatar URL (null → the AvatarComponent shows initials). Resolved from
+    // the NameIdentifier claim; a lookup failure degrades gracefully to initials.
+    private string? AvatarImageUrl { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        AvatarImageUrl = null;
+
+        if (AuthenticationStateTask is null)
+        {
+            return;
+        }
+
+        AuthenticationState authenticationState = await AuthenticationStateTask;
+        System.Security.Claims.ClaimsPrincipal principal = authenticationState.User;
+
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        string? idValue =
+            principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        if (!Guid.TryParse(idValue, out Guid userId))
+        {
+            return;
+        }
+
+        try
+        {
+            Glory2Him.WebApp.Models.Views.Profiles.ProfileView profile =
+                await ProfileViewService.RetrieveProfileByIdAsync(userId);
+
+            AvatarImageUrl = profile.ImageUrl;
+        }
+        catch
+        {
+            // Fall back to the initials avatar if the profile can't be resolved.
+            AvatarImageUrl = null;
+        }
+    }
+}

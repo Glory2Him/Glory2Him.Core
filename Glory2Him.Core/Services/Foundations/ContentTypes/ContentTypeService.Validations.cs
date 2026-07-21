@@ -1,17 +1,17 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 
@@ -19,10 +19,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
     public partial class ContentTypeService
     {
-        private async ValueTask ValidateOnAddContentTypeAsync(ContentType contentType)
+        private async ValueTask ValidateOnAddContentTypeAsync(
+            ContentType contentType,
+            SecurityContext securityContext)
         {
             ValidateContentTypeIsNotNull(contentType);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
@@ -63,10 +65,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.CreatedWhen)));
         }
 
-        private async ValueTask ValidateOnModifyContentTypeAsync(ContentType contentType)
+        private async ValueTask ValidateOnModifyContentTypeAsync(
+            ContentType contentType,
+            SecurityContext securityContext)
         {
             ValidateContentTypeIsNotNull(contentType);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
@@ -101,6 +105,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     Parameter: nameof(ContentType.UpdatedWhen)));
         }
 
+        private static void ValidateContentTypeEventEnvelope(EventEnvelope<ContentType> envelope)
+        {
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
+            {
+                throw new InvalidContentTypeEventException(
+                    message: "Invalid content type event. " +
+                        "The event envelope, its content and metadata are required.");
+            }
+        }
+
         private static void ValidateAgainstStorageContentTypeOnModify(
             ContentType inputContentType,
             ContentType storageContentType)
@@ -125,6 +139,16 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
         }
 
         private static void ValidateOnRetrieveContentTypeById(Guid contentTypeId) =>
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
+
+        private static void ValidateOnRemoveContentTypeById(Guid contentTypeId) =>
+            Validate(
+                message: "Content type is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
+
+        private static void ValidateOnHardRemoveContentTypeById(Guid contentTypeId) =>
             Validate(
                 message: "Content type is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentType.Id)));
@@ -222,12 +246,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             int pastThreshold = 90;
             int futureThreshold = 0;
             DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
-
-            if (currentDateTime == default)
-            {
-                return (false, default, default);
-            }
-
             DateTimeOffset startDate = currentDateTime.AddSeconds(-pastThreshold);
             DateTimeOffset endDate = currentDateTime.AddSeconds(futureThreshold);
             bool isNotRecent = date < startDate || date > endDate;

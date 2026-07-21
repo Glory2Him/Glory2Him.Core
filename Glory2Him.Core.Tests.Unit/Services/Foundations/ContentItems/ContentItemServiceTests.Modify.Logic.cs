@@ -1,13 +1,12 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -15,8 +14,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -39,7 +41,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync())
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -47,7 +49,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(randomDateTimeOffset);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(inputContentItem))
+                broker.ApplyModifyAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditAppliedContentItem);
 
             this.storageBrokerMock.Setup(broker =>
@@ -67,8 +69,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     .ReturnsAsync(updatedContentItem);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemModified"))
-                    .Returns(ValueTask.CompletedTask);
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    ContentItemEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                        new EventPublishResult<ContentItem>()));
 
             // when
             ContentItem actualContentItem =
@@ -80,15 +85,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(),
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.dateTimeBrokerMock.Verify(broker =>
                     broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
+                Times.Exactly(3));
 
             this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyModifyAuditValuesAsync(inputContentItem),
+                    broker.ApplyModifyAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -108,8 +113,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), "ContentItemModified"),
+                    broker.PublishContentItemAsync(
+                        It.IsAny<EventEnvelope<ContentItem>>(),
+                        ContentItemEventOperation.Modified),
                 Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.ContentItemOnModifyingContentItemSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

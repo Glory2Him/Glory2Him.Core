@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Glory2Him.Core.Models.Enums;
@@ -28,10 +27,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                     tableBuilder.HasCheckConstraint(
                         name: "CK_ContentItemAssociation_ScopeConsistency",
                         sql:
-                            $"(({nameof(ContentItemAssociation.LinkedContentScope)} = N'{nameof(Scope.AllVersions)}' AND " +
+                            $"(({nameof(ContentItemAssociation.LinkedContentScope)} = " +
+                            $"N'{nameof(Scope.AllVersions)}' AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemGroupId)} IS NOT NULL AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemId)} IS NULL) OR " +
-                            $"({nameof(ContentItemAssociation.LinkedContentScope)} = N'{nameof(Scope.ThisVersionOnly)}' AND " +
+                            $"({nameof(ContentItemAssociation.LinkedContentScope)} = " +
+                            $"N'{nameof(Scope.ThisVersionOnly)}' AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemId)} IS NOT NULL AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemGroupId)} IS NULL))");
                 });

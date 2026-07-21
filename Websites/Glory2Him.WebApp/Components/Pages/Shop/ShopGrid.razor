@@ -1,0 +1,45 @@
+@page "/shop-grid"
+@rendermode InteractiveServer
+@using Glory2Him.WebApp.Models.Views.Navigations
+@inherits ShopGridBase
+
+@* InteractiveServer: "Add to cart" updates the live cart state. *@
+
+<PageTitle>Shop — Glory 2 Him</PageTitle>
+
+<PageHeaderComponent Title="Shop" />
+
+<section class="pt-4 pb-5">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="h4 mb-0">Resources</h2>
+            <a href="my-cart" class="btn btn-sm btn-primary-soft">
+                <i class="bi bi-cart me-2"></i>Cart (@CartService.Count)
+            </a>
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="text-center py-5"><Spinner /></div>
+        }
+        else if (HasError)
+        {
+            <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+        }
+        else if (!Products.Any())
+        {
+            <div class="alert alert-info" role="alert">No products available.</div>
+        }
+        else
+        {
+            <div class="row g-4">
+                @foreach (ProductView product in Products)
+                {
+                    <div class="col-sm-6 col-md-4">
+                        <ProductCardComponent Product="product" OnAddToCart="AddToCart" />
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</section>

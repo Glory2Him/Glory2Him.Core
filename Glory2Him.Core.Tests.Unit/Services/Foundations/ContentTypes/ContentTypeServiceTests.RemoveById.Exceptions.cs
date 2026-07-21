@@ -1,19 +1,19 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Microsoft.Data.SqlClient;
@@ -77,7 +77,65 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         }
 
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnRemoveByIdIfCancellationRequestedAndLogItAsync()
+        public async Task ShouldThrowDependencyExceptionOnRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            Guid someContentTypeId = Guid.NewGuid();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutContentTypeException =
+                new TimeoutContentTypeException(
+                    message: "Failed content type timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedContentTypeDependencyException = new ContentTypeDependencyException(
+                message: "Content type dependency error occurred, contact support.",
+                innerException: timeoutContentTypeException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(operationCanceledException);
+
+            // when
+            ValueTask<ContentType> removeContentTypeByIdTask =
+                this.contentTypeService.RemoveContentTypeByIdAsync(
+                    someContentTypeId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentTypeDependencyException actualContentTypeDependencyException =
+                await Assert.ThrowsAsync<ContentTypeDependencyException>(
+                    removeContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeDependencyException.Should().BeEquivalentTo(
+                expectedContentTypeDependencyException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeDependencyException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnRemoveByIdIfCancellationRequestedAsync()
         {
             // given
             Guid someContentTypeId = Guid.NewGuid();
@@ -179,7 +237,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                         .ReturnsAsync(someContentType);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(someContentType))
+                broker.ApplyRemoveAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(someContentType);
 
             this.storageBrokerMock.Setup(broker =>
@@ -209,7 +267,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(someContentType),
+                broker.ApplyRemoveAuditValuesAsync(someContentType, It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

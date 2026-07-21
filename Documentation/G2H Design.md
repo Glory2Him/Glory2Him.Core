@@ -1071,24 +1071,37 @@ CorrelationId: A
 CausationId: 2
 ```
 
-### 10.10 Current In-Process Implementation (LeVent)
+### 10.10 Current Implementation (EventHighway)
 
-With LeVent or another synchronous in-process event library, the event may run under the same HTTP request and dependency injection scope.
+Events are published through the `EventBroker`, which wraps [EventHighway](https://github.com/The-Standard-Organization/EventHighway) — a durable, SQL-backed pub/sub substrate. Every entity has seven event addresses split into two families: **requests** in the present tense (`ContentItem-Adding`, `-Modifying`, `-RemovingById`, `-RetrievingById`), answered by responder handlers on the owning service, and **facts** in the past tense (`ContentItem-Added`, `-Modified`, `-Removed`), published by the service after the work is done for observers to react to. The address is selected by a strongly typed per-entity operation enum passed on publish (for example `ContentItemEventOperation.Adding`) — no magic strings, and entity-specific operations can be added per entity without affecting the others. The broker composes the stored event name from the entity and operation (for example `"ContentItemAdding"`). Every publish persists the event and dispatches it inline to the in-process delegate handlers subscribed to that address; handler failures are recorded per listener (with retry support) instead of failing the publisher. Subscriptions bind to exactly one operation. Handlers may optionally return a reply envelope (`ValueTask<EventEnvelope<T>?>`), which the broker serializes onto the delivery's `ListenerEventV2` row — the observable reply channel for request-style events such as `RetrievedById`, carrying the same security-context and metadata discipline as the request.
 
-Even so, the event handler must receive an `EventEnvelope<T>` rather than depending directly on `HttpContext`.
+Publishing returns an `EventPublishResult<T>`: the persisted event id plus one `EventDelivery<T>` per subscription, each with its dispatch-time status and — for responders — the reply envelope deserialized back to `EventEnvelope<T>`. This is a dispatch-time snapshot: failed deliveries may still succeed later via retries, and the durable truth remains the event store. Notification-style publishers simply ignore the result.
+
+Foundation services follow a dual-path shape (see `ContentTypeService` as the template):
+
+- **Non-event path**: receive the object → convert to a request envelope via `IEventEnvelopeFactory.CreateAsync` (captures the caller's `SecurityContext`, stamps event/correlation identifiers) → call the shared private `DoXAsync` method.
+- **Event path** (the `.Substrate` partial): one `On<Operation><Entity>Async` handler per request address (`OnAdding…`, `OnModifying…`, `OnRemoving…ById`, `OnRetrieving…ById`) → validate the envelope → dedup mutating handlers via the `ProcessedEvents` table (unique on EventId + ReceiverName; a deduplicated delivery replies `null`) → converge on the same `DoXAsync` methods → reply with the outcome envelope on the delivery.
+
+The `DoXAsync` methods own auditing, validation, storage, and publishing the past-tense fact, so the two paths cannot diverge; every hop chains causation through `IEventEnvelopeFactory.CreateNextAsync` (fresh `EventId`, `CausationId` = source event, security/request context carried forward). Substrate handlers categorize failures into the service's typed exceptions and rethrow — deliveries record `Error` and retry; failures are never swallowed. Hard removal is deliberately not event-invokable, and reads publish no fact — a retrieve's reply rides the delivery's response.
+
+The broker keeps per-entity pub/sub methods (`PublishContentItemAsync`, `SubscribeToContentItemEventAsync`, and so on), so publishing and subscribing always go through the broker — never directly against foundation services. All subscriptions are configured in one central place, `EventSubscriptionRegistration`, which also registers the participant and event addresses at startup.
+
+The event handler must receive an `EventEnvelope<T>` rather than depending directly on `HttpContext`.
 
 Current flow:
 
 ```text
 HTTP Request
     ↓
-Controller
+Controller / Foundation Service
     ↓
 Create EventEnvelope<T>
     ↓
-Publish using LeVent
+Publish using EventBroker (EventHighway)
     ↓
-In-process handler
+Event persisted + dispatched inline
+    ↓
+Subscribed handler (registered in EventSubscriptionRegistration)
     ↓
 Orchestration Service
 ```

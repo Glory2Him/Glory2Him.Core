@@ -1,0 +1,85 @@
+@page "/post-single"
+@page "/post-single/{Slug}"
+@inherits PostSingleBase
+
+<PageTitle>@(Post?.Title ?? "Post") — Glory 2 Him</PageTitle>
+
+@if (IsLoading)
+{
+    <section class="py-5">
+        <div class="container text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    </section>
+}
+else if (HasError)
+{
+    <section class="py-5">
+        <div class="container">
+            <div class="alert alert-danger text-center mb-0" role="alert">@ErrorMessage</div>
+        </div>
+    </section>
+}
+else if (Post is null)
+{
+    <section class="py-5">
+        <div class="container">
+            <div class="alert alert-info text-center mb-0" role="alert">This post could not be found.</div>
+        </div>
+    </section>
+}
+else
+{
+    <!-- Post header START -->
+    <section class="pt-4 pb-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-10 mx-auto text-center">
+                    <a href="categories" class="badge @Post.CategoryBadgeCss mb-3">@Post.Category</a>
+                    <h1 class="mb-3">@Post.Title</h1>
+                    <ul class="nav nav-divider justify-content-center align-items-center">
+                        <li class="nav-item">
+                            <div class="nav-link d-flex align-items-center">
+                                <div class="avatar avatar-xs me-2">
+                                    <img class="avatar-img rounded-circle" src="@Post.AuthorImageUrl" alt="@Post.AuthorName" />
+                                </div>
+                                by <span class="ms-1">@Post.AuthorName</span>
+                            </div>
+                        </li>
+                        <li class="nav-item">@Post.PublishedDate.ToString("MMMM dd, yyyy")</li>
+                        <li class="nav-item">@Post.ReadMinutes min read</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Post header END -->
+
+    <!-- Post image + body START -->
+    <section class="pt-0">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-10 mx-auto">
+                    <img class="rounded-3 w-100 mb-4" src="@Post.ImageUrl" alt="@Post.Title" />
+                    <p class="lead">@Post.Excerpt</p>
+                    <p>
+                        This is placeholder content for the demo. As real content is modelled,
+                        this page becomes the template that published posts follow — the same
+                        layout, styling, and components, driven by live data.
+                    </p>
+                    <blockquote class="blockquote text-center my-4">
+                        <p class="mb-2">"Go into all the world and preach the gospel to all creation."</p>
+                        <footer class="blockquote-footer">Mark 16:15</footer>
+                    </blockquote>
+                    <p>
+                        Every story shared here points back to Jesus. Thank you for reading, and
+                        may you be encouraged today.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Post image + body END -->
+}

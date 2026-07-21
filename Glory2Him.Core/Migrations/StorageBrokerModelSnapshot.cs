@@ -17,7 +17,7 @@ namespace Glory2Him.Core.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.8")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -373,17 +373,17 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("G2HatestVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Hash")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -468,12 +468,12 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
+                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("G2HatestVersion")
+                    b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -875,12 +875,12 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
+                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("G2HatestVersion")
+                    b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -1036,12 +1036,12 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsDeleted")
+                    b.Property<bool>("G2HatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("G2HatestVersion")
+                    b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -1099,6 +1099,31 @@ namespace Glory2Him.Core.Migrations
                         .HasDatabaseName("UX_Links_ContentItemGroupId_Version");
 
                     b.ToTable("Links", (string)null);
+                });
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ProcessedEvents.ProcessedEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTimeOffset>("ProcessedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ReceiverName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId", "ReceiverName")
+                        .IsUnique();
+
+                    b.ToTable("ProcessedEvents", (string)null);
                 });
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.Reactions.Reaction", b =>

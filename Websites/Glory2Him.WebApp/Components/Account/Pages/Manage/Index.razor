@@ -1,0 +1,166 @@
+﻿@page "/Account/Manage"
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Glory2Him.WebApp.Data
+@using Glory2Him.WebApp.Models.Foundations.Users
+
+@inject UserManager<AppUser> UserManager
+@inject SignInManager<AppUser> SignInManager
+@inject IdentityRedirectManager RedirectManager
+
+<PageTitle>Profile</PageTitle>
+
+<h3>Profile</h3>
+<StatusMessage />
+
+@if (user is not null)
+{
+    <div class="card card-body border mb-4">
+        <h5 class="mb-3">Profile image</h5>
+        <ProfileImageManager UserId="user.Id" Name="@(username ?? user.UserName ?? string.Empty)" />
+    </div>
+}
+
+<div class="row">
+    <div class="col-xl-6">
+        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+            <DataAnnotationsValidator />
+            <ValidationSummary class="text-danger" role="alert" />
+            <div class="form-floating mb-3">
+                <input type="text" value="@username" id="username" class="form-control" placeholder="Choose your username." disabled />
+                <label for="username" class="form-label">Username</label>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.Name" id="Input.Name" class="form-control" placeholder="First name" />
+                        <label for="Input.Name" class="form-label">First name</label>
+                        <ValidationMessage For="() => Input.Name" class="text-danger" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.Surname" id="Input.Surname" class="form-control" placeholder="Surname" />
+                        <label for="Input.Surname" class="form-label">Surname</label>
+                        <ValidationMessage For="() => Input.Surname" class="text-danger" />
+                    </div>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputText @bind-Value="Input.PreferredName" id="Input.PreferredName" class="form-control" placeholder="Preferred name" />
+                        <label for="Input.PreferredName" class="form-label">Preferred name (optional)</label>
+                        <ValidationMessage For="() => Input.PreferredName" class="text-danger" />
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        <InputDate @bind-Value="Input.DateOfBirth" id="Input.DateOfBirth" class="form-control" placeholder="Date of birth" />
+                        <label for="Input.DateOfBirth" class="form-label">Date of birth (optional)</label>
+                        <ValidationMessage For="() => Input.DateOfBirth" class="text-danger" />
+                    </div>
+                </div>
+            </div>
+            <div class="form-floating mb-3">
+                <InputText @bind-Value="Input.PhoneNumber" id="Input.PhoneNumber" class="form-control" placeholder="Enter your phone number" />
+                <label for="Input.PhoneNumber" class="form-label">Phone number</label>
+                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+            </div>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
+        </EditForm>
+    </div>
+</div>
+
+@code {
+    private AppUser? user;
+    private string? username;
+    private string? phoneNumber;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+
+        user = await UserManager.GetUserAsync(HttpContext.User);
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        username = await UserManager.GetUserNameAsync(user);
+        phoneNumber = await UserManager.GetPhoneNumberAsync(user);
+
+        Input.PhoneNumber ??= phoneNumber;
+        Input.Name ??= user.Name;
+        Input.Surname ??= user.Surname;
+        Input.PreferredName ??= user.PreferredName;
+        Input.DateOfBirth ??= user.DateOfBirth;
+    }
+
+    private async Task OnValidSubmitAsync()
+    {
+        if (user is null)
+        {
+            RedirectManager.RedirectToInvalidUser(UserManager, HttpContext);
+            return;
+        }
+
+        if (Input.PhoneNumber != phoneNumber)
+        {
+            var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
+            if (!setPhoneResult.Succeeded)
+            {
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                return;
+            }
+        }
+
+        user.Name = Input.Name ?? string.Empty;
+        user.Surname = Input.Surname ?? string.Empty;
+        user.PreferredName = string.IsNullOrWhiteSpace(Input.PreferredName) ? null : Input.PreferredName;
+        user.DateOfBirth = Input.DateOfBirth;
+
+        var updateResult = await UserManager.UpdateAsync(user);
+        if (!updateResult.Succeeded)
+        {
+            RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to update your profile.", HttpContext);
+            return;
+        }
+
+        await SignInManager.RefreshSignInAsync(user);
+        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [StringLength(100, MinimumLength = 1)]
+        [Display(Name = "First name")]
+        public string? Name { get; set; }
+
+        [Required]
+        [StringLength(100, MinimumLength = 1)]
+        [Display(Name = "Surname")]
+        public string? Surname { get; set; }
+
+        [StringLength(100)]
+        [Display(Name = "Preferred name")]
+        public string? PreferredName { get; set; }
+
+        [DataType(DataType.Date)]
+        [Display(Name = "Date of birth")]
+        public DateOnly? DateOfBirth { get; set; }
+
+        [Phone]
+        [Display(Name = "Phone number")]
+        public string? PhoneNumber { get; set; }
+    }
+}

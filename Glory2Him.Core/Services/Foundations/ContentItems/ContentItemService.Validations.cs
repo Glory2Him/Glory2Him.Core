@@ -1,17 +1,17 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 
@@ -19,10 +19,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     public partial class ContentItemService
     {
-        private async ValueTask ValidateOnAddContentItem(ContentItem contentItem)
+        private async ValueTask ValidateOnAddContentItem(
+            ContentItem contentItem,
+            SecurityContext securityContext)
         {
             ValidateContentItemIsNotNull(contentItem);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
@@ -62,10 +64,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     Parameter: nameof(ContentItem.CreatedWhen)));
         }
 
-        private async ValueTask ValidateOnModifyContentItem(ContentItem contentItem)
+        private async ValueTask ValidateOnModifyContentItem(
+            ContentItem contentItem,
+            SecurityContext securityContext)
         {
             ValidateContentItemIsNotNull(contentItem);
-            string currentUserId = await this.securityAuditBroker.GetUserIdAsync();
+            string currentUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
@@ -105,6 +109,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
         private static void ValidateOnRemoveContentItemById(Guid contentItemId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
+
+        private static void ValidateOnHardRemoveContentItemById(Guid contentItemId) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
@@ -231,12 +240,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             int pastThreshold = 90;
             int futureThreshold = 0;
             DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
-
-            if (currentDateTime == default)
-            {
-                return (false, default, default);
-            }
-
             DateTimeOffset startDate = currentDateTime.AddSeconds(-pastThreshold);
             DateTimeOffset endDate = currentDateTime.AddSeconds(futureThreshold);
             bool isNotRecent = date < startDate || date > endDate;

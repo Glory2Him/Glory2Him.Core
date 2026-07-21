@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
@@ -29,6 +28,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Microsoft.EntityFrameworkCore;
@@ -78,6 +78,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             AddContentItemSettingConfigurations(modelBuilder.Entity<ContentItemSetting>());
             AddContentTypeConfigurations(modelBuilder.Entity<ContentType>());
             AddLinkConfigurations(modelBuilder.Entity<Link>());
+            AddProcessedEventConfigurations(modelBuilder.Entity<ProcessedEvent>());
             AddReactionConfigurations(modelBuilder.Entity<Reaction>());
             AddTagConfigurations(modelBuilder.Entity<Tag>());
         }

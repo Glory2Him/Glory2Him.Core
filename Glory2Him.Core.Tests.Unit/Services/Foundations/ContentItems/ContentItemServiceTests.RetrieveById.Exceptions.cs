@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -24,70 +23,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
     public partial class ContentItemServiceTests
     {
         [Fact]
-        public async Task ShouldThrowServiceExceptionOnRetrieveByIdIfServiceErrorOccursAndLogItAsync()
-        {
-            // given
-            Guid someContentItemId = Guid.NewGuid();
-            var serviceException = new Exception();
-
-            var failedContentItemServiceException = new FailedContentItemServiceException(
-                message: "Failed content item service error occurred, please contact support.",
-                innerException: serviceException,
-                data: serviceException.Data);
-
-            var expectedContentItemServiceException = new ContentItemServiceException(
-                message: "Content item service error occurred, contact support.",
-                innerException: failedContentItemServiceException);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken))
-                        .ThrowsAsync(serviceException);
-
-            // when
-            ValueTask<ContentItem> retrieveContentItemByIdTask =
-                this.contentItemService.RetrieveContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemServiceException actualContentItemServiceException =
-                await Assert.ThrowsAsync<ContentItemServiceException>(
-                    retrieveContentItemByIdTask.AsTask);
-
-            // then
-            actualContentItemServiceException.Should().BeEquivalentTo(
-                expectedContentItemServiceException);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectContentItemByIdAsync(
-                    someContentItemId,
-                    TestContext.Current.CancellationToken),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemServiceException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
         public async Task ShouldThrowDependencyExceptionOnRetrieveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
             Guid someContentItemId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
-            var timeoutContentItemException = new TimeoutContentItemException(
-                message: "Content item timed out, contact support.",
-                innerException: new TimeoutException(),
-                data: operationCanceledException.Data);
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutContentItemException =
+                new TimeoutContentItemException(
+                    message: "Failed content item timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
 
             var expectedContentItemDependencyException = new ContentItemDependencyException(
                 message: "Content item dependency error occurred, contact support.",
@@ -186,7 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveByIdIfCancellationRequestedAndLogItAsync()
+        public async Task ShouldThrowOperationCanceledExceptionOnRetrieveByIdIfCancellationRequestedAsync()
         {
             // given
             Guid someContentItemId = Guid.NewGuid();
@@ -201,6 +150,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // then
             await Assert.ThrowsAsync<OperationCanceledException>(
                 retrieveContentItemByIdTask.AsTask);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnRetrieveByIdIfServiceErrorOccursAndLogItAsync()
+        {
+            // given
+            Guid someContentItemId = Guid.NewGuid();
+            var serviceException = new Exception();
+
+            var failedContentItemServiceException = new FailedContentItemServiceException(
+                message: "Failed content item service error occurred, please contact support.",
+                innerException: serviceException,
+                data: serviceException.Data);
+
+            var expectedContentItemServiceException = new ContentItemServiceException(
+                message: "Content item service error occurred, contact support.",
+                innerException: failedContentItemServiceException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken))
+                        .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<ContentItem> retrieveContentItemByIdTask =
+                this.contentItemService.RetrieveContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemServiceException actualContentItemServiceException =
+                await Assert.ThrowsAsync<ContentItemServiceException>(
+                    retrieveContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemServiceException.Should().BeEquivalentTo(
+                expectedContentItemServiceException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemServiceException))),
+                Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

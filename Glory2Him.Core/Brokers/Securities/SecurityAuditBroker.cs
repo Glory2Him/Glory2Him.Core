@@ -3,18 +3,19 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using G2H.Security.Client.Clients;
 using G2H.Security.Client.Models.Clients;
+using Glory2Him.Core.Models.Events;
 using Microsoft.AspNetCore.Http;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -143,5 +144,67 @@ namespace Glory2Him.Core.Brokers.Securities
         /// </example>
         public async ValueTask<string> GetUserIdAsync() =>
             await securityClient.Audits.GetUserIdAsync(claimsPrincipal);
+
+        /// <summary>
+        /// Applies add audit values as the actor carried on an event envelope's
+        /// <see cref="SecurityContext"/> rather than the ambient principal — required for
+        /// event-path processing, where dispatch (or a background retry) may run outside the
+        /// original request context.
+        /// </summary>
+        public ValueTask<T> ApplyAddAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
+            this.securityClient.Audits.ApplyAddAuditValuesAsync(
+                entity,
+                CreateClaimsPrincipal(securityContext),
+                securityConfigurations);
+
+        /// <summary>
+        /// Applies modify audit values as the actor carried on an event envelope's
+        /// <see cref="SecurityContext"/>.
+        /// </summary>
+        public ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
+            this.securityClient.Audits.ApplyModifyAuditValuesAsync(
+                entity,
+                CreateClaimsPrincipal(securityContext),
+                securityConfigurations);
+
+        /// <summary>
+        /// Applies remove audit values as the actor carried on an event envelope's
+        /// <see cref="SecurityContext"/>.
+        /// </summary>
+        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
+            this.securityClient.Audits.ApplyRemoveAuditValuesAsync(
+                entity,
+                CreateClaimsPrincipal(securityContext),
+                securityConfigurations);
+
+        /// <summary>
+        /// Resolves the acting user id from an event envelope's <see cref="SecurityContext"/>,
+        /// consistent with the id the context-aware audit methods stamp.
+        /// </summary>
+        public async ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
+            await securityClient.Audits.GetUserIdAsync(CreateClaimsPrincipal(securityContext));
+
+        // Rebuilds a principal from the envelope's normalized actor so the same security
+        // client pipeline (which resolves the user id from oid/nameidentifier claims) stamps
+        // the ORIGINAL caller, regardless of what identity the current process runs under.
+        private static ClaimsPrincipal CreateClaimsPrincipal(SecurityContext securityContext)
+        {
+            var claims = new List<Claim>();
+
+            if (string.IsNullOrWhiteSpace(securityContext?.SubjectId) is false)
+                claims.Add(new Claim(ClaimTypes.NameIdentifier, securityContext!.SubjectId!));
+
+            if (string.IsNullOrWhiteSpace(securityContext?.Username) is false)
+                claims.Add(new Claim(ClaimTypes.Name, securityContext!.Username!));
+
+            foreach (string role in securityContext?.Roles ?? [])
+                claims.Add(new Claim(ClaimTypes.Role, role));
+
+            ClaimsIdentity identity = securityContext?.IsAuthenticated == true
+                ? new ClaimsIdentity(claims, authenticationType: "EventEnvelope")
+                : new ClaimsIdentity(claims);
+
+            return new ClaimsPrincipal(identity);
+        }
     }
 }

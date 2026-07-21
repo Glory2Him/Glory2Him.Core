@@ -1,0 +1,19 @@
+@namespace Glory2Him.WebApp.Components.CoreUI
+
+@* CoreUI StatTile, restyled as the Blogzine dashboard "counter" card so it matches the
+   template's look and feel. Same API as the EventHighway original (Variant/Value/Label/Icon). *@
+
+<div class="card card-body border p-3 stat-tile @VariantCssClass">
+    <div class="d-flex align-items-center">
+        @if (Icon is not null)
+        {
+            <div class="icon-xl fs-1 rounded-3 stat-tile-icon @IconCssClass">
+                <i class="bi @Icon"></i>
+            </div>
+        }
+        <div class="ms-3">
+            <h3 class="mb-0 stat-tile-value">@Value</h3>
+            <h6 class="mb-0 stat-tile-label">@Label</h6>
+        </div>
+    </div>
+</div>

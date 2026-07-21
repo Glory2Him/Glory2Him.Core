@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -36,36 +35,65 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             var auditDateTimeOffset = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.CreatedByPropertyName,
                 value: userId);
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.CreatedWhenPropertyName,
                 value: auditDateTimeOffset);
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.UpdatedByPropertyName,
                 value: userId);
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.UpdatedWhenPropertyName,
                 value: auditDateTimeOffset);
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletedByPropertyName, securityConfigurations.DeletedByPropertyType))
-                SetProperty(entity, securityConfigurations.DeletedByPropertyName, null);
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: securityConfigurations.DeletedByPropertyName,
+                expectedType: securityConfigurations.DeletedByPropertyType))
+            {
+                SetProperty(entity: entity, propertyName: securityConfigurations.DeletedByPropertyName, value: null);
+            }
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletedWhenPropertyName, securityConfigurations.DeletedWhenPropertyType))
-                SetProperty(entity, securityConfigurations.DeletedWhenPropertyName, null);
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: securityConfigurations.DeletedWhenPropertyName,
+                expectedType: securityConfigurations.DeletedWhenPropertyType))
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: securityConfigurations.DeletedWhenPropertyName,
+                    value: null);
+            }
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.IsDeletedPropertyName, securityConfigurations.IsDeletedPropertyType))
-                SetProperty(entity, securityConfigurations.IsDeletedPropertyName, false);
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: securityConfigurations.IsDeletedPropertyName,
+                expectedType: securityConfigurations.IsDeletedPropertyType))
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: securityConfigurations.IsDeletedPropertyName,
+                    value: false);
+            }
 
-            if (HasWritablePropertyOfType(entity, securityConfigurations.DeletionReasonPropertyName, securityConfigurations.DeletionReasonPropertyType))
-                SetProperty(entity, securityConfigurations.DeletionReasonPropertyName, null);
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: securityConfigurations.DeletionReasonPropertyName,
+                expectedType: securityConfigurations.DeletionReasonPropertyType))
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: securityConfigurations.DeletionReasonPropertyName,
+                    value: null);
+            }
 
             return entity;
         });
@@ -82,12 +110,12 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             var updatedDateName = securityConfigurations.UpdatedWhenPropertyName;
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: updatedByName,
                 value: userId);
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: updatedDateName,
                 value: auditDateTimeOffset);
 
@@ -105,22 +133,22 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             var auditDateTimeOffset = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.DeletedByPropertyName,
                 value: userId);
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.DeletedWhenPropertyName,
                 value: auditDateTimeOffset);
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.IsDeletedPropertyName,
                 value: true);
 
             SetProperty(
-                entity,
+                entity: entity,
                 propertyName: securityConfigurations.DeletionReasonPropertyName,
                 value: deletionReason);
 
@@ -140,22 +168,55 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             var deletedWhenName = securityConfigurations.DeletedWhenPropertyName;
             var isDeletedName = securityConfigurations.IsDeletedPropertyName;
             var deletionReasonName = securityConfigurations.DeletionReasonPropertyName;
-            object? createdByValue = GetProperty(storageEntity, createdByName);
-            object? createdWhenValue = GetProperty(storageEntity, createdWhenName);
-            SetProperty(entity, createdByName, createdByValue);
-            SetProperty(entity, createdWhenName, createdWhenValue);
 
-            if (HasWritablePropertyOfType(entity, deletedByName, securityConfigurations.DeletedByPropertyType))
-                SetProperty(entity, deletedByName, GetProperty(storageEntity, deletedByName));
+            object? createdByValue = GetProperty(obj: storageEntity, propertyName: createdByName);
+            object? createdWhenValue = GetProperty(obj: storageEntity, propertyName: createdWhenName);
+            SetProperty(entity: entity, propertyName: createdByName, value: createdByValue);
+            SetProperty(entity: entity, propertyName: createdWhenName, value: createdWhenValue);
 
-            if (HasWritablePropertyOfType(entity, deletedWhenName, securityConfigurations.DeletedWhenPropertyType))
-                SetProperty(entity, deletedWhenName, GetProperty(storageEntity, deletedWhenName));
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: deletedByName,
+                expectedType: securityConfigurations.DeletedByPropertyType))
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: deletedByName,
+                    value: GetProperty(obj: storageEntity, propertyName: deletedByName));
+            }
 
-            if (HasWritablePropertyOfType(entity, isDeletedName, securityConfigurations.IsDeletedPropertyType))
-                SetProperty(entity, isDeletedName, GetProperty(storageEntity, isDeletedName));
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: deletedWhenName,
+                expectedType: securityConfigurations.DeletedWhenPropertyType))
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: deletedWhenName,
+                    value: GetProperty(obj: storageEntity, propertyName: deletedWhenName));
+            }
 
-            if (HasWritablePropertyOfType(entity, deletionReasonName, securityConfigurations.DeletionReasonPropertyType))
-                SetProperty(entity, deletionReasonName, GetProperty(storageEntity, deletionReasonName));
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: isDeletedName,
+                expectedType: securityConfigurations.IsDeletedPropertyType))
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: isDeletedName,
+                    value: GetProperty(obj: storageEntity, propertyName: isDeletedName));
+            }
+
+            if (HasWritablePropertyOfType(
+                entity: entity,
+                propertyName: deletionReasonName,
+                expectedType: securityConfigurations.DeletionReasonPropertyType))
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: deletionReasonName,
+                    value: GetProperty(obj: storageEntity, propertyName: deletionReasonName));
+            }
 
             return entity;
         });
@@ -171,14 +232,14 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             var createdWhenName = securityConfigurations.CreatedWhenPropertyName;
             var updatedByName = securityConfigurations.UpdatedByPropertyName;
             var updatedWhenName = securityConfigurations.UpdatedWhenPropertyName;
-            object? createdByValue = GetProperty(storageEntity, createdByName);
-            object? createdWhenValue = GetProperty(storageEntity, createdWhenName);
-            object? updatedByValue = GetProperty(storageEntity, updatedByName);
-            object? updatedWhenValue = GetProperty(storageEntity, updatedWhenName);
-            SetProperty(entity, createdByName, createdByValue);
-            SetProperty(entity, createdWhenName, createdWhenValue);
-            SetProperty(entity, updatedByName, updatedByValue);
-            SetProperty(entity, updatedWhenName, updatedWhenValue);
+            object? createdByValue = GetProperty(obj: storageEntity, propertyName: createdByName);
+            object? createdWhenValue = GetProperty(obj: storageEntity, propertyName: createdWhenName);
+            object? updatedByValue = GetProperty(obj: storageEntity, propertyName: updatedByName);
+            object? updatedWhenValue = GetProperty(obj: storageEntity, propertyName: updatedWhenName);
+            SetProperty(entity: entity, propertyName: createdByName, value: createdByValue);
+            SetProperty(entity: entity, propertyName: createdWhenName, value: createdWhenValue);
+            SetProperty(entity: entity, propertyName: updatedByName, value: updatedByValue);
+            SetProperty(entity: entity, propertyName: updatedWhenName, value: updatedWhenValue);
 
             return entity;
         });

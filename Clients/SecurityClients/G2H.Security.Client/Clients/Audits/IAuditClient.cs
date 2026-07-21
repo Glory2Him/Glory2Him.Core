@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Security.Claims;
@@ -131,7 +130,8 @@ namespace G2H.Security.Client.Clients.Audits
             SecurityConfigurations securityConfigurations);
 
         /// <summary>
-        /// Applies audit values when an entity is being removed (soft-delete OR where temporal tables needs the history).
+        /// Applies audit values when an entity is being removed (soft-delete OR where temporal tables needs
+        /// the history).
         /// </summary>
         /// <typeparam name="T">The type of the entity being audited.</typeparam>
         /// <param name="entity">The entity to apply audit values to.</param>

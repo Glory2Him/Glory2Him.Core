@@ -3,17 +3,18 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using G2H.Security.Client.Clients;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Securities;
 using Microsoft.AspNetCore.Http;
 
@@ -112,6 +113,37 @@ namespace Glory2Him.Core.Brokers.Securities
         /// <returns>True if the user has the claim; otherwise, false.</returns>
         public async ValueTask<bool> UserHasClaimAsync(string claimType) =>
             await this.securityClient.Users.UserHasClaimAsync(claimsPrincipal, claimType);
+
+        /// <summary>
+        /// Normalizes the current caller into a <see cref="SecurityContext"/> suitable for
+        /// carrying on an <see cref="Glory2Him.Core.Models.Events.EventEnvelope{T}"/>, so
+        /// event handlers can evaluate the original actor without depending on the HTTP context.
+        /// </summary>
+        /// <returns>The current caller's <see cref="SecurityContext"/>.</returns>
+        public async ValueTask<SecurityContext> GetCurrentSecurityContextAsync()
+        {
+            bool isAuthenticated = await IsCurrentUserAuthenticatedAsync();
+
+            if (isAuthenticated is false)
+            {
+                return new SecurityContext
+                {
+                    IsAuthenticated = false,
+                    AuthenticationType = AuthenticationType.Unknown
+                };
+            }
+
+            User user = await GetCurrentUserAsync();
+
+            return new SecurityContext
+            {
+                SubjectId = user.UserId,
+                Username = user.Email,
+                Roles = user.Roles?.ToList() ?? [],
+                IsAuthenticated = true,
+                AuthenticationType = AuthenticationType.User
+            };
+        }
 
         /// <summary>
         /// Extracts a <see cref="ClaimsPrincipal"/> from a given JWT token.

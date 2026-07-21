@@ -3,31 +3,57 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
-using LeVent.Clients;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<EventEnvelope<ContentType>> ContentTypeEvents { get; set; }
+        public ValueTask<EventPublishResult<ContentType>> PublishContentTypeAsync(
+            EventEnvelope<ContentType> envelope,
+            ContentTypeEventOperation operation) =>
+                PublishEventAsync(
+                    eventAddressIds: EventBrokerIdentifiers.ContentTypeEventAddressIds,
+                    entityName: nameof(ContentType),
+                    envelope: envelope,
+                    operation: operation);
 
-        public ValueTask PublishContentTypeAsync(EventEnvelope<ContentType> envelope, string? eventName = null) =>
-            this.ContentTypeEvents.PublishEventAsync(envelope, eventName);
+        public ValueTask SubscribeToContentTypeEventAsync(
+            EventSubscription subscription,
+            ContentTypeEventOperation operation,
+            Func<EventEnvelope<ContentType>, CancellationToken,
+                ValueTask> contentTypeEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    eventAddressIds: EventBrokerIdentifiers.ContentTypeEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentTypeEventHandler,
+                    cancellationToken: cancellationToken);
 
-        public void SubscribeToContentTypeEvent(
-            Func<EventEnvelope<ContentType>, ValueTask> contentTypeEventHandler,
-            string? eventName = null) =>
-                this.ContentTypeEvents.RegisterEventHandler(contentTypeEventHandler, eventName);
+        public ValueTask SubscribeToContentTypeEventAsync(
+            EventSubscription subscription,
+            ContentTypeEventOperation operation,
+            Func<EventEnvelope<ContentType>, CancellationToken,
+                ValueTask<EventEnvelope<ContentType>?>> contentTypeEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    eventAddressIds: EventBrokerIdentifiers.ContentTypeEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: contentTypeEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

@@ -1,33 +1,59 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
-using LeVent.Clients;
 
 namespace Glory2Him.Core.Brokers.Events
 {
     public partial class EventBroker
     {
-        public ILeVentClient<EventEnvelope<ApprovalSetting>> ApprovalSettingEvents { get; set; }
+        public ValueTask<EventPublishResult<ApprovalSetting>> PublishApprovalSettingAsync(
+            EventEnvelope<ApprovalSetting> envelope,
+            ApprovalSettingEventOperation operation) =>
+                PublishEventAsync(
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalSettingEventAddressIds,
+                    entityName: nameof(ApprovalSetting),
+                    envelope: envelope,
+                    operation: operation);
 
-        public ValueTask PublishApprovalSettingAsync(EventEnvelope<ApprovalSetting> envelope, string? eventName = null) =>
-            this.ApprovalSettingEvents.PublishEventAsync(envelope, eventName);
+        public ValueTask SubscribeToApprovalSettingEventAsync(
+            EventSubscription subscription,
+            ApprovalSettingEventOperation operation,
+            Func<EventEnvelope<ApprovalSetting>, CancellationToken,
+                ValueTask> approvalSettingEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalSettingEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalSettingEventHandler,
+                    cancellationToken: cancellationToken);
 
-        public void SubscribeToApprovalSettingEvent(
-            Func<EventEnvelope<ApprovalSetting>, ValueTask> approvalSettingEventHandler,
-            string? eventName = null) =>
-                this.ApprovalSettingEvents.RegisterEventHandler(approvalSettingEventHandler, eventName);
+        public ValueTask SubscribeToApprovalSettingEventAsync(
+            EventSubscription subscription,
+            ApprovalSettingEventOperation operation,
+            Func<EventEnvelope<ApprovalSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ApprovalSetting>?>> approvalSettingEventHandler,
+            CancellationToken cancellationToken = default) =>
+                SubscribeToEventAsync(
+                    eventAddressIds: EventBrokerIdentifiers.ApprovalSettingEventAddressIds,
+                    subscription: subscription,
+                    operation: operation,
+                    eventHandler: approvalSettingEventHandler,
+                    cancellationToken: cancellationToken);
     }
 }

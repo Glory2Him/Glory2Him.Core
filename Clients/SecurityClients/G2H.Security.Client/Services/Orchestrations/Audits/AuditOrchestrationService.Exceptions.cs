@@ -3,11 +3,10 @@
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
 // FREE TO USE TO HELP SHARE THE GOSPEL
-// Mark 16:15 (NIV) "Go into all the world and preach the gospel to all creation."
 // John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
-//                  No one comes to the Father except through me.’" 
-// https://mark.bible/mark-16-15
-// https://john.bible/john-14-6 
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
@@ -31,39 +30,41 @@ namespace G2H.Security.Client.Services.Foundations.Audits
             }
             catch (InvalidArgumentAuditOrchestrationException invalidArgumentAuditOrchestrationException)
             {
-                throw await CreateAndLogValidationExceptionAsync(invalidArgumentAuditOrchestrationException);
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidArgumentAuditOrchestrationException);
             }
             catch (UserValidationException userValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(userValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(exception: userValidationException);
             }
             catch (UserDependencyValidationException userDependencyValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(userDependencyValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: userDependencyValidationException);
             }
             catch (AuditValidationException auditValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(auditValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(exception: auditValidationException);
             }
             catch (AuditDependencyValidationException auditDependencyValidationException)
             {
-                throw await CreateAndLogDependencyValidationExceptionAsync(auditDependencyValidationException);
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: auditDependencyValidationException);
             }
             catch (UserDependencyException userDependencyException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(userDependencyException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: userDependencyException);
             }
             catch (AuditDependencyException auditDependencyException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(auditDependencyException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: auditDependencyException);
             }
             catch (UserServiceException userServiceException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(userServiceException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: userServiceException);
             }
             catch (AuditServiceException auditServiceException)
             {
-                throw await CreateAndLogDependencyExceptionAsync(auditServiceException);
+                throw await CreateAndLogDependencyExceptionAsync(exception: auditServiceException);
             }
             catch (Exception exception)
             {
@@ -72,7 +73,7 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                         message: "Failed audit orchestration service error occurred, please contact support.",
                         innerException: exception);
 
-                throw await CreateAndLogServiceExceptionAsync(failedAuditOrchestrationServiceException);
+                throw await CreateAndLogServiceExceptionAsync(exception: failedAuditOrchestrationServiceException);
             }
         }
 
