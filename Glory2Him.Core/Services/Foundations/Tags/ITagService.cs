@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -10,56 +10,36 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Tags;
 
-namespace Glory2Him.Core.Brokers.Storages.Sql
+namespace Glory2Him.Core.Services.Foundations.Tags
 {
-    public partial interface IStorageBroker
+    public partial interface ITagService
     {
-        ValueTask<Tag> InsertTagAsync(
+        ValueTask<Tag> AddTagAsync(
             Tag tag,
             CancellationToken cancellationToken = default);
 
-        ValueTask<IQueryable<Tag>> SelectAllTagsAsync(
+        ValueTask<IQueryable<Tag>> RetrieveAllTagsAsync(
             CancellationToken cancellationToken = default);
 
-        ValueTask<Tag> SelectTagByIdAsync(
+        ValueTask<Tag> RetrieveTagByIdAsync(
             Guid tagId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Tag> UpdateTagAsync(
+        ValueTask<Tag> ModifyTagAsync(
             Tag tag,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Tag> DeleteTagAsync(
-            Tag tag,
+        ValueTask<Tag> RemoveTagByIdAsync(
+            Guid tagId,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
 
-        ValueTask BulkInsertTagsAsync(
-            List<Tag> tags,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpdateTagsAsync(
-            List<Tag> tags,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkDeleteTagsAsync(
-            List<Tag> tags,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<IEnumerable<Tag>> BulkReadTagsAsync(
-            List<Tag> tags,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpsertTagsAsync(
-            List<Tag> tags,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<bool> ExistsTagAsync(
+        ValueTask<Tag> HardRemoveTagByIdAsync(
             Guid tagId,
             CancellationToken cancellationToken = default);
     }

@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
+using Glory2Him.Core.Services.Foundations.Tags;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -50,15 +51,18 @@ namespace Glory2Him.Core.Registrations
         private readonly IEventBroker eventBroker;
         private readonly IContentTypeService contentTypeService;
         private readonly IContentItemService contentItemService;
+        private readonly ITagService tagService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
             IContentTypeService contentTypeService,
-            IContentItemService contentItemService)
+            IContentItemService contentItemService,
+            ITagService tagService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
+            this.tagService = tagService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -214,6 +218,73 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemEventOperation.RetrievingById,
                 contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Tag request handlers ─────────────────────────────────────────────
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnAddingTagSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+
+                    Description = "Handles add requests: stores the tag, publishes " +
+                        "Tag-Added, and replies with the added entity."
+                },
+                operation: TagEventOperation.Adding,
+                tagEventHandler: this.tagService.OnAddingTagAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnModifyingTagSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnModifyingTagSubscriptionName,
+
+                    Description = "Handles modify requests: updates the tag, publishes " +
+                        "Tag-Modified, and replies with the updated entity."
+                },
+                operation: TagEventOperation.Modifying,
+                tagEventHandler: this.tagService.OnModifyingTagAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the tag, " +
+                        "publishes Tag-Removed, and replies with the removed entity."
+                },
+                operation: TagEventOperation.RemovingById,
+                tagEventHandler: this.tagService.OnRemovingTagByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "tag, publishes TagHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: TagEventOperation.HardRemovingById,
+                tagEventHandler: this.tagService.OnHardRemovingTagByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a tag by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: TagEventOperation.RetrievingById,
+                tagEventHandler: this.tagService.OnRetrievingTagByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }
