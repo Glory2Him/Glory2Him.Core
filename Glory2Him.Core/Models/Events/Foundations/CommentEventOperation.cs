@@ -14,22 +14,27 @@ namespace Glory2Him.Core.Models.Events.Foundations
     /// <summary>
     /// The operations a <c>Comment</c> event can represent — requests (present tense:
     /// <see cref="Adding"/>, <see cref="Modifying"/>, <see cref="RemovingById"/>,
-    /// <see cref="RetrievingById"/>) answered by responder handlers, and facts (past tense:
-    /// <see cref="Added"/>, <see cref="Modified"/>, <see cref="Removed"/>) published by
-    /// the service after the work is done. Every operation maps to its own event address (for
-    /// example <c>Comment-Adding</c>) and composes the stored event name (for example
-    /// <c>"CommentAdding"</c>). Entity-specific operations may be appended here (with a
-    /// matching event address in <c>EventBrokerIdentifiers</c>) without affecting any other
-    /// entity.
+    /// <see cref="HardRemovingById"/>, <see cref="RetrievingById"/>) answered by responder
+    /// handlers, and facts (past tense: <see cref="Added"/>, <see cref="Modified"/>,
+    /// <see cref="Removed"/>, <see cref="HardRemoved"/>) published by the service after the
+    /// work is done. Every request operation maps to its own event address (for example
+    /// <c>Comment-Adding</c>) and composes the stored event name (for example
+    /// <c>"CommentAdding"</c>). <see cref="HardRemoved"/> shares the
+    /// <see cref="Removed"/> event address and is distinguished purely by its event name
+    /// (<c>"CommentHardRemoved"</c>). Entity-specific operations may be appended here
+    /// (with a matching event address in <c>EventBrokerIdentifiers</c>) without affecting
+    /// any other entity.
     /// </summary>
     public enum CommentEventOperation
     {
         Adding,
         Modifying,
         RemovingById,
+        HardRemovingById,
         RetrievingById,
         Added,
         Modified,
-        Removed
+        Removed,
+        HardRemoved
     }
 }

@@ -15,6 +15,7 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 
@@ -50,15 +51,18 @@ namespace Glory2Him.Core.Registrations
         private readonly IEventBroker eventBroker;
         private readonly IContentTypeService contentTypeService;
         private readonly IContentItemService contentItemService;
+        private readonly ICommentService commentService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
             IContentTypeService contentTypeService,
-            IContentItemService contentItemService)
+            IContentItemService contentItemService,
+            ICommentService commentService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
+            this.commentService = commentService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -214,6 +218,73 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemEventOperation.RetrievingById,
                 contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Comment request handlers ─────────────────────────────────────────
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionName,
+
+                    Description = "Handles add requests: stores the comment, publishes " +
+                        "Comment-Added, and replies with the added entity."
+                },
+                operation: CommentEventOperation.Adding,
+                commentEventHandler: this.commentService.OnAddingCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionName,
+
+                    Description = "Handles modify requests: updates the comment, publishes " +
+                        "Comment-Modified, and replies with the updated entity."
+                },
+                operation: CommentEventOperation.Modifying,
+                commentEventHandler: this.commentService.OnModifyingCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the comment, " +
+                        "publishes Comment-Removed, and replies with the removed entity."
+                },
+                operation: CommentEventOperation.RemovingById,
+                commentEventHandler: this.commentService.OnRemovingCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "comment, publishes CommentHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: CommentEventOperation.HardRemovingById,
+                commentEventHandler: this.commentService.OnHardRemovingCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a comment by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: CommentEventOperation.RetrievingById,
+                commentEventHandler: this.commentService.OnRetrievingCommentByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }

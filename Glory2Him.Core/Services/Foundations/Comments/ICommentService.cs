@@ -10,56 +10,36 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.Comments;
 
-namespace Glory2Him.Core.Brokers.Storages.Sql
+namespace Glory2Him.Core.Services.Foundations.Comments
 {
-    public partial interface IStorageBroker
+    public partial interface ICommentService
     {
-        ValueTask<Comment> InsertCommentAsync(
+        ValueTask<Comment> AddCommentAsync(
             Comment comment,
             CancellationToken cancellationToken = default);
 
-        ValueTask<IQueryable<Comment>> SelectAllCommentsAsync(
+        ValueTask<IQueryable<Comment>> RetrieveAllCommentsAsync(
             CancellationToken cancellationToken = default);
 
-        ValueTask<Comment> SelectCommentByIdAsync(
+        ValueTask<Comment> RetrieveCommentByIdAsync(
             Guid commentId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Comment> UpdateCommentAsync(
+        ValueTask<Comment> ModifyCommentAsync(
             Comment comment,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Comment> DeleteCommentAsync(
-            Comment comment,
+        ValueTask<Comment> RemoveCommentByIdAsync(
+            Guid commentId,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
 
-        ValueTask BulkInsertCommentsAsync(
-            List<Comment> comments,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpdateCommentsAsync(
-            List<Comment> comments,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkDeleteCommentsAsync(
-            List<Comment> comments,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<IEnumerable<Comment>> BulkReadCommentsAsync(
-            List<Comment> comments,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpsertCommentsAsync(
-            List<Comment> comments,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<bool> ExistsCommentAsync(
+        ValueTask<Comment> HardRemoveCommentByIdAsync(
             Guid commentId,
             CancellationToken cancellationToken = default);
     }
