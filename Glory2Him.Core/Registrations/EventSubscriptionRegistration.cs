@@ -15,6 +15,7 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 
@@ -50,15 +51,18 @@ namespace Glory2Him.Core.Registrations
         private readonly IEventBroker eventBroker;
         private readonly IContentTypeService contentTypeService;
         private readonly IContentItemService contentItemService;
+        private readonly IApprovalCommentService approvalCommentService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
             IContentTypeService contentTypeService,
-            IContentItemService contentItemService)
+            IContentItemService contentItemService,
+            IApprovalCommentService approvalCommentService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
+            this.approvalCommentService = approvalCommentService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -214,6 +218,83 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemEventOperation.RetrievingById,
                 contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalComment request handlers ──────────────────────────────────
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnAddingApprovalCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalCommentOnAddingApprovalCommentSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval comment, publishes " +
+                        "ApprovalComment-Added, and replies with the added entity."
+                },
+                operation: ApprovalCommentEventOperation.Adding,
+                approvalCommentEventHandler: this.approvalCommentService.OnAddingApprovalCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnModifyingApprovalCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalCommentOnModifyingApprovalCommentSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval comment, publishes " +
+                        "ApprovalComment-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalCommentEventOperation.Modifying,
+                approvalCommentEventHandler: this.approvalCommentService.OnModifyingApprovalCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval comment, " +
+                        "publishes ApprovalComment-Removed, and replies with the removed entity."
+                },
+                operation: ApprovalCommentEventOperation.RemovingById,
+                approvalCommentEventHandler: this.approvalCommentService.OnRemovingApprovalCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval comment, publishes ApprovalCommentHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalCommentEventOperation.HardRemovingById,
+
+                approvalCommentEventHandler:
+                    this.approvalCommentService.OnHardRemovingApprovalCommentByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a approval comment by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ApprovalCommentEventOperation.RetrievingById,
+
+                approvalCommentEventHandler:
+                    this.approvalCommentService.OnRetrievingApprovalCommentByIdAsync,
+
                 cancellationToken: cancellationToken);
         }
     }
