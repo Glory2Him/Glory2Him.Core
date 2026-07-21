@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
+using Glory2Him.Core.Services.Foundations.Reactions;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -50,15 +51,18 @@ namespace Glory2Him.Core.Registrations
         private readonly IEventBroker eventBroker;
         private readonly IContentTypeService contentTypeService;
         private readonly IContentItemService contentItemService;
+        private readonly IReactionService reactionService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
             IContentTypeService contentTypeService,
-            IContentItemService contentItemService)
+            IContentItemService contentItemService,
+            IReactionService reactionService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
+            this.reactionService = reactionService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -214,6 +218,73 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemEventOperation.RetrievingById,
                 contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Reaction request handlers ───────────────────────────────────────
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionName,
+
+                    Description = "Handles add requests: stores the reaction, publishes " +
+                        "Reaction-Added, and replies with the added entity."
+                },
+                operation: ReactionEventOperation.Adding,
+                reactionEventHandler: this.reactionService.OnAddingReactionAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnModifyingReactionSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnModifyingReactionSubscriptionName,
+
+                    Description = "Handles modify requests: updates the reaction, publishes " +
+                        "Reaction-Modified, and replies with the updated entity."
+                },
+                operation: ReactionEventOperation.Modifying,
+                reactionEventHandler: this.reactionService.OnModifyingReactionAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnRemovingReactionByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnRemovingReactionByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the reaction, " +
+                        "publishes Reaction-Removed, and replies with the removed entity."
+                },
+                operation: ReactionEventOperation.RemovingById,
+                reactionEventHandler: this.reactionService.OnRemovingReactionByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnHardRemovingReactionByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnHardRemovingReactionByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "reaction, publishes ReactionHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ReactionEventOperation.HardRemovingById,
+                reactionEventHandler: this.reactionService.OnHardRemovingReactionByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnRetrievingReactionByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnRetrievingReactionByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a reaction by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ReactionEventOperation.RetrievingById,
+                reactionEventHandler: this.reactionService.OnRetrievingReactionByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }

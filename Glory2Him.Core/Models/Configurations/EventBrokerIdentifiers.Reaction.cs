@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ReactionRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-76ca-b0db-51e854ad03e7");
 
+        public static readonly Guid ReactionHardRemovingByIdEventAddressId =
+            new Guid("019f855d-451c-7ed5-8650-d003319aba23");
+
         public static readonly Guid ReactionRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-79a2-94de-bd92b5249148");
 
@@ -44,10 +47,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { ReactionEventOperation.Adding, ReactionAddingEventAddressId },
                 { ReactionEventOperation.Modifying, ReactionModifyingEventAddressId },
                 { ReactionEventOperation.RemovingById, ReactionRemovingByIdEventAddressId },
+                { ReactionEventOperation.HardRemovingById, ReactionHardRemovingByIdEventAddressId },
                 { ReactionEventOperation.RetrievingById, ReactionRetrievingByIdEventAddressId },
                 { ReactionEventOperation.Added, ReactionAddedEventAddressId },
                 { ReactionEventOperation.Modified, ReactionModifiedEventAddressId },
-                { ReactionEventOperation.Removed, ReactionRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("ReactionHardRemoved" vs "ReactionRemoved").
+                { ReactionEventOperation.Removed, ReactionRemovedEventAddressId },
+                { ReactionEventOperation.HardRemoved, ReactionRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ReactionEventAddresses =
@@ -56,6 +65,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ReactionAddingEventAddressId, "Reaction-Adding" },
                 { ReactionModifyingEventAddressId, "Reaction-Modifying" },
                 { ReactionRemovingByIdEventAddressId, "Reaction-RemovingById" },
+                { ReactionHardRemovingByIdEventAddressId, "Reaction-HardRemovingById" },
                 { ReactionRetrievingByIdEventAddressId, "Reaction-RetrievingById" },
                 { ReactionAddedEventAddressId, "Reaction-Added" },
                 { ReactionModifiedEventAddressId, "Reaction-Modified" },
@@ -77,6 +87,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ReactionOnRemovingReactionByIdSubscriptionName =
             "ReactionService.OnRemovingReactionById";
+        public static readonly Guid ReactionOnHardRemovingReactionByIdSubscriptionId =
+            new Guid("019f855d-451d-780e-88c8-0e561b79a782");
+
+        public const string ReactionOnHardRemovingReactionByIdSubscriptionName =
+            "ReactionService.OnHardRemovingReactionById";
+
         public static readonly Guid ReactionOnRetrievingReactionByIdSubscriptionId =
             new Guid("019f8170-a642-774a-adab-4abec905d9ea");
 
