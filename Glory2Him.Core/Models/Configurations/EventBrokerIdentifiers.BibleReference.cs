@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid BibleReferenceRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-7932-8191-791824d55965");
 
+        public static readonly Guid BibleReferenceHardRemovingByIdEventAddressId =
+            new Guid("019f855d-4512-7511-89c0-8979e152a40e");
+
         public static readonly Guid BibleReferenceRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7598-b254-42bf98366d02");
 
@@ -44,10 +47,19 @@ namespace Glory2Him.Core.Models.Configurations
                 { BibleReferenceEventOperation.Adding, BibleReferenceAddingEventAddressId },
                 { BibleReferenceEventOperation.Modifying, BibleReferenceModifyingEventAddressId },
                 { BibleReferenceEventOperation.RemovingById, BibleReferenceRemovingByIdEventAddressId },
+
+                { BibleReferenceEventOperation.HardRemovingById,
+                    BibleReferenceHardRemovingByIdEventAddressId },
+
                 { BibleReferenceEventOperation.RetrievingById, BibleReferenceRetrievingByIdEventAddressId },
                 { BibleReferenceEventOperation.Added, BibleReferenceAddedEventAddressId },
                 { BibleReferenceEventOperation.Modified, BibleReferenceModifiedEventAddressId },
-                { BibleReferenceEventOperation.Removed, BibleReferenceRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("BibleReferenceHardRemoved" vs "BibleReferenceRemoved").
+                { BibleReferenceEventOperation.Removed, BibleReferenceRemovedEventAddressId },
+                { BibleReferenceEventOperation.HardRemoved, BibleReferenceRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> BibleReferenceEventAddresses =
@@ -56,6 +68,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { BibleReferenceAddingEventAddressId, "BibleReference-Adding" },
                 { BibleReferenceModifyingEventAddressId, "BibleReference-Modifying" },
                 { BibleReferenceRemovingByIdEventAddressId, "BibleReference-RemovingById" },
+                { BibleReferenceHardRemovingByIdEventAddressId, "BibleReference-HardRemovingById" },
                 { BibleReferenceRetrievingByIdEventAddressId, "BibleReference-RetrievingById" },
                 { BibleReferenceAddedEventAddressId, "BibleReference-Added" },
                 { BibleReferenceModifiedEventAddressId, "BibleReference-Modified" },
@@ -77,6 +90,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string BibleReferenceOnRemovingBibleReferenceByIdSubscriptionName =
             "BibleReferenceService.OnRemovingBibleReferenceById";
+        public static readonly Guid BibleReferenceOnHardRemovingBibleReferenceByIdSubscriptionId =
+            new Guid("019f855d-4513-7afa-8aca-c7f83447f545");
+
+        public const string BibleReferenceOnHardRemovingBibleReferenceByIdSubscriptionName =
+            "BibleReferenceService.OnHardRemovingBibleReferenceById";
+
         public static readonly Guid BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionId =
             new Guid("019f8170-a642-772f-b896-2233aca4eb26");
 
