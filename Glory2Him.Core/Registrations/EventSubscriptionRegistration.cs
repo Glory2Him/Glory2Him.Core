@@ -24,6 +24,7 @@ using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -64,6 +65,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IReactionService reactionService;
         private readonly ICommentService commentService;
         private readonly IApprovalCommentService approvalCommentService;
+        private readonly IApprovalReviewService approvalReviewService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -75,7 +77,8 @@ namespace Glory2Him.Core.Registrations
             ILinkService linkService,
             IReactionService reactionService,
             ICommentService commentService,
-            IApprovalCommentService approvalCommentService)
+            IApprovalCommentService approvalCommentService,
+            IApprovalReviewService approvalReviewService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
@@ -87,6 +90,7 @@ namespace Glory2Him.Core.Registrations
             this.reactionService = reactionService;
             this.commentService = commentService;
             this.approvalCommentService = approvalCommentService;
+            this.approvalReviewService = approvalReviewService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -725,6 +729,77 @@ namespace Glory2Him.Core.Registrations
                 approvalCommentEventHandler:
                     this.approvalCommentService.OnRetrievingApprovalCommentByIdAsync,
 
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalReview request handlers ──────────────────────────────────
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval review, publishes " +
+                        "ApprovalReview-Added, and replies with the added entity."
+                },
+                operation: ApprovalReviewEventOperation.Adding,
+                approvalReviewEventHandler: this.approvalReviewService.OnAddingApprovalReviewAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnModifyingApprovalReviewSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalReviewOnModifyingApprovalReviewSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval review, publishes " +
+                        "ApprovalReview-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalReviewEventOperation.Modifying,
+                approvalReviewEventHandler: this.approvalReviewService.OnModifyingApprovalReviewAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnRemovingApprovalReviewByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalReviewOnRemovingApprovalReviewByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval review, " +
+                        "publishes ApprovalReview-Removed, and replies with the removed entity."
+                },
+                operation: ApprovalReviewEventOperation.RemovingById,
+                approvalReviewEventHandler: this.approvalReviewService.OnRemovingApprovalReviewByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnHardRemovingApprovalReviewByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewOnHardRemovingApprovalReviewByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval review, publishes ApprovalReviewHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalReviewEventOperation.HardRemovingById,
+                approvalReviewEventHandler: this.approvalReviewService.OnHardRemovingApprovalReviewByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval review by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ApprovalReviewEventOperation.RetrievingById,
+                approvalReviewEventHandler: this.approvalReviewService.OnRetrievingApprovalReviewByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }

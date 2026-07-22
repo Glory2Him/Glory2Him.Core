@@ -24,7 +24,8 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             ApprovalReview approvalReview,
             CancellationToken cancellationToken = default);
 
-        ValueTask<IQueryable<ApprovalReview>> SelectAllApprovalReviewsAsync();
+        ValueTask<IQueryable<ApprovalReview>> SelectAllApprovalReviewsAsync(
+            CancellationToken cancellationToken = default);
 
         ValueTask<ApprovalReview> SelectApprovalReviewByIdAsync(
             Guid approvalReviewId,
