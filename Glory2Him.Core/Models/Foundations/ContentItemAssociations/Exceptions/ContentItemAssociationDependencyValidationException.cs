@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItemAssociations.Exceptions
 {
-    public class ContentItemAssociationDependencyValidationException : Xeption
+    internal class ContentItemAssociationDependencyValidationException : Xeption
     {
         public ContentItemAssociationDependencyValidationException(string message, Xeption innerException)
             : base(message, innerException)

@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItemAssociations.Exceptions
 {
-    public class ContentItemAssociationServiceException : Xeption
+    internal class ContentItemAssociationServiceException : Xeption
     {
         public ContentItemAssociationServiceException(string message, Exception innerException)
             : base(message, innerException)
