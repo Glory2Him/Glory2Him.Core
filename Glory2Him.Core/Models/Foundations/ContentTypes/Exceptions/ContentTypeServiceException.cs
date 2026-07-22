@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions
 {
-    public class ContentTypeServiceException : Xeption
+    internal class ContentTypeServiceException : Xeption
     {
         public ContentTypeServiceException(string message, Exception innerException)
             : base(message, innerException)
