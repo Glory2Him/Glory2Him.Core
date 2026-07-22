@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
+using Glory2Him.Core.Services.Foundations.BibleReferences;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -52,17 +53,20 @@ namespace Glory2Him.Core.Registrations
         private readonly IContentTypeService contentTypeService;
         private readonly IContentItemService contentItemService;
         private readonly IApprovalService approvalService;
+        private readonly IBibleReferenceService bibleReferenceService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
             IContentTypeService contentTypeService,
             IContentItemService contentItemService,
-            IApprovalService approvalService)
+            IApprovalService approvalService,
+            IBibleReferenceService bibleReferenceService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
             this.approvalService = approvalService;
+            this.bibleReferenceService = bibleReferenceService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -285,6 +289,77 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalEventOperation.RetrievingById,
                 approvalEventHandler: this.approvalService.OnRetrievingApprovalByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── BibleReference request handlers ──────────────────────────────────
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.BibleReferenceOnAddingBibleReferenceSubscriptionId,
+                    Name = EventBrokerIdentifiers.BibleReferenceOnAddingBibleReferenceSubscriptionName,
+
+                    Description = "Handles add requests: stores the bible reference, publishes " +
+                        "BibleReference-Added, and replies with the added entity."
+                },
+                operation: BibleReferenceEventOperation.Adding,
+                bibleReferenceEventHandler: this.bibleReferenceService.OnAddingBibleReferenceAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.BibleReferenceOnModifyingBibleReferenceSubscriptionId,
+                    Name = EventBrokerIdentifiers.BibleReferenceOnModifyingBibleReferenceSubscriptionName,
+
+                    Description = "Handles modify requests: updates the bible reference, publishes " +
+                        "BibleReference-Modified, and replies with the updated entity."
+                },
+                operation: BibleReferenceEventOperation.Modifying,
+                bibleReferenceEventHandler: this.bibleReferenceService.OnModifyingBibleReferenceAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.BibleReferenceOnRemovingBibleReferenceByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.BibleReferenceOnRemovingBibleReferenceByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the bible reference, " +
+                        "publishes BibleReference-Removed, and replies with the removed entity."
+                },
+                operation: BibleReferenceEventOperation.RemovingById,
+                bibleReferenceEventHandler: this.bibleReferenceService.OnRemovingBibleReferenceByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.BibleReferenceOnHardRemovingBibleReferenceByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .BibleReferenceOnHardRemovingBibleReferenceByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "bible reference, publishes BibleReferenceHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: BibleReferenceEventOperation.HardRemovingById,
+                bibleReferenceEventHandler: this.bibleReferenceService.OnHardRemovingBibleReferenceByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a bible reference by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: BibleReferenceEventOperation.RetrievingById,
+                bibleReferenceEventHandler: this.bibleReferenceService.OnRetrievingBibleReferenceByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }

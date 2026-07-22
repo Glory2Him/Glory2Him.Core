@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -24,6 +24,8 @@ using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Moq;
+using Glory2Him.Core.Models.Foundations.BibleReferences;
+using Glory2Him.Core.Services.Foundations.BibleReferences;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -33,6 +35,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IContentTypeService> contentTypeServiceMock;
         private readonly Mock<IContentItemService> contentItemServiceMock;
         private readonly Mock<IApprovalService> approvalServiceMock;
+        private readonly Mock<IBibleReferenceService> bibleReferenceServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -41,12 +44,14 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentTypeServiceMock = new Mock<IContentTypeService>();
             this.contentItemServiceMock = new Mock<IContentItemService>();
             this.approvalServiceMock = new Mock<IApprovalService>();
+            this.bibleReferenceServiceMock = new Mock<IBibleReferenceService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
                 contentTypeService: this.contentTypeServiceMock.Object,
                 contentItemService: this.contentItemServiceMock.Object,
-                approvalService: this.approvalServiceMock.Object);
+                approvalService: this.approvalServiceMock.Object,
+                bibleReferenceService: this.bibleReferenceServiceMock.Object);
         }
 
         private void VerifyContentTypeSubscription(
@@ -104,6 +109,26 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<Approval>, CancellationToken,
                         ValueTask<EventEnvelope<Approval>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyBibleReferenceSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            BibleReferenceEventOperation expectedOperation,
+            Func<EventEnvelope<BibleReference>, CancellationToken,
+                ValueTask<EventEnvelope<BibleReference>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToBibleReferenceEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<BibleReference>, CancellationToken,
+                        ValueTask<EventEnvelope<BibleReference>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -230,6 +255,46 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     EventBrokerIdentifiers.ApprovalOnRetrievingApprovalByIdSubscriptionName,
                 expectedOperation: ApprovalEventOperation.RetrievingById,
                 expectedHandler: this.approvalServiceMock.Object.OnRetrievingApprovalByIdAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.BibleReferenceOnAddingBibleReferenceSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.BibleReferenceOnAddingBibleReferenceSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.Adding,
+                expectedHandler: this.bibleReferenceServiceMock.Object.OnAddingBibleReferenceAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.BibleReferenceOnModifyingBibleReferenceSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.BibleReferenceOnModifyingBibleReferenceSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.Modifying,
+                expectedHandler: this.bibleReferenceServiceMock.Object.OnModifyingBibleReferenceAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.BibleReferenceOnRemovingBibleReferenceByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.BibleReferenceOnRemovingBibleReferenceByIdSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.RemovingById,
+                expectedHandler: this.bibleReferenceServiceMock.Object.OnRemovingBibleReferenceByIdAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.BibleReferenceOnHardRemovingBibleReferenceByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.BibleReferenceOnHardRemovingBibleReferenceByIdSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.HardRemovingById,
+                expectedHandler: this.bibleReferenceServiceMock.Object.OnHardRemovingBibleReferenceByIdAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.RetrievingById,
+                expectedHandler: this.bibleReferenceServiceMock.Object.OnRetrievingBibleReferenceByIdAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();

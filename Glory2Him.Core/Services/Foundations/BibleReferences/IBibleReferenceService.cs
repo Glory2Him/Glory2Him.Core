@@ -10,56 +10,36 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 
-namespace Glory2Him.Core.Brokers.Storages.Sql
+namespace Glory2Him.Core.Services.Foundations.BibleReferences
 {
-    public partial interface IStorageBroker
+    public partial interface IBibleReferenceService
     {
-        ValueTask<BibleReference> InsertBibleReferenceAsync(
+        ValueTask<BibleReference> AddBibleReferenceAsync(
             BibleReference bibleReference,
             CancellationToken cancellationToken = default);
 
-        ValueTask<IQueryable<BibleReference>> SelectAllBibleReferencesAsync(
+        ValueTask<IQueryable<BibleReference>> RetrieveAllBibleReferencesAsync(
             CancellationToken cancellationToken = default);
 
-        ValueTask<BibleReference> SelectBibleReferenceByIdAsync(
+        ValueTask<BibleReference> RetrieveBibleReferenceByIdAsync(
             Guid bibleReferenceId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<BibleReference> UpdateBibleReferenceAsync(
+        ValueTask<BibleReference> ModifyBibleReferenceAsync(
             BibleReference bibleReference,
             CancellationToken cancellationToken = default);
 
-        ValueTask<BibleReference> DeleteBibleReferenceAsync(
-            BibleReference bibleReference,
+        ValueTask<BibleReference> RemoveBibleReferenceByIdAsync(
+            Guid bibleReferenceId,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
 
-        ValueTask BulkInsertBibleReferencesAsync(
-            List<BibleReference> bibleReferences,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpdateBibleReferencesAsync(
-            List<BibleReference> bibleReferences,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkDeleteBibleReferencesAsync(
-            List<BibleReference> bibleReferences,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<IEnumerable<BibleReference>> BulkReadBibleReferencesAsync(
-            List<BibleReference> bibleReferences,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpsertBibleReferencesAsync(
-            List<BibleReference> bibleReferences,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<bool> ExistsBibleReferenceAsync(
+        ValueTask<BibleReference> HardRemoveBibleReferenceByIdAsync(
             Guid bibleReferenceId,
             CancellationToken cancellationToken = default);
     }
