@@ -26,6 +26,8 @@ using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Moq;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Services.Foundations.Tags;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -36,6 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IContentItemService> contentItemServiceMock;
         private readonly Mock<IApprovalService> approvalServiceMock;
         private readonly Mock<IBibleReferenceService> bibleReferenceServiceMock;
+        private readonly Mock<ITagService> tagServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -45,13 +48,15 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemServiceMock = new Mock<IContentItemService>();
             this.approvalServiceMock = new Mock<IApprovalService>();
             this.bibleReferenceServiceMock = new Mock<IBibleReferenceService>();
+            this.tagServiceMock = new Mock<ITagService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
                 contentTypeService: this.contentTypeServiceMock.Object,
                 contentItemService: this.contentItemServiceMock.Object,
                 approvalService: this.approvalServiceMock.Object,
-                bibleReferenceService: this.bibleReferenceServiceMock.Object);
+                bibleReferenceService: this.bibleReferenceServiceMock.Object,
+                tagService: this.tagServiceMock.Object);
         }
 
         private void VerifyContentTypeSubscription(
@@ -129,6 +134,26 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<BibleReference>, CancellationToken,
                         ValueTask<EventEnvelope<BibleReference>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyTagSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            TagEventOperation expectedOperation,
+            Func<EventEnvelope<Tag>, CancellationToken,
+                ValueTask<EventEnvelope<Tag>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToTagEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Tag>, CancellationToken,
+                        ValueTask<EventEnvelope<Tag>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -295,6 +320,40 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     EventBrokerIdentifiers.BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionName,
                 expectedOperation: BibleReferenceEventOperation.RetrievingById,
                 expectedHandler: this.bibleReferenceServiceMock.Object.OnRetrievingBibleReferenceByIdAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.TagOnAddingTagSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                expectedOperation: TagEventOperation.Adding,
+                expectedHandler: this.tagServiceMock.Object.OnAddingTagAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.TagOnModifyingTagSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.TagOnModifyingTagSubscriptionName,
+                expectedOperation: TagEventOperation.Modifying,
+                expectedHandler: this.tagServiceMock.Object.OnModifyingTagAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionName,
+                expectedOperation: TagEventOperation.RemovingById,
+                expectedHandler: this.tagServiceMock.Object.OnRemovingTagByIdAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionName,
+                expectedOperation: TagEventOperation.HardRemovingById,
+                expectedHandler: this.tagServiceMock.Object.OnHardRemovingTagByIdAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionName,
+                expectedOperation: TagEventOperation.RetrievingById,
+                expectedHandler: this.tagServiceMock.Object.OnRetrievingTagByIdAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();
