@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Links.Exceptions
 {
-    public class LinkServiceException : Xeption
+    internal class LinkServiceException : Xeption
     {
         public LinkServiceException(string message, Exception innerException)
             : base(message, innerException)

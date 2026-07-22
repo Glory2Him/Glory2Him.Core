@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Links.Exceptions
 {
-    public class LinkDependencyValidationException : Xeption
+    internal class LinkDependencyValidationException : Xeption
     {
         public LinkDependencyValidationException(string message, Xeption innerException)
             : base(message, innerException)
