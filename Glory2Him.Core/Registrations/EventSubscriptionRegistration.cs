@@ -20,6 +20,7 @@ using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Foundations.Links;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -56,6 +57,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalService approvalService;
         private readonly IBibleReferenceService bibleReferenceService;
         private readonly ITagService tagService;
+        private readonly ILinkService linkService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -63,7 +65,8 @@ namespace Glory2Him.Core.Registrations
             IContentItemService contentItemService,
             IApprovalService approvalService,
             IBibleReferenceService bibleReferenceService,
-            ITagService tagService)
+            ITagService tagService,
+            ILinkService linkService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
@@ -71,6 +74,7 @@ namespace Glory2Him.Core.Registrations
             this.approvalService = approvalService;
             this.bibleReferenceService = bibleReferenceService;
             this.tagService = tagService;
+            this.linkService = linkService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -431,6 +435,73 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: TagEventOperation.RetrievingById,
                 tagEventHandler: this.tagService.OnRetrievingTagByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Link request handlers ─────────────────────────────────────
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionName,
+
+                    Description = "Handles add requests: stores the link, publishes " +
+                        "Link-Added, and replies with the added entity."
+                },
+                operation: LinkEventOperation.Adding,
+                linkEventHandler: this.linkService.OnAddingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionName,
+
+                    Description = "Handles modify requests: updates the link, publishes " +
+                        "Link-Modified, and replies with the updated entity."
+                },
+                operation: LinkEventOperation.Modifying,
+                linkEventHandler: this.linkService.OnModifyingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the link, " +
+                        "publishes Link-Removed, and replies with the removed entity."
+                },
+                operation: LinkEventOperation.RemovingById,
+                linkEventHandler: this.linkService.OnRemovingLinkByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "link, publishes LinkHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: LinkEventOperation.HardRemovingById,
+                linkEventHandler: this.linkService.OnHardRemovingLinkByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a link by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: LinkEventOperation.RetrievingById,
+                linkEventHandler: this.linkService.OnRetrievingLinkByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }

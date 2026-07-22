@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid LinkRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-7fa2-b64b-6f99abb496a3");
 
+        public static readonly Guid LinkHardRemovingByIdEventAddressId =
+            new Guid("019f855d-451a-7ad4-8b39-7c19fd58ef59");
+
         public static readonly Guid LinkRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7750-b40d-0ea26cdc9500");
 
@@ -44,10 +47,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { LinkEventOperation.Adding, LinkAddingEventAddressId },
                 { LinkEventOperation.Modifying, LinkModifyingEventAddressId },
                 { LinkEventOperation.RemovingById, LinkRemovingByIdEventAddressId },
+                { LinkEventOperation.HardRemovingById, LinkHardRemovingByIdEventAddressId },
                 { LinkEventOperation.RetrievingById, LinkRetrievingByIdEventAddressId },
                 { LinkEventOperation.Added, LinkAddedEventAddressId },
                 { LinkEventOperation.Modified, LinkModifiedEventAddressId },
-                { LinkEventOperation.Removed, LinkRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("LinkHardRemoved" vs "LinkRemoved").
+                { LinkEventOperation.Removed, LinkRemovedEventAddressId },
+                { LinkEventOperation.HardRemoved, LinkRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> LinkEventAddresses =
@@ -56,6 +65,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { LinkAddingEventAddressId, "Link-Adding" },
                 { LinkModifyingEventAddressId, "Link-Modifying" },
                 { LinkRemovingByIdEventAddressId, "Link-RemovingById" },
+                { LinkHardRemovingByIdEventAddressId, "Link-HardRemovingById" },
                 { LinkRetrievingByIdEventAddressId, "Link-RetrievingById" },
                 { LinkAddedEventAddressId, "Link-Added" },
                 { LinkModifiedEventAddressId, "Link-Modified" },
@@ -77,6 +87,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string LinkOnRemovingLinkByIdSubscriptionName =
             "LinkService.OnRemovingLinkById";
+        public static readonly Guid LinkOnHardRemovingLinkByIdSubscriptionId =
+            new Guid("019f855d-451b-7603-8325-d17f43c3fb04");
+
+        public const string LinkOnHardRemovingLinkByIdSubscriptionName =
+            "LinkService.OnHardRemovingLinkById";
+
         public static readonly Guid LinkOnRetrievingLinkByIdSubscriptionId =
             new Guid("019f8170-a642-799e-8b21-57b457c2be45");
 
