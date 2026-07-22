@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions
 {
-    public class BibleReferenceDependencyValidationException : Xeption
+    internal class BibleReferenceDependencyValidationException : Xeption
     {
         public BibleReferenceDependencyValidationException(string message, Xeption innerException)
             : base(message, innerException)

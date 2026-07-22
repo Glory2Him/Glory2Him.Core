@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions
 {
-    public class BibleReferenceServiceException : Xeption
+    internal class BibleReferenceServiceException : Xeption
     {
         public BibleReferenceServiceException(string message, Exception innerException)
             : base(message, innerException)
