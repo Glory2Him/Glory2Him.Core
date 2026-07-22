@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions
 {
-    public class ApprovalSettingDependencyValidationException : Xeption
+    internal class ApprovalSettingDependencyValidationException : Xeption
     {
         public ApprovalSettingDependencyValidationException(string message, Xeption innerException)
             : base(message, innerException)
