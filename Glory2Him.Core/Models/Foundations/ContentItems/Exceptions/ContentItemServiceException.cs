@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItems.Exceptions
 {
-    public class ContentItemServiceException : Xeption
+    internal class ContentItemServiceException : Xeption
     {
         public ContentItemServiceException(string message, Exception innerException)
             : base(message, innerException)
