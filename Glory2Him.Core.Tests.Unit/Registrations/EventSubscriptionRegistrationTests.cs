@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -16,14 +16,16 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Registrations;
-using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Moq;
+using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -32,6 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IContentTypeService> contentTypeServiceMock;
         private readonly Mock<IContentItemService> contentItemServiceMock;
+        private readonly Mock<IApprovalService> approvalServiceMock;
         private readonly Mock<IApprovalSettingService> approvalSettingServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
@@ -40,12 +43,14 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.contentTypeServiceMock = new Mock<IContentTypeService>();
             this.contentItemServiceMock = new Mock<IContentItemService>();
+            this.approvalServiceMock = new Mock<IApprovalService>();
             this.approvalSettingServiceMock = new Mock<IApprovalSettingService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
                 contentTypeService: this.contentTypeServiceMock.Object,
                 contentItemService: this.contentItemServiceMock.Object,
+                approvalService: this.approvalServiceMock.Object,
                 approvalSettingService: this.approvalSettingServiceMock.Object);
         }
 
@@ -84,6 +89,26 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
                         ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyApprovalSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ApprovalEventOperation expectedOperation,
+            Func<EventEnvelope<Approval>, CancellationToken,
+                ValueTask<EventEnvelope<Approval>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToApprovalEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Approval>, CancellationToken,
+                        ValueTask<EventEnvelope<Approval>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -195,6 +220,42 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ContentItemEventOperation.RetrievingById,
                 expectedHandler: this.contentItemServiceMock.Object.OnRetrievingContentItemByIdAsync);
 
+            VerifyApprovalSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.ApprovalOnAddingApprovalSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.ApprovalOnAddingApprovalSubscriptionName,
+                expectedOperation: ApprovalEventOperation.Adding,
+                expectedHandler: this.approvalServiceMock.Object.OnAddingApprovalAsync);
+
+            VerifyApprovalSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.ApprovalOnModifyingApprovalSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.ApprovalOnModifyingApprovalSubscriptionName,
+                expectedOperation: ApprovalEventOperation.Modifying,
+                expectedHandler: this.approvalServiceMock.Object.OnModifyingApprovalAsync);
+
+            VerifyApprovalSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOnRemovingApprovalByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOnRemovingApprovalByIdSubscriptionName,
+                expectedOperation: ApprovalEventOperation.RemovingById,
+                expectedHandler: this.approvalServiceMock.Object.OnRemovingApprovalByIdAsync);
+
+            VerifyApprovalSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOnHardRemovingApprovalByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOnHardRemovingApprovalByIdSubscriptionName,
+                expectedOperation: ApprovalEventOperation.HardRemovingById,
+                expectedHandler: this.approvalServiceMock.Object.OnHardRemovingApprovalByIdAsync);
+
+            VerifyApprovalSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOnRetrievingApprovalByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOnRetrievingApprovalByIdSubscriptionName,
+                expectedOperation: ApprovalEventOperation.RetrievingById,
+                expectedHandler: this.approvalServiceMock.Object.OnRetrievingApprovalByIdAsync);
+
             VerifyApprovalSettingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionId,
@@ -240,7 +301,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
-            this.approvalSettingServiceMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
         }
     }
 }

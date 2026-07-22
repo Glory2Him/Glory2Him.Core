@@ -15,9 +15,10 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -51,17 +52,20 @@ namespace Glory2Him.Core.Registrations
         private readonly IEventBroker eventBroker;
         private readonly IContentTypeService contentTypeService;
         private readonly IContentItemService contentItemService;
+        private readonly IApprovalService approvalService;
         private readonly IApprovalSettingService approvalSettingService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
             IContentTypeService contentTypeService,
             IContentItemService contentItemService,
+            IApprovalService approvalService,
             IApprovalSettingService approvalSettingService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
+            this.approvalService = approvalService;
             this.approvalSettingService = approvalSettingService;
         }
 
@@ -218,6 +222,73 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemEventOperation.RetrievingById,
                 contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Approval request handlers ────────────────────────────────────────
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOnAddingApprovalSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOnAddingApprovalSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval, publishes " +
+                        "Approval-Added, and replies with the added entity."
+                },
+                operation: ApprovalEventOperation.Adding,
+                approvalEventHandler: this.approvalService.OnAddingApprovalAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOnModifyingApprovalSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOnModifyingApprovalSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval, publishes " +
+                        "Approval-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalEventOperation.Modifying,
+                approvalEventHandler: this.approvalService.OnModifyingApprovalAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOnRemovingApprovalByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOnRemovingApprovalByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval, " +
+                        "publishes Approval-Removed, and replies with the removed entity."
+                },
+                operation: ApprovalEventOperation.RemovingById,
+                approvalEventHandler: this.approvalService.OnRemovingApprovalByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOnHardRemovingApprovalByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOnHardRemovingApprovalByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval, publishes ApprovalHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalEventOperation.HardRemovingById,
+                approvalEventHandler: this.approvalService.OnHardRemovingApprovalByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOnRetrievingApprovalByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOnRetrievingApprovalByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ApprovalEventOperation.RetrievingById,
+                approvalEventHandler: this.approvalService.OnRetrievingApprovalByIdAsync,
                 cancellationToken: cancellationToken);
 
             // ── ApprovalSetting request handlers ─────────────────────────────────
