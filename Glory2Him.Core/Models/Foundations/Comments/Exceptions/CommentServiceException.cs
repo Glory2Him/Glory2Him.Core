@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Comments.Exceptions
 {
-    public class CommentServiceException : Xeption
+    internal class CommentServiceException : Xeption
     {
         public CommentServiceException(string message, Exception innerException)
             : base(message, innerException)

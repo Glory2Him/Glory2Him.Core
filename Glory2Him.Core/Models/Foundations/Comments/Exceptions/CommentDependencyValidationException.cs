@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Comments.Exceptions
 {
-    public class CommentDependencyValidationException : Xeption
+    internal class CommentDependencyValidationException : Xeption
     {
         public CommentDependencyValidationException(string message, Xeption innerException)
             : base(message, innerException)
