@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Tags.Exceptions
 {
-    public class TagServiceException : Xeption
+    internal class TagServiceException : Xeption
     {
         public TagServiceException(string message, Exception innerException)
             : base(message, innerException)

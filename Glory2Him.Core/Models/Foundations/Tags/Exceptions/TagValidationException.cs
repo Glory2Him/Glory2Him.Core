@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Tags.Exceptions
 {
-    public class TagValidationException : Xeption
+    internal class TagValidationException : Xeption
     {
         public TagValidationException(string message, Xeption innerException)
             : base(message, innerException)
