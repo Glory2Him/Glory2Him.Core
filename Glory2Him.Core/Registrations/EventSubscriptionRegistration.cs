@@ -26,6 +26,7 @@ using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.ApprovalSettingRoles;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -68,6 +69,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IApprovalReviewService approvalReviewService;
         private readonly IApprovalSettingService approvalSettingService;
+        private readonly IApprovalSettingRoleService approvalSettingRoleService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -81,7 +83,8 @@ namespace Glory2Him.Core.Registrations
             ICommentService commentService,
             IApprovalCommentService approvalCommentService,
             IApprovalReviewService approvalReviewService,
-            IApprovalSettingService approvalSettingService)
+            IApprovalSettingService approvalSettingService,
+            IApprovalSettingRoleService approvalSettingRoleService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
@@ -95,6 +98,7 @@ namespace Glory2Him.Core.Registrations
             this.approvalCommentService = approvalCommentService;
             this.approvalReviewService = approvalReviewService;
             this.approvalSettingService = approvalSettingService;
+            this.approvalSettingRoleService = approvalSettingRoleService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -875,6 +879,99 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalSettingEventOperation.RetrievingById,
                 approvalSettingEventHandler: this.approvalSettingService.OnRetrievingApprovalSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalSettingRole request handlers ─────────────────────────────
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingRoleOnAddingApprovalSettingRoleSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingRoleOnAddingApprovalSettingRoleSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval setting role, " +
+                        "publishes ApprovalSettingRole-Added, and replies with the added entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.Adding,
+                approvalSettingRoleEventHandler: this.approvalSettingRoleService.OnAddingApprovalSettingRoleAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingRoleOnModifyingApprovalSettingRoleSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnModifyingApprovalSettingRoleSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval setting role, " +
+                        "publishes ApprovalSettingRole-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.Modifying,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnModifyingApprovalSettingRoleAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnRemovingApprovalSettingRoleByIdSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnRemovingApprovalSettingRoleByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval setting " +
+                        "role, publishes ApprovalSettingRole-Removed, and replies with the " +
+                        "removed entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.RemovingById,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnRemovingApprovalSettingRoleByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers
+                            .ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval setting role, publishes ApprovalSettingRoleHardRemoved on " +
+                        "the removal address, and replies with the deleted entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.HardRemovingById,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnHardRemovingApprovalSettingRoleByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnRetrievingApprovalSettingRoleByIdSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers
+                            .ApprovalSettingRoleOnRetrievingApprovalSettingRoleByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval setting " +
+                        "role by id and replies with it on the delivery."
+                },
+                operation: ApprovalSettingRoleEventOperation.RetrievingById,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnRetrievingApprovalSettingRoleByIdAsync,
+
                 cancellationToken: cancellationToken);
         }
     }
