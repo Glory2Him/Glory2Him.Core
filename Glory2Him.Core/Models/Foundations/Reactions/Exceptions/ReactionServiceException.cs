@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Reactions.Exceptions
 {
-    public class ReactionServiceException : Xeption
+    internal class ReactionServiceException : Xeption
     {
         public ReactionServiceException(string message, Exception innerException)
             : base(message, innerException)

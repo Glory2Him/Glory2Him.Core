@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.Reactions.Exceptions
 {
-    public class ReactionValidationException : Xeption
+    internal class ReactionValidationException : Xeption
     {
         public ReactionValidationException(string message, Xeption innerException)
             : base(message, innerException)
