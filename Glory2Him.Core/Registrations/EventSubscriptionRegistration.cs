@@ -27,6 +27,7 @@ using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.ApprovalSettingRoles;
+using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -70,6 +71,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalReviewService approvalReviewService;
         private readonly IApprovalSettingService approvalSettingService;
         private readonly IApprovalSettingRoleService approvalSettingRoleService;
+        private readonly IContentItemAssociationService contentItemAssociationService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -84,7 +86,8 @@ namespace Glory2Him.Core.Registrations
             IApprovalCommentService approvalCommentService,
             IApprovalReviewService approvalReviewService,
             IApprovalSettingService approvalSettingService,
-            IApprovalSettingRoleService approvalSettingRoleService)
+            IApprovalSettingRoleService approvalSettingRoleService,
+            IContentItemAssociationService contentItemAssociationService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
@@ -99,6 +102,7 @@ namespace Glory2Him.Core.Registrations
             this.approvalReviewService = approvalReviewService;
             this.approvalSettingService = approvalSettingService;
             this.approvalSettingRoleService = approvalSettingRoleService;
+            this.contentItemAssociationService = contentItemAssociationService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -972,6 +976,94 @@ namespace Glory2Him.Core.Registrations
                 approvalSettingRoleEventHandler:
                     this.approvalSettingRoleService.OnRetrievingApprovalSettingRoleByIdAsync,
 
+                cancellationToken: cancellationToken);
+
+            // ── ContentItemAssociation request handlers ──────────────────────────
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnAddingContentItemAssociationSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnAddingContentItemAssociationSubscriptionName,
+
+                    Description = "Handles add requests: stores the content item association, " +
+                        "publishes ContentItemAssociation-Added, and replies with the added entity."
+                },
+                operation: ContentItemAssociationEventOperation.Adding,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnAddingContentItemAssociationAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionName,
+
+                    Description = "Handles modify requests: updates the content item association, " +
+                        "publishes ContentItemAssociation-Modified, and replies with the updated entity."
+                },
+                operation: ContentItemAssociationEventOperation.Modifying,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnModifyingContentItemAssociationAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the content item " +
+                        "association, publishes ContentItemAssociation-Removed, and replies " +
+                        "with the removed entity."
+                },
+                operation: ContentItemAssociationEventOperation.RemovingById,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnRemovingContentItemAssociationByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "content item association, publishes ContentItemAssociationHardRemoved " +
+                        "on the removal address, and replies with the deleted entity."
+                },
+                operation: ContentItemAssociationEventOperation.HardRemovingById,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnHardRemovingContentItemAssociationByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a content item " +
+                        "association by id and replies with it on the delivery."
+                },
+                operation: ContentItemAssociationEventOperation.RetrievingById,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnRetrievingContentItemAssociationByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }
