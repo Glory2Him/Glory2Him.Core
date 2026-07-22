@@ -11,12 +11,12 @@
 
 using Xeptions;
 
-namespace Glory2Him.Core.Models.Foundations.ContentItems.Exceptions
+namespace Glory2Him.Core.Models.Foundations.Approvals.Exceptions
 {
-    internal class ContentItemDependencyException : Xeption
+    public class InvalidApprovalException : Xeption
     {
-        public ContentItemDependencyException(string message, Xeption innerException)
-            : base(message, innerException)
+        public InvalidApprovalException(string message)
+            : base(message)
         { }
     }
 }

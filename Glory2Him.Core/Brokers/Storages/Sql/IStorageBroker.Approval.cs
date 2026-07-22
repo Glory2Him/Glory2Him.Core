@@ -20,14 +20,36 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<Approval> InsertApprovalAsync(Approval approval, CancellationToken cancellationToken = default);
-        ValueTask<IQueryable<Approval>> SelectAllApprovalsAsync();
-        ValueTask<Approval> SelectApprovalByIdAsync(Guid approvalId, CancellationToken cancellationToken = default);
-        ValueTask<Approval> UpdateApprovalAsync(Approval approval, CancellationToken cancellationToken = default);
-        ValueTask<Approval> DeleteApprovalAsync(Approval approval, CancellationToken cancellationToken = default);
-        ValueTask BulkInsertApprovalsAsync(List<Approval> approvals, CancellationToken cancellationToken = default);
-        ValueTask BulkUpdateApprovalsAsync(List<Approval> approvals, CancellationToken cancellationToken = default);
-        ValueTask BulkDeleteApprovalsAsync(List<Approval> approvals, CancellationToken cancellationToken = default);
+        ValueTask<Approval> InsertApprovalAsync(
+            Approval approval,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<IQueryable<Approval>> SelectAllApprovalsAsync(
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Approval> SelectApprovalByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Approval> UpdateApprovalAsync(
+            Approval approval,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Approval> DeleteApprovalAsync(
+            Approval approval,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkInsertApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpdateApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkDeleteApprovalsAsync(
+            List<Approval> approvals,
+            CancellationToken cancellationToken = default);
 
         ValueTask<IEnumerable<Approval>> BulkReadApprovalsAsync(
             List<Approval> approvals,
