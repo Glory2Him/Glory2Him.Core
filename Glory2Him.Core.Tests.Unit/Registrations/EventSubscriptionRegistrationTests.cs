@@ -26,6 +26,26 @@ using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Moq;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Services.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Services.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Comments;
+using Glory2Him.Core.Services.Foundations.Comments;
+using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Foundations.ApprovalSettingRoles;
+using Glory2Him.Core.Services.Foundations.ApprovalSettingRoles;
+using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -36,6 +56,16 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IContentItemService> contentItemServiceMock;
         private readonly Mock<IApprovalService> approvalServiceMock;
         private readonly Mock<IBibleReferenceService> bibleReferenceServiceMock;
+        private readonly Mock<ITagService> tagServiceMock;
+        private readonly Mock<ILinkService> linkServiceMock;
+        private readonly Mock<IReactionService> reactionServiceMock;
+        private readonly Mock<ICommentService> commentServiceMock;
+        private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
+        private readonly Mock<IApprovalReviewService> approvalReviewServiceMock;
+        private readonly Mock<IApprovalSettingService> approvalSettingServiceMock;
+        private readonly Mock<IApprovalSettingRoleService> approvalSettingRoleServiceMock;
+        private readonly Mock<IContentItemAssociationService> contentItemAssociationServiceMock;
+        private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -45,13 +75,33 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemServiceMock = new Mock<IContentItemService>();
             this.approvalServiceMock = new Mock<IApprovalService>();
             this.bibleReferenceServiceMock = new Mock<IBibleReferenceService>();
+            this.tagServiceMock = new Mock<ITagService>();
+            this.linkServiceMock = new Mock<ILinkService>();
+            this.reactionServiceMock = new Mock<IReactionService>();
+            this.commentServiceMock = new Mock<ICommentService>();
+            this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
+            this.approvalReviewServiceMock = new Mock<IApprovalReviewService>();
+            this.approvalSettingServiceMock = new Mock<IApprovalSettingService>();
+            this.approvalSettingRoleServiceMock = new Mock<IApprovalSettingRoleService>();
+            this.contentItemAssociationServiceMock = new Mock<IContentItemAssociationService>();
+            this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
                 contentTypeService: this.contentTypeServiceMock.Object,
                 contentItemService: this.contentItemServiceMock.Object,
                 approvalService: this.approvalServiceMock.Object,
-                bibleReferenceService: this.bibleReferenceServiceMock.Object);
+                bibleReferenceService: this.bibleReferenceServiceMock.Object,
+                tagService: this.tagServiceMock.Object,
+                linkService: this.linkServiceMock.Object,
+                reactionService: this.reactionServiceMock.Object,
+                commentService: this.commentServiceMock.Object,
+                approvalCommentService: this.approvalCommentServiceMock.Object,
+                approvalReviewService: this.approvalReviewServiceMock.Object,
+                approvalSettingService: this.approvalSettingServiceMock.Object,
+                approvalSettingRoleService: this.approvalSettingRoleServiceMock.Object,
+                contentItemAssociationService: this.contentItemAssociationServiceMock.Object,
+                contentItemSettingService: this.contentItemSettingServiceMock.Object);
         }
 
         private void VerifyContentTypeSubscription(
@@ -129,6 +179,206 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<BibleReference>, CancellationToken,
                         ValueTask<EventEnvelope<BibleReference>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyTagSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            TagEventOperation expectedOperation,
+            Func<EventEnvelope<Tag>, CancellationToken,
+                ValueTask<EventEnvelope<Tag>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToTagEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Tag>, CancellationToken,
+                        ValueTask<EventEnvelope<Tag>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyLinkSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            LinkEventOperation expectedOperation,
+            Func<EventEnvelope<Link>, CancellationToken,
+                ValueTask<EventEnvelope<Link>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToLinkEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Link>, CancellationToken,
+                        ValueTask<EventEnvelope<Link>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyReactionSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ReactionEventOperation expectedOperation,
+            Func<EventEnvelope<Reaction>, CancellationToken,
+                ValueTask<EventEnvelope<Reaction>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToReactionEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Reaction>, CancellationToken,
+                        ValueTask<EventEnvelope<Reaction>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyCommentSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            CommentEventOperation expectedOperation,
+            Func<EventEnvelope<Comment>, CancellationToken,
+                ValueTask<EventEnvelope<Comment>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToCommentEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Comment>, CancellationToken,
+                        ValueTask<EventEnvelope<Comment>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyApprovalCommentSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ApprovalCommentEventOperation expectedOperation,
+            Func<EventEnvelope<ApprovalComment>, CancellationToken,
+                ValueTask<EventEnvelope<ApprovalComment>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToApprovalCommentEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ApprovalComment>, CancellationToken,
+                        ValueTask<EventEnvelope<ApprovalComment>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyApprovalReviewSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ApprovalReviewEventOperation expectedOperation,
+            Func<EventEnvelope<ApprovalReview>, CancellationToken,
+                ValueTask<EventEnvelope<ApprovalReview>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToApprovalReviewEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ApprovalReview>, CancellationToken,
+                        ValueTask<EventEnvelope<ApprovalReview>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyApprovalSettingSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ApprovalSettingEventOperation expectedOperation,
+            Func<EventEnvelope<ApprovalSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ApprovalSetting>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToApprovalSettingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ApprovalSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ApprovalSetting>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyApprovalSettingRoleSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ApprovalSettingRoleEventOperation expectedOperation,
+            Func<EventEnvelope<ApprovalSettingRole>, CancellationToken,
+                ValueTask<EventEnvelope<ApprovalSettingRole>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToApprovalSettingRoleEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ApprovalSettingRole>, CancellationToken,
+                        ValueTask<EventEnvelope<ApprovalSettingRole>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyContentItemAssociationSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ContentItemAssociationEventOperation expectedOperation,
+            Func<EventEnvelope<ContentItemAssociation>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItemAssociation>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToContentItemAssociationEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ContentItemAssociation>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItemAssociation>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyContentItemSettingSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ContentItemSettingEventOperation expectedOperation,
+            Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItemSetting>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToContentItemSettingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItemSetting>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -295,6 +545,412 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     EventBrokerIdentifiers.BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionName,
                 expectedOperation: BibleReferenceEventOperation.RetrievingById,
                 expectedHandler: this.bibleReferenceServiceMock.Object.OnRetrievingBibleReferenceByIdAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.TagOnAddingTagSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+                expectedOperation: TagEventOperation.Adding,
+                expectedHandler: this.tagServiceMock.Object.OnAddingTagAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.TagOnModifyingTagSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.TagOnModifyingTagSubscriptionName,
+                expectedOperation: TagEventOperation.Modifying,
+                expectedHandler: this.tagServiceMock.Object.OnModifyingTagAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionName,
+                expectedOperation: TagEventOperation.RemovingById,
+                expectedHandler: this.tagServiceMock.Object.OnRemovingTagByIdAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionName,
+                expectedOperation: TagEventOperation.HardRemovingById,
+                expectedHandler: this.tagServiceMock.Object.OnHardRemovingTagByIdAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionName,
+                expectedOperation: TagEventOperation.RetrievingById,
+                expectedHandler: this.tagServiceMock.Object.OnRetrievingTagByIdAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionName,
+                expectedOperation: LinkEventOperation.Adding,
+                expectedHandler: this.linkServiceMock.Object.OnAddingLinkAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionName,
+                expectedOperation: LinkEventOperation.Modifying,
+                expectedHandler: this.linkServiceMock.Object.OnModifyingLinkAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionName,
+                expectedOperation: LinkEventOperation.RemovingById,
+                expectedHandler: this.linkServiceMock.Object.OnRemovingLinkByIdAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionName,
+                expectedOperation: LinkEventOperation.HardRemovingById,
+                expectedHandler: this.linkServiceMock.Object.OnHardRemovingLinkByIdAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionName,
+                expectedOperation: LinkEventOperation.RetrievingById,
+                expectedHandler: this.linkServiceMock.Object.OnRetrievingLinkByIdAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionName,
+                expectedOperation: ReactionEventOperation.Adding,
+                expectedHandler: this.reactionServiceMock.Object.OnAddingReactionAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.ReactionOnModifyingReactionSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.ReactionOnModifyingReactionSubscriptionName,
+                expectedOperation: ReactionEventOperation.Modifying,
+                expectedHandler: this.reactionServiceMock.Object.OnModifyingReactionAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.ReactionOnRemovingReactionByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.ReactionOnRemovingReactionByIdSubscriptionName,
+                expectedOperation: ReactionEventOperation.RemovingById,
+                expectedHandler: this.reactionServiceMock.Object.OnRemovingReactionByIdAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ReactionOnHardRemovingReactionByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ReactionOnHardRemovingReactionByIdSubscriptionName,
+                expectedOperation: ReactionEventOperation.HardRemovingById,
+                expectedHandler: this.reactionServiceMock.Object.OnHardRemovingReactionByIdAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ReactionOnRetrievingReactionByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ReactionOnRetrievingReactionByIdSubscriptionName,
+                expectedOperation: ReactionEventOperation.RetrievingById,
+                expectedHandler: this.reactionServiceMock.Object.OnRetrievingReactionByIdAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionName,
+                expectedOperation: CommentEventOperation.Adding,
+                expectedHandler: this.commentServiceMock.Object.OnAddingCommentAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionName,
+                expectedOperation: CommentEventOperation.Modifying,
+                expectedHandler: this.commentServiceMock.Object.OnModifyingCommentAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionName,
+                expectedOperation: CommentEventOperation.RemovingById,
+                expectedHandler: this.commentServiceMock.Object.OnRemovingCommentByIdAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionName,
+                expectedOperation: CommentEventOperation.HardRemovingById,
+                expectedHandler: this.commentServiceMock.Object.OnHardRemovingCommentByIdAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionName,
+                expectedOperation: CommentEventOperation.RetrievingById,
+                expectedHandler: this.commentServiceMock.Object.OnRetrievingCommentByIdAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalCommentOnAddingApprovalCommentSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalCommentOnAddingApprovalCommentSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.Adding,
+                expectedHandler: this.approvalCommentServiceMock.Object.OnAddingApprovalCommentAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalCommentOnModifyingApprovalCommentSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalCommentOnModifyingApprovalCommentSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.Modifying,
+                expectedHandler: this.approvalCommentServiceMock.Object.OnModifyingApprovalCommentAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.RemovingById,
+                expectedHandler: this.approvalCommentServiceMock.Object.OnRemovingApprovalCommentByIdAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.HardRemovingById,
+
+                expectedHandler:
+                    this.approvalCommentServiceMock.Object.OnHardRemovingApprovalCommentByIdAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.RetrievingById,
+
+                expectedHandler:
+                    this.approvalCommentServiceMock.Object.OnRetrievingApprovalCommentByIdAsync);
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Adding,
+                expectedHandler: this.approvalReviewServiceMock.Object.OnAddingApprovalReviewAsync);
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalReviewOnModifyingApprovalReviewSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalReviewOnModifyingApprovalReviewSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Modifying,
+                expectedHandler: this.approvalReviewServiceMock.Object.OnModifyingApprovalReviewAsync);
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalReviewOnRemovingApprovalReviewByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalReviewOnRemovingApprovalReviewByIdSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.RemovingById,
+                expectedHandler: this.approvalReviewServiceMock.Object.OnRemovingApprovalReviewByIdAsync);
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalReviewOnHardRemovingApprovalReviewByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalReviewOnHardRemovingApprovalReviewByIdSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.HardRemovingById,
+                expectedHandler: this.approvalReviewServiceMock.Object.OnHardRemovingApprovalReviewByIdAsync);
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.RetrievingById,
+                expectedHandler: this.approvalReviewServiceMock.Object.OnRetrievingApprovalReviewByIdAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.Adding,
+                expectedHandler: this.approvalSettingServiceMock.Object.OnAddingApprovalSettingAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.Modifying,
+                expectedHandler: this.approvalSettingServiceMock.Object.OnModifyingApprovalSettingAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.RemovingById,
+                expectedHandler: this.approvalSettingServiceMock.Object.OnRemovingApprovalSettingByIdAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.HardRemovingById,
+                expectedHandler:
+                    this.approvalSettingServiceMock.Object.OnHardRemovingApprovalSettingByIdAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.RetrievingById,
+                expectedHandler:
+                    this.approvalSettingServiceMock.Object.OnRetrievingApprovalSettingByIdAsync);
+
+            VerifyApprovalSettingRoleSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingRoleOnAddingApprovalSettingRoleSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingRoleOnAddingApprovalSettingRoleSubscriptionName,
+                expectedOperation: ApprovalSettingRoleEventOperation.Adding,
+
+                expectedHandler:
+                    this.approvalSettingRoleServiceMock.Object.OnAddingApprovalSettingRoleAsync);
+
+            VerifyApprovalSettingRoleSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingRoleOnModifyingApprovalSettingRoleSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingRoleOnModifyingApprovalSettingRoleSubscriptionName,
+                expectedOperation: ApprovalSettingRoleEventOperation.Modifying,
+
+                expectedHandler:
+                    this.approvalSettingRoleServiceMock.Object.OnModifyingApprovalSettingRoleAsync);
+
+            VerifyApprovalSettingRoleSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingRoleOnRemovingApprovalSettingRoleByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingRoleOnRemovingApprovalSettingRoleByIdSubscriptionName,
+                expectedOperation: ApprovalSettingRoleEventOperation.RemovingById,
+
+                expectedHandler:
+                    this.approvalSettingRoleServiceMock.Object.OnRemovingApprovalSettingRoleByIdAsync);
+
+            VerifyApprovalSettingRoleSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers
+                        .ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers
+                        .ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionName,
+                expectedOperation: ApprovalSettingRoleEventOperation.HardRemovingById,
+
+                expectedHandler:
+                    this.approvalSettingRoleServiceMock.Object.OnHardRemovingApprovalSettingRoleByIdAsync);
+
+            VerifyApprovalSettingRoleSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers
+                        .ApprovalSettingRoleOnRetrievingApprovalSettingRoleByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers
+                        .ApprovalSettingRoleOnRetrievingApprovalSettingRoleByIdSubscriptionName,
+                expectedOperation: ApprovalSettingRoleEventOperation.RetrievingById,
+
+                expectedHandler:
+                    this.approvalSettingRoleServiceMock.Object.OnRetrievingApprovalSettingRoleByIdAsync);
+
+            VerifyContentItemAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ContentItemAssociationOnAddingContentItemAssociationSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ContentItemAssociationOnAddingContentItemAssociationSubscriptionName,
+                expectedOperation: ContentItemAssociationEventOperation.Adding,
+                expectedHandler: this.contentItemAssociationServiceMock.Object
+                    .OnAddingContentItemAssociationAsync);
+
+            VerifyContentItemAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionName,
+                expectedOperation: ContentItemAssociationEventOperation.Modifying,
+                expectedHandler: this.contentItemAssociationServiceMock.Object
+                    .OnModifyingContentItemAssociationAsync);
+
+            VerifyContentItemAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionName,
+                expectedOperation: ContentItemAssociationEventOperation.RemovingById,
+                expectedHandler: this.contentItemAssociationServiceMock.Object
+                    .OnRemovingContentItemAssociationByIdAsync);
+
+            VerifyContentItemAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionName,
+                expectedOperation: ContentItemAssociationEventOperation.HardRemovingById,
+                expectedHandler: this.contentItemAssociationServiceMock.Object
+                    .OnHardRemovingContentItemAssociationByIdAsync);
+
+            VerifyContentItemAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionName,
+                expectedOperation: ContentItemAssociationEventOperation.RetrievingById,
+                expectedHandler: this.contentItemAssociationServiceMock.Object
+                    .OnRetrievingContentItemAssociationByIdAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnAddingContentItemSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnAddingContentItemSettingSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.Adding,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnAddingContentItemSettingAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnModifyingContentItemSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnModifyingContentItemSettingSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.Modifying,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnModifyingContentItemSettingAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.RemovingById,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnRemovingContentItemSettingByIdAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.HardRemovingById,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnHardRemovingContentItemSettingByIdAsync);
+
+            VerifyContentItemSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionName,
+                expectedOperation: ContentItemSettingEventOperation.RetrievingById,
+                expectedHandler:
+                    this.contentItemSettingServiceMock.Object.OnRetrievingContentItemSettingByIdAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();

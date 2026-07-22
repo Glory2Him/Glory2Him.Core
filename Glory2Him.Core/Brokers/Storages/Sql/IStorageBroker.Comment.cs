@@ -20,14 +20,36 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<Comment> InsertCommentAsync(Comment comment, CancellationToken cancellationToken = default);
-        ValueTask<IQueryable<Comment>> SelectAllCommentsAsync();
-        ValueTask<Comment> SelectCommentByIdAsync(Guid commentId, CancellationToken cancellationToken = default);
-        ValueTask<Comment> UpdateCommentAsync(Comment comment, CancellationToken cancellationToken = default);
-        ValueTask<Comment> DeleteCommentAsync(Comment comment, CancellationToken cancellationToken = default);
-        ValueTask BulkInsertCommentsAsync(List<Comment> comments, CancellationToken cancellationToken = default);
-        ValueTask BulkUpdateCommentsAsync(List<Comment> comments, CancellationToken cancellationToken = default);
-        ValueTask BulkDeleteCommentsAsync(List<Comment> comments, CancellationToken cancellationToken = default);
+        ValueTask<Comment> InsertCommentAsync(
+            Comment comment,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<IQueryable<Comment>> SelectAllCommentsAsync(
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Comment> SelectCommentByIdAsync(
+            Guid commentId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Comment> UpdateCommentAsync(
+            Comment comment,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Comment> DeleteCommentAsync(
+            Comment comment,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkInsertCommentsAsync(
+            List<Comment> comments,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpdateCommentsAsync(
+            List<Comment> comments,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkDeleteCommentsAsync(
+            List<Comment> comments,
+            CancellationToken cancellationToken = default);
 
         ValueTask<IEnumerable<Comment>> BulkReadCommentsAsync(
             List<Comment> comments,

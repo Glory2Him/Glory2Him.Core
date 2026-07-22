@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid TagRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-7cba-91cf-2019447d01ed");
 
+        public static readonly Guid TagHardRemovingByIdEventAddressId =
+            new Guid("019f855d-451e-773e-8003-14300625fe1f");
+
         public static readonly Guid TagRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7bbf-9eda-e1d0826112fe");
 
@@ -44,10 +47,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { TagEventOperation.Adding, TagAddingEventAddressId },
                 { TagEventOperation.Modifying, TagModifyingEventAddressId },
                 { TagEventOperation.RemovingById, TagRemovingByIdEventAddressId },
+                { TagEventOperation.HardRemovingById, TagHardRemovingByIdEventAddressId },
                 { TagEventOperation.RetrievingById, TagRetrievingByIdEventAddressId },
                 { TagEventOperation.Added, TagAddedEventAddressId },
                 { TagEventOperation.Modified, TagModifiedEventAddressId },
-                { TagEventOperation.Removed, TagRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("TagHardRemoved" vs "TagRemoved").
+                { TagEventOperation.Removed, TagRemovedEventAddressId },
+                { TagEventOperation.HardRemoved, TagRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> TagEventAddresses =
@@ -56,6 +65,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { TagAddingEventAddressId, "Tag-Adding" },
                 { TagModifyingEventAddressId, "Tag-Modifying" },
                 { TagRemovingByIdEventAddressId, "Tag-RemovingById" },
+                { TagHardRemovingByIdEventAddressId, "Tag-HardRemovingById" },
                 { TagRetrievingByIdEventAddressId, "Tag-RetrievingById" },
                 { TagAddedEventAddressId, "Tag-Added" },
                 { TagModifiedEventAddressId, "Tag-Modified" },
@@ -77,6 +87,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string TagOnRemovingTagByIdSubscriptionName =
             "TagService.OnRemovingTagById";
+        public static readonly Guid TagOnHardRemovingTagByIdSubscriptionId =
+            new Guid("019f855d-451f-7b31-814e-4675ceb26b88");
+
+        public const string TagOnHardRemovingTagByIdSubscriptionName =
+            "TagService.OnHardRemovingTagById";
+
         public static readonly Guid TagOnRetrievingTagByIdSubscriptionId =
             new Guid("019f8170-a642-71e1-9a51-0a229986ef09");
 

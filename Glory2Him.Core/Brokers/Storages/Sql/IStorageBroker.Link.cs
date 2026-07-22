@@ -20,14 +20,36 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<Link> InsertLinkAsync(Link link, CancellationToken cancellationToken = default);
-        ValueTask<IQueryable<Link>> SelectAllLinksAsync();
-        ValueTask<Link> SelectLinkByIdAsync(Guid linkId, CancellationToken cancellationToken = default);
-        ValueTask<Link> UpdateLinkAsync(Link link, CancellationToken cancellationToken = default);
-        ValueTask<Link> DeleteLinkAsync(Link link, CancellationToken cancellationToken = default);
-        ValueTask BulkInsertLinksAsync(List<Link> links, CancellationToken cancellationToken = default);
-        ValueTask BulkUpdateLinksAsync(List<Link> links, CancellationToken cancellationToken = default);
-        ValueTask BulkDeleteLinksAsync(List<Link> links, CancellationToken cancellationToken = default);
+        ValueTask<Link> InsertLinkAsync(
+            Link link,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<IQueryable<Link>> SelectAllLinksAsync(
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Link> SelectLinkByIdAsync(
+            Guid linkId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Link> UpdateLinkAsync(
+            Link link,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Link> DeleteLinkAsync(
+            Link link,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkInsertLinksAsync(
+            List<Link> links,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpdateLinksAsync(
+            List<Link> links,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkDeleteLinksAsync(
+            List<Link> links,
+            CancellationToken cancellationToken = default);
 
         ValueTask<IEnumerable<Link>> BulkReadLinksAsync(
             List<Link> links,

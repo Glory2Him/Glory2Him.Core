@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ApprovalSettingRoleRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-70f3-9150-9a17dd06b5b0");
 
+        public static readonly Guid ApprovalSettingRoleHardRemovingByIdEventAddressId =
+            new Guid("019f855d-4510-7777-8cc4-0ae9f69d1833");
+
         public static readonly Guid ApprovalSettingRoleRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7a17-95b6-31a03ac2be28");
 
@@ -44,10 +47,22 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalSettingRoleEventOperation.Adding, ApprovalSettingRoleAddingEventAddressId },
                 { ApprovalSettingRoleEventOperation.Modifying, ApprovalSettingRoleModifyingEventAddressId },
                 { ApprovalSettingRoleEventOperation.RemovingById, ApprovalSettingRoleRemovingByIdEventAddressId },
+
+                {
+                    ApprovalSettingRoleEventOperation.HardRemovingById,
+                    ApprovalSettingRoleHardRemovingByIdEventAddressId
+                },
+
                 { ApprovalSettingRoleEventOperation.RetrievingById, ApprovalSettingRoleRetrievingByIdEventAddressId },
                 { ApprovalSettingRoleEventOperation.Added, ApprovalSettingRoleAddedEventAddressId },
                 { ApprovalSettingRoleEventOperation.Modified, ApprovalSettingRoleModifiedEventAddressId },
-                { ApprovalSettingRoleEventOperation.Removed, ApprovalSettingRoleRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals by
+                // the composed event name ("ApprovalSettingRoleHardRemoved" vs
+                // "ApprovalSettingRoleRemoved").
+                { ApprovalSettingRoleEventOperation.Removed, ApprovalSettingRoleRemovedEventAddressId },
+                { ApprovalSettingRoleEventOperation.HardRemoved, ApprovalSettingRoleRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ApprovalSettingRoleEventAddresses =
@@ -56,6 +71,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalSettingRoleAddingEventAddressId, "ApprovalSettingRole-Adding" },
                 { ApprovalSettingRoleModifyingEventAddressId, "ApprovalSettingRole-Modifying" },
                 { ApprovalSettingRoleRemovingByIdEventAddressId, "ApprovalSettingRole-RemovingById" },
+                { ApprovalSettingRoleHardRemovingByIdEventAddressId, "ApprovalSettingRole-HardRemovingById" },
                 { ApprovalSettingRoleRetrievingByIdEventAddressId, "ApprovalSettingRole-RetrievingById" },
                 { ApprovalSettingRoleAddedEventAddressId, "ApprovalSettingRole-Added" },
                 { ApprovalSettingRoleModifiedEventAddressId, "ApprovalSettingRole-Modified" },
@@ -77,6 +93,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ApprovalSettingRoleOnRemovingApprovalSettingRoleByIdSubscriptionName =
             "ApprovalSettingRoleService.OnRemovingApprovalSettingRoleById";
+        public static readonly Guid ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionId =
+            new Guid("019f855d-4511-7d2f-88ef-1f64b93abb30");
+
+        public const string ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionName =
+            "ApprovalSettingRoleService.OnHardRemovingApprovalSettingRoleById";
+
         public static readonly Guid ApprovalSettingRoleOnRetrievingApprovalSettingRoleByIdSubscriptionId =
             new Guid("019f8170-a642-7227-ace2-3a85e8409142");
 

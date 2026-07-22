@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid CommentRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-79a9-abe0-8b1239e547e6");
 
+        public static readonly Guid CommentHardRemovingByIdEventAddressId =
+            new Guid("019f855d-4514-7c47-8691-5179951e3bd4");
+
         public static readonly Guid CommentRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7d8d-8d47-595ae212afa9");
 
@@ -44,10 +47,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { CommentEventOperation.Adding, CommentAddingEventAddressId },
                 { CommentEventOperation.Modifying, CommentModifyingEventAddressId },
                 { CommentEventOperation.RemovingById, CommentRemovingByIdEventAddressId },
+                { CommentEventOperation.HardRemovingById, CommentHardRemovingByIdEventAddressId },
                 { CommentEventOperation.RetrievingById, CommentRetrievingByIdEventAddressId },
                 { CommentEventOperation.Added, CommentAddedEventAddressId },
                 { CommentEventOperation.Modified, CommentModifiedEventAddressId },
-                { CommentEventOperation.Removed, CommentRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("CommentHardRemoved" vs "CommentRemoved").
+                { CommentEventOperation.Removed, CommentRemovedEventAddressId },
+                { CommentEventOperation.HardRemoved, CommentRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> CommentEventAddresses =
@@ -56,6 +65,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { CommentAddingEventAddressId, "Comment-Adding" },
                 { CommentModifyingEventAddressId, "Comment-Modifying" },
                 { CommentRemovingByIdEventAddressId, "Comment-RemovingById" },
+                { CommentHardRemovingByIdEventAddressId, "Comment-HardRemovingById" },
                 { CommentRetrievingByIdEventAddressId, "Comment-RetrievingById" },
                 { CommentAddedEventAddressId, "Comment-Added" },
                 { CommentModifiedEventAddressId, "Comment-Modified" },
@@ -77,6 +87,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string CommentOnRemovingCommentByIdSubscriptionName =
             "CommentService.OnRemovingCommentById";
+        public static readonly Guid CommentOnHardRemovingCommentByIdSubscriptionId =
+            new Guid("019f855d-4515-7332-8ecf-6d3e6b68ecad");
+
+        public const string CommentOnHardRemovingCommentByIdSubscriptionName =
+            "CommentService.OnHardRemovingCommentById";
+
         public static readonly Guid CommentOnRetrievingCommentByIdSubscriptionId =
             new Guid("019f8170-a642-74d9-8513-40f8c92d873c");
 

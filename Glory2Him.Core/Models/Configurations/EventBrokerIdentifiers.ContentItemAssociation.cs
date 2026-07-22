@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ContentItemAssociationRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-74c4-92b6-f9578ee44c11");
 
+        public static readonly Guid ContentItemAssociationHardRemovingByIdEventAddressId =
+            new Guid("019f855d-4516-7bab-8ed1-00765c36a128");
+
         public static readonly Guid ContentItemAssociationRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7882-b3a5-7fc91878d31b");
 
@@ -45,12 +48,22 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemAssociationEventOperation.Modifying, ContentItemAssociationModifyingEventAddressId },
                 { ContentItemAssociationEventOperation.RemovingById, ContentItemAssociationRemovingByIdEventAddressId },
                 {
+                    ContentItemAssociationEventOperation.HardRemovingById,
+                    ContentItemAssociationHardRemovingByIdEventAddressId
+                },
+                {
                     ContentItemAssociationEventOperation.RetrievingById,
                     ContentItemAssociationRetrievingByIdEventAddressId
                 },
                 { ContentItemAssociationEventOperation.Added, ContentItemAssociationAddedEventAddressId },
                 { ContentItemAssociationEventOperation.Modified, ContentItemAssociationModifiedEventAddressId },
-                { ContentItemAssociationEventOperation.Removed, ContentItemAssociationRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals by
+                // the composed event name ("ContentItemAssociationHardRemoved" vs
+                // "ContentItemAssociationRemoved").
+                { ContentItemAssociationEventOperation.Removed, ContentItemAssociationRemovedEventAddressId },
+                { ContentItemAssociationEventOperation.HardRemoved, ContentItemAssociationRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentItemAssociationEventAddresses =
@@ -59,6 +72,10 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemAssociationAddingEventAddressId, "ContentItemAssociation-Adding" },
                 { ContentItemAssociationModifyingEventAddressId, "ContentItemAssociation-Modifying" },
                 { ContentItemAssociationRemovingByIdEventAddressId, "ContentItemAssociation-RemovingById" },
+                {
+                    ContentItemAssociationHardRemovingByIdEventAddressId,
+                    "ContentItemAssociation-HardRemovingById"
+                },
                 { ContentItemAssociationRetrievingByIdEventAddressId, "ContentItemAssociation-RetrievingById" },
                 { ContentItemAssociationAddedEventAddressId, "ContentItemAssociation-Added" },
                 { ContentItemAssociationModifiedEventAddressId, "ContentItemAssociation-Modified" },
@@ -80,6 +97,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionName =
             "ContentItemAssociationService.OnRemovingContentItemAssociationById";
+        public static readonly Guid ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionId =
+            new Guid("019f855d-4517-7ee8-82fc-fca27d45609e");
+
+        public const string ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionName =
+            "ContentItemAssociationService.OnHardRemovingContentItemAssociationById";
+
         public static readonly Guid ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionId =
             new Guid("019f8170-a642-7af2-a066-e99b09e67a3e");
 

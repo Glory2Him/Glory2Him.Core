@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ApprovalCommentRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-7c2c-92cc-ea7c74d98768");
 
+        public static readonly Guid ApprovalCommentHardRemovingByIdEventAddressId =
+            new Guid("019f855d-450a-7ed8-8d1b-7e3afa317faf");
+
         public static readonly Guid ApprovalCommentRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7e1b-a990-571b83c8e271");
 
@@ -44,10 +47,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalCommentEventOperation.Adding, ApprovalCommentAddingEventAddressId },
                 { ApprovalCommentEventOperation.Modifying, ApprovalCommentModifyingEventAddressId },
                 { ApprovalCommentEventOperation.RemovingById, ApprovalCommentRemovingByIdEventAddressId },
+                { ApprovalCommentEventOperation.HardRemovingById, ApprovalCommentHardRemovingByIdEventAddressId },
                 { ApprovalCommentEventOperation.RetrievingById, ApprovalCommentRetrievingByIdEventAddressId },
                 { ApprovalCommentEventOperation.Added, ApprovalCommentAddedEventAddressId },
                 { ApprovalCommentEventOperation.Modified, ApprovalCommentModifiedEventAddressId },
-                { ApprovalCommentEventOperation.Removed, ApprovalCommentRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("ApprovalCommentHardRemoved" vs "ApprovalCommentRemoved").
+                { ApprovalCommentEventOperation.Removed, ApprovalCommentRemovedEventAddressId },
+                { ApprovalCommentEventOperation.HardRemoved, ApprovalCommentRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ApprovalCommentEventAddresses =
@@ -56,6 +65,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalCommentAddingEventAddressId, "ApprovalComment-Adding" },
                 { ApprovalCommentModifyingEventAddressId, "ApprovalComment-Modifying" },
                 { ApprovalCommentRemovingByIdEventAddressId, "ApprovalComment-RemovingById" },
+                { ApprovalCommentHardRemovingByIdEventAddressId, "ApprovalComment-HardRemovingById" },
                 { ApprovalCommentRetrievingByIdEventAddressId, "ApprovalComment-RetrievingById" },
                 { ApprovalCommentAddedEventAddressId, "ApprovalComment-Added" },
                 { ApprovalCommentModifiedEventAddressId, "ApprovalComment-Modified" },
@@ -77,6 +87,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionName =
             "ApprovalCommentService.OnRemovingApprovalCommentById";
+        public static readonly Guid ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionId =
+            new Guid("019f855d-450b-7587-8287-e3408b9754a9");
+
+        public const string ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionName =
+            "ApprovalCommentService.OnHardRemovingApprovalCommentById";
+
         public static readonly Guid ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionId =
             new Guid("019f8170-a642-7afe-bbe0-4c54e63d1f1c");
 

@@ -27,8 +27,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
         public async ValueTask<Tag> InsertTagAsync(Tag tag, CancellationToken cancellationToken = default) =>
             await InsertAsync(tag, cancellationToken);
 
-        public async ValueTask<IQueryable<Tag>> SelectAllTagsAsync() =>
-            await SelectAllAsync<Tag>();
+        public async ValueTask<IQueryable<Tag>> SelectAllTagsAsync(
+            CancellationToken cancellationToken = default) =>
+            await SelectAllAsync<Tag>(cancellationToken);
 
         public async ValueTask<Tag> SelectTagByIdAsync(Guid tagId, CancellationToken cancellationToken = default) =>
             await SelectAsync<Tag>(new object[] { tagId }, cancellationToken);

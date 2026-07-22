@@ -29,8 +29,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             CancellationToken cancellationToken = default) =>
             await InsertAsync(comment, cancellationToken);
 
-        public async ValueTask<IQueryable<Comment>> SelectAllCommentsAsync() =>
-            await SelectAllAsync<Comment>();
+        public async ValueTask<IQueryable<Comment>> SelectAllCommentsAsync(
+            CancellationToken cancellationToken = default) =>
+            await SelectAllAsync<Comment>(cancellationToken);
 
         public async ValueTask<Comment> SelectCommentByIdAsync(
             Guid commentId,

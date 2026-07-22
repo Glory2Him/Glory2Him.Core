@@ -20,14 +20,36 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<Reaction> InsertReactionAsync(Reaction reaction, CancellationToken cancellationToken = default);
-        ValueTask<IQueryable<Reaction>> SelectAllReactionsAsync();
-        ValueTask<Reaction> SelectReactionByIdAsync(Guid reactionId, CancellationToken cancellationToken = default);
-        ValueTask<Reaction> UpdateReactionAsync(Reaction reaction, CancellationToken cancellationToken = default);
-        ValueTask<Reaction> DeleteReactionAsync(Reaction reaction, CancellationToken cancellationToken = default);
-        ValueTask BulkInsertReactionsAsync(List<Reaction> reactions, CancellationToken cancellationToken = default);
-        ValueTask BulkUpdateReactionsAsync(List<Reaction> reactions, CancellationToken cancellationToken = default);
-        ValueTask BulkDeleteReactionsAsync(List<Reaction> reactions, CancellationToken cancellationToken = default);
+        ValueTask<Reaction> InsertReactionAsync(
+            Reaction reaction,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<IQueryable<Reaction>> SelectAllReactionsAsync(
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Reaction> SelectReactionByIdAsync(
+            Guid reactionId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Reaction> UpdateReactionAsync(
+            Reaction reaction,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Reaction> DeleteReactionAsync(
+            Reaction reaction,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkInsertReactionsAsync(
+            List<Reaction> reactions,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpdateReactionsAsync(
+            List<Reaction> reactions,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkDeleteReactionsAsync(
+            List<Reaction> reactions,
+            CancellationToken cancellationToken = default);
 
         ValueTask<IEnumerable<Reaction>> BulkReadReactionsAsync(
             List<Reaction> reactions,

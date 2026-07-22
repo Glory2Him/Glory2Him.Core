@@ -20,14 +20,36 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 {
     public partial interface IStorageBroker
     {
-        ValueTask<Tag> InsertTagAsync(Tag tag, CancellationToken cancellationToken = default);
-        ValueTask<IQueryable<Tag>> SelectAllTagsAsync();
-        ValueTask<Tag> SelectTagByIdAsync(Guid tagId, CancellationToken cancellationToken = default);
-        ValueTask<Tag> UpdateTagAsync(Tag tag, CancellationToken cancellationToken = default);
-        ValueTask<Tag> DeleteTagAsync(Tag tag, CancellationToken cancellationToken = default);
-        ValueTask BulkInsertTagsAsync(List<Tag> tags, CancellationToken cancellationToken = default);
-        ValueTask BulkUpdateTagsAsync(List<Tag> tags, CancellationToken cancellationToken = default);
-        ValueTask BulkDeleteTagsAsync(List<Tag> tags, CancellationToken cancellationToken = default);
+        ValueTask<Tag> InsertTagAsync(
+            Tag tag,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<IQueryable<Tag>> SelectAllTagsAsync(
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Tag> SelectTagByIdAsync(
+            Guid tagId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Tag> UpdateTagAsync(
+            Tag tag,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Tag> DeleteTagAsync(
+            Tag tag,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkInsertTagsAsync(
+            List<Tag> tags,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkUpdateTagsAsync(
+            List<Tag> tags,
+            CancellationToken cancellationToken = default);
+
+        ValueTask BulkDeleteTagsAsync(
+            List<Tag> tags,
+            CancellationToken cancellationToken = default);
 
         ValueTask<IEnumerable<Tag>> BulkReadTagsAsync(
             List<Tag> tags,

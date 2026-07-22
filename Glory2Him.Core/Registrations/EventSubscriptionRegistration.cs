@@ -19,6 +19,16 @@ using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
+using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Foundations.Links;
+using Glory2Him.Core.Services.Foundations.Reactions;
+using Glory2Him.Core.Services.Foundations.Comments;
+using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.ApprovalSettingRoles;
+using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -54,19 +64,49 @@ namespace Glory2Him.Core.Registrations
         private readonly IContentItemService contentItemService;
         private readonly IApprovalService approvalService;
         private readonly IBibleReferenceService bibleReferenceService;
+        private readonly ITagService tagService;
+        private readonly ILinkService linkService;
+        private readonly IReactionService reactionService;
+        private readonly ICommentService commentService;
+        private readonly IApprovalCommentService approvalCommentService;
+        private readonly IApprovalReviewService approvalReviewService;
+        private readonly IApprovalSettingService approvalSettingService;
+        private readonly IApprovalSettingRoleService approvalSettingRoleService;
+        private readonly IContentItemAssociationService contentItemAssociationService;
+        private readonly IContentItemSettingService contentItemSettingService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
             IContentTypeService contentTypeService,
             IContentItemService contentItemService,
             IApprovalService approvalService,
-            IBibleReferenceService bibleReferenceService)
+            IBibleReferenceService bibleReferenceService,
+            ITagService tagService,
+            ILinkService linkService,
+            IReactionService reactionService,
+            ICommentService commentService,
+            IApprovalCommentService approvalCommentService,
+            IApprovalReviewService approvalReviewService,
+            IApprovalSettingService approvalSettingService,
+            IApprovalSettingRoleService approvalSettingRoleService,
+            IContentItemAssociationService contentItemAssociationService,
+            IContentItemSettingService contentItemSettingService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
             this.approvalService = approvalService;
             this.bibleReferenceService = bibleReferenceService;
+            this.tagService = tagService;
+            this.linkService = linkService;
+            this.reactionService = reactionService;
+            this.commentService = commentService;
+            this.approvalCommentService = approvalCommentService;
+            this.approvalReviewService = approvalReviewService;
+            this.approvalSettingService = approvalSettingService;
+            this.approvalSettingRoleService = approvalSettingRoleService;
+            this.contentItemAssociationService = contentItemAssociationService;
+            this.contentItemSettingService = contentItemSettingService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -360,6 +400,762 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: BibleReferenceEventOperation.RetrievingById,
                 bibleReferenceEventHandler: this.bibleReferenceService.OnRetrievingBibleReferenceByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Tag request handlers ─────────────────────────────────────────────
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnAddingTagSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
+
+                    Description = "Handles add requests: stores the tag, publishes " +
+                        "Tag-Added, and replies with the added entity."
+                },
+                operation: TagEventOperation.Adding,
+                tagEventHandler: this.tagService.OnAddingTagAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnModifyingTagSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnModifyingTagSubscriptionName,
+
+                    Description = "Handles modify requests: updates the tag, publishes " +
+                        "Tag-Modified, and replies with the updated entity."
+                },
+                operation: TagEventOperation.Modifying,
+                tagEventHandler: this.tagService.OnModifyingTagAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the tag, " +
+                        "publishes Tag-Removed, and replies with the removed entity."
+                },
+                operation: TagEventOperation.RemovingById,
+                tagEventHandler: this.tagService.OnRemovingTagByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnHardRemovingTagByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "tag, publishes TagHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: TagEventOperation.HardRemovingById,
+                tagEventHandler: this.tagService.OnHardRemovingTagByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnRetrievingTagByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a tag by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: TagEventOperation.RetrievingById,
+                tagEventHandler: this.tagService.OnRetrievingTagByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Link request handlers ─────────────────────────────────────
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionName,
+
+                    Description = "Handles add requests: stores the link, publishes " +
+                        "Link-Added, and replies with the added entity."
+                },
+                operation: LinkEventOperation.Adding,
+                linkEventHandler: this.linkService.OnAddingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionName,
+
+                    Description = "Handles modify requests: updates the link, publishes " +
+                        "Link-Modified, and replies with the updated entity."
+                },
+                operation: LinkEventOperation.Modifying,
+                linkEventHandler: this.linkService.OnModifyingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnRemovingLinkByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the link, " +
+                        "publishes Link-Removed, and replies with the removed entity."
+                },
+                operation: LinkEventOperation.RemovingById,
+                linkEventHandler: this.linkService.OnRemovingLinkByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnHardRemovingLinkByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "link, publishes LinkHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: LinkEventOperation.HardRemovingById,
+                linkEventHandler: this.linkService.OnHardRemovingLinkByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnRetrievingLinkByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a link by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: LinkEventOperation.RetrievingById,
+                linkEventHandler: this.linkService.OnRetrievingLinkByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Reaction request handlers ───────────────────────────────────────
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionName,
+
+                    Description = "Handles add requests: stores the reaction, publishes " +
+                        "Reaction-Added, and replies with the added entity."
+                },
+                operation: ReactionEventOperation.Adding,
+                reactionEventHandler: this.reactionService.OnAddingReactionAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnModifyingReactionSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnModifyingReactionSubscriptionName,
+
+                    Description = "Handles modify requests: updates the reaction, publishes " +
+                        "Reaction-Modified, and replies with the updated entity."
+                },
+                operation: ReactionEventOperation.Modifying,
+                reactionEventHandler: this.reactionService.OnModifyingReactionAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnRemovingReactionByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnRemovingReactionByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the reaction, " +
+                        "publishes Reaction-Removed, and replies with the removed entity."
+                },
+                operation: ReactionEventOperation.RemovingById,
+                reactionEventHandler: this.reactionService.OnRemovingReactionByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnHardRemovingReactionByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnHardRemovingReactionByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "reaction, publishes ReactionHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ReactionEventOperation.HardRemovingById,
+                reactionEventHandler: this.reactionService.OnHardRemovingReactionByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnRetrievingReactionByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnRetrievingReactionByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a reaction by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ReactionEventOperation.RetrievingById,
+                reactionEventHandler: this.reactionService.OnRetrievingReactionByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Comment request handlers ─────────────────────────────────────────
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionName,
+
+                    Description = "Handles add requests: stores the comment, publishes " +
+                        "Comment-Added, and replies with the added entity."
+                },
+                operation: CommentEventOperation.Adding,
+                commentEventHandler: this.commentService.OnAddingCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionName,
+
+                    Description = "Handles modify requests: updates the comment, publishes " +
+                        "Comment-Modified, and replies with the updated entity."
+                },
+                operation: CommentEventOperation.Modifying,
+                commentEventHandler: this.commentService.OnModifyingCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the comment, " +
+                        "publishes Comment-Removed, and replies with the removed entity."
+                },
+                operation: CommentEventOperation.RemovingById,
+                commentEventHandler: this.commentService.OnRemovingCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "comment, publishes CommentHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: CommentEventOperation.HardRemovingById,
+                commentEventHandler: this.commentService.OnHardRemovingCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a comment by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: CommentEventOperation.RetrievingById,
+                commentEventHandler: this.commentService.OnRetrievingCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalComment request handlers ──────────────────────────────────
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnAddingApprovalCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalCommentOnAddingApprovalCommentSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval comment, publishes " +
+                        "ApprovalComment-Added, and replies with the added entity."
+                },
+                operation: ApprovalCommentEventOperation.Adding,
+                approvalCommentEventHandler: this.approvalCommentService.OnAddingApprovalCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnModifyingApprovalCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalCommentOnModifyingApprovalCommentSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval comment, publishes " +
+                        "ApprovalComment-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalCommentEventOperation.Modifying,
+                approvalCommentEventHandler: this.approvalCommentService.OnModifyingApprovalCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval comment, " +
+                        "publishes ApprovalComment-Removed, and replies with the removed entity."
+                },
+                operation: ApprovalCommentEventOperation.RemovingById,
+                approvalCommentEventHandler: this.approvalCommentService.OnRemovingApprovalCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalCommentOnHardRemovingApprovalCommentByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval comment, publishes ApprovalCommentHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalCommentEventOperation.HardRemovingById,
+
+                approvalCommentEventHandler:
+                    this.approvalCommentService.OnHardRemovingApprovalCommentByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval comment by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ApprovalCommentEventOperation.RetrievingById,
+
+                approvalCommentEventHandler:
+                    this.approvalCommentService.OnRetrievingApprovalCommentByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalReview request handlers ──────────────────────────────────
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval review, publishes " +
+                        "ApprovalReview-Added, and replies with the added entity."
+                },
+                operation: ApprovalReviewEventOperation.Adding,
+                approvalReviewEventHandler: this.approvalReviewService.OnAddingApprovalReviewAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnModifyingApprovalReviewSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalReviewOnModifyingApprovalReviewSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval review, publishes " +
+                        "ApprovalReview-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalReviewEventOperation.Modifying,
+                approvalReviewEventHandler: this.approvalReviewService.OnModifyingApprovalReviewAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnRemovingApprovalReviewByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalReviewOnRemovingApprovalReviewByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval review, " +
+                        "publishes ApprovalReview-Removed, and replies with the removed entity."
+                },
+                operation: ApprovalReviewEventOperation.RemovingById,
+                approvalReviewEventHandler: this.approvalReviewService.OnRemovingApprovalReviewByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnHardRemovingApprovalReviewByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewOnHardRemovingApprovalReviewByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval review, publishes ApprovalReviewHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalReviewEventOperation.HardRemovingById,
+                approvalReviewEventHandler: this.approvalReviewService.OnHardRemovingApprovalReviewByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval review by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ApprovalReviewEventOperation.RetrievingById,
+                approvalReviewEventHandler: this.approvalReviewService.OnRetrievingApprovalReviewByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalSetting request handlers ─────────────────────────────────
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval setting, publishes " +
+                        "ApprovalSetting-Added, and replies with the added entity."
+                },
+                operation: ApprovalSettingEventOperation.Adding,
+                approvalSettingEventHandler: this.approvalSettingService.OnAddingApprovalSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval setting, publishes " +
+                        "ApprovalSetting-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalSettingEventOperation.Modifying,
+                approvalSettingEventHandler: this.approvalSettingService.OnModifyingApprovalSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval setting, " +
+                        "publishes ApprovalSetting-Removed, and replies with the removed entity."
+                },
+                operation: ApprovalSettingEventOperation.RemovingById,
+                approvalSettingEventHandler: this.approvalSettingService.OnRemovingApprovalSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval setting, publishes ApprovalSettingHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalSettingEventOperation.HardRemovingById,
+                approvalSettingEventHandler: this.approvalSettingService.OnHardRemovingApprovalSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval setting by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ApprovalSettingEventOperation.RetrievingById,
+                approvalSettingEventHandler: this.approvalSettingService.OnRetrievingApprovalSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalSettingRole request handlers ─────────────────────────────
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingRoleOnAddingApprovalSettingRoleSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingRoleOnAddingApprovalSettingRoleSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval setting role, " +
+                        "publishes ApprovalSettingRole-Added, and replies with the added entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.Adding,
+                approvalSettingRoleEventHandler: this.approvalSettingRoleService.OnAddingApprovalSettingRoleAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingRoleOnModifyingApprovalSettingRoleSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnModifyingApprovalSettingRoleSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval setting role, " +
+                        "publishes ApprovalSettingRole-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.Modifying,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnModifyingApprovalSettingRoleAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnRemovingApprovalSettingRoleByIdSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnRemovingApprovalSettingRoleByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval setting " +
+                        "role, publishes ApprovalSettingRole-Removed, and replies with the " +
+                        "removed entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.RemovingById,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnRemovingApprovalSettingRoleByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers
+                            .ApprovalSettingRoleOnHardRemovingApprovalSettingRoleByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval setting role, publishes ApprovalSettingRoleHardRemoved on " +
+                        "the removal address, and replies with the deleted entity."
+                },
+                operation: ApprovalSettingRoleEventOperation.HardRemovingById,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnHardRemovingApprovalSettingRoleByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingRoleEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id =
+                        EventBrokerIdentifiers.ApprovalSettingRoleOnRetrievingApprovalSettingRoleByIdSubscriptionId,
+
+                    Name =
+                        EventBrokerIdentifiers
+                            .ApprovalSettingRoleOnRetrievingApprovalSettingRoleByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval setting " +
+                        "role by id and replies with it on the delivery."
+                },
+                operation: ApprovalSettingRoleEventOperation.RetrievingById,
+
+                approvalSettingRoleEventHandler:
+                    this.approvalSettingRoleService.OnRetrievingApprovalSettingRoleByIdAsync,
+
+                cancellationToken: cancellationToken);
+
+            // ── ContentItemAssociation request handlers ──────────────────────────
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnAddingContentItemAssociationSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnAddingContentItemAssociationSubscriptionName,
+
+                    Description = "Handles add requests: stores the content item association, " +
+                        "publishes ContentItemAssociation-Added, and replies with the added entity."
+                },
+                operation: ContentItemAssociationEventOperation.Adding,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnAddingContentItemAssociationAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionName,
+
+                    Description = "Handles modify requests: updates the content item association, " +
+                        "publishes ContentItemAssociation-Modified, and replies with the updated entity."
+                },
+                operation: ContentItemAssociationEventOperation.Modifying,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnModifyingContentItemAssociationAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the content item " +
+                        "association, publishes ContentItemAssociation-Removed, and replies " +
+                        "with the removed entity."
+                },
+                operation: ContentItemAssociationEventOperation.RemovingById,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnRemovingContentItemAssociationByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "content item association, publishes ContentItemAssociationHardRemoved " +
+                        "on the removal address, and replies with the deleted entity."
+                },
+                operation: ContentItemAssociationEventOperation.HardRemovingById,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnHardRemovingContentItemAssociationByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a content item " +
+                        "association by id and replies with it on the delivery."
+                },
+                operation: ContentItemAssociationEventOperation.RetrievingById,
+                contentItemAssociationEventHandler:
+                    this.contentItemAssociationService.OnRetrievingContentItemAssociationByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ContentItemSetting request handlers ──────────────────────────────
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnAddingContentItemSettingSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnAddingContentItemSettingSubscriptionName,
+
+                    Description = "Handles add requests: stores the content item setting, " +
+                        "publishes ContentItemSetting-Added, and replies with the added entity."
+                },
+                operation: ContentItemSettingEventOperation.Adding,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnAddingContentItemSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnModifyingContentItemSettingSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnModifyingContentItemSettingSubscriptionName,
+
+                    Description = "Handles modify requests: updates the content item setting, " +
+                        "publishes ContentItemSetting-Modified, and replies with the updated entity."
+                },
+                operation: ContentItemSettingEventOperation.Modifying,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnModifyingContentItemSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the content item " +
+                        "setting, publishes ContentItemSetting-Removed, and replies with the " +
+                        "removed entity."
+                },
+                operation: ContentItemSettingEventOperation.RemovingById,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnRemovingContentItemSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "content item setting, publishes ContentItemSettingHardRemoved on the " +
+                        "removal address, and replies with the deleted entity."
+                },
+                operation: ContentItemSettingEventOperation.HardRemovingById,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnHardRemovingContentItemSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a content item setting " +
+                        "by id and replies with it on the delivery."
+                },
+                operation: ContentItemSettingEventOperation.RetrievingById,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnRetrievingContentItemSettingByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }
