@@ -32,6 +32,8 @@ using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Comments;
+using Glory2Him.Core.Services.Foundations.Comments;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -45,6 +47,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<ITagService> tagServiceMock;
         private readonly Mock<ILinkService> linkServiceMock;
         private readonly Mock<IReactionService> reactionServiceMock;
+        private readonly Mock<ICommentService> commentServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -57,6 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.tagServiceMock = new Mock<ITagService>();
             this.linkServiceMock = new Mock<ILinkService>();
             this.reactionServiceMock = new Mock<IReactionService>();
+            this.commentServiceMock = new Mock<ICommentService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
@@ -66,7 +70,8 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 bibleReferenceService: this.bibleReferenceServiceMock.Object,
                 tagService: this.tagServiceMock.Object,
                 linkService: this.linkServiceMock.Object,
-                reactionService: this.reactionServiceMock.Object);
+                reactionService: this.reactionServiceMock.Object,
+                commentService: this.commentServiceMock.Object);
         }
 
         private void VerifyContentTypeSubscription(
@@ -204,6 +209,26 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<Reaction>, CancellationToken,
                         ValueTask<EventEnvelope<Reaction>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyCommentSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            CommentEventOperation expectedOperation,
+            Func<EventEnvelope<Comment>, CancellationToken,
+                ValueTask<EventEnvelope<Comment>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToCommentEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Comment>, CancellationToken,
+                        ValueTask<EventEnvelope<Comment>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -472,6 +497,40 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     EventBrokerIdentifiers.ReactionOnRetrievingReactionByIdSubscriptionName,
                 expectedOperation: ReactionEventOperation.RetrievingById,
                 expectedHandler: this.reactionServiceMock.Object.OnRetrievingReactionByIdAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionName,
+                expectedOperation: CommentEventOperation.Adding,
+                expectedHandler: this.commentServiceMock.Object.OnAddingCommentAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.CommentOnModifyingCommentSubscriptionName,
+                expectedOperation: CommentEventOperation.Modifying,
+                expectedHandler: this.commentServiceMock.Object.OnModifyingCommentAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers.CommentOnRemovingCommentByIdSubscriptionName,
+                expectedOperation: CommentEventOperation.RemovingById,
+                expectedHandler: this.commentServiceMock.Object.OnRemovingCommentByIdAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.CommentOnHardRemovingCommentByIdSubscriptionName,
+                expectedOperation: CommentEventOperation.HardRemovingById,
+                expectedHandler: this.commentServiceMock.Object.OnHardRemovingCommentByIdAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionName,
+                expectedOperation: CommentEventOperation.RetrievingById,
+                expectedHandler: this.commentServiceMock.Object.OnRetrievingCommentByIdAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();
