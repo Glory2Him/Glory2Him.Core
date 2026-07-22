@@ -179,6 +179,13 @@ namespace Glory2Him.Core.Infrastructure.Services
                             Name = "Require Issue Or Task Association",
                         }
                     },
+                    {
+                        "setAuthorAsPrAssignee",
+                        new SetAuthorAsPrAssigneeJobV2(runsOn: BuildMachines.UbuntuLatest)
+                        {
+                            Name = "Set Author As PR Assignee",
+                        }
+                    }
                 }
             };
 
