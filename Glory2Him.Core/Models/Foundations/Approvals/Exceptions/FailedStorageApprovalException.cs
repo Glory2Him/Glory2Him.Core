@@ -9,14 +9,16 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Collections;
 using Xeptions;
 
-namespace Glory2Him.Core.Models.Foundations.ContentItems.Exceptions
+namespace Glory2Him.Core.Models.Foundations.Approvals.Exceptions
 {
-    internal class ContentItemDependencyException : Xeption
+    public class FailedStorageApprovalException : Xeption
     {
-        public ContentItemDependencyException(string message, Xeption innerException)
-            : base(message, innerException)
+        public FailedStorageApprovalException(string message, Exception innerException, IDictionary data)
+            : base(message, innerException, data)
         { }
     }
 }
