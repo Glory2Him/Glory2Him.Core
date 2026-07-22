@@ -28,8 +28,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             ContentItemSetting contentItemSetting, CancellationToken cancellationToken = default) =>
                 await InsertAsync(contentItemSetting, cancellationToken);
 
-        public async ValueTask<IQueryable<ContentItemSetting>> SelectAllContentItemSettingsAsync() =>
-            await SelectAllAsync<ContentItemSetting>();
+        public async ValueTask<IQueryable<ContentItemSetting>> SelectAllContentItemSettingsAsync(
+            CancellationToken cancellationToken = default) =>
+            await SelectAllAsync<ContentItemSetting>(cancellationToken);
 
         public async ValueTask<ContentItemSetting> SelectContentItemSettingByIdAsync(
             Guid contentItemSettingId, CancellationToken cancellationToken = default) =>

@@ -10,56 +10,36 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 
-namespace Glory2Him.Core.Brokers.Storages.Sql
+namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 {
-    public partial interface IStorageBroker
+    public partial interface IContentItemSettingService
     {
-        ValueTask<ContentItemSetting> InsertContentItemSettingAsync(
+        ValueTask<ContentItemSetting> AddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken = default);
 
-        ValueTask<IQueryable<ContentItemSetting>> SelectAllContentItemSettingsAsync(
+        ValueTask<IQueryable<ContentItemSetting>> RetrieveAllContentItemSettingsAsync(
             CancellationToken cancellationToken = default);
 
-        ValueTask<ContentItemSetting> SelectContentItemSettingByIdAsync(
+        ValueTask<ContentItemSetting> RetrieveContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<ContentItemSetting> UpdateContentItemSettingAsync(
+        ValueTask<ContentItemSetting> ModifyContentItemSettingAsync(
             ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken = default);
 
-        ValueTask<ContentItemSetting> DeleteContentItemSettingAsync(
-            ContentItemSetting contentItemSetting,
+        ValueTask<ContentItemSetting> RemoveContentItemSettingByIdAsync(
+            Guid contentItemSettingId,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
 
-        ValueTask BulkInsertContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpdateContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkDeleteContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<IEnumerable<ContentItemSetting>> BulkReadContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings,
-            CancellationToken cancellationToken = default);
-
-        ValueTask BulkUpsertContentItemSettingsAsync(
-            List<ContentItemSetting> contentItemSettings,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<bool> ExistsContentItemSettingAsync(
+        ValueTask<ContentItemSetting> HardRemoveContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             CancellationToken cancellationToken = default);
     }

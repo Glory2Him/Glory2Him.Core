@@ -28,6 +28,7 @@ using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.ApprovalSettingRoles;
 using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -72,6 +73,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalSettingService approvalSettingService;
         private readonly IApprovalSettingRoleService approvalSettingRoleService;
         private readonly IContentItemAssociationService contentItemAssociationService;
+        private readonly IContentItemSettingService contentItemSettingService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -87,7 +89,8 @@ namespace Glory2Him.Core.Registrations
             IApprovalReviewService approvalReviewService,
             IApprovalSettingService approvalSettingService,
             IApprovalSettingRoleService approvalSettingRoleService,
-            IContentItemAssociationService contentItemAssociationService)
+            IContentItemAssociationService contentItemAssociationService,
+            IContentItemSettingService contentItemSettingService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
@@ -103,6 +106,7 @@ namespace Glory2Him.Core.Registrations
             this.approvalSettingService = approvalSettingService;
             this.approvalSettingRoleService = approvalSettingRoleService;
             this.contentItemAssociationService = contentItemAssociationService;
+            this.contentItemSettingService = contentItemSettingService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -1064,6 +1068,94 @@ namespace Glory2Him.Core.Registrations
                 operation: ContentItemAssociationEventOperation.RetrievingById,
                 contentItemAssociationEventHandler:
                     this.contentItemAssociationService.OnRetrievingContentItemAssociationByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ContentItemSetting request handlers ──────────────────────────────
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnAddingContentItemSettingSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnAddingContentItemSettingSubscriptionName,
+
+                    Description = "Handles add requests: stores the content item setting, " +
+                        "publishes ContentItemSetting-Added, and replies with the added entity."
+                },
+                operation: ContentItemSettingEventOperation.Adding,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnAddingContentItemSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnModifyingContentItemSettingSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnModifyingContentItemSettingSubscriptionName,
+
+                    Description = "Handles modify requests: updates the content item setting, " +
+                        "publishes ContentItemSetting-Modified, and replies with the updated entity."
+                },
+                operation: ContentItemSettingEventOperation.Modifying,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnModifyingContentItemSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnRemovingContentItemSettingByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the content item " +
+                        "setting, publishes ContentItemSetting-Removed, and replies with the " +
+                        "removed entity."
+                },
+                operation: ContentItemSettingEventOperation.RemovingById,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnRemovingContentItemSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnHardRemovingContentItemSettingByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "content item setting, publishes ContentItemSettingHardRemoved on the " +
+                        "removal address, and replies with the deleted entity."
+                },
+                operation: ContentItemSettingEventOperation.HardRemovingById,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnHardRemovingContentItemSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ContentItemSettingOnRetrievingContentItemSettingByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves a content item setting " +
+                        "by id and replies with it on the delivery."
+                },
+                operation: ContentItemSettingEventOperation.RetrievingById,
+                contentItemSettingEventHandler:
+                    this.contentItemSettingService.OnRetrievingContentItemSettingByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }
