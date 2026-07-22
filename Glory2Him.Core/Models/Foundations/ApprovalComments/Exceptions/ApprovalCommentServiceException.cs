@@ -14,7 +14,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions
 {
-    public class ApprovalCommentServiceException : Xeption
+    internal class ApprovalCommentServiceException : Xeption
     {
         public ApprovalCommentServiceException(string message, Exception innerException)
             : base(message, innerException)
