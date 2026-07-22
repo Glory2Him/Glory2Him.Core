@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ApprovalSettingRemovingByIdEventAddressId =
             new Guid("019f814e-89c1-7f8b-bfbf-6fabcd3a3f72");
 
+        public static readonly Guid ApprovalSettingHardRemovingByIdEventAddressId =
+            new Guid("019f855d-450e-7709-888a-cf6ddab391a3");
+
         public static readonly Guid ApprovalSettingRetrievingByIdEventAddressId =
             new Guid("019f814e-89c1-7e24-8861-f43c40425302");
 
@@ -44,10 +47,20 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalSettingEventOperation.Adding, ApprovalSettingAddingEventAddressId },
                 { ApprovalSettingEventOperation.Modifying, ApprovalSettingModifyingEventAddressId },
                 { ApprovalSettingEventOperation.RemovingById, ApprovalSettingRemovingByIdEventAddressId },
+
+                { ApprovalSettingEventOperation.HardRemovingById,
+                    ApprovalSettingHardRemovingByIdEventAddressId },
+
                 { ApprovalSettingEventOperation.RetrievingById, ApprovalSettingRetrievingByIdEventAddressId },
                 { ApprovalSettingEventOperation.Added, ApprovalSettingAddedEventAddressId },
                 { ApprovalSettingEventOperation.Modified, ApprovalSettingModifiedEventAddressId },
-                { ApprovalSettingEventOperation.Removed, ApprovalSettingRemovedEventAddressId }
+
+                // HardRemoved is published to the SAME address as Removed on purpose —
+                // consumers subscribe to one removal address and distinguish hard removals
+                // by the composed event name ("ApprovalSettingHardRemoved" vs
+                // "ApprovalSettingRemoved").
+                { ApprovalSettingEventOperation.Removed, ApprovalSettingRemovedEventAddressId },
+                { ApprovalSettingEventOperation.HardRemoved, ApprovalSettingRemovedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ApprovalSettingEventAddresses =
@@ -56,6 +69,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalSettingAddingEventAddressId, "ApprovalSetting-Adding" },
                 { ApprovalSettingModifyingEventAddressId, "ApprovalSetting-Modifying" },
                 { ApprovalSettingRemovingByIdEventAddressId, "ApprovalSetting-RemovingById" },
+                { ApprovalSettingHardRemovingByIdEventAddressId, "ApprovalSetting-HardRemovingById" },
                 { ApprovalSettingRetrievingByIdEventAddressId, "ApprovalSetting-RetrievingById" },
                 { ApprovalSettingAddedEventAddressId, "ApprovalSetting-Added" },
                 { ApprovalSettingModifiedEventAddressId, "ApprovalSetting-Modified" },
@@ -77,6 +91,12 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionName =
             "ApprovalSettingService.OnRemovingApprovalSettingById";
+        public static readonly Guid ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionId =
+            new Guid("019f855d-450f-731d-8bfc-8287026cd1ab");
+
+        public const string ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionName =
+            "ApprovalSettingService.OnHardRemovingApprovalSettingById";
+
         public static readonly Guid ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionId =
             new Guid("019f8170-a642-7f8c-b207-3ceb672ecb3d");
 

@@ -38,6 +38,8 @@ using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -54,6 +56,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<ICommentService> commentServiceMock;
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IApprovalReviewService> approvalReviewServiceMock;
+        private readonly Mock<IApprovalSettingService> approvalSettingServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -69,6 +72,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.commentServiceMock = new Mock<ICommentService>();
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
             this.approvalReviewServiceMock = new Mock<IApprovalReviewService>();
+            this.approvalSettingServiceMock = new Mock<IApprovalSettingService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
@@ -81,7 +85,8 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 reactionService: this.reactionServiceMock.Object,
                 commentService: this.commentServiceMock.Object,
                 approvalCommentService: this.approvalCommentServiceMock.Object,
-                approvalReviewService: this.approvalReviewServiceMock.Object);
+                approvalReviewService: this.approvalReviewServiceMock.Object,
+                approvalSettingService: this.approvalSettingServiceMock.Object);
         }
 
         private void VerifyContentTypeSubscription(
@@ -279,6 +284,26 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<ApprovalReview>, CancellationToken,
                         ValueTask<EventEnvelope<ApprovalReview>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        private void VerifyApprovalSettingSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ApprovalSettingEventOperation expectedOperation,
+            Func<EventEnvelope<ApprovalSetting>, CancellationToken,
+                ValueTask<EventEnvelope<ApprovalSetting>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToApprovalSettingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ApprovalSetting>, CancellationToken,
+                        ValueTask<EventEnvelope<ApprovalSetting>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -665,6 +690,48 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     EventBrokerIdentifiers.ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionName,
                 expectedOperation: ApprovalReviewEventOperation.RetrievingById,
                 expectedHandler: this.approvalReviewServiceMock.Object.OnRetrievingApprovalReviewByIdAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.Adding,
+                expectedHandler: this.approvalSettingServiceMock.Object.OnAddingApprovalSettingAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.Modifying,
+                expectedHandler: this.approvalSettingServiceMock.Object.OnModifyingApprovalSettingAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.RemovingById,
+                expectedHandler: this.approvalSettingServiceMock.Object.OnRemovingApprovalSettingByIdAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.HardRemovingById,
+                expectedHandler:
+                    this.approvalSettingServiceMock.Object.OnHardRemovingApprovalSettingByIdAsync);
+
+            VerifyApprovalSettingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionName,
+                expectedOperation: ApprovalSettingEventOperation.RetrievingById,
+                expectedHandler:
+                    this.approvalSettingServiceMock.Object.OnRetrievingApprovalSettingByIdAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();

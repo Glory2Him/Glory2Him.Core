@@ -25,6 +25,7 @@ using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -66,6 +67,7 @@ namespace Glory2Him.Core.Registrations
         private readonly ICommentService commentService;
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IApprovalReviewService approvalReviewService;
+        private readonly IApprovalSettingService approvalSettingService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -78,7 +80,8 @@ namespace Glory2Him.Core.Registrations
             IReactionService reactionService,
             ICommentService commentService,
             IApprovalCommentService approvalCommentService,
-            IApprovalReviewService approvalReviewService)
+            IApprovalReviewService approvalReviewService,
+            IApprovalSettingService approvalSettingService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
@@ -91,6 +94,7 @@ namespace Glory2Him.Core.Registrations
             this.commentService = commentService;
             this.approvalCommentService = approvalCommentService;
             this.approvalReviewService = approvalReviewService;
+            this.approvalSettingService = approvalSettingService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -800,6 +804,77 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalReviewEventOperation.RetrievingById,
                 approvalReviewEventHandler: this.approvalReviewService.OnRetrievingApprovalReviewByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalSetting request handlers ─────────────────────────────────
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval setting, publishes " +
+                        "ApprovalSetting-Added, and replies with the added entity."
+                },
+                operation: ApprovalSettingEventOperation.Adding,
+                approvalSettingEventHandler: this.approvalSettingService.OnAddingApprovalSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingOnModifyingApprovalSettingSubscriptionName,
+
+                    Description = "Handles modify requests: updates the approval setting, publishes " +
+                        "ApprovalSetting-Modified, and replies with the updated entity."
+                },
+                operation: ApprovalSettingEventOperation.Modifying,
+                approvalSettingEventHandler: this.approvalSettingService.OnModifyingApprovalSettingAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalSettingOnRemovingApprovalSettingByIdSubscriptionName,
+
+                    Description = "Handles remove requests: soft-deletes the approval setting, " +
+                        "publishes ApprovalSetting-Removed, and replies with the removed entity."
+                },
+                operation: ApprovalSettingEventOperation.RemovingById,
+                approvalSettingEventHandler: this.approvalSettingService.OnRemovingApprovalSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalSettingOnHardRemovingApprovalSettingByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the " +
+                        "approval setting, publishes ApprovalSettingHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalSettingEventOperation.HardRemovingById,
+                approvalSettingEventHandler: this.approvalSettingService.OnHardRemovingApprovalSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalSettingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalSettingOnRetrievingApprovalSettingByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval setting by id " +
+                        "and replies with it on the delivery."
+                },
+                operation: ApprovalSettingEventOperation.RetrievingById,
+                approvalSettingEventHandler: this.approvalSettingService.OnRetrievingApprovalSettingByIdAsync,
                 cancellationToken: cancellationToken);
         }
     }
