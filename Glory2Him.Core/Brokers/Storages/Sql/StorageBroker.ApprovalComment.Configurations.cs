@@ -71,6 +71,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             model.Property(approvalComment => approvalComment.Comment).IsRequired(false);
 
+            model
+                .Property(approvalComment => approvalComment.IsResolved)
+                .IsRequired()
+                .HasDefaultValue(false);
+
             // Index to speed up joins/filters by parent
             model.HasIndex(approvalComment => approvalComment.ApprovalId)
                  .HasDatabaseName("IX_ApprovalComments_ApprovalId");

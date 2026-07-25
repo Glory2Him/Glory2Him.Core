@@ -17,7 +17,7 @@ namespace Glory2Him.Core.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -53,6 +53,11 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsResolved")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -142,7 +147,7 @@ namespace Glory2Him.Core.Migrations
                     b.ToTable("ApprovalReviews", (string)null);
                 });
 
-            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettingRoles.ApprovalSettingRole", b =>
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.ApprovalSettingPublisherRole", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -190,13 +195,70 @@ namespace Glory2Him.Core.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ApprovalSettingId")
-                        .HasDatabaseName("IX_ApprovalSettingRoles_ApprovalSettingId");
+                        .HasDatabaseName("IX_ApprovalSettingPublisherRoles_ApprovalSettingId");
 
                     b.HasIndex("ApprovalSettingId", "RoleName")
                         .IsUnique()
-                        .HasDatabaseName("UX_ApprovalSettingRoles_ApprovalSettingId_RoleName");
+                        .HasDatabaseName("UX_ApprovalSettingPublisherRoles_ApprovalSettingId_RoleName");
 
-                    b.ToTable("ApprovalSettingRoles", (string)null);
+                    b.ToTable("ApprovalSettingPublisherRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.ApprovalSettingReviewerRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ApprovalSettingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("CreatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset?>("DeletedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("RoleName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("UpdatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalSettingId")
+                        .HasDatabaseName("IX_ApprovalSettingReviewerRoles_ApprovalSettingId");
+
+                    b.HasIndex("ApprovalSettingId", "RoleName")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ApprovalSettingReviewerRoles_ApprovalSettingId_RoleName");
+
+                    b.ToTable("ApprovalSettingReviewerRoles", (string)null);
                 });
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting", b =>
@@ -210,7 +272,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("AutoApproveIfThresholdMet")
+                    b.Property<bool>("AutoApproveIfAllApprovalRequirementsMet")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -238,6 +300,11 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("DoNotAllowBypassingSettings")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("EntityType")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -248,18 +315,33 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("MustBeInRoleToApprove")
+                    b.Property<bool>("RequireApprovalCommentResolutionBeforeApproval")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
-                        .HasDefaultValue(false);
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("RequireApprovals")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("RequireReapprovalOnChange")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<int>("RequiredApprovals")
+                    b.Property<int>("RequiredNumberOfApprovals")
                         .HasColumnType("int");
+
+                    b.Property<bool>("RestrictWhoCanApprove")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("RestrictWhoCanReview")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("UpdatedBy")
                         .IsRequired()
@@ -310,6 +392,11 @@ namespace Glory2Him.Core.Migrations
 
                     b.Property<int>("EntityType")
                         .HasColumnType("int");
+
+                    b.Property<bool>("IsApprovedByBypass")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -373,17 +460,17 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("G2HatestVersion")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<string>("Hash")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsLatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -419,10 +506,10 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("Hash")
                         .HasDatabaseName("IX_Attachments_Hash");
 
-                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
+                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
                         .IsUnique()
                         .HasDatabaseName("UX_Attachments_ContentItemGroupId_G2Hatest")
-                        .HasFilter("[G2HatestVersion] = 1");
+                        .HasFilter("[IsLatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()
@@ -468,12 +555,12 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("G2HatestVersion")
+                    b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsDeleted")
+                    b.Property<bool>("IsLatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -514,10 +601,10 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
+                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
                         .IsUnique()
                         .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_G2Hatest")
-                        .HasFilter("[G2HatestVersion] = 1");
+                        .HasFilter("[IsLatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()
@@ -851,6 +938,11 @@ namespace Glory2Him.Core.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<Guid>("ContentItemGroupId")
                         .HasColumnType("uniqueidentifier");
 
@@ -875,12 +967,12 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("G2HatestVersion")
+                    b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsDeleted")
+                    b.Property<bool>("IsLatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -920,10 +1012,10 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("PublishDate")
                         .HasDatabaseName("IX_ContentItems_PublishDate");
 
-                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
+                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
                         .IsUnique()
                         .HasDatabaseName("IX_ContentItem_G2Hatest")
-                        .HasFilter("[G2HatestVersion] = 1");
+                        .HasFilter("[IsLatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()
@@ -934,6 +1026,9 @@ namespace Glory2Him.Core.Migrations
                         .IsUnique()
                         .IsDescending()
                         .HasDatabaseName("IX_ContentItems_ContentItemGroupId_VersionDesc");
+
+                    b.HasIndex("ContentTypeId", "ContentHash")
+                        .HasDatabaseName("IX_ContentItems_ContentTypeId_ContentHash");
 
                     b.HasIndex("ApprovalStatus", "IsPublished", "PublishDate")
                         .HasDatabaseName("IX_ContentItems_Feed");
@@ -1036,12 +1131,12 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("G2HatestVersion")
+                    b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsDeleted")
+                    b.Property<bool>("IsLatestVersion")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
@@ -1084,10 +1179,10 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ContentItemGroupId", "G2HatestVersion")
+                    b.HasIndex("ContentItemGroupId", "IsLatestVersion")
                         .IsUnique()
                         .HasDatabaseName("UX_Links_ContentItemGroupId_G2Hatest")
-                        .HasFilter("[G2HatestVersion] = 1");
+                        .HasFilter("[IsLatestVersion] = 1");
 
                     b.HasIndex("ContentItemGroupId", "IsPublished")
                         .IsUnique()
@@ -1281,10 +1376,21 @@ namespace Glory2Him.Core.Migrations
                     b.Navigation("Approval");
                 });
 
-            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettingRoles.ApprovalSettingRole", b =>
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.ApprovalSettingPublisherRole", b =>
                 {
                     b.HasOne("Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting", "ApprovalSetting")
-                        .WithMany("ApprovalSettingRoles")
+                        .WithMany("ApprovalSettingPublisherRoles")
+                        .HasForeignKey("ApprovalSettingId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("ApprovalSetting");
+                });
+
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.ApprovalSettingReviewerRole", b =>
+                {
+                    b.HasOne("Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting", "ApprovalSetting")
+                        .WithMany("ApprovalSettingReviewerRoles")
                         .HasForeignKey("ApprovalSettingId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
@@ -1305,7 +1411,9 @@ namespace Glory2Him.Core.Migrations
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalSettings.ApprovalSetting", b =>
                 {
-                    b.Navigation("ApprovalSettingRoles");
+                    b.Navigation("ApprovalSettingPublisherRoles");
+
+                    b.Navigation("ApprovalSettingReviewerRoles");
                 });
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.Approvals.Approval", b =>

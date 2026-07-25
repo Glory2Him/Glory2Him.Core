@@ -41,6 +41,11 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         public ApprovalStatus ApprovalStatus { get; set; }
 
         /// <summary>
+        /// Indicates whether the approval conditions were bypassed for this approval status.
+        /// </summary>
+        public bool IsApprovedByBypass { get; set; } = false;
+
+        /// <summary>
         /// User identifier for who created the content item.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;

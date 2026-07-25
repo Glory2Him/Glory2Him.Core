@@ -74,7 +74,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(1);
 
-            model.Property(link => link.G2HatestVersion)
+            model.Property(link => link.IsLatestVersion)
                  .IsRequired()
                  .HasDefaultValue(false);
 
@@ -95,9 +95,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasDatabaseName("UX_Links_ContentItemGroupId_Version");
 
             // Exactly one latest version per group
-            model.HasIndex(link => new { link.ContentItemGroupId, link.G2HatestVersion })
+            model.HasIndex(link => new { link.ContentItemGroupId, link.IsLatestVersion })
                  .IsUnique()
-                 .HasFilter($"[{nameof(Link.G2HatestVersion)}] = 1")
+                 .HasFilter($"[{nameof(Link.IsLatestVersion)}] = 1")
                  .HasDatabaseName("UX_Links_ContentItemGroupId_G2Hatest");
 
             // Exactly one published version per group

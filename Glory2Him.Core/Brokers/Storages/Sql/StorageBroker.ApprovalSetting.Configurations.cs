@@ -31,7 +31,11 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasMaxLength(64)
                  .IsRequired();
 
-            model.Property(approvalSetting => approvalSetting.RequiredApprovals)
+            model.Property(approvalSetting => approvalSetting.RequireApprovals)
+                 .IsRequired()
+                 .HasDefaultValue(true);
+
+            model.Property(approvalSetting => approvalSetting.RequiredNumberOfApprovals)
                  .IsRequired();
 
             model.Property(approvalSetting => approvalSetting.AllowSelfApproval)
@@ -46,11 +50,23 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(true);
 
-            model.Property(approvalSetting => approvalSetting.AutoApproveIfThresholdMet)
+            model.Property(approvalSetting => approvalSetting.AutoApproveIfAllApprovalRequirementsMet)
                  .IsRequired()
                  .HasDefaultValue(false);
 
-            model.Property(approvalSetting => approvalSetting.MustBeInRoleToApprove)
+            model.Property(approvalSetting => approvalSetting.RestrictWhoCanReview)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            model.Property(approvalSetting => approvalSetting.RestrictWhoCanApprove)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            model.Property(approvalSetting => approvalSetting.RequireApprovalCommentResolutionBeforeApproval)
+                 .IsRequired()
+                 .HasDefaultValue(true);
+
+            model.Property(approvalSetting => approvalSetting.DoNotAllowBypassingSettings)
                  .IsRequired()
                  .HasDefaultValue(false);
 
@@ -87,10 +103,16 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsUnique()
                  .HasDatabaseName("UX_ApprovalSettings_EntityType");
 
-            // Relationship: one ApprovalSetting to many ApprovalSettingRoles
-            model.HasMany(approvalSetting => approvalSetting.ApprovalSettingRoles)
-                 .WithOne(approvalSettingRole => approvalSettingRole.ApprovalSetting)
-                 .HasForeignKey(approvalSettingRole => approvalSettingRole.ApprovalSettingId)
+            // Relationship: one ApprovalSetting to many ApprovalSettingReviewerRoles
+            model.HasMany(approvalSetting => approvalSetting.ApprovalSettingReviewerRoles)
+                 .WithOne(approvalSettingReviewerRole => approvalSettingReviewerRole.ApprovalSetting)
+                 .HasForeignKey(approvalSettingReviewerRole => approvalSettingReviewerRole.ApprovalSettingId)
+                 .OnDelete(DeleteBehavior.NoAction);
+
+            // Relationship: one ApprovalSetting to many ApprovalSettingPublisherRoles
+            model.HasMany(approvalSetting => approvalSetting.ApprovalSettingPublisherRoles)
+                 .WithOne(approvalSettingPublisherRole => approvalSettingPublisherRole.ApprovalSetting)
+                 .HasForeignKey(approvalSettingPublisherRole => approvalSettingPublisherRole.ApprovalSettingId)
                  .OnDelete(DeleteBehavior.NoAction);
         }
     }

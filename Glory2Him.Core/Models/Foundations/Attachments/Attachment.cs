@@ -94,7 +94,7 @@ namespace Glory2Him.Core.Models.Foundations.Attachments
         /// <summary>
         /// Gets or sets a value indicating whether this is the latest version of the attachment.
         /// </summary>
-        public bool G2HatestVersion { get; set; } = false;
+        public bool IsLatestVersion { get; set; } = false;
 
         /// <summary>
         /// Optional date and time from which the attachment becomes visible.

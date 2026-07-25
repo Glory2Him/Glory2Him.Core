@@ -237,7 +237,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             filler.Setup()
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
-                .OnProperty(approvalSetting => approvalSetting.ApprovalSettingRoles).IgnoreIt()
+                .OnProperty(approvalSetting => approvalSetting.ApprovalSettingReviewerRoles).IgnoreIt()
+                .OnProperty(approvalSetting => approvalSetting.ApprovalSettingPublisherRoles).IgnoreIt()
                 .OnProperty(approvalSetting => approvalSetting.CreatedBy).Use(userId)
                 .OnProperty(approvalSetting => approvalSetting.UpdatedBy).Use(userId);
 

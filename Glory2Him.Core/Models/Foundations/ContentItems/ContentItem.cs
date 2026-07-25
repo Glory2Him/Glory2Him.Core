@@ -47,6 +47,13 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         public string Content { get; set; } = string.Empty;
 
         /// <summary>
+        /// SHA-256 hash of the normalized <see cref="Content"/> (trimmed, whitespace collapsed,
+        /// lowercased). Control field computed on every write; used for duplicate detection
+        /// per content type. Never accepted from an external caller.
+        /// </summary>
+        public string ContentHash { get; set; } = string.Empty;
+
+        /// <summary>
         /// Content item group identifier to group multiple versions of the same content item.
         /// </summary>
         public Guid ContentItemGroupId { get; set; }
@@ -59,7 +66,7 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         /// <summary>
         /// Gets or sets a value indicating whether the current instance represents the latest version.
         /// </summary>
-        public bool G2HatestVersion { get; set; } = false;
+        public bool IsLatestVersion { get; set; } = false;
 
         /// <summary>
         /// The date and time when the content item was published. 

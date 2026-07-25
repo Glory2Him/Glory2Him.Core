@@ -34,6 +34,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(approval => approval.ApprovalStatus)
                  .IsRequired();
 
+            model.Property(approval => approval.IsApprovedByBypass)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
             model
                 .Property(approval => approval.CreatedBy)
                 .HasMaxLength(255)

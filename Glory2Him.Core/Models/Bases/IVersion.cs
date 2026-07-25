@@ -28,6 +28,6 @@ namespace Glory2Him.Core.Models.Bases
         /// <summary>
         /// Gets or sets a value indicating whether the current instance represents the latest version.
         /// </summary>
-        bool G2HatestVersion { get; set; }
+        bool IsLatestVersion { get; set; }
     }
 }
