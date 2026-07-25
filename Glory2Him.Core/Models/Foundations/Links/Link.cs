@@ -94,7 +94,7 @@ namespace Glory2Him.Core.Models.Foundations.Links
         /// <summary>
         /// Gets or sets a value indicating whether this is the latest version of the link.
         /// </summary>
-        public bool G2HatestVersion { get; set; } = false;
+        public bool IsLatestVersion { get; set; } = false;
 
         /// <summary>
         /// Optional date and time from which the link becomes visible.

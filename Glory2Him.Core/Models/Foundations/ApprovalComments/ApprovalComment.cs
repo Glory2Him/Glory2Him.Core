@@ -41,6 +41,14 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalComments
         public string Comment { get; set; } = string.Empty;
 
         /// <summary>
+        /// Indicates whether the comment has been resolved. Used by
+        /// <c>ApprovalSetting.RequireApprovalCommentResolutionBeforeApproval</c> — when that
+        /// setting is enabled, all comments on an approval must be resolved before the
+        /// approval conditions are met.
+        /// </summary>
+        public bool IsResolved { get; set; } = false;
+
+        /// <summary>
         /// User identifier for who created the content item.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;

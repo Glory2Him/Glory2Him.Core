@@ -77,7 +77,7 @@ The domain model is grouped into the following areas:
 | Area | Entities |
 | --- | --- |
 | Content | `ContentItem`, `ContentType`, `ContentItemSetting`, `ContentItemAssociation` |
-| Approval | `Approval`, `ApprovalReview`, `ApprovalComment`, `ApprovalSetting`, `ApprovalSettingRole` |
+| Approval | `Approval`, `ApprovalReview`, `ApprovalComment`, `ApprovalSetting`, `ApprovalSettingReviewerRole`, `ApprovalSettingPublisherRole` |
 | Associated Entities | `Tag`, `Reaction`, `Comment`, `BibleReference`, `Link`, `Attachment` |
 | Enum / Lookup | `EntityType`, `ApprovalStatus`, `Scope` |
 | Future Subscription | `Subscription`, `SubscriptionDelivery`, or equivalent decoupled subscription records |
@@ -101,11 +101,12 @@ The content item model should contain the following design-relevant properties:
 | `Title` | Optional content title. |
 | `Author` | Optional content author. |
 | `Content` | Required body content. |
+| `ContentHash` | SHA-256 hash of the normalized `Content` (trim, collapse whitespace, lowercase). Control field computed on every write. Non-unique index on (`ContentTypeId`, `ContentHash`) for duplicate detection (§3.4.2). |
 | `ContentItemGroupId` | Groups multiple versions of the same logical content item. |
 | `Version` | Version number for the item. |
-| `G2HatestVersion` | Identifies the latest version within the content group. Only one row per `ContentItemGroupId` may be latest. |
+| `IsLatestVersion` | Identifies the latest version within the content group. Only one row per `ContentItemGroupId` may be latest. |
 | `IsPublished` | Identifies the currently published version. Only one row per `ContentItemGroupId` may be published. |
-| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
+| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
 | `PublishDate` | Optional date/time from which the content can be visible. |
 | `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
 | `CreatedBy` | User who created the item. |
@@ -123,7 +124,7 @@ Content is versioned by using:
 1. `Id` for the specific version.
 2. `ContentItemGroupId` for the logical content item across all versions.
 3. `Version` for the version number.
-4. `G2HatestVersion` to identify the latest editable version.
+4. `IsLatestVersion` to identify the latest editable version.
 5. `IsPublished` to identify the current public version.
 
 ### 3.4 Content Versioning Rules
@@ -131,20 +132,56 @@ Content is versioned by using:
 The following rules apply:
 
 1. A new content item starts with `Version = 1`.
-2. A new content item starts with `G2HatestVersion = true`.
+2. A new content item starts with `IsLatestVersion = true`.
 3. A new content item starts with `IsPublished = false` unless it is approved and published through the approval workflow.
 4. A content item that has not yet been approved may be edited in-place.
-5. Editing a draft, submitted, rejected, or dismissed item does not create a new version.
-6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed and the item must be reviewed again.
-7. Once a content item has been approved, it becomes immutable for public-audit purposes.
-8. Editing an approved content item creates a new `ContentItem` row with the same `ContentItemGroupId` and incremented `Version`.
-9. The new version becomes `G2HatestVersion = true`.
-10. The previous latest version becomes `G2HatestVersion = false`.
+5. Editing a draft, submitted, or rejected item does not create a new version.
+6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed (subject to `ApprovalSetting.RequireReapprovalOnChange`) and the item must be reviewed again. The item itself remains in its current status.
+7. Once a content item has been approved, it becomes immutable to its owner. Only an `Admin` may amend an approved item in-place (rule 16).
+8. When the owner edits an approved content item, a new `ContentItem` row is created with the same `ContentItemGroupId` and incremented `Version`. The owner is the only creator of new versions — `Publisher` and `Admin` roles never create version forks.
+9. The new version becomes `IsLatestVersion = true`.
+10. The previous latest version becomes `IsLatestVersion = false`.
 11. The new version must not become `IsPublished = true` until approved.
 12. The previously published version remains `IsPublished = true` until the new version is approved and published.
-13. Only one content item per `ContentItemGroupId` may have `G2HatestVersion = true`.
+13. Only one content item per `ContentItemGroupId` may have `IsLatestVersion = true`.
 14. Only one content item per `ContentItemGroupId` may have `IsPublished = true`.
 15. Previous versions must remain available for audit, approval history, comparison, and rollback.
+16. An `Admin` may amend an approved content item in-place without creating a new version. The normal updated event fires, the item's approval is reset to `Submitted`, and all active approval reviews are marked `Dismissed` (stale). The item then goes through the normal approval process again, or the `Admin` may bypass-approve it.
+17. While such re-approval is pending, the amended item no longer satisfies canonical content visibility (its `ApprovalStatus` is `Submitted`) and is not publicly visible until approved again.
+18. `IsLatestVersion` is written at exactly two points: creation (`true` on the new row) and version fork (`true` on the new row, `false` on the previous latest). No other operation — submit, review, approve, publish, or an `Admin` in-place amendment — changes `IsLatestVersion`.
+
+#### 3.4.1 IsLatestVersion Lifecycle
+
+`IsLatestVersion` marks the tip of the version chain — the row edits go to. `IsPublished` marks the row the public sees. During a review window the two flags deliberately sit on different rows. Exactly one `IsLatestVersion = true` per `ContentItemGroupId` at all times; at most one `IsPublished = true` (both enforced by unique filtered indexes).
+
+| Lifecycle event | `IsLatestVersion` | `IsPublished` |
+| --- | --- | --- |
+| Create V1 | V1 = `true` (the only row is the tip) | V1 = `false` |
+| Edit a not-yet-approved item (in-place) | unchanged | unchanged |
+| Owner edits an `Approved` item (fork) | new row = `true`; previous latest = `false` | new row = `false`; previously published row unchanged |
+| Submit / review / reject | unchanged | unchanged |
+| Approve + publish | unchanged (the approved row already carries `true`) | approved row = `true`; previously published row = `false` |
+| `Admin` amends an `Approved` item in-place | unchanged | unchanged (visibility is gated by `ApprovalStatus` until re-approved) |
+
+Worked example (V1 published, owner edits):
+
+| Step | V1 | V2 |
+| --- | --- | --- |
+| V1 approved + published | latest=`true`, published=`true` | — |
+| Owner edits → fork V2 | latest=`false`, published=`true` (still live) | latest=`true`, published=`false`, `Draft` |
+| V2 submitted, under review | latest=`false`, published=`true` | latest=`true`, published=`false`, `Submitted` |
+| V2 approved + published | latest=`false`, published=`false` | latest=`true`, published=`true` |
+
+#### 3.4.2 Duplicate Content Rule
+
+Purpose: two different people cannot submit the exact same content.
+
+1. The duplicate match compares `Content` only (not `Title` or `Author`).
+2. The match is normalized: trim ends, collapse whitespace/newline runs to a single space, lowercase (invariant culture). The normalization function is a frozen contract — changing it requires recomputing every stored hash in a migration.
+3. The match is scoped per `ContentTypeId`.
+4. The match compares against all non-deleted rows (any status, any version). On modify, the item's own `ContentItemGroupId` is excluded.
+5. Mechanism: `ContentHash` = SHA-256 of the normalized content, computed by the orchestration on every write and stored on `ContentItem`. A non-unique index on (`ContentTypeId`, `ContentHash`) makes the check an index seek. The index must not be unique — rows within one group may legitimately share a hash (for example a later version reverting to earlier wording); enforcement is application-side.
+6. Response on a duplicate: add → polite acknowledgement ("Thank you for your submission") without creating the record and without revealing the duplicate; modify → validation error.
 
 ### 3.5 Approval Invalidation Rules
 
@@ -156,7 +193,7 @@ For `ContentItem`:
 
 1. Changes to `Title`, `Author`, `Content`, `ContentTypeId`, `PublishDate`, or other approval-sensitive content metadata may invalidate the content item's own approval.
 2. If reviews exist for the content item, the reviews should be marked as `Dismissed` when the content changes.
-3. The approval status should return to `Submitted` or `Draft`, depending on workflow rules.
+3. The approval status of the item does not change when reviews are dismissed — a `Submitted` item remains `Submitted`. Exception: an `Admin` in-place amendment of an `Approved` item resets the approval to `Submitted`.
 4. Reviewers must review the updated content again.
 
 For linked entities:
@@ -192,10 +229,10 @@ Standard content type examples:
 | `Name` | Name of the content type. |
 | `ContentItemGroupId` | Groups all versions of this content type record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of the content type record, defaults to 1. |
-| `G2HatestVersion` | Identifies the latest version of this content type record. |
+| `IsLatestVersion` | Identifies the latest version of this content type record. |
 | `PublishDate` | Optional date/time from which this content type becomes visible. |
 | `IsPublished` | Identifies the currently published version of this content type record. |
-| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). |
+| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
 | `CreatedBy` | User who created the type. |
 | `CreatedWhen` | Creation timestamp. |
@@ -268,12 +305,12 @@ The following rules must be enforced:
 | `AssociatedContentItemGroupId` | Target content item group for the association. Populated when `Scope = AllVersions`; null otherwise. |
 | `ContentItemGroupId` | Groups all versions of this association record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this association record, defaults to 1. |
-| `G2HatestVersion` | Identifies the latest version of this association record. |
+| `IsLatestVersion` | Identifies the latest version of this association record. |
 | `EntityType` | Type of the associated entity. |
 | `EntityId` | Identifier of the associated entity. |
 | `PublishDate` | Optional visibility date for the association. |
 | `IsPublished` | Identifies whether the current version of this association is published. |
-| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). |
+| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `IsDeleted` | Soft-delete flag. When `true` the association is excluded from all public visibility. |
 | `CreatedBy` | User who created the association. |
 | `CreatedWhen` | Creation timestamp. |
@@ -323,10 +360,10 @@ Example:
 | `Name` | Tag name. |
 | `ContentItemGroupId` | Groups all versions of this tag record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this tag record, defaults to 1. |
-| `G2HatestVersion` | Identifies the latest version of this tag record. |
+| `IsLatestVersion` | Identifies the latest version of this tag record. |
 | `PublishDate` | Optional date/time from which this tag becomes visible. |
 | `IsPublished` | Identifies whether the current version of this tag is published. |
-| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). |
+| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `IsDeleted` | Soft-delete flag. When `true` the tag is excluded from all public visibility. |
 | `CreatedBy` | User who created the tag. |
 | `CreatedWhen` | Creation timestamp. |
@@ -347,10 +384,10 @@ Example:
 | `UnicodeEmoji` | Emoji representation. |
 | `ContentItemGroupId` | Groups all versions of this reaction record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this reaction record, defaults to 1. |
-| `G2HatestVersion` | Identifies the latest version of this reaction record. |
+| `IsLatestVersion` | Identifies the latest version of this reaction record. |
 | `PublishDate` | Optional date/time from which this reaction becomes visible. |
 | `IsPublished` | Identifies whether the current version of this reaction is published. |
-| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`, `Dismissed`). |
+| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `IsDeleted` | Soft-delete flag. When `true` the reaction is excluded from all public visibility. |
 | `CreatedBy` | User who created the reaction. |
 | `CreatedWhen` | Creation timestamp. |
@@ -530,7 +567,8 @@ This allows the same approval workflow to apply to multiple entity types.
 | `Id` | Unique approval identifier. |
 | `EntityType` | Type of entity being approved. |
 | `EntityId` | Identifier of the entity being approved. |
-| `ApprovalStatus` | Current approval status. |
+| `ApprovalStatus` | Current approval status (`Draft`, `Submitted`, `Approved`, `Rejected`). |
+| `IsApprovedByBypass` | `true` when the approval was granted via the bypass action while the approval conditions were not met. The actor is recorded on `UpdatedBy`. |
 | `IsDeleted` | Soft-delete flag. When `true` the approval record is excluded from active workflow evaluation. |
 | `CreatedBy` | User who created the approval record. |
 | `CreatedWhen` | Creation timestamp. |
@@ -550,7 +588,7 @@ Approval status values are:
 | `Submitted` | Entity is awaiting one or more reviews. |
 | `Approved` | Entity has received the required approvals. |
 | `Rejected` | Entity has been rejected. |
-| `Dismissed` | Previous reviews or approval decisions were invalidated by a change and must not count toward approval. |
+| `Dismissed` | **`ApprovalReview` records only.** The review was invalidated by an entity-scoped change and must not count toward approval. Entities and `Approval` records never hold `Dismissed`. |
 
 ### 7.4 Approval Decoupling Rule
 
@@ -603,12 +641,14 @@ The following entities are subject to approval:
 
 The following rules apply:
 
-1. A reviewer may only have one active review per approval record.
+1. A reviewer may only have one active review per approval record. A second active review by the same reviewer must be rejected by validation — review decisions are not superseded or replaced.
 2. A review can approve, reject, or become dismissed.
 3. A rejection may block approval depending on `ApprovalSetting.BlockOnReject`.
-4. Reviewer eligibility is controlled by `ApprovalSetting` and `ApprovalSettingRole`.
+4. Reviewer eligibility is controlled by `ApprovalSetting.RestrictWhoCanReview` and `ApprovalSettingReviewerRoles`.
 5. Self-approval is controlled by `ApprovalSetting.AllowSelfApproval`.
 6. Dismissed reviews must not count toward the approval threshold.
+7. A reviewer may submit a new review only after their previous review was dismissed.
+8. A reviewer whose identity matches the entity's `UpdatedBy` must never review that record, regardless of `AllowSelfApproval` — the person whose wording is under review cannot vouch for it.
 
 ### 7.8 ApprovalComment
 
@@ -620,6 +660,7 @@ The following rules apply:
 | `ApprovalId` | Parent approval record. |
 | `UserId` | User who made the comment. |
 | `Comment` | Comment text. |
+| `IsResolved` | Whether the comment has been resolved. When `ApprovalSetting.RequireApprovalCommentResolutionBeforeApproval = true`, all comments on an approval must be resolved before the approval conditions are met. |
 | `IsDeleted` | Soft-delete flag. When `true` the comment is excluded from public visibility. |
 | `CreatedBy` | User who created the comment. |
 | `CreatedWhen` | Creation timestamp. |
@@ -645,12 +686,16 @@ Recommended properties:
 | --- | --- |
 | `Id` | Unique approval setting identifier. |
 | `EntityType` | Entity type this rule applies to. |
-| `RequiredApprovals` | Number of required approvals before approval is complete. |
+| `RequireApprovals` | Whether approvals are required before the entity can be approved (GitHub "Require approvals" checkbox). When `false`, the approval conditions are trivially met. |
+| `RequiredNumberOfApprovals` | Number of required approvals (1–5) before approval is complete. Applies when `RequireApprovals = true`. |
 | `AllowSelfApproval` | Whether the author can approve their own item. |
 | `BlockOnReject` | Whether a single rejection blocks the approval. |
 | `RequireReapprovalOnChange` | Whether edits reset approval status. |
-| `AutoApproveIfThresholdMet` | Whether approval status changes automatically when threshold is met. |
-| `MustBeInRoleToApprove` | Whether approval/rejection is restricted to configured roles. |
+| `AutoApproveIfAllApprovalRequirementsMet` | Whether the entity is automatically approved when all approval requirements are met. |
+| `RequireApprovalCommentResolutionBeforeApproval` | Whether all approval comments must be resolved before approval can be granted. |
+| `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Admin`. |
+| `RestrictWhoCanReview` | Whether reviewing is restricted to roles configured in `ApprovalSettingReviewerRoles`. |
+| `RestrictWhoCanApprove` | Whether approve/reject/bypass is restricted to roles configured in `ApprovalSettingPublisherRoles`. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from policy resolution. |
 | `CreatedBy` | User who created the setting. |
 | `CreatedWhen` | Creation timestamp. |
@@ -660,15 +705,20 @@ Recommended properties:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 8.3 ApprovalSettingRole Entity
+### 8.3 ApprovalSettingReviewerRole and ApprovalSettingPublisherRole Entities
 
-Recommended properties:
+Two role tables hang off `ApprovalSetting` via the `ApprovalSettingReviewerRoles` and `ApprovalSettingPublisherRoles` navigation collections:
+
+1. `ApprovalSettingReviewerRole` — a role permitted to **review** (applies when `RestrictWhoCanReview = true`).
+2. `ApprovalSettingPublisherRole` — a role permitted to **approve/reject/publish** (applies when `RestrictWhoCanApprove = true`).
+
+Properties (identical shape for both):
 
 | Property | Purpose |
 | --- | --- |
 | `Id` | Unique approval setting role identifier. |
 | `ApprovalSettingId` | Parent approval setting. |
-| `RoleName` | Role permitted to approve or reject. |
+| `RoleName` | Role name compared against the user's roles via `ISecurityBroker.IsInRoleAsync`. May be a global role or a granular `%EntityType%-` role (§16.6). |
 | `IsDeleted` | Soft-delete flag. When `true` the role is excluded from eligibility checks. |
 | `CreatedBy` | User who created the role rule. |
 | `CreatedWhen` | Creation timestamp. |
@@ -692,13 +742,24 @@ Approval settings are not snapshotted by default. If approval settings change, s
 
 ### 8.5 Approval Threshold Rules
 
-The approval threshold is controlled by `RequiredApprovals`.
+The approval conditions are controlled by `RequireApprovals`, `RequiredNumberOfApprovals` (1–5), and `BlockOnReject`:
 
-1. If `RequiredApprovals = 1`, one valid approval is enough.
-2. If `RequiredApprovals = 2`, two valid approvals are required.
+```text
+conditionsMet =
+    (RequireApprovals == false
+        OR (activeApprovals (excluding dismissed reviews) >= RequiredNumberOfApprovals
+            AND NOT (BlockOnReject AND any active rejected review)))
+    AND (RequireApprovalCommentResolutionBeforeApproval == false
+        OR all approval comments are resolved)
+```
+
+1. If `RequireApprovals = false`, no reviews are required — the conditions are trivially met.
+2. If `RequireApprovals = true`, `RequiredNumberOfApprovals` (1–5) valid approvals are required.
 3. Dismissed reviews must not count.
-4. If there are not enough valid approvals, status remains `Submitted`.
-5. If threshold is reached and `AutoApproveIfThresholdMet = true`, status changes to `Approved`.
+4. While the conditions are not met, status remains `Submitted`.
+5. Meeting the conditions enables the manual approve action for `Publisher`/`Admin` (the UI approve button).
+6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
+7. When `RequireApprovalCommentResolutionBeforeApproval = true`, all approval comments must be resolved (`ApprovalComment.IsResolved = true`) before the conditions are met.
 
 ### 8.6 Self-Approval Rules
 
@@ -707,6 +768,10 @@ If `AllowSelfApproval = false`:
 1. The creator of the entity must not approve the entity.
 2. The creator of the approval record must not approve the entity if they are the same as the content creator.
 3. Attempts to self-approve must be rejected by validation.
+
+Regardless of `AllowSelfApproval`:
+
+1. A user recorded on the entity's `UpdatedBy` must never review that entity — the person whose wording is under review cannot vouch for it. This includes a `Publisher` or `Admin` who amended the text during review; another `Publisher` or `Admin` must perform the approval.
 
 ### 8.7 Rejection Rules
 
@@ -724,22 +789,32 @@ If `BlockOnReject = false`:
 
 If `RequireReapprovalOnChange = true`:
 
-1. Editing an entity must dismiss existing review decisions for that entity.
+1. Editing a `Draft` or `Submitted` entity must dismiss existing active review decisions for that entity (GitHub: "Dismiss stale pull request approvals when new commits are pushed").
 2. Dismissed reviews must be retained for audit.
-3. The approval record should return to `Draft` or `Submitted`, depending on submission behaviour.
+3. The approval record keeps its current status — a `Submitted` item remains `Submitted`.
 
 If `RequireReapprovalOnChange = false`:
 
-1. Approved status may remain after edit.
+1. Existing reviews are retained when a `Draft` or `Submitted` entity is edited.
 2. Audit history must still record the change.
+
+Regardless of this setting:
+
+1. An `Admin` in-place amendment of an `Approved` entity always resets the approval to `Submitted` and dismisses active reviews. The normal approval process then applies, or the `Admin` may bypass-approve.
 
 ### 8.9 Role-Based Approval Rules
 
-If `MustBeInRoleToApprove = true`:
+If `RestrictWhoCanReview = true`:
 
-1. A reviewer must belong to at least one configured `ApprovalSettingRole`.
+1. A reviewer must belong to at least one role configured in `ApprovalSettingReviewerRoles`. Role names may be global roles or granular `%EntityType%-` roles (see §16.6); they are compared against the user's roles via `ISecurityBroker.IsInRoleAsync`.
+2. Users outside the configured roles cannot submit reviews.
+
+If `RestrictWhoCanApprove = true`:
+
+1. The approve, reject, and bypass actions require at least one role configured in `ApprovalSettingPublisherRoles`, compared the same way.
 2. Users outside the configured roles cannot approve or reject.
-3. Approval comments may still be allowed depending on product rules.
+
+Approval comments may still be allowed regardless of either restriction, depending on product rules.
 
 ## 9. Approval Lifecycle
 
@@ -759,11 +834,11 @@ An entity moves to `Approved` when approval policy rules are satisfied.
 
 An entity moves to `Rejected` when rejected according to the effective approval policy.
 
-### 9.5 Dismissed
+### 9.5 Dismissed (ApprovalReview only)
 
-An entity or review moves to `Dismissed` when existing approval decisions are invalidated by an entity-scoped change.
+`Dismissed` applies only to `ApprovalReview` records. A review moves to `Dismissed` when existing review decisions are invalidated by an entity-scoped change. Entities and `Approval` records never hold a `Dismissed` status.
 
-Dismissed records are retained for audit but must not count toward approval.
+Dismissed reviews are retained for audit but must not count toward approval. The reviewer may submit a new review afterwards.
 
 ### 9.6 Recommended State Flow
 
@@ -771,12 +846,12 @@ Dismissed records are retained for audit but must not count toward approval.
 stateDiagram-v2
     [*] --> Draft
     Draft --> Submitted: Submit for review
-    Submitted --> Approved: Required approvals met
-    Submitted --> Rejected: Rejected based on policy
-    Submitted --> Dismissed: Entity changed after review
-    Rejected --> Draft: Edit or resubmit
-    Dismissed --> Submitted: Resubmit for review
-    Approved --> Draft: Approved entity edited and new version created
+    Submitted --> Approved: Approval conditions met (auto or manual) or bypass
+    Submitted --> Rejected: Blocking rejection or Publisher/Admin reject
+    Submitted --> Submitted: Edited while under review (stale reviews dismissed per policy)
+    Rejected --> Draft: Owner edits
+    Approved --> Draft: Owner edits approved item (new version row starts at Draft)
+    Approved --> Submitted: Admin amends approved item in-place (reviews dismissed)
 ```
 
 ## 10. Event Design
@@ -1093,9 +1168,11 @@ Current flow:
 ```text
 HTTP Request
     ↓
-Controller / Foundation Service
+Controller (thin pass-through)
     ↓
-Create EventEnvelope<T>
+Orchestration / Foundation Service
+    ↓
+Create EventEnvelope<T> via IEventEnvelopeFactory
     ↓
 Publish using EventBroker (EventHighway)
     ↓
@@ -1115,9 +1192,11 @@ Future flow:
 ```text
 HTTP Request
     ↓
-Controller
+Controller (thin pass-through)
     ↓
-Create EventEnvelope<T>
+Orchestration / Foundation Service
+    ↓
+Create EventEnvelope<T> via IEventEnvelopeFactory
     ↓
 Serialize envelope
     ↓
@@ -1134,14 +1213,14 @@ At that point there is no active `HttpContext`, no original request scope, and t
 
 ### 10.12 Recommended Controller Pattern
 
-The controller should not contain business authorization logic. It should:
+Controllers are thin exposure points. Like brokers, they exist only to let requests into the business domain — they carry no business logic and must not build `SecurityContext`, `RequestContext`, `EventMetadata`, or `EventEnvelope<T>`. Envelopes and events are created only by internal services (coordinations, orchestrations, processings, foundations) via `IEventEnvelopeFactory`.
+
+The controller should:
 
 1. Rely on authentication middleware to authenticate the caller.
-2. Normalize the caller into `SecurityContext` using a `securityContextFactory`.
-3. Create `RequestContext` using a `requestContextFactory`.
-4. Create `EventMetadata`.
-5. Create `EventEnvelope<T>`.
-6. Publish the event or call the relevant orchestration service.
+2. Accept the request model and `CancellationToken`.
+3. Call the relevant orchestration service.
+4. Map the result and domain exceptions to HTTP responses.
 
 Example:
 
@@ -1151,31 +1230,10 @@ public async ValueTask<IActionResult> PostStudentAsync(
     Student student,
     CancellationToken cancellationToken)
 {
-    SecurityContext securityContext =
-        this.securityContextFactory.CreateFrom(this.User);
-
-    RequestContext requestContext =
-        this.requestContextFactory.CreateFrom(this.HttpContext);
-
-    EventEnvelope<Student> envelope =
-        new()
-        {
-            Content = student,
-            SecurityContext = securityContext,
-            RequestContext = requestContext,
-            Metadata = new EventMetadata
-            {
-                EventId = Guid.NewGuid(),
-                EventType = nameof(Student),
-                Version = 1,
-                RetryCount = 0
-            }
-        };
-
     Student createdStudent =
         await this.studentOrchestrationService
             .OrchestrateStudentCreationAsync(
-                envelope,
+                student,
                 cancellationToken);
 
     return Ok(createdStudent);
@@ -1277,69 +1335,57 @@ Avoid passing raw JWT tokens through the domain or event pipeline unless there i
 
 Avoid placing authorization decisions only in controllers when orchestration services are responsible for business workflow decisions.
 
-Avoid scattering role and scope checks throughout orchestration services. Prefer a central authorization service.
+Avoid scattering magic-string role and scope names throughout orchestration services. Keep role and claim names in a central constants class and perform checks through `ISecurityBroker`.
 
 ### 10.16 Authorization in Orchestration Services
 
-Authorization should be performed where the business decision is required. Orchestration services should call an authorization service explicitly.
+Authorization is performed where the business decision is required — inside the orchestration service — using `ISecurityBroker` directly. A separate permission/authorization service is not used.
 
-> ⚠️ **Naming conflict notice:** `events.md` proposes a custom `IAuthorizationService` interface for use inside orchestration services. ASP.NET Core also ships a built-in `IAuthorizationService` (in `Microsoft.AspNetCore.Authorization`) with a different method signature. These must not be confused. The G2H orchestration authorization service should use a distinct interface name such as `IOrchestrationAuthorizationService` or a domain-specific name such `IPermissionService` to avoid ambiguity with the ASP.NET Core built-in.
-
-Example interface:
+`ISecurityBroker` provides the required primitives:
 
 ```csharp
-public interface IPermissionService
+public interface ISecurityBroker
 {
-    ValueTask AuthorizeAsync(
-        SecurityContext securityContext,
-        string permission,
-        CancellationToken cancellationToken);
+    ValueTask<User> GetCurrentUserAsync();
+    ValueTask<bool> IsCurrentUserAuthenticatedAsync();
+    ValueTask<bool> IsInRoleAsync(string roleName);
+    ValueTask<bool> UserHasClaimAsync(string claimType, string claimValue);
+    ValueTask<bool> UserHasClaimAsync(string claimType);
+    ValueTask<SecurityContext> GetCurrentSecurityContextAsync();
 }
 ```
 
 Example usage in an orchestration service:
 
 ```csharp
-public ValueTask<Student> OrchestrateStudentCreationAsync(
-    EventEnvelope<Student> envelope,
+public ValueTask<ContentItem> AddContentItemAsync(
+    ContentItem contentItem,
     CancellationToken cancellationToken) =>
 TryCatch(async () =>
 {
-    ValidateEnvelope(envelope);
+    bool isAuthenticated =
+        await this.securityBroker.IsCurrentUserAuthenticatedAsync();
 
-    await this.permissionService.AuthorizeAsync(
-        envelope.SecurityContext,
-        StudentPermissions.CreateStudent,
-        cancellationToken);
+    bool isBlocked =
+        await this.securityBroker.IsInRoleAsync(Roles.ReadOnly)
+            || await this.securityBroker.IsInRoleAsync(Roles.ContentItemReadOnly);
 
-    Student createdStudent =
-        await this.studentService.AddStudentAsync(
-            envelope.Content,
+    ValidateUserIsAllowedToContribute(isAuthenticated, isBlocked);
+
+    ContentItem createdContentItem =
+        await this.contentItemService.AddContentItemAsync(
+            contentItem,
             cancellationToken);
 
-    return createdStudent;
+    return createdContentItem;
 });
 ```
 
-Prefer this:
+Rules:
 
-```csharp
-await this.permissionService.AuthorizeAsync(
-    envelope.SecurityContext,
-    StudentPermissions.CreateStudent,
-    cancellationToken);
-```
-
-Avoid this:
-
-```csharp
-if (envelope.SecurityContext.Roles.Contains("Admin") is false)
-{
-    throw new UnauthorizedAccessException();
-}
-```
-
-The permission service should own the mapping between roles, scopes, permissions, client applications, delegated access, and system identities.
+1. Role and claim names must live in a central constants class (e.g. `Roles`) — no magic strings scattered through orchestration services.
+2. Controllers must not perform business authorization; they rely on authentication middleware and standard policy attributes for coarse access only.
+3. The `SecurityContext` for event envelopes is obtained via `ISecurityBroker.GetCurrentSecurityContextAsync()` inside the service that creates the envelope (`IEventEnvelopeFactory`).
 
 ## 11. Topic and Feed Design
 
@@ -1538,6 +1584,8 @@ Current intended foundation services:
 | 11 | `BibleReferenceService` | CRUD and validation for Bible references. |
 | 12 | `LinkService` *(future)* | CRUD and validation for links. |
 | 13 | `AttachmentService` *(future)* | CRUD and validation for attachments. |
+| 14 | `ApprovalSettingReviewerRoleService` | CRUD and validation for approval setting reviewer roles. |
+| 15 | `ApprovalSettingPublisherRoleService` | CRUD and validation for approval setting publisher roles. |
 
 ### 12.4 Orchestration Layer
 
@@ -1566,7 +1614,7 @@ Responsibilities:
 
 1. Orchestrate content item creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `G2HatestVersion` on the previous version when a new version is created.
+3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Orchestrate soft delete across the content item and flag dependent associations as appropriate.
 6. Publish `ContentItemCreatedEvent`, `ContentItemUpdatedEvent`, and `ContentItemDeletedEvent` via `ContentItemEventService`.
@@ -1574,15 +1622,15 @@ Responsibilities:
 
 Business Rules:
 
-1. A content item in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` content item is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index))
+1. A content item in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
+2. An `Approved` content item is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
+3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A content item must not be published until its `ApprovalStatus` is `Approved`. This is enforced by the orchestration workflow that listens for approval status changes and updates `IsPublished` accordingly when approval is granted.
 6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `G2HatestVersion`
+   - `IsLatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1591,8 +1639,12 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
+   - `ContentHash`
 7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Title`, `Author`, `Content`, `ContentTypeId`, `PublishDate`) onto that entity before saving.
 8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
+9. Only the owner (`CreatedBy`) may modify a content item or its versions. A `Publisher` or `Admin` may amend the text of a `Submitted` item during review (typos/grammar); their identity is then recorded on `UpdatedBy`. `CreatedBy` never changes on an update.
+10. An `Admin` in-place amendment of an `Approved` content item fires the normal updated event; the approval workflow resets the approval to `Submitted` and dismisses active reviews (§3.4 rule 16).
+11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentTypeId`, `ContentHash`) across non-deleted rows (excluding the item's own `ContentItemGroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
 
 #### 12.4.2 2 ContentTypeOrchestration
 
@@ -1602,7 +1654,7 @@ Responsibilities:
 
 1. Orchestrate content type creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `G2HatestVersion` on the previous version when a new version is created.
+3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Ensure required seeded content types exist on startup.
 6. Orchestrate soft delete and prevent deletion of content types that have active content items.
@@ -1611,9 +1663,9 @@ Responsibilities:
 
 Business Rules:
 
-1. A content type in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` content type is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
+1. A content type in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
+2. An `Approved` content type is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
+3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. The seeded content types `Quote`, `Story`, `Testimony`, and `Topic` must always exist and may not be deleted.
 6. A content type may not be deleted if it has active, non-deleted content items assigned to it.
@@ -1622,7 +1674,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `G2HatestVersion`
+   - `IsLatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1681,10 +1733,10 @@ Responsibilities:
 3. On receiving an `UpdatedEvent`, check whether an approval record exists for the entity. If none exists, create one with `ApprovalStatus = Draft`. If one exists, evaluate whether existing reviews must be dismissed based on the effective `ApprovalSetting.RequireReapprovalOnChange` policy.
 4. Orchestrate approval submission by moving `ApprovalStatus` from `Draft` to `Submitted`.
 5. Evaluate approval threshold after each review decision using `ApprovalSettingsService`.
-6. Apply `Approved` status when the required threshold is met and `AutoApproveIfThresholdMet = true`.
-7. Update the denormalized `ApprovalStatus` on the owning entity when the approval record changes.
-8. Set `IsPublished = true` on the newly approved `ContentItem` version when approval is granted and the publish workflow completes.
-9. Set `IsPublished = false` on the previously published `ContentItem` version when a new version is published, ensuring only one published version exists per `ContentItemGroupId`.
+6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
+7. Publish approval status changes via `ApprovalUpdatedEvent`. The owning entity's orchestration subscribes and updates the denormalized `ApprovalStatus` on the entity.
+8. On `Approved`, the owning entity's orchestration sets `IsPublished = true` on the newly approved version.
+9. The owning entity's orchestration sets `IsPublished = false` on the previously published version, ensuring only one published version exists per `ContentItemGroupId`. `IsLatestVersion` is not changed at publish time (see §3.4.1).
 10. Use `SecurityBroker` to validate user identity and role claims during submission and review.
 11. Publish `ApprovalCreatedEvent`, `ApprovalUpdatedEvent`, and `ApprovalDeletedEvent` via `ApprovalEventService`.
 
@@ -1693,15 +1745,16 @@ Business Rules:
 1. An approval record must be unique per `(EntityType, EntityId)`.
 2. If an approval record does not exist when a `CreatedEvent` or `UpdatedEvent` is received, it must be created before any other approval logic is applied.
 3. An entity may not be submitted for approval if it is already in `Approved` status.
-4. A dismissed approval must require resubmission before reviews count again.
+4. `Dismissed` never applies to `Approval` records — only to `ApprovalReview` records. After reviews are dismissed the item remains `Submitted` and eligible reviewers may submit new reviews.
 5. Self-approval is blocked when `ApprovalSetting.AllowSelfApproval = false`.
 6. A single rejection blocks further approval when `ApprovalSetting.BlockOnReject = true`.
 7. Dismissed reviews must not contribute to the approval threshold count.
 8. This orchestration is responsible for evaluating whether existing reviews must be dismissed when an entity updated event is received. The originating orchestration must not perform dismissal directly.
 9. This orchestration is responsible for automatic approvals if applicable.
-10. This orchestration is responsible for manual approval submission subject to policy rules  i.e. amount of required approvals, self-approval, and role-based approval.
-11. This orchestration is responsible for manual approval (bypass rules) i.e. policy rules not met but an admin user needs to approve or reject anyway. This should be a separate method that does not enforce policy rules except for role-based approval if applicable.
-12. Dismissal is only applied when `ApprovalSetting.RequireReapprovalOnChange = true` for the relevant entity type. If `false`, existing reviews are retained and no dismissal occurs.
+10. This orchestration is responsible for manual approval submission subject to policy rules  i.e. amount of required approvals, self-approval, and role-based approval. Manual approval requires the approval conditions (§8.5) to be met and is available to `Publisher` and `Admin` (global or matching `%EntityType%-Publisher`).
+11. This orchestration is responsible for manual approval (bypass rules) i.e. policy rules not met but a permitted user needs to approve or reject anyway. This must be a separate method that does not enforce policy rules except role-based access: bypass is available to `Admin`, to the global `Publisher` role (any entity type), and to the matching `%EntityType%-Publisher` role (that entity type only). When `RestrictWhoCanApprove = true`, the actor must additionally match a role in `ApprovalSettingPublisherRoles`. Bypass is unavailable entirely when `ApprovalSetting.DoNotAllowBypassingSettings = true` — the conditions must then be met by everyone, including `Admin`. Bypassing sets `Approval.IsApprovedByBypass = true` and records the actor on `UpdatedBy`.
+12. Dismissal is only applied when `ApprovalSetting.RequireReapprovalOnChange = true` for the relevant entity type. If `false`, existing reviews are retained and no dismissal occurs. Exception: an `Admin` in-place amendment of an `Approved` entity always resets the approval to `Submitted` and dismisses active reviews, regardless of this setting.
+13. A `Publisher` or `Admin` may reject directly while the approval is `Submitted`; the outcome is recorded immediately as `Rejected`.
 
 #### 12.4.5 5 ApprovalReviewOrchestration
 
@@ -1716,11 +1769,12 @@ Responsibilities:
 
 Business Rules:
 
-1. A reviewer may not submit more than one active review per approval record.
-2. A reviewer must belong to a configured `ApprovalSettingRole` when `MustBeInRoleToApprove = true`.
+1. A reviewer may not submit more than one active review per approval record. Review decisions are not superseded or replaced — a second active review must be rejected by validation.
+2. A reviewer must belong to a role configured in `ApprovalSettingReviewerRoles` when `RestrictWhoCanReview = true`.
 3. A reviewer must not review their own submitted entity when `AllowSelfApproval = false`.
 4. Dismissed reviews must be retained for audit and must not be deleted.
-5. A new review may be submitted after dismissal if the entity is resubmitted.
+5. A new review may be submitted after the reviewer's previous review was dismissed.
+6. A reviewer whose identity matches the entity's `UpdatedBy` must never review that record, regardless of `AllowSelfApproval`. The entity's audit fields are retrieved via the `%EntityType%-RetrievingById` request event.
 
 #### 12.4.6 6 ApprovalCommentOrchestration
 
@@ -1756,7 +1810,7 @@ Responsibilities:
 
 1. Orchestrate tag creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `G2HatestVersion` on the previous version when a new version is created.
+3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved tag with a content item by creating a `ContentItemAssociation`, validating that tagging is permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of tags and flag associated content item associations as appropriate.
@@ -1765,9 +1819,9 @@ Responsibilities:
 
 Business Rules:
 
-1. A tag in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` tag is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
+1. A tag in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
+2. An `Approved` tag is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
+3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A tag may only be associated with a content item if `ContentItemSetting.TagsAllowed = true`.
 6. The association requires its own approval when `ContentItemSetting.TagAssociationsRequireApproval = true`.
@@ -1776,7 +1830,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `G2HatestVersion`
+   - `IsLatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1796,7 +1850,7 @@ Responsibilities:
 
 1. Orchestrate reaction definition creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `G2HatestVersion` on the previous version when a new version is created.
+3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate a reaction with a content item by creating a `ContentItemAssociation`, validating that reactions are permitted and enforcing `LimitReactionsToLoveOnly` when the setting is enabled.
 6. Orchestrate soft delete of reactions and flag associated content item associations as appropriate.
@@ -1805,9 +1859,9 @@ Responsibilities:
 
 Business Rules:
 
-1. A reaction in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` reaction is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
+1. A reaction in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
+2. An `Approved` reaction is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
+3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A reaction may only be associated with a content item if `ContentItemSetting.ReactionsAllowed = true`.
 6. When `ContentItemSetting.LimitReactionsToLoveOnly = true`, only the designated love reaction may be associated.
@@ -1816,7 +1870,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `G2HatestVersion`
+   - `IsLatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1836,7 +1890,7 @@ Responsibilities:
 
 1. Orchestrate comment creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `G2HatestVersion` on the previous version when a new version is created.
+3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved comment with a content item by creating a `ContentItemAssociation`, validating that comments are permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of comments and flag associated content item associations as appropriate.
@@ -1845,9 +1899,9 @@ Responsibilities:
 
 Business Rules:
 
-1. A comment in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` comment is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
+1. A comment in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
+2. An `Approved` comment is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
+3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A comment may only be associated with a content item if `ContentItemSetting.CommentsAllowed = true`.
 6. The association requires its own approval when `ContentItemSetting.CommentAssociationsRequireApproval = true`.
@@ -1855,7 +1909,7 @@ Business Rules:
 8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `G2HatestVersion`
+   - `IsLatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1875,7 +1929,7 @@ Responsibilities:
 
 1. Orchestrate Bible reference creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `G2HatestVersion` on the previous version when a new version is created.
+3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved Bible reference with a content item by creating a `ContentItemAssociation`, validating that Bible references are permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of Bible references and flag associated content item associations as appropriate.
@@ -1884,9 +1938,9 @@ Responsibilities:
 
 Business Rules:
 
-1. A Bible reference in `Draft`, `Submitted`, `Rejected`, or `Dismissed` status may be edited in-place without creating a new version.
-2. An `Approved` Bible reference is immutable. Editing must create a new version with incremented `Version` and `G2HatestVersion = true` and the previous version set to `false`.
-3. Only one version per `ContentItemGroupId` may have `G2HatestVersion = true`. (also enforced by database unique index)
+1. A Bible reference in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
+2. An `Approved` Bible reference is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
+3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A Bible reference may only be associated with a content item if `ContentItemSetting.BibleReferenceAllowed = true`.
 6. The association requires its own approval when `ContentItemSetting.BibleReferenceAssociationsRequireApproval = true`.
@@ -1895,7 +1949,7 @@ Business Rules:
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
    - `Version`
-   - `G2HatestVersion`
+   - `IsLatestVersion`
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -2111,11 +2165,12 @@ public Guid ContentTypeId { get; set; }
 Responsible for:
 
 1. Creating content item versions.
-2. Updating `G2HatestVersion` flags.
+2. Updating `IsLatestVersion` flags.
 3. Updating `IsPublished` flags when approval completes.
 4. Validating content item fields.
 5. Reading content by id, group id, type, latest version, and published version.
-6. Applying soft delete fields.
+6. Reading content by (`ContentTypeId`, `ContentHash`) for duplicate detection.
+7. Applying soft delete fields.
 
 ### 16.2 ContentItemAssociationService
 
@@ -2148,7 +2203,7 @@ Responsible for:
 3. Submitting items for approval.
 4. Applying approval status transitions.
 5. Enforcing approval uniqueness per entity.
-6. Applying dismissed status when entity-scoped changes invalidate reviews.
+6. Recording bypass approvals (`IsApprovedByBypass`). Review dismissal is applied on `ApprovalReview` records via `ApprovalReviewService` — `Approval` records never hold `Dismissed`.
 
 ### 16.5 ApprovalReviewService
 
@@ -2165,7 +2220,7 @@ Responsible for:
 Responsible for:
 
 1. Managing approval policy rules.
-2. Managing approval role rules.
+2. Managing reviewer and publisher role rules (`ApprovalSettingReviewerRoles`, `ApprovalSettingPublisherRoles`).
 3. Resolving effective approval settings.
 4. Validating approval configuration.
 
@@ -2236,6 +2291,9 @@ Recommended endpoints:
 | --- | --- | --- |
 | `POST` | `/api/approvals/{approvalId}/submit` | Submit for approval. |
 | `POST` | `/api/approvals/{approvalId}/reviews` | Add approval review. |
+| `POST` | `/api/approvals/{approvalId}/approve` | Approve when the approval conditions are met (`Publisher`/`Admin`). |
+| `POST` | `/api/approvals/{approvalId}/bypass-approve` | Approve without waiting for the conditions (bypass); sets `IsApprovedByBypass = true`. |
+| `POST` | `/api/approvals/{approvalId}/reject` | Reject immediately (`Publisher`/`Admin`). |
 | `POST` | `/api/approvals/{approvalId}/comments` | Add approval comment. |
 | `GET` | `/api/approvals/entity/{entityType}/{entityId}` | Retrieve approval for entity. |
 
@@ -2312,17 +2370,38 @@ Example scope assignments by client type:
 
 ### 16.6 Role Design
 
-ASP.NET Core Identity roles control access within the G2H application.
+ASP.NET Core Identity roles control access within the G2H application. Roles are stored in the standard Identity roles table and assigned through admin user management.
 
-Recommended roles:
+There is **no `Contributor` role** — every authenticated user may contribute by default.
+
+Global roles:
 
 | Role | Purpose |
 | --- | --- |
-| `Contributor` | Can submit content for approval. |
-| `Reviewer` | Can submit approval reviews and approval comments. |
-| `Publisher` | Can approve and publish content. |
-| `Admin` | Full access including user management, approval settings, and content type management. |
-| `ReadOnly` | Authenticated read-only access with no contribution or admin rights. |
+| `ReadOnly` | **The block role.** If present — even alongside any other roles — the user cannot contribute anywhere. Assigned to users who misbehave. Takes precedence over every other role. |
+| `Reviewer` | Can submit approval reviews and approval comments for any entity type. |
+| `Publisher` | Can approve and reject content for any entity type, may amend the text of `Submitted` items during review, and gains the option to bypass approval criteria by being in the role. |
+| `Admin` | Full access including user management, approval settings, content type management, bypass approval, and in-place amendment of `Approved` records. |
+
+Granular (entity-type-scoped) roles follow the `%EntityType%-ReadOnly`, `%EntityType%-Reviewer`, and `%EntityType%-Publisher` convention, created for each approvable entity type:
+
+```text
+ContentItem-ReadOnly,            ContentItem-Reviewer,            ContentItem-Publisher,
+Tag-ReadOnly,                    Tag-Reviewer,                    Tag-Publisher,
+BibleReference-ReadOnly,         BibleReference-Reviewer,         BibleReference-Publisher,
+Comment-ReadOnly,                Comment-Reviewer,                Comment-Publisher,
+Link-ReadOnly,                   Link-Reviewer,                   Link-Publisher,
+Attachment-ReadOnly,             Attachment-Reviewer,             Attachment-Publisher,
+ContentItemAssociation-ReadOnly, ContentItemAssociation-Reviewer, ContentItemAssociation-Publisher
+```
+
+The same convention applies to any further approvable entity types (e.g. `Reaction`, `ContentType`, `ContentItemSetting`).
+
+Granular role rules:
+
+1. A granular role grants its capability only for its own entity type. A user in `ContentItem-Reviewer` who is not `Admin`, not in a global role, and not in `Tag-Reviewer` cannot review tags.
+2. `%EntityType%-ReadOnly` blocks contributions for that entity type only; the global `ReadOnly` role blocks all contributions.
+3. The global `Publisher` role gains the option to bypass approval criteria for any entity type. `%EntityType%-Publisher` gains the bypass option only for that entity type.
 
 Role claims from the identity token must be used to control visibility of role-restricted navigation items in the React frontend and to enforce API-level authorisation.
 
@@ -2375,7 +2454,7 @@ Recommended policies:
 | Policy | Requirement |
 | --- | --- |
 | `content.read` | Authenticated user or valid access token with `content.read` scope. |
-| `content.write` | Authenticated user with `Contributor` role or access token with `content.write` scope. |
+| `content.write` | Authenticated user not in the `ReadOnly` (or relevant `%EntityType%-ReadOnly`) role, or access token with `content.write` scope. |
 | `review` | Authenticated user with `Reviewer` or `Publisher` role. |
 | `publish` | Authenticated user with `Publisher` role. |
 | `admin` | Authenticated user with `Admin` role or access token with `admin.users` scope. |
@@ -2410,7 +2489,7 @@ When OpenIddict is active, access tokens will carry structured claims:
 {
   "sub": "user-guid",
   "name": "Jane Doe",
-  "role": ["Contributor", "Reviewer"],
+  "role": ["Reviewer", "ContentItem-Publisher"],
   "plan": "premium",
   "scope": "content.read content.write notes.read notes.write"
 }

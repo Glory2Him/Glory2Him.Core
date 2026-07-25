@@ -39,6 +39,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItem => contentItem.Content)
                 .IsRequired();
 
+            model.Property(contentItem => contentItem.ContentHash)
+                .HasMaxLength(64)
+                .IsRequired();
+
             model.Property(contentItem => contentItem.ContentItemGroupId)
                 .IsRequired();
 
@@ -83,7 +87,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired(false);
 
             model
-                .Property(contentItem => contentItem.G2HatestVersion)
+                .Property(contentItem => contentItem.IsLatestVersion)
                 .IsRequired()
                 .HasDefaultValue(false);
 
@@ -113,9 +117,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsDescending(true, true);
 
             // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
-            model.HasIndex(e => new { e.ContentItemGroupId, e.G2HatestVersion })
+            model.HasIndex(e => new { e.ContentItemGroupId, e.IsLatestVersion })
                  .IsUnique()
-                 .HasFilter($"[{nameof(ContentItem.G2HatestVersion)}] = 1")
+                 .HasFilter($"[{nameof(ContentItem.IsLatestVersion)}] = 1")
                  .HasDatabaseName("IX_ContentItem_G2Hatest");
 
             // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
@@ -147,6 +151,16 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             model.HasIndex(contentItem => contentItem.DeletedWhen)
                  .HasDatabaseName("IX_ContentItems_DeletedWhen");
+
+            // §3.4.2 — duplicate content detection. Deliberately NOT unique: rows within one
+            // group may legitimately share a hash (e.g. a later version reverting to earlier
+            // wording); uniqueness is enforced application-side by the orchestration.
+            model.HasIndex(contentItem => new
+            {
+                contentItem.ContentTypeId,
+                contentItem.ContentHash
+            })
+                 .HasDatabaseName("IX_ContentItems_ContentTypeId_ContentHash");
         }
     }
 }

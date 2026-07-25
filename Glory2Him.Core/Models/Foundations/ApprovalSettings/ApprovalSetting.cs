@@ -13,7 +13,8 @@ using System;
 using System.Collections.Generic;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Foundations.ApprovalSettingRoles;
+using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
 
 namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
 {
@@ -33,34 +34,54 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public EntityType EntityType { get; set; }
 
         /// <summary>
+        /// When enabled, entity items require a number of approvals before they can be approved.
+        /// </summary>
+        public bool RequireApprovals { get; set; } = true;
+
+        /// <summary>
         /// Number of approvals required before the entity is considered approved.
         /// </summary>
-        public int RequiredApprovals { get; set; }
-
-        /// <summary>
-        /// Indicates whether the author of the entity may approve their own submission.
-        /// </summary>
-        public bool AllowSelfApproval { get; set; }
-
-        /// <summary>
-        /// Indicates whether a single rejection immediately blocks the approval.
-        /// </summary>
-        public bool BlockOnReject { get; set; }
-
-        /// <summary>
-        /// Indicates whether edits to the entity reset existing approval reviews.
-        /// </summary>
-        public bool RequireReapprovalOnChange { get; set; }
+        public int RequiredNumberOfApprovals { get; set; } = 1;
 
         /// <summary>
         /// Indicates whether the entity is automatically approved when the required threshold is met.
         /// </summary>
-        public bool AutoApproveIfThresholdMet { get; set; }
+        public bool AutoApproveIfAllApprovalRequirementsMet { get; set; } = false;
 
         /// <summary>
-        /// Indicates whether approval and rejection is restricted to users in a configured role.
+        /// Indicates whether the author of the entity may approve their own submission.
         /// </summary>
-        public bool MustBeInRoleToApprove { get; set; }
+        public bool AllowSelfApproval { get; set; } = false;
+
+        /// <summary>
+        /// Indicates whether a single rejection immediately blocks the approval.
+        /// </summary>
+        public bool BlockOnReject { get; set; } = false;
+
+        /// <summary>
+        /// Indicates whether edits to the entity reset existing approval reviews.
+        /// </summary>
+        public bool RequireReapprovalOnChange { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether all comments must be resolved before approval can be granted.
+        /// </summary>
+        public bool RequireApprovalCommentResolutionBeforeApproval { get; set; } = true;
+
+        /// <summary>
+        /// Indicates whether bypassing approval settings is allowed.
+        /// </summary>
+        public bool DoNotAllowBypassingSettings { get; set; } = false;
+
+        /// <summary>
+        /// Specifies whether the approval setting restricts who can review based on usernames and/or roles.
+        /// </summary>
+        public bool RestrictWhoCanReview { get; set; } = false;
+
+        /// <summary>
+        /// Specifies whether the approval setting restricts who can approve based on usernames and/or roles.
+        /// </summary>
+        public bool RestrictWhoCanApprove { get; set; } = false;
 
         /// <summary>
         /// User identifier for who created the approval setting.
@@ -103,9 +124,15 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public string? DeletionReason { get; set; }
 
         /// <summary>
-        /// Roles permitted to approve or reject for this approval setting.
+        /// Roles permitted to review for this approval setting.
         /// </summary>
-        public ICollection<ApprovalSettingRole> ApprovalSettingRoles { get; set; } =
-            new List<ApprovalSettingRole>();
+        public ICollection<ApprovalSettingReviewerRole> ApprovalSettingReviewerRoles { get; set; } =
+            new List<ApprovalSettingReviewerRole>();
+
+        /// <summary>
+        /// Roles permitted to publish for this approval setting.
+        /// </summary>
+        public ICollection<ApprovalSettingPublisherRole> ApprovalSettingPublisherRoles { get; set; } =
+            new List<ApprovalSettingPublisherRole>();
     }
 }

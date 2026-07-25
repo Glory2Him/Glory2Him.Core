@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(1);
 
-            model.Property(bibleReference => bibleReference.G2HatestVersion)
+            model.Property(bibleReference => bibleReference.IsLatestVersion)
                  .IsRequired()
                  .HasDefaultValue(false);
 
@@ -94,9 +94,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_Version");
 
             // Exactly one latest version per group
-            model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.G2HatestVersion })
+            model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.IsLatestVersion })
                  .IsUnique()
-                 .HasFilter($"[{nameof(BibleReference.G2HatestVersion)}] = 1")
+                 .HasFilter($"[{nameof(BibleReference.IsLatestVersion)}] = 1")
                  .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_G2Hatest");
 
             // Exactly one published version per group
