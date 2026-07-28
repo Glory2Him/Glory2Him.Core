@@ -15,6 +15,7 @@ using System.Linq.Expressions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
@@ -32,6 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     {
         private readonly Mock<IContentItemService> contentItemServiceMock;
         private readonly Mock<ISecurityBroker> securityBrokerMock;
+        private readonly Mock<IHashBroker> hashBrokerMock;
         private readonly Mock<IIdentifierBroker> identifierBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
@@ -40,12 +42,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         {
             this.contentItemServiceMock = new Mock<IContentItemService>();
             this.securityBrokerMock = new Mock<ISecurityBroker>();
+            this.hashBrokerMock = new Mock<IHashBroker>();
             this.identifierBrokerMock = new Mock<IIdentifierBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             this.contentItemOrchestrationService = new ContentItemOrchestrationService(
                 contentItemService: this.contentItemServiceMock.Object,
                 securityBroker: this.securityBrokerMock.Object,
+                hashBroker: this.hashBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
@@ -84,14 +88,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             };
         }
 
-        // Test-side twin of the frozen normalization + hashing contract (design §3.4.2):
+        // Test-side twins of the frozen normalization + hashing contract (design §3.4.2):
         // any drift in the production implementation fails these tests.
-        private static string ComputeContentHash(string content)
-        {
-            string normalizedContent = Regex.Replace(content.Trim(), pattern: @"\s+", replacement: " ")
+        private static string NormalizeContent(string content) =>
+            Regex.Replace(content.Trim(), pattern: @"\s+", replacement: " ")
                 .ToLowerInvariant();
 
-            byte[] hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(normalizedContent));
+        private static string ComputeContentHash(string content)
+        {
+            byte[] hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(NormalizeContent(content)));
 
             return Convert.ToHexStringLower(hashBytes);
         }

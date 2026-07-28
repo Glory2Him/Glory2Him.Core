@@ -9,18 +9,16 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System.Text.RegularExpressions;
+using System;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
 
-namespace Glory2Him.Core.Services.Orchestrations.ContentItems
+namespace Glory2Him.Core.Brokers.Hashes
 {
-    internal partial class ContentItemOrchestrationService
+    public class HashBroker : IHashBroker
     {
-        private async ValueTask<string> ComputeContentHashAsync(string content) =>
-            await this.hashBroker.ComputeSha256HashAsync(NormalizeContent(content));
-
-        private static string NormalizeContent(string content) =>
-            Regex.Replace(content.Trim(), pattern: @"\s+", replacement: " ")
-                .ToLowerInvariant();
+        public async ValueTask<string> ComputeSha256HashAsync(string text) =>
+            Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     }
 }

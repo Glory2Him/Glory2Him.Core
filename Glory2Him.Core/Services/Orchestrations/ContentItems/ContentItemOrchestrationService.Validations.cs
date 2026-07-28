@@ -19,6 +19,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService
     {
+        private async ValueTask ValidateOnAddContentItemAsync(ContentItem contentItem)
+        {
+            await ValidateUserIsAllowedToContributeAsync();
+            ValidateContentItemIsNotNull(contentItem);
+            ValidateContentItem(contentItem);
+        }
+
         private async ValueTask ValidateUserIsAllowedToContributeAsync()
         {
             bool isAuthenticated = await this.securityBroker.IsCurrentUserAuthenticatedAsync();
@@ -48,7 +55,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             }
         }
 
-        private static void ValidateOnAddContentItem(ContentItem contentItem) =>
+        private static void ValidateContentItem(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),

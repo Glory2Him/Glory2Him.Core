@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
@@ -29,17 +30,20 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
         private readonly IContentItemService contentItemService;
         private readonly ISecurityBroker securityBroker;
+        private readonly IHashBroker hashBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ContentItemOrchestrationService(
             IContentItemService contentItemService,
             ISecurityBroker securityBroker,
+            IHashBroker hashBroker,
             IIdentifierBroker identifierBroker,
             ILoggingBroker loggingBroker)
         {
             this.contentItemService = contentItemService;
             this.securityBroker = securityBroker;
+            this.hashBroker = hashBroker;
             this.identifierBroker = identifierBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -50,10 +54,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await ValidateUserIsAllowedToContributeAsync();
-                ValidateContentItemIsNotNull(contentItem);
-                ValidateOnAddContentItem(contentItem);
-                string contentHash = ComputeContentHash(contentItem.Content);
+                await ValidateOnAddContentItemAsync(contentItem);
+                string contentHash = await ComputeContentHashAsync(contentItem.Content);
 
                 bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
                     contentTypeId: contentItem.ContentTypeId,

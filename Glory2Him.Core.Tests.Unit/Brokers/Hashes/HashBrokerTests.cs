@@ -9,18 +9,32 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using FluentAssertions;
+using Glory2Him.Core.Brokers.Hashes;
 
-namespace Glory2Him.Core.Services.Orchestrations.ContentItems
+namespace Glory2Him.Core.Tests.Unit.Brokers.Hashes
 {
-    internal partial class ContentItemOrchestrationService
+    public class HashBrokerTests
     {
-        private async ValueTask<string> ComputeContentHashAsync(string content) =>
-            await this.hashBroker.ComputeSha256HashAsync(NormalizeContent(content));
+        // Pins the hashing half of the FROZEN content hash contract (design §3.4.2):
+        // SHA-256 over UTF-8 bytes rendered as lowercase hex (64 chars). The known
+        // vector below is the SHA-256 of "hello world".
+        [Fact]
+        public async Task ShouldComputeSha256HashAsLowercaseHexAsync()
+        {
+            // given
+            var hashBroker = new HashBroker();
+            string inputText = "hello world";
 
-        private static string NormalizeContent(string content) =>
-            Regex.Replace(content.Trim(), pattern: @"\s+", replacement: " ")
-                .ToLowerInvariant();
+            string expectedHash =
+                "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+
+            // when
+            string actualHash = await hashBroker.ComputeSha256HashAsync(inputText);
+
+            // then
+            actualHash.Should().Be(expectedHash);
+        }
     }
 }

@@ -31,6 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
             string expectedContentHash = ComputeContentHash(inputContentItem.Content);
             Guid contentItemId = Guid.NewGuid();
             Guid contentItemGroupId = Guid.NewGuid();
@@ -73,6 +74,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.IsInRoleAsync(Roles.ContentItemReadOnly))
                     .ReturnsAsync(false);
 
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(expectedContentHash);
+
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
@@ -112,6 +117,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.IsInRoleAsync(Roles.ContentItemReadOnly),
                 Times.Once);
 
+            this.hashBrokerMock.Verify(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent),
+                Times.Once);
+
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -125,6 +134,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Once);
 
             this.securityBrokerMock.VerifyNoOtherCalls();
+            this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
@@ -140,12 +150,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // SHA-256 of "hello world" — pins the frozen normalization contract (§3.4.2):
             // trim ends, collapse whitespace runs to one space, lowercase, lowercase hex.
+            // The hash broker mock only matches the exact normalized text, so this test
+            // fails if normalization drifts; HashBrokerTests pins the hashing itself.
             string expectedContentHash =
                 "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
 
             this.securityBrokerMock.Setup(broker =>
                 broker.IsCurrentUserAuthenticatedAsync())
                     .ReturnsAsync(true);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync("hello world"))
+                    .ReturnsAsync(expectedContentHash);
 
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
@@ -174,9 +190,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string contentHash = ComputeContentHash(inputContentItem.Content);
             ContentItem duplicateContentItem = CreateRandomContentItem();
             duplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            duplicateContentItem.ContentHash = ComputeContentHash(inputContentItem.Content);
+            duplicateContentItem.ContentHash = contentHash;
             duplicateContentItem.IsDeleted = false;
 
             var expectedContentItemSubmissionResult = new ContentItemSubmissionResult
@@ -197,6 +215,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.securityBrokerMock.Setup(broker =>
                 broker.IsInRoleAsync(Roles.ContentItemReadOnly))
                     .ReturnsAsync(false);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(contentHash);
 
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
@@ -223,6 +245,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.IsInRoleAsync(Roles.ContentItemReadOnly),
                 Times.Once);
 
+            this.hashBrokerMock.Verify(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent),
+                Times.Once);
+
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -232,6 +258,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Never);
 
             this.securityBrokerMock.VerifyNoOtherCalls();
+            this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
@@ -243,6 +270,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
             string contentHash = ComputeContentHash(inputContentItem.Content);
 
             ContentItem deletedMatchingContentItem = CreateRandomContentItem();
@@ -258,6 +286,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.securityBrokerMock.Setup(broker =>
                 broker.IsCurrentUserAuthenticatedAsync())
                     .ReturnsAsync(true);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(contentHash);
 
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
