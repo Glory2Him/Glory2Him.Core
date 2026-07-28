@@ -16,12 +16,8 @@ using System.Text.RegularExpressions;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
-    public partial class ContentItemOrchestrationService
+    internal partial class ContentItemOrchestrationService
     {
-        // The normalization below is a FROZEN CONTRACT (design §3.4.2): trim ends,
-        // collapse whitespace/newline runs to a single space, lowercase (invariant
-        // culture), then SHA-256 over UTF-8 bytes rendered as lowercase hex (64 chars).
-        // Changing any step requires recomputing every stored ContentHash in a migration.
         private static string ComputeContentHash(string content)
         {
             string normalizedContent = NormalizeContent(content);

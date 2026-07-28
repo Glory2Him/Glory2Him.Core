@@ -23,16 +23,7 @@ using Glory2Him.Core.Services.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
-    /// <summary>
-    /// Orchestrates content item workflows over the <c>ContentItem</c> foundation service
-    /// (design §12.4.1). The orchestration owns the common gate (authentication + the
-    /// <c>ReadOnly</c> block roles via <c>ISecurityBroker</c>), input validation, the
-    /// duplicate content rule (§3.4.2) and control field integrity; the foundation service
-    /// owns audit stamping, storage and publishing the past-tense fact — the
-    /// <c>Added</c> event is published by the foundation's shared do-work, so this
-    /// orchestration must not publish a second one.
-    /// </summary>
-    public partial class ContentItemOrchestrationService : IContentItemOrchestrationService
+    internal partial class ContentItemOrchestrationService : IContentItemOrchestrationService
     {
         private const string ThankYouForYourSubmissionMessage = "Thank you for your submission.";
 

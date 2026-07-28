@@ -16,14 +16,7 @@ using Glory2Him.Core.Models.Orchestrations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
-    /// <summary>
-    /// Orchestrates the content item lifecycle over the <c>ContentItem</c> foundation
-    /// service (design §12.4.1): security gate, control field integrity, versioning and
-    /// the duplicate content rule. Callers supply only <c>Title</c>, <c>Author</c>,
-    /// <c>Content</c>, <c>ContentTypeId</c> and <c>PublishDate</c> — every control field
-    /// is set internally.
-    /// </summary>
-    public interface IContentItemOrchestrationService
+    internal interface IContentItemOrchestrationService
     {
         /// <summary>
         /// Adds a new content item as version 1 of a new group (Flow 1 — Add). The caller

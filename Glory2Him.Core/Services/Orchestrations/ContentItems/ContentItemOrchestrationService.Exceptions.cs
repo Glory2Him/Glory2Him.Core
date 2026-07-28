@@ -18,7 +18,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
-    public partial class ContentItemOrchestrationService
+    internal partial class ContentItemOrchestrationService
     {
         private delegate ValueTask<ContentItemSubmissionResult> ReturningContentItemSubmissionResultFunction();
 
