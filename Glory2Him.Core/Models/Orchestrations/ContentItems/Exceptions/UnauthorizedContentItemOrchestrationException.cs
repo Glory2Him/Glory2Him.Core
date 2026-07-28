@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions
 {
-    internal class UnauthorizedContentItemOrchestrationException : Xeption
+    public class UnauthorizedContentItemOrchestrationException : Xeption
     {
         public UnauthorizedContentItemOrchestrationException(string message)
             : base(message)

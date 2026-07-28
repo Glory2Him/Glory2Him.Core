@@ -19,8 +19,6 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService
     {
-        // The common gate (design §2.5 / §10.16): the caller must be authenticated and
-        // must not hold the global ReadOnly block role nor the ContentItem granular one.
         private async ValueTask ValidateUserIsAllowedToContributeAsync()
         {
             bool isAuthenticated = await this.securityBroker.IsCurrentUserAuthenticatedAsync();

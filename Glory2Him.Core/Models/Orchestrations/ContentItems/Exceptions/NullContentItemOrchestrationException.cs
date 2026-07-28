@@ -13,7 +13,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions
 {
-    internal class NullContentItemOrchestrationException : Xeption
+    public class NullContentItemOrchestrationException : Xeption
     {
         public NullContentItemOrchestrationException(string message)
             : base(message)

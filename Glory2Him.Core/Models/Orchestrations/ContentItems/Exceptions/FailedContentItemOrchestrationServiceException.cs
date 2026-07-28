@@ -15,7 +15,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions
 {
-    internal class FailedContentItemOrchestrationServiceException : Xeption
+    public class FailedContentItemOrchestrationServiceException : Xeption
     {
         public FailedContentItemOrchestrationServiceException(string message, Exception innerException, IDictionary data)
             : base(message, innerException, data)

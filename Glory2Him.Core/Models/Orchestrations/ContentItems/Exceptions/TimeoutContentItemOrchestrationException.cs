@@ -15,7 +15,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions
 {
-    internal class TimeoutContentItemOrchestrationException : Xeption
+    public class TimeoutContentItemOrchestrationException : Xeption
     {
         public TimeoutContentItemOrchestrationException(string message, Exception innerException, IDictionary data)
             : base(message, innerException, data)
