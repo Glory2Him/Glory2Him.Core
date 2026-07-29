@@ -20,7 +20,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService
     {
-        private static void ValidateOnAddContentItem(
+        private static void ValidateOnSubmitContentItem(
             ContentItem contentItem,
             SecurityContext securityContext)
         {

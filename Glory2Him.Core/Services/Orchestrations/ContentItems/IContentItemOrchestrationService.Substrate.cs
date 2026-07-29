@@ -20,7 +20,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
     {
         /// <summary>
         /// The event path of the orchestration: handles <c>ContentItem-Submitting</c> request
-        /// envelopes, converging on the same do-work as <see cref="AddContentItemAsync"/>.
+        /// envelopes, converging on the same do-work as <see cref="SubmitContentItemAsync"/>.
         /// The envelope's <c>SecurityContext</c> carries the original caller for the
         /// contribution gate. Replies with the created content item's envelope, or
         /// <c>null</c> when the submission was a duplicate and nothing was created.

@@ -49,7 +49,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             this.loggingBroker = loggingBroker;
         }
 
-        public ValueTask<ContentItemSubmissionResult> AddContentItemAsync(
+        public ValueTask<ContentItemSubmissionResult> SubmitContentItemAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -60,18 +60,18 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 EventEnvelope<ContentItem> envelope =
                     await this.eventEnvelopeFactory.CreateAsync(content: contentItem);
 
-                return await DoAddContentItemAsync(
+                return await DoSubmitContentItemAsync(
                     contentItem: contentItem,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
-        private async ValueTask<ContentItemSubmissionResult> DoAddContentItemAsync(
+        private async ValueTask<ContentItemSubmissionResult> DoSubmitContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateOnAddContentItem(contentItem, inboundEnvelope.SecurityContext);
+            ValidateOnSubmitContentItem(contentItem, inboundEnvelope.SecurityContext);
             string contentHash = await ComputeContentHashAsync(contentItem.Content);
 
             bool duplicateContentExists = await CheckDuplicateContentExistsAsync(

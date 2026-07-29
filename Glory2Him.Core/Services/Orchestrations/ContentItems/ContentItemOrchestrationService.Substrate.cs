@@ -28,7 +28,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 ValidateContentItemEventEnvelope(envelope);
 
                 ContentItemSubmissionResult contentItemSubmissionResult =
-                    await DoAddContentItemAsync(
+                    await DoSubmitContentItemAsync(
                         contentItem: envelope.Content,
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);

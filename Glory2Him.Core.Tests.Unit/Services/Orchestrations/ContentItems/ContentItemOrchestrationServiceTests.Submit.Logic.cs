@@ -26,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         [Fact]
-        public async Task ShouldAddContentItemAsync()
+        public async Task ShouldSubmitContentItemAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -93,7 +93,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItemSubmissionResult actualContentItemSubmissionResult =
-                await this.contentItemOrchestrationService.AddContentItemAsync(
+                await this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -129,7 +129,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldComputeContentHashPerFrozenContractOnAddAsync()
+        public async Task ShouldComputeContentHashPerFrozenContractOnSubmitAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -168,7 +168,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inputContentItem);
 
             // when
-            await this.contentItemOrchestrationService.AddContentItemAsync(
+            await this.contentItemOrchestrationService.SubmitContentItemAsync(
                 inputContentItem,
                 TestContext.Current.CancellationToken);
 
@@ -177,7 +177,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldReturnPoliteAcknowledgementWithoutCreatingOnAddIfDuplicateContentExistsAsync()
+        public async Task ShouldReturnPoliteAcknowledgementWithoutCreatingOnSubmitIfDuplicateContentExistsAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -214,7 +214,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItemSubmissionResult actualContentItemSubmissionResult =
-                await this.contentItemOrchestrationService.AddContentItemAsync(
+                await this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -245,7 +245,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldAddContentItemOnAddIfMatchingContentIsDeletedOrOtherContentTypeAsync()
+        public async Task ShouldCreateContentItemOnSubmitIfMatchingContentIsDeletedOrOtherContentTypeAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -285,7 +285,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItemSubmissionResult actualContentItemSubmissionResult =
-                await this.contentItemOrchestrationService.AddContentItemAsync(
+                await this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 

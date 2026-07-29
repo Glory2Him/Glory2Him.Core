@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnSubmitIfUserIsNotAuthenticatedAndLogItAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -48,14 +48,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItemSubmissionResult> addContentItemTask =
-                this.contentItemOrchestrationService.AddContentItemAsync(
+            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+                this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    addContentItemTask.AsTask);
+                    submitContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -80,7 +80,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [Theory]
         [InlineData(Roles.ReadOnly)]
         [InlineData(Roles.ContentItemReadOnly)]
-        public async Task ShouldThrowValidationExceptionOnAddIfUserHasBlockRoleAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnSubmitIfUserHasBlockRoleAndLogItAsync(
             string blockRole)
         {
             // given
@@ -105,14 +105,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItemSubmissionResult> addContentItemTask =
-                this.contentItemOrchestrationService.AddContentItemAsync(
+            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+                this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    addContentItemTask.AsTask);
+                    submitContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfContentItemIsNullAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnSubmitIfContentItemIsNullAndLogItAsync()
         {
             // given
             ContentItem nullContentItem = null!;
@@ -149,14 +149,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: nullContentItemOrchestrationException);
 
             // when
-            ValueTask<ContentItemSubmissionResult> addContentItemTask =
-                this.contentItemOrchestrationService.AddContentItemAsync(
+            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+                this.contentItemOrchestrationService.SubmitContentItemAsync(
                     nullContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    addContentItemTask.AsTask);
+                    submitContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -178,7 +178,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [InlineData(null)]
         [InlineData("")]
         [InlineData(" ")]
-        public async Task ShouldThrowValidationExceptionOnAddIfContentItemIsInvalidAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnSubmitIfContentItemIsInvalidAndLogItAsync(
             string invalidText)
         {
             // given
@@ -214,14 +214,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItemSubmissionResult> addContentItemTask =
-                this.contentItemOrchestrationService.AddContentItemAsync(
+            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+                this.contentItemOrchestrationService.SubmitContentItemAsync(
                     invalidContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    addContentItemTask.AsTask);
+                    submitContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
