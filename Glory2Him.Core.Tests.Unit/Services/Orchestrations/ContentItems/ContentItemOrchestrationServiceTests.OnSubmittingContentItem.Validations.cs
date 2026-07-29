@@ -84,8 +84,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnSubmittingContentItemEventIfCallerIsNotAuthenticatedAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnSubmittingContentItemEventIfCallerIsNotAuthenticatedAndLogItAsync(
+            SecurityContext? unauthenticatedSecurityContext)
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -93,7 +95,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             EventEnvelope<ContentItem> requestEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
-                securityContext: new SecurityContext { IsAuthenticated = false });
+                securityContext: unauthenticatedSecurityContext!);
 
             var unauthorizedContentItemOrchestrationException =
                 new UnauthorizedContentItemOrchestrationException(

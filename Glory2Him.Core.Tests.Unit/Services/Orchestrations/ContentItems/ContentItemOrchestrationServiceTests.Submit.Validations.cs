@@ -24,8 +24,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 {
     public partial class ContentItemOrchestrationServiceTests
     {
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnSubmitIfUserIsNotAuthenticatedAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnSubmitIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext? unauthenticatedSecurityContext)
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -33,7 +35,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
-                securityContext: new SecurityContext { IsAuthenticated = false });
+                securityContext: unauthenticatedSecurityContext!);
 
             var unauthorizedContentItemOrchestrationException =
                 new UnauthorizedContentItemOrchestrationException(

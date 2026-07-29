@@ -114,6 +114,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         private static DateTimeOffset GetRandomDateTimeOffset() =>
             new DateTimeRange(earliestDate: new DateTime()).GetValue();
 
+        // a deserialized request envelope can carry a null SecurityContext, so the gate
+        // must treat null and not-authenticated identically
+        public static TheoryData<SecurityContext?> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext?>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
         private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
             new SecurityContext
             {

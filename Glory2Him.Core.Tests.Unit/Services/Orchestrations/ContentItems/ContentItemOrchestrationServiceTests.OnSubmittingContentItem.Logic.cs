@@ -94,6 +94,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            this.identifierBrokerMock.Verify(broker =>
+                broker.GetIdentifierAsync(),
+                Times.Exactly(2));
+
             this.eventEnvelopeFactoryMock.Verify(factory =>
                 factory.CreateNextAsync(requestEnvelope, addedContentItem),
                 Times.Once);
@@ -101,6 +105,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
