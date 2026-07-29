@@ -43,8 +43,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                         "fix the errors and try again.",
                     innerException: (dependencyValidationException.InnerException as Xeption)!);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
@@ -104,8 +104,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration dependency error occurred, contact support.",
                     innerException: (dependencyException.InnerException as Xeption)!);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
@@ -168,8 +168,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration dependency error occurred, contact support.",
                     innerException: timeoutContentItemOrchestrationException);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // then
             await Assert.ThrowsAsync<OperationCanceledException>(submitContentItemTask.AsTask);
 
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
@@ -246,8 +246,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration service error occurred, contact support.",
                     innerException: failedContentItemOrchestrationServiceException);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ThrowsAsync(serviceException);
 
             // when

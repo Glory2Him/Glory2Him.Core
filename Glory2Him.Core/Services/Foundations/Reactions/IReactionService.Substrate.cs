@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface IReactionService
+    internal partial interface IReactionService
     {
         ValueTask<EventEnvelope<Reaction>?> OnAddingReactionAsync(
             EventEnvelope<Reaction> envelope,

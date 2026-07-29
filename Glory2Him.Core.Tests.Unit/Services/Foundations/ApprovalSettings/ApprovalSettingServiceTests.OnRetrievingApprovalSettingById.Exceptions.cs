@@ -180,8 +180,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageApprovalSetting);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateNextAsync(requestEnvelope, storageApprovalSetting))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(requestEnvelope, storageApprovalSetting))
                     .ThrowsAsync(serviceException);
 
             // when

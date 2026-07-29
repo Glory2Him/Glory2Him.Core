@@ -15,7 +15,7 @@ using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             services.AddSingleton(new Mock<IDateTimeBroker>().Object);
             services.AddSingleton(new Mock<IIdentifierBroker>().Object);
             services.AddSingleton(new Mock<IEventBroker>().Object);
-            services.AddSingleton(new Mock<IEventEnvelopeFactory>().Object);
+            services.AddSingleton(new Mock<IEventEnvelopeBroker>().Object);
             services.AddSingleton(new Mock<ISecurityAuditBroker>().Object);
             services.AddSingleton(new Mock<ILoggingBroker>().Object);
 

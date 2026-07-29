@@ -18,7 +18,7 @@ using System.Text.RegularExpressions;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
-using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -35,7 +35,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         private readonly Mock<IContentItemService> contentItemServiceMock;
         private readonly Mock<IHashBroker> hashBrokerMock;
         private readonly Mock<IIdentifierBroker> identifierBrokerMock;
-        private readonly Mock<IEventEnvelopeFactory> eventEnvelopeFactoryMock;
+        private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
 
@@ -44,14 +44,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.contentItemServiceMock = new Mock<IContentItemService>();
             this.hashBrokerMock = new Mock<IHashBroker>();
             this.identifierBrokerMock = new Mock<IIdentifierBroker>();
-            this.eventEnvelopeFactoryMock = new Mock<IEventEnvelopeFactory>();
+            this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             this.contentItemOrchestrationService = new ContentItemOrchestrationService(
                 contentItemService: this.contentItemServiceMock.Object,
                 hashBroker: this.hashBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
-                eventEnvelopeFactory: this.eventEnvelopeFactoryMock.Object,
+                eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 

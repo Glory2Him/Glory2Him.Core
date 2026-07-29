@@ -46,8 +46,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration validation error occurred, fix the errors and try again.",
                     innerException: unauthorizedContentItemOrchestrationException);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
@@ -64,8 +64,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationValidationException);
 
-            this.eventEnvelopeFactoryMock.Verify(factory =>
-                factory.CreateAsync(inputContentItem),
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputContentItem),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
@@ -103,8 +103,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration validation error occurred, fix the errors and try again.",
                     innerException: unauthorizedContentItemOrchestrationException);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
@@ -121,8 +121,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationValidationException);
 
-            this.eventEnvelopeFactoryMock.Verify(factory =>
-                factory.CreateAsync(inputContentItem),
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputContentItem),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -130,7 +130,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
@@ -170,7 +170,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
@@ -212,8 +212,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration validation error occurred, fix the errors and try again.",
                     innerException: invalidContentItemOrchestrationException);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(invalidContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(invalidContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
@@ -267,8 +267,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration validation error occurred, fix the errors and try again.",
                     innerException: alreadyExistsContentItemOrchestrationException);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
@@ -293,8 +293,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationValidationException);
 
-            this.eventEnvelopeFactoryMock.Verify(factory =>
-                factory.CreateAsync(inputContentItem),
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputContentItem),
                 Times.Once);
 
             this.hashBrokerMock.Verify(broker =>
@@ -314,7 +314,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();

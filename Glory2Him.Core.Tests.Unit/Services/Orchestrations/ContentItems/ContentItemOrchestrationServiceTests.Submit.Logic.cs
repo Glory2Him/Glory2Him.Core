@@ -59,8 +59,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             ContentItem addedContentItem = expectedMappedContentItem.DeepClone();
             ContentItem expectedContentItem = addedContentItem.DeepClone();
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
@@ -94,8 +94,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
             capturedContentItem.Should().BeEquivalentTo(expectedMappedContentItem);
 
-            this.eventEnvelopeFactoryMock.Verify(factory =>
-                factory.CreateAsync(inputContentItem),
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(inputContentItem),
                 Times.Once);
 
             this.hashBrokerMock.Verify(broker =>
@@ -114,7 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
@@ -140,8 +140,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 contentItem: inputContentItem,
                 securityContext: CreateAuthenticatedSecurityContext());
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
@@ -192,8 +192,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 contentItem: inputContentItem,
                 securityContext: CreateAuthenticatedSecurityContext());
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
