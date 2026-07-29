@@ -14,9 +14,13 @@ using System.Threading.Tasks;
 using G2H.EventEnvelope.Client.Brokers.DateTimes;
 using G2H.EventEnvelope.Client.Brokers.Identifiers;
 using G2H.EventEnvelope.Client.Brokers.Securities;
+using G2H.EventEnvelope.Client.Models.Clients.Exceptions;
 using G2H.EventEnvelope.Client.Models.Foundations;
+using G2H.EventEnvelope.Client.Models.Foundations.Exceptions;
 using G2H.EventEnvelope.Client.Services.Foundations.Events;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Xeptions;
 
 namespace G2H.EventEnvelope.Client.Clients
 {
@@ -27,22 +31,111 @@ namespace G2H.EventEnvelope.Client.Clients
         public EventEnvelopeClient()
         {
             IServiceProvider serviceProvider = RegisterServices();
-            eventEnvelopeService = serviceProvider.GetRequiredService<IEventEnvelopeService>();
+            this.eventEnvelopeService = serviceProvider.GetRequiredService<IEventEnvelopeService>();
         }
 
-        public ValueTask<EventEnvelope<T>> CreateAsync<T>(T content)
+        internal EventEnvelopeClient(IEventEnvelopeService eventEnvelopeService)
         {
-            return eventEnvelopeService.CreateAsync(content);
+            this.eventEnvelopeService = eventEnvelopeService;
         }
 
-        public ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(EventEnvelope<TSource> sourceEnvelope, T content)
+        public async ValueTask<EventEnvelope<T>> CreateAsync<T>(T content)
         {
-            return eventEnvelopeService.CreateNextAsync(sourceEnvelope, content);
+            try
+            {
+                return await this.eventEnvelopeService.CreateAsync(content);
+            }
+            catch (EventEnvelopeValidationException eventEnvelopeValidationException)
+            {
+                throw CreateEventEnvelopeClientValidationException(
+                    eventEnvelopeValidationException.InnerException as Xeption);
+            }
+            catch (EventEnvelopeDependencyValidationException eventEnvelopeDependencyValidationException)
+            {
+                throw CreateEventEnvelopeClientValidationException(
+                    eventEnvelopeDependencyValidationException.InnerException as Xeption);
+            }
+            catch (EventEnvelopeDependencyException eventEnvelopeDependencyException)
+            {
+                throw CreateEventEnvelopeClientDependencyException(
+                    eventEnvelopeDependencyException.InnerException as Xeption);
+            }
+            catch (EventEnvelopeServiceException eventEnvelopeServiceException)
+            {
+                throw CreateEventEnvelopeClientDependencyException(
+                    eventEnvelopeServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateEventEnvelopeClientServiceException(exception);
+            }
+        }
+
+        public async ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
+            EventEnvelope<TSource> sourceEnvelope,
+            T content)
+        {
+            try
+            {
+                return await this.eventEnvelopeService.CreateNextAsync(sourceEnvelope, content);
+            }
+            catch (EventEnvelopeValidationException eventEnvelopeValidationException)
+            {
+                throw CreateEventEnvelopeClientValidationException(
+                    eventEnvelopeValidationException.InnerException as Xeption);
+            }
+            catch (EventEnvelopeDependencyValidationException eventEnvelopeDependencyValidationException)
+            {
+                throw CreateEventEnvelopeClientValidationException(
+                    eventEnvelopeDependencyValidationException.InnerException as Xeption);
+            }
+            catch (EventEnvelopeDependencyException eventEnvelopeDependencyException)
+            {
+                throw CreateEventEnvelopeClientDependencyException(
+                    eventEnvelopeDependencyException.InnerException as Xeption);
+            }
+            catch (EventEnvelopeServiceException eventEnvelopeServiceException)
+            {
+                throw CreateEventEnvelopeClientDependencyException(
+                    eventEnvelopeServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateEventEnvelopeClientServiceException(exception);
+            }
+        }
+
+        private static EventEnvelopeClientValidationException CreateEventEnvelopeClientValidationException(
+            Xeption? innerException)
+        {
+            return new EventEnvelopeClientValidationException(
+                message: "Event envelope client validation error occurred, fix errors and try again.",
+                innerException!,
+                data: innerException?.Data!);
+        }
+
+        private static EventEnvelopeClientDependencyException CreateEventEnvelopeClientDependencyException(
+            Xeption? innerException)
+        {
+            return new EventEnvelopeClientDependencyException(
+                message: "Event envelope client dependency error occurred, please contact support.",
+                innerException!,
+                data: innerException?.Data!);
+        }
+
+        private static EventEnvelopeClientServiceException CreateEventEnvelopeClientServiceException(
+            Exception innerException)
+        {
+            return new EventEnvelopeClientServiceException(
+                message: "Event envelope client service error occurred, please contact support.",
+                innerException!,
+                data: innerException?.Data!);
         }
 
         private static IServiceProvider RegisterServices()
         {
             var serviceCollection = new ServiceCollection()
+                .AddSingleton<IHttpContextAccessor, HttpContextAccessor>()
                 .AddTransient<IDateTimeBroker, DateTimeBroker>()
                 .AddTransient<IIdentifierBroker, IdentifierBroker>()
                 .AddTransient<ISecurityBroker, SecurityBroker>()

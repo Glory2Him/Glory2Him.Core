@@ -18,7 +18,7 @@ using G2H.EventEnvelope.Client.Models.Foundations;
 
 namespace G2H.EventEnvelope.Client.Services.Foundations.Events
 {
-    internal class EventEnvelopeService : IEventEnvelopeService
+    internal partial class EventEnvelopeService : IEventEnvelopeService
     {
         private readonly IIdentifierBroker identifierBroker;
         private readonly IDateTimeBroker dateTimeBroker;
@@ -34,8 +34,11 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
             this.securityBroker = securityBroker;
         }
 
-        public async ValueTask<EventEnvelope<T>> CreateAsync<T>(T content)
+        public ValueTask<EventEnvelope<T>> CreateAsync<T>(T content) =>
+        TryCatch(async () =>
         {
+            ValidateOnCreate(content);
+
             EventSecurityContext securityContext =
                 await this.securityBroker.GetCurrentSecurityContextAsync();
 
@@ -63,12 +66,14 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
                     RetryCount = 0
                 }
             };
-        }
+        });
 
-        public async ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
+        public ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
             EventEnvelope<TSource> sourceEnvelope,
-            T content)
+            T content) =>
+        TryCatch(async () =>
         {
+            ValidateOnCreateNext(sourceEnvelope, content);
             Guid eventId = await this.identifierBroker.GetIdentifierAsync();
 
             return new EventEnvelope<T>
@@ -87,6 +92,6 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
                     ParentCorrelationId = sourceEnvelope.Metadata.ParentCorrelationId
                 }
             };
-        }
+        });
     }
 }

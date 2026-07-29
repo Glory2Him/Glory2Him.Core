@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -9,14 +9,15 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-namespace G2H.EventEnvelope.Client.Tests.Acceptance
-{
-    public class UnitTest1
-    {
-        [Fact]
-        public void Test1()
-        {
+using System;
+using Xeptions;
 
-        }
+namespace G2H.EventEnvelope.Client.Models.Foundations.Exceptions
+{
+    internal class FailedEventEnvelopeServiceException : Xeption
+    {
+        public FailedEventEnvelopeServiceException(string message, Exception innerException)
+            : base(message, innerException)
+        { }
     }
 }
