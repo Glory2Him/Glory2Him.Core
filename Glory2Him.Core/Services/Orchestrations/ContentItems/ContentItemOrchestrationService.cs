@@ -80,7 +80,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             if (duplicateContentExists)
             {
                 throw new AlreadyExistsContentItemOrchestrationException(
-                    message: "Content item already exists with the same content.");
+                    message: "A content item already exists with the same content.");
             }
 
             ContentItem newContentItem = new ContentItem

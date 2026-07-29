@@ -199,7 +199,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             var alreadyExistsContentItemOrchestrationException =
                 new AlreadyExistsContentItemOrchestrationException(
-                    message: "Content item already exists with the same content.");
+                    message: "A content item already exists with the same content.");
 
             var expectedContentItemOrchestrationValidationException =
                 new ContentItemOrchestrationValidationException(
