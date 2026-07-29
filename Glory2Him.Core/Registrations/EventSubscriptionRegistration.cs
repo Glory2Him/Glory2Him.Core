@@ -15,22 +15,22 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Services.Foundations.Approvals;
-using Glory2Him.Core.Services.Foundations.ContentItems;
-using Glory2Him.Core.Services.Foundations.ContentTypes;
-using Glory2Him.Core.Services.Foundations.BibleReferences;
-using Glory2Him.Core.Services.Foundations.Tags;
-using Glory2Him.Core.Services.Foundations.Links;
-using Glory2Him.Core.Services.Foundations.Reactions;
-using Glory2Him.Core.Services.Foundations.Comments;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
-using Glory2Him.Core.Services.Foundations.ApprovalSettings;
-using Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.BibleReferences;
+using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
-using Glory2Him.Core.Models.Events.Orchestrations;
+using Glory2Him.Core.Services.Foundations.ContentTypes;
+using Glory2Him.Core.Services.Foundations.Links;
+using Glory2Him.Core.Services.Foundations.Reactions;
+using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Orchestrations.ContentItems;
 
 namespace Glory2Him.Core.Registrations
@@ -60,7 +60,7 @@ namespace Glory2Him.Core.Registrations
     /// <c>EventHighwayConnectionString</c> connection string; the event store schema is
     /// created and migrated automatically on first use.
     /// </remarks>
-    public class EventSubscriptionRegistration : IEventSubscriptionRegistration
+    internal class EventSubscriptionRegistration : IEventSubscriptionRegistration
     {
         private readonly IEventBroker eventBroker;
         private readonly IContentTypeService contentTypeService;

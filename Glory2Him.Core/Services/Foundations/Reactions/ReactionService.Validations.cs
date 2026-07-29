@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Reactions
 {
-    public partial class ReactionService
+    internal partial class ReactionService
     {
         private async ValueTask ValidateOnAddReactionAsync(
             Reaction reaction,

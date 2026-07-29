@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial interface IEventBroker
+    internal partial interface IEventBroker
     {
         ValueTask<EventPublishResult<ApprovalSettingPublisherRole>> PublishApprovalSettingPublisherRoleAsync(
             EventEnvelope<ApprovalSettingPublisherRole> envelope,

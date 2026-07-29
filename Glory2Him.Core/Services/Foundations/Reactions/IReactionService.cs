@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Reactions;
 
 namespace Glory2Him.Core.Services.Foundations.Reactions
 {
-    public partial interface IReactionService
+    internal partial interface IReactionService
     {
         ValueTask<Reaction> AddReactionAsync(
             Reaction reaction,

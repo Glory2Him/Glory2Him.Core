@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: submittedContentItem);
             });

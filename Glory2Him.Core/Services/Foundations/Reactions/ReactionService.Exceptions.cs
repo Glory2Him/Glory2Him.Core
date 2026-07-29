@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.Reactions
 {
-    public partial class ReactionService
+    internal partial class ReactionService
     {
         private delegate ValueTask<Reaction> ReturningReactionFunction();
         private delegate ValueTask<IQueryable<Reaction>> ReturningReactionsFunction();

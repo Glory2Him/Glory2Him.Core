@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class ApprovalCommentService
+    internal partial class ApprovalCommentService
     {
         public ValueTask<EventEnvelope<ApprovalComment>?> OnAddingApprovalCommentAsync(
             EventEnvelope<ApprovalComment> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedApprovalComment);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedApprovalComment);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedApprovalComment);
             });
@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedApprovalComment);
             });
@@ -153,7 +153,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     approvalCommentId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedApprovalComment);
             });

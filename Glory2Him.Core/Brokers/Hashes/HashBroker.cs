@@ -16,7 +16,7 @@ using System.Threading.Tasks;
 
 namespace Glory2Him.Core.Brokers.Hashes
 {
-    public class HashBroker : IHashBroker
+    internal class HashBroker : IHashBroker
     {
         public async ValueTask<string> ComputeSha256HashAsync(string text) =>
             Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));

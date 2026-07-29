@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Glory2Him.Core.Brokers.Loggings
 {
-    public class LoggingBroker : ILoggingBroker
+    internal class LoggingBroker : ILoggingBroker
     {
         private readonly ILogger<LoggingBroker> logger;
 

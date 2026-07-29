@@ -15,7 +15,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
-    public partial interface IContentItemOrchestrationService
+    internal partial interface IContentItemOrchestrationService
     {
         /// <summary>
         /// Submits a new content item as version 1 of a new group (Flow 1 — Add). The caller

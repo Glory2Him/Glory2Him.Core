@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace Glory2Him.Core.Brokers.Hashes
 {
-    public interface IHashBroker
+    internal interface IHashBroker
     {
         ValueTask<string> ComputeSha256HashAsync(string text);
     }

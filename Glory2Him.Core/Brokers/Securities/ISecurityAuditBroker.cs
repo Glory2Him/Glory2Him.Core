@@ -18,7 +18,7 @@ namespace Glory2Him.Core.Brokers.Securities
     /// Provides methods to apply and verify audit metadata on entities,
     /// such as created/updated timestamps and user identifiers.
     /// </summary>
-    public interface ISecurityAuditBroker
+    internal interface ISecurityAuditBroker
     {
         /// <summary>
         /// Applies audit values related to entity creation, such as CreatedBy and CreatedDate,

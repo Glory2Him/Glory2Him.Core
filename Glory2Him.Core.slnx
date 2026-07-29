@@ -1,5 +1,10 @@
 <Solution>
   <Folder Name="/Clients/" />
+  <Folder Name="/Clients/Events/">
+    <Project Path="G2H.EventEnvelope.Client.Tests.Acceptance/G2H.EventEnvelope.Client.Tests.Acceptance.csproj" Id="b99830ff-19e7-4c75-be58-63ac85a650b7" />
+    <Project Path="G2H.EventEnvelope.Client.Tests.Unit/G2H.EventEnvelope.Client.Tests.Unit.csproj" Id="6eb072e4-0850-4511-9f23-d4a25a6d6f42" />
+    <Project Path="G2H.EventEnvelope.Client/G2H.EventEnvelope.Client.csproj" Id="86b6bfb3-af9c-45af-85bc-b91b1137c203" />
+  </Folder>
   <Folder Name="/Clients/Security/">
     <Project Path="Clients/SecurityClients/G2H.Security.Client.Infrastructure/G2H.Security.Client.Infrastructure.csproj" />
     <Project Path="Clients/SecurityClients/G2H.Security.Client.Tests.Acceptance/G2H.Security.Client.Tests.Acceptance.csproj" />

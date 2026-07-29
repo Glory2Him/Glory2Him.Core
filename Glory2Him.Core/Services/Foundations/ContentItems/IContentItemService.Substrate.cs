@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface IContentItemService
+    internal partial interface IContentItemService
     {
         ValueTask<EventEnvelope<ContentItem>?> OnAddingContentItemAsync(
             EventEnvelope<ContentItem> envelope,

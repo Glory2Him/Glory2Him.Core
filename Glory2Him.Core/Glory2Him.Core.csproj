@@ -95,6 +95,7 @@
 	<ItemGroup>
 	  <ProjectReference Include="..\Clients\SecurityClients\G2H.Security.Client\G2H.Security.Client.csproj" />
 	  <ProjectReference Include="..\Clients\StorageClients\G2H.StorageClient\G2H.StorageClient.csproj" />
+	  <ProjectReference Include="..\G2H.EventEnvelope.Client\G2H.EventEnvelope.Client.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

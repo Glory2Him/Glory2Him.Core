@@ -10,16 +10,16 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Threading.Tasks;
-using Glory2Him.Core.Models.Events;
+using G2H.EventEnvelope.Client.Models.Foundations;
 
-namespace Glory2Him.Core.Factories.Events
+namespace G2H.EventEnvelope.Client.Services.Foundations.Events
 {
     /// <summary>
     /// The single place event envelopes are shaped, so metadata, security context, and
     /// causation chaining never diverge between services or between the event and non-event
     /// paths.
     /// </summary>
-    public interface IEventEnvelopeFactory
+    internal interface IEventEnvelopeService
     {
         /// <summary>
         /// Creates a root envelope for a new operation: fresh event and correlation

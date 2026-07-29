@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
 {
-    public partial interface IContentItemAssociationService
+    internal partial interface IContentItemAssociationService
     {
         ValueTask<ContentItemAssociation> AddContentItemAssociationAsync(
             ContentItemAssociation contentItemAssociation,

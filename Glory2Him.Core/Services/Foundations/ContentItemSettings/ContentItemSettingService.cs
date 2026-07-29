@@ -14,12 +14,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
@@ -36,13 +36,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain.
     /// </summary>
-    public partial class ContentItemSettingService : IContentItemSettingService
+    internal partial class ContentItemSettingService : IContentItemSettingService
     {
         private readonly IStorageBroker storageBroker;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventBroker eventBroker;
-        private readonly IEventEnvelopeFactory eventEnvelopeFactory;
+        private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -51,7 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             IDateTimeBroker dateTimeBroker,
             IIdentifierBroker identifierBroker,
             IEventBroker eventBroker,
-            IEventEnvelopeFactory eventEnvelopeFactory,
+            IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
             ILoggingBroker loggingBroker)
         {
@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             this.dateTimeBroker = dateTimeBroker;
             this.identifierBroker = identifierBroker;
             this.eventBroker = eventBroker;
-            this.eventEnvelopeFactory = eventEnvelopeFactory;
+            this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 ValidateContentItemSettingIsNotNull(contentItemSetting);
 
                 EventEnvelope<ContentItemSetting> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: contentItemSetting);
+                    await this.eventEnvelopeBroker.CreateAsync(content: contentItemSetting);
 
                 return await DoAddContentItemSettingAsync(
                     contentItemSetting: contentItemSetting,
@@ -115,7 +115,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 ValidateContentItemSettingIsNotNull(contentItemSetting);
 
                 EventEnvelope<ContentItemSetting> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: contentItemSetting);
+                    await this.eventEnvelopeBroker.CreateAsync(content: contentItemSetting);
 
                 return await DoModifyContentItemSettingAsync(
                     contentItemSetting: contentItemSetting,
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 };
 
                 EventEnvelope<ContentItemSetting> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: removeRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
 
                 return await DoRemoveContentItemSettingByIdAsync(
                     contentItemSettingId: contentItemSettingId,
@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 };
 
                 EventEnvelope<ContentItemSetting> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: hardRemoveRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: hardRemoveRequest);
 
                 return await DoHardRemoveContentItemSettingByIdAsync(
                     contentItemSettingId: contentItemSettingId,
@@ -189,7 +189,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemSetting> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: addedContentItemSetting);
 
@@ -243,7 +243,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemSetting> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: updatedContentItemSetting);
 
@@ -293,7 +293,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemSetting> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: removedContentItemSetting);
 
@@ -331,7 +331,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemSetting> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: deletedContentItemSetting);
 

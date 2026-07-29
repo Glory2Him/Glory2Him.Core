@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class ApprovalSettingReviewerRoleService
+    internal partial class ApprovalSettingReviewerRoleService
     {
         public ValueTask<EventEnvelope<ApprovalSettingReviewerRole>?> OnAddingApprovalSettingReviewerRoleAsync(
             EventEnvelope<ApprovalSettingReviewerRole> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedApprovalSettingReviewerRole);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedApprovalSettingReviewerRole);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedApprovalSettingReviewerRole);
             });
@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedApprovalSettingReviewerRole);
             });
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
                     approvalSettingReviewerRoleId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedApprovalSettingReviewerRole);
             });

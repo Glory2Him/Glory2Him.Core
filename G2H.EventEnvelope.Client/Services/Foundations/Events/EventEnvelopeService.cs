@@ -11,20 +11,20 @@
 
 using System;
 using System.Threading.Tasks;
-using Glory2Him.Core.Brokers.DateTimes;
-using Glory2Him.Core.Brokers.Identifiers;
-using Glory2Him.Core.Brokers.Securities;
-using Glory2Him.Core.Models.Events;
+using G2H.EventEnvelope.Client.Brokers.DateTimes;
+using G2H.EventEnvelope.Client.Brokers.Identifiers;
+using G2H.EventEnvelope.Client.Brokers.Securities;
+using G2H.EventEnvelope.Client.Models.Foundations;
 
-namespace Glory2Him.Core.Factories.Events
+namespace G2H.EventEnvelope.Client.Services.Foundations.Events
 {
-    public class EventEnvelopeFactory : IEventEnvelopeFactory
+    internal class EventEnvelopeService : IEventEnvelopeService
     {
         private readonly IIdentifierBroker identifierBroker;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly ISecurityBroker securityBroker;
 
-        public EventEnvelopeFactory(
+        public EventEnvelopeService(
             IIdentifierBroker identifierBroker,
             IDateTimeBroker dateTimeBroker,
             ISecurityBroker securityBroker)
@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Factories.Events
 
         public async ValueTask<EventEnvelope<T>> CreateAsync<T>(T content)
         {
-            SecurityContext securityContext =
+            EventSecurityContext securityContext =
                 await this.securityBroker.GetCurrentSecurityContextAsync();
 
             Guid eventId = await this.identifierBroker.GetIdentifierAsync();
@@ -48,7 +48,7 @@ namespace Glory2Him.Core.Factories.Events
                 Content = content,
                 SecurityContext = securityContext,
 
-                RequestContext = new RequestContext
+                RequestContext = new EventRequestContext
                 {
                     CorrelationId = correlationId,
                     RequestedDate = now,

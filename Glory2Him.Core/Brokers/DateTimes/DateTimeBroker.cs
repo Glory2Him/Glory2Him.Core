@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Glory2Him.Core.Brokers.DateTimes
 {
-    public class DateTimeBroker : IDateTimeBroker
+    internal class DateTimeBroker : IDateTimeBroker
     {
         public async ValueTask<DateTimeOffset> GetCurrentDateTimeOffsetAsync() =>
             DateTimeOffset.UtcNow;

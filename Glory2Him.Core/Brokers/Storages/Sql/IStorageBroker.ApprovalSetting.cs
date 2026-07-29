@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial interface IStorageBroker
+    internal partial interface IStorageBroker
     {
         ValueTask<ApprovalSetting> InsertApprovalSettingAsync(
             ApprovalSetting approvalSetting,

@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface IBibleReferenceService
+    internal partial interface IBibleReferenceService
     {
         ValueTask<EventEnvelope<BibleReference>?> OnAddingBibleReferenceAsync(
             EventEnvelope<BibleReference> envelope,

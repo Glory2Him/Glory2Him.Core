@@ -16,7 +16,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
-    public partial interface IContentItemOrchestrationService
+    internal partial interface IContentItemOrchestrationService
     {
         /// <summary>
         /// The event path of the orchestration: handles <c>ContentItem-Submitting</c> request

@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial interface IStorageBroker
+    internal partial interface IStorageBroker
     {
         ValueTask<Tag> InsertTagAsync(
             Tag tag,

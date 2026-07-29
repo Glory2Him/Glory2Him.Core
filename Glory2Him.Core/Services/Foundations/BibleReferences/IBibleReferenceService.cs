@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.BibleReferences;
 
 namespace Glory2Him.Core.Services.Foundations.BibleReferences
 {
-    public partial interface IBibleReferenceService
+    internal partial interface IBibleReferenceService
     {
         ValueTask<BibleReference> AddBibleReferenceAsync(
             BibleReference bibleReference,

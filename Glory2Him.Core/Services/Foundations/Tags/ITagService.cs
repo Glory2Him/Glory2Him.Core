@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
-    public partial interface ITagService
+    internal partial interface ITagService
     {
         ValueTask<Tag> AddTagAsync(
             Tag tag,

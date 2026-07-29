@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.Comments;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial interface IEventBroker
+    internal partial interface IEventBroker
     {
         ValueTask<EventPublishResult<Comment>> PublishCommentAsync(
             EventEnvelope<Comment> envelope,

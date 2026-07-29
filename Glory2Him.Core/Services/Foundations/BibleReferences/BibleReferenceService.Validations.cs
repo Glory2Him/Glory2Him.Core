@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.BibleReferences
 {
-    public partial class BibleReferenceService
+    internal partial class BibleReferenceService
     {
         private async ValueTask ValidateOnAddBibleReferenceAsync(
             BibleReference bibleReference,

@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.Links
 {
-    public partial class LinkService
+    internal partial class LinkService
     {
         private delegate ValueTask<Link> ReturningLinkFunction();
         private delegate ValueTask<IQueryable<Link>> ReturningLinksFunction();

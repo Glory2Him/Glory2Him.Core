@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 {
-    public partial interface IContentItemSettingService
+    internal partial interface IContentItemSettingService
     {
         ValueTask<ContentItemSetting> AddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,

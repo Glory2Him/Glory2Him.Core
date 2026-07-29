@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Services.Foundations.Approvals
 {
-    public partial interface IApprovalService
+    internal partial interface IApprovalService
     {
         ValueTask<Approval> AddApprovalAsync(
             Approval approval,

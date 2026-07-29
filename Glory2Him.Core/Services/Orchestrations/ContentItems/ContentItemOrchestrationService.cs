@@ -13,10 +13,10 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
-using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -30,20 +30,20 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private readonly IContentItemService contentItemService;
         private readonly IHashBroker hashBroker;
         private readonly IIdentifierBroker identifierBroker;
-        private readonly IEventEnvelopeFactory eventEnvelopeFactory;
+        private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ContentItemOrchestrationService(
             IContentItemService contentItemService,
             IHashBroker hashBroker,
             IIdentifierBroker identifierBroker,
-            IEventEnvelopeFactory eventEnvelopeFactory,
+            IEventEnvelopeBroker eventEnvelopeBroker,
             ILoggingBroker loggingBroker)
         {
             this.contentItemService = contentItemService;
             this.hashBroker = hashBroker;
             this.identifierBroker = identifierBroker;
-            this.eventEnvelopeFactory = eventEnvelopeFactory;
+            this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.loggingBroker = loggingBroker;
         }
 
@@ -56,7 +56,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 ValidateContentItemIsNotNull(contentItem);
 
                 EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: contentItem);
+                    await this.eventEnvelopeBroker.CreateAsync(content: contentItem);
 
                 return await DoSubmitContentItemAsync(
                     contentItem: contentItem,

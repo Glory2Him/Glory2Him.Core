@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 {
-    public partial class ContentItemSettingService
+    internal partial class ContentItemSettingService
     {
         private delegate ValueTask<ContentItemSetting> ReturningContentItemSettingFunction();
         private delegate ValueTask<IQueryable<ContentItemSetting>> ReturningContentItemSettingsFunction();

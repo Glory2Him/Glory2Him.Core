@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface IContentItemAssociationService
+    internal partial interface IContentItemAssociationService
     {
         ValueTask<EventEnvelope<ContentItemAssociation>?> OnAddingContentItemAssociationAsync(
             EventEnvelope<ContentItemAssociation> envelope,

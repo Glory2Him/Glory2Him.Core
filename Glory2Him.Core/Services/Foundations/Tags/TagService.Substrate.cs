@@ -13,8 +13,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
-using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class TagService
+    internal partial class TagService
     {
         public ValueTask<EventEnvelope<Tag>?> OnAddingTagAsync(
             EventEnvelope<Tag> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedTag);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedTag);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedTag);
             });
@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedTag);
             });
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     tagId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedTag);
             });

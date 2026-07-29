@@ -14,12 +14,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
@@ -36,13 +36,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
     /// diverge; the inbound envelope carries the original caller's <c>SecurityContext</c> and
     /// anchors the causation chain.
     /// </summary>
-    public partial class ContentItemAssociationService : IContentItemAssociationService
+    internal partial class ContentItemAssociationService : IContentItemAssociationService
     {
         private readonly IStorageBroker storageBroker;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventBroker eventBroker;
-        private readonly IEventEnvelopeFactory eventEnvelopeFactory;
+        private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -51,7 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             IDateTimeBroker dateTimeBroker,
             IIdentifierBroker identifierBroker,
             IEventBroker eventBroker,
-            IEventEnvelopeFactory eventEnvelopeFactory,
+            IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
             ILoggingBroker loggingBroker)
         {
@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             this.dateTimeBroker = dateTimeBroker;
             this.identifierBroker = identifierBroker;
             this.eventBroker = eventBroker;
-            this.eventEnvelopeFactory = eventEnvelopeFactory;
+            this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 ValidateContentItemAssociationIsNotNull(contentItemAssociation);
 
                 EventEnvelope<ContentItemAssociation> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: contentItemAssociation);
+                    await this.eventEnvelopeBroker.CreateAsync(content: contentItemAssociation);
 
                 return await DoAddContentItemAssociationAsync(
                     contentItemAssociation: contentItemAssociation,
@@ -117,7 +117,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 ValidateContentItemAssociationIsNotNull(contentItemAssociation);
 
                 EventEnvelope<ContentItemAssociation> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: contentItemAssociation);
+                    await this.eventEnvelopeBroker.CreateAsync(content: contentItemAssociation);
 
                 return await DoModifyContentItemAssociationAsync(
                     contentItemAssociation: contentItemAssociation,
@@ -140,7 +140,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 };
 
                 EventEnvelope<ContentItemAssociation> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: removeRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
 
                 return await DoRemoveContentItemAssociationByIdAsync(
                     contentItemAssociationId: contentItemAssociationId,
@@ -162,7 +162,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 };
 
                 EventEnvelope<ContentItemAssociation> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: hardRemoveRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: hardRemoveRequest);
 
                 return await DoHardRemoveContentItemAssociationByIdAsync(
                     contentItemAssociationId: contentItemAssociationId,
@@ -196,7 +196,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemAssociation> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: addedContentItemAssociation);
 
@@ -257,7 +257,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemAssociation> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: updatedContentItemAssociation);
 
@@ -312,7 +312,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemAssociation> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: removedContentItemAssociation);
 
@@ -355,7 +355,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 cancellationToken: cancellationToken);
 
             EventEnvelope<ContentItemAssociation> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: deletedContentItemAssociation);
 

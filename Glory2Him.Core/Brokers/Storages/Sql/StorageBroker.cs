@@ -37,7 +37,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial class StorageBroker : EFxceptionsContext, IStorageBroker
+    internal partial class StorageBroker : EFxceptionsContext, IStorageBroker
     {
         private readonly IConfiguration configuration;
         private readonly IEFCoreClient efCoreClient;

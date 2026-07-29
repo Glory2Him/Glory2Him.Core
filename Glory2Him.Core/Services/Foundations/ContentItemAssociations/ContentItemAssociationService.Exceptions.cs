@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
 {
-    public partial class ContentItemAssociationService
+    internal partial class ContentItemAssociationService
     {
         private delegate ValueTask<ContentItemAssociation> ReturningContentItemAssociationFunction();
 

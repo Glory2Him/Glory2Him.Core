@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
 {
-    public partial interface IApprovalSettingReviewerRoleService
+    internal partial interface IApprovalSettingReviewerRoleService
     {
         ValueTask<ApprovalSettingReviewerRole> AddApprovalSettingReviewerRoleAsync(
             ApprovalSettingReviewerRole approvalSettingReviewerRole,

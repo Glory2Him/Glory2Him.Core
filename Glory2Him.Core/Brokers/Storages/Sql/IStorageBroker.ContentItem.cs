@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial interface IStorageBroker
+    internal partial interface IStorageBroker
     {
         ValueTask<ContentItem> InsertContentItemAsync(
             ContentItem contentItem,

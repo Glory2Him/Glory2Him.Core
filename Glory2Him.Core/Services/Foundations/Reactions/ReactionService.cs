@@ -14,12 +14,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
@@ -36,13 +36,13 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain.
     /// </summary>
-    public partial class ReactionService : IReactionService
+    internal partial class ReactionService : IReactionService
     {
         private readonly IStorageBroker storageBroker;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventBroker eventBroker;
-        private readonly IEventEnvelopeFactory eventEnvelopeFactory;
+        private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -51,7 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             IDateTimeBroker dateTimeBroker,
             IIdentifierBroker identifierBroker,
             IEventBroker eventBroker,
-            IEventEnvelopeFactory eventEnvelopeFactory,
+            IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
             ILoggingBroker loggingBroker)
         {
@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             this.dateTimeBroker = dateTimeBroker;
             this.identifierBroker = identifierBroker;
             this.eventBroker = eventBroker;
-            this.eventEnvelopeFactory = eventEnvelopeFactory;
+            this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 ValidateReactionIsNotNull(reaction);
 
                 EventEnvelope<Reaction> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: reaction);
+                    await this.eventEnvelopeBroker.CreateAsync(content: reaction);
 
                 return await DoAddReactionAsync(
                     reaction: reaction,
@@ -115,7 +115,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 ValidateReactionIsNotNull(reaction);
 
                 EventEnvelope<Reaction> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: reaction);
+                    await this.eventEnvelopeBroker.CreateAsync(content: reaction);
 
                 return await DoModifyReactionAsync(
                     reaction: reaction,
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 };
 
                 EventEnvelope<Reaction> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: removeRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
 
                 return await DoRemoveReactionByIdAsync(
                     reactionId: reactionId,
@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 };
 
                 EventEnvelope<Reaction> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: hardRemoveRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: hardRemoveRequest);
 
                 return await DoHardRemoveReactionByIdAsync(
                     reactionId: reactionId,
@@ -189,7 +189,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Reaction> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: addedReaction);
 
@@ -241,7 +241,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Reaction> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: updatedReaction);
 
@@ -291,7 +291,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Reaction> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: removedReaction);
 
@@ -328,7 +328,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Reaction> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: deletedReaction);
 

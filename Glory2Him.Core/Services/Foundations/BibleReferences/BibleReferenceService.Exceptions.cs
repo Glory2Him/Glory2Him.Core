@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.BibleReferences
 {
-    public partial class BibleReferenceService
+    internal partial class BibleReferenceService
     {
         private delegate ValueTask<BibleReference> ReturningBibleReferenceFunction();
         private delegate ValueTask<IQueryable<BibleReference>> ReturningBibleReferencesFunction();

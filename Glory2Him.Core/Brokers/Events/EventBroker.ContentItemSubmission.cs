@@ -19,7 +19,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial class EventBroker
+    internal partial class EventBroker
     {
         public ValueTask<EventPublishResult<ContentItem>> PublishContentItemSubmissionAsync(
             EventEnvelope<ContentItem> envelope,

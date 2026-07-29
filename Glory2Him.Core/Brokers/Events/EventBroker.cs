@@ -31,7 +31,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial class EventBroker : IEventBroker
+    internal partial class EventBroker : IEventBroker
     {
         private readonly EventHighwayClient eventHighwayClient;
 

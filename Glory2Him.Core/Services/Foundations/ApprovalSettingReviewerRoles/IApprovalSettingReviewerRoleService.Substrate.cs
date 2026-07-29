@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface IApprovalSettingReviewerRoleService
+    internal partial interface IApprovalSettingReviewerRoleService
     {
         ValueTask<EventEnvelope<ApprovalSettingReviewerRole>?> OnAddingApprovalSettingReviewerRoleAsync(
             EventEnvelope<ApprovalSettingReviewerRole> envelope,

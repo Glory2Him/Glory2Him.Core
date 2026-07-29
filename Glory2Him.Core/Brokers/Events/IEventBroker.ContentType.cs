@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.ContentTypes;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial interface IEventBroker
+    internal partial interface IEventBroker
     {
         ValueTask<EventPublishResult<ContentType>> PublishContentTypeAsync(
             EventEnvelope<ContentType> envelope,

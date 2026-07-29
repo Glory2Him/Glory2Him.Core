@@ -14,12 +14,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
@@ -36,13 +36,13 @@ namespace Glory2Him.Core.Services.Foundations.Comments
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain.
     /// </summary>
-    public partial class CommentService : ICommentService
+    internal partial class CommentService : ICommentService
     {
         private readonly IStorageBroker storageBroker;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventBroker eventBroker;
-        private readonly IEventEnvelopeFactory eventEnvelopeFactory;
+        private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -51,7 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             IDateTimeBroker dateTimeBroker,
             IIdentifierBroker identifierBroker,
             IEventBroker eventBroker,
-            IEventEnvelopeFactory eventEnvelopeFactory,
+            IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
             ILoggingBroker loggingBroker)
         {
@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             this.dateTimeBroker = dateTimeBroker;
             this.identifierBroker = identifierBroker;
             this.eventBroker = eventBroker;
-            this.eventEnvelopeFactory = eventEnvelopeFactory;
+            this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 ValidateCommentIsNotNull(comment);
 
                 EventEnvelope<Comment> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: comment);
+                    await this.eventEnvelopeBroker.CreateAsync(content: comment);
 
                 return await DoAddCommentAsync(
                     comment: comment,
@@ -115,7 +115,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 ValidateCommentIsNotNull(comment);
 
                 EventEnvelope<Comment> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: comment);
+                    await this.eventEnvelopeBroker.CreateAsync(content: comment);
 
                 return await DoModifyCommentAsync(
                     comment: comment,
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 };
 
                 EventEnvelope<Comment> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: removeRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
 
                 return await DoRemoveCommentByIdAsync(
                     commentId: commentId,
@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 };
 
                 EventEnvelope<Comment> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: hardRemoveRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: hardRemoveRequest);
 
                 return await DoHardRemoveCommentByIdAsync(
                     commentId: commentId,
@@ -189,7 +189,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Comment> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: addedComment);
 
@@ -241,7 +241,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Comment> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: updatedComment);
 
@@ -291,7 +291,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Comment> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: removedComment);
 
@@ -328,7 +328,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Comment> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: deletedComment);
 

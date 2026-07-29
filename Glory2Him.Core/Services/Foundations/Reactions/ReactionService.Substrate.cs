@@ -13,8 +13,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
-using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Foundations.Reactions;
 
 namespace Glory2Him.Core.Services.Foundations.Reactions
 {
@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class ReactionService
+    internal partial class ReactionService
     {
         public ValueTask<EventEnvelope<Reaction>?> OnAddingReactionAsync(
             EventEnvelope<Reaction> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedReaction);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedReaction);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedReaction);
             });
@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedReaction);
             });
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     reactionId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedReaction);
             });
