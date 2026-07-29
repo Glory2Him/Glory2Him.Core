@@ -11,22 +11,22 @@
 
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Orchestrations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     public partial interface IContentItemOrchestrationService
     {
         /// <summary>
-        /// Adds a new content item as version 1 of a new group (Flow 1 — Add). The caller
-        /// must be authenticated and not blocked by the <c>ReadOnly</c> or
-        /// <c>ContentItem-ReadOnly</c> roles. When the normalized content duplicates an
-        /// existing non-deleted item of the same content type, nothing is created and the
-        /// result carries only the polite acknowledgement (design §3.4.2).
+        /// The event path of the orchestration: handles <c>ContentItem-Submitting</c> request
+        /// envelopes, converging on the same do-work as <see cref="AddContentItemAsync"/>.
+        /// The envelope's <c>SecurityContext</c> carries the original caller for the
+        /// contribution gate. Replies with the created content item's envelope, or
+        /// <c>null</c> when the submission was a duplicate and nothing was created.
         /// </summary>
-        ValueTask<ContentItemSubmissionResult> AddContentItemAsync(
-            ContentItem contentItem,
+        ValueTask<EventEnvelope<ContentItem>?> OnSubmittingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
     }
 }

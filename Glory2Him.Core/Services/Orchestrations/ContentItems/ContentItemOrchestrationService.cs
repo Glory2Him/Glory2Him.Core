@@ -16,8 +16,9 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
-using Glory2Him.Core.Brokers.Securities;
+using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -29,22 +30,22 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private const string ThankYouForYourSubmissionMessage = "Thank you for your submission.";
 
         private readonly IContentItemService contentItemService;
-        private readonly ISecurityBroker securityBroker;
         private readonly IHashBroker hashBroker;
         private readonly IIdentifierBroker identifierBroker;
+        private readonly IEventEnvelopeFactory eventEnvelopeFactory;
         private readonly ILoggingBroker loggingBroker;
 
         public ContentItemOrchestrationService(
             IContentItemService contentItemService,
-            ISecurityBroker securityBroker,
             IHashBroker hashBroker,
             IIdentifierBroker identifierBroker,
+            IEventEnvelopeFactory eventEnvelopeFactory,
             ILoggingBroker loggingBroker)
         {
             this.contentItemService = contentItemService;
-            this.securityBroker = securityBroker;
             this.hashBroker = hashBroker;
             this.identifierBroker = identifierBroker;
+            this.eventEnvelopeFactory = eventEnvelopeFactory;
             this.loggingBroker = loggingBroker;
         }
 
@@ -54,52 +55,68 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await ValidateOnAddContentItemAsync(contentItem);
-                string contentHash = await ComputeContentHashAsync(contentItem.Content);
+                ValidateContentItemIsNotNull(contentItem);
 
-                bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
-                    contentTypeId: contentItem.ContentTypeId,
-                    contentHash: contentHash,
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeFactory.CreateAsync(content: contentItem);
+
+                return await DoAddContentItemAsync(
+                    contentItem: contentItem,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
+            });
 
-                if (duplicateContentExists)
-                {
-                    return new ContentItemSubmissionResult
-                    {
-                        IsCreated = false,
-                        ContentItem = null,
-                        Message = ThankYouForYourSubmissionMessage
-                    };
-                }
+        private async ValueTask<ContentItemSubmissionResult> DoAddContentItemAsync(
+            ContentItem contentItem,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnAddContentItem(contentItem, inboundEnvelope.SecurityContext);
+            string contentHash = await ComputeContentHashAsync(contentItem.Content);
 
-                ContentItem newContentItem = new ContentItem
-                {
-                    Id = await this.identifierBroker.GetIdentifierAsync(),
-                    ContentTypeId = contentItem.ContentTypeId,
-                    Title = contentItem.Title,
-                    Author = contentItem.Author,
-                    Content = contentItem.Content,
-                    PublishDate = contentItem.PublishDate,
-                    ContentHash = contentHash,
-                    ContentItemGroupId = await this.identifierBroker.GetIdentifierAsync(),
-                    Version = 1,
-                    IsLatestVersion = true,
-                    IsPublished = false,
-                    ApprovalStatus = ApprovalStatus.Draft,
-                    IsDeleted = false
-                };
+            bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
+                contentTypeId: contentItem.ContentTypeId,
+                contentHash: contentHash,
+                cancellationToken: cancellationToken);
 
-                ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
-                    contentItem: newContentItem,
-                    cancellationToken: cancellationToken);
-
+            if (duplicateContentExists)
+            {
                 return new ContentItemSubmissionResult
                 {
-                    IsCreated = true,
-                    ContentItem = addedContentItem,
+                    IsCreated = false,
+                    ContentItem = null,
                     Message = ThankYouForYourSubmissionMessage
                 };
-            });
+            }
+
+            ContentItem newContentItem = new ContentItem
+            {
+                Id = await this.identifierBroker.GetIdentifierAsync(),
+                ContentTypeId = contentItem.ContentTypeId,
+                Title = contentItem.Title,
+                Author = contentItem.Author,
+                Content = contentItem.Content,
+                PublishDate = contentItem.PublishDate,
+                ContentHash = contentHash,
+                ContentItemGroupId = await this.identifierBroker.GetIdentifierAsync(),
+                Version = 1,
+                IsLatestVersion = true,
+                IsPublished = false,
+                ApprovalStatus = ApprovalStatus.Draft,
+                IsDeleted = false
+            };
+
+            ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
+                contentItem: newContentItem,
+                cancellationToken: cancellationToken);
+
+            return new ContentItemSubmissionResult
+            {
+                IsCreated = true,
+                ContentItem = addedContentItem,
+                Message = ThankYouForYourSubmissionMessage
+            };
+        }
 
         private async ValueTask<bool> CheckDuplicateContentExistsAsync(
             Guid contentTypeId,

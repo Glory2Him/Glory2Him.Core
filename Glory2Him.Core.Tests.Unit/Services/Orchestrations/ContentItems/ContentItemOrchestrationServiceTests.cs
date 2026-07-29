@@ -18,7 +18,8 @@ using System.Text.RegularExpressions;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
-using Glory2Him.Core.Brokers.Securities;
+using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -32,25 +33,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         private readonly Mock<IContentItemService> contentItemServiceMock;
-        private readonly Mock<ISecurityBroker> securityBrokerMock;
         private readonly Mock<IHashBroker> hashBrokerMock;
         private readonly Mock<IIdentifierBroker> identifierBrokerMock;
+        private readonly Mock<IEventEnvelopeFactory> eventEnvelopeFactoryMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
 
         public ContentItemOrchestrationServiceTests()
         {
             this.contentItemServiceMock = new Mock<IContentItemService>();
-            this.securityBrokerMock = new Mock<ISecurityBroker>();
             this.hashBrokerMock = new Mock<IHashBroker>();
             this.identifierBrokerMock = new Mock<IIdentifierBroker>();
+            this.eventEnvelopeFactoryMock = new Mock<IEventEnvelopeFactory>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             this.contentItemOrchestrationService = new ContentItemOrchestrationService(
                 contentItemService: this.contentItemServiceMock.Object,
-                securityBroker: this.securityBrokerMock.Object,
                 hashBroker: this.hashBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
+                eventEnvelopeFactory: this.eventEnvelopeFactoryMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
@@ -112,6 +113,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         private static DateTimeOffset GetRandomDateTimeOffset() =>
             new DateTimeRange(earliestDate: new DateTime()).GetValue();
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
+            };
+
+        private static EventEnvelope<ContentItem> CreateEventEnvelope(
+            ContentItem contentItem,
+            SecurityContext securityContext) =>
+            new EventEnvelope<ContentItem>
+            {
+                Content = contentItem,
+                SecurityContext = securityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
 
         private static IQueryable<ContentItem> CreateRandomContentItems() =>
             CreateContentItemFiller(dateTimeOffset: GetRandomDateTimeOffset())

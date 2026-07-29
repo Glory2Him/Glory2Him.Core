@@ -10,7 +10,8 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Threading.Tasks;
+using System.Linq;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -19,26 +20,25 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService
     {
-        private async ValueTask ValidateOnAddContentItemAsync(ContentItem contentItem)
+        private static void ValidateOnAddContentItem(
+            ContentItem contentItem,
+            SecurityContext securityContext)
         {
-            await ValidateUserIsAllowedToContributeAsync();
-            ValidateContentItemIsNotNull(contentItem);
+            ValidateUserIsAllowedToContribute(securityContext);
             ValidateContentItem(contentItem);
         }
 
-        private async ValueTask ValidateUserIsAllowedToContributeAsync()
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
         {
-            bool isAuthenticated = await this.securityBroker.IsCurrentUserAuthenticatedAsync();
-
-            if (isAuthenticated is false)
+            if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 throw new UnauthorizedContentItemOrchestrationException(
                     message: "The current user is not authenticated.");
             }
 
             bool isBlocked =
-                await this.securityBroker.IsInRoleAsync(Roles.ReadOnly)
-                    || await this.securityBroker.IsInRoleAsync(Roles.ContentItemReadOnly);
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.ContentItemReadOnly);
 
             if (isBlocked)
             {
@@ -52,6 +52,16 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             if (contentItem is null)
             {
                 throw new NullContentItemOrchestrationException(message: "Content item is null.");
+            }
+        }
+
+        private static void ValidateContentItemEventEnvelope(EventEnvelope<ContentItem> envelope)
+        {
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
+            {
+                throw new InvalidContentItemOrchestrationEventException(
+                    message: "Invalid content item submission event. " +
+                        "The event envelope, its content and metadata are required.");
             }
         }
 

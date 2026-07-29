@@ -16,9 +16,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems;
-using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
@@ -35,6 +35,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             string expectedContentHash = ComputeContentHash(inputContentItem.Content);
             Guid contentItemId = Guid.NewGuid();
             Guid contentItemGroupId = Guid.NewGuid();
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
 
             var expectedMappedContentItem = new ContentItem
             {
@@ -62,17 +66,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Message = "Thank you for your submission."
             };
 
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsCurrentUserAuthenticatedAsync())
-                    .ReturnsAsync(true);
-
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsInRoleAsync(Roles.ReadOnly))
-                    .ReturnsAsync(false);
-
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsInRoleAsync(Roles.ContentItemReadOnly))
-                    .ReturnsAsync(false);
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
                 broker.ComputeSha256HashAsync(normalizedContent))
@@ -105,16 +101,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             actualContentItemSubmissionResult.Should().BeEquivalentTo(expectedContentItemSubmissionResult);
             capturedContentItem.Should().BeEquivalentTo(expectedMappedContentItem);
 
-            this.securityBrokerMock.Verify(broker =>
-                broker.IsCurrentUserAuthenticatedAsync(),
-                Times.Once);
-
-            this.securityBrokerMock.Verify(broker =>
-                broker.IsInRoleAsync(Roles.ReadOnly),
-                Times.Once);
-
-            this.securityBrokerMock.Verify(broker =>
-                broker.IsInRoleAsync(Roles.ContentItemReadOnly),
+            this.eventEnvelopeFactoryMock.Verify(factory =>
+                factory.CreateAsync(inputContentItem),
                 Times.Once);
 
             this.hashBrokerMock.Verify(broker =>
@@ -133,7 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            this.securityBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
@@ -155,9 +143,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             string expectedContentHash =
                 "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
 
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsCurrentUserAuthenticatedAsync())
-                    .ReturnsAsync(true);
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
                 broker.ComputeSha256HashAsync("hello world"))
@@ -197,6 +189,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             duplicateContentItem.ContentHash = contentHash;
             duplicateContentItem.IsDeleted = false;
 
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
             var expectedContentItemSubmissionResult = new ContentItemSubmissionResult
             {
                 IsCreated = false,
@@ -204,17 +200,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Message = "Thank you for your submission."
             };
 
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsCurrentUserAuthenticatedAsync())
-                    .ReturnsAsync(true);
-
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsInRoleAsync(Roles.ReadOnly))
-                    .ReturnsAsync(false);
-
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsInRoleAsync(Roles.ContentItemReadOnly))
-                    .ReturnsAsync(false);
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
                 broker.ComputeSha256HashAsync(normalizedContent))
@@ -233,16 +221,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // then
             actualContentItemSubmissionResult.Should().BeEquivalentTo(expectedContentItemSubmissionResult);
 
-            this.securityBrokerMock.Verify(broker =>
-                broker.IsCurrentUserAuthenticatedAsync(),
-                Times.Once);
-
-            this.securityBrokerMock.Verify(broker =>
-                broker.IsInRoleAsync(Roles.ReadOnly),
-                Times.Once);
-
-            this.securityBrokerMock.Verify(broker =>
-                broker.IsInRoleAsync(Roles.ContentItemReadOnly),
+            this.eventEnvelopeFactoryMock.Verify(factory =>
+                factory.CreateAsync(inputContentItem),
                 Times.Once);
 
             this.hashBrokerMock.Verify(broker =>
@@ -257,7 +237,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
-            this.securityBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
@@ -283,9 +263,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             otherContentTypeContentItem.ContentHash = contentHash;
             otherContentTypeContentItem.IsDeleted = false;
 
-            this.securityBrokerMock.Setup(broker =>
-                broker.IsCurrentUserAuthenticatedAsync())
-                    .ReturnsAsync(true);
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
 
             this.hashBrokerMock.Setup(broker =>
                 broker.ComputeSha256HashAsync(normalizedContent))
