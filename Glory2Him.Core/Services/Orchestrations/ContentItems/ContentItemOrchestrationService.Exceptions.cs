@@ -14,7 +14,6 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
-using Glory2Him.Core.Models.Orchestrations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Xeptions;
 
@@ -22,7 +21,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService
     {
-        private delegate ValueTask<ContentItemSubmissionResult> ReturningContentItemSubmissionResultFunction();
+        private delegate ValueTask<ContentItem> ReturningContentItemFunction();
 
         private delegate ValueTask<EventEnvelope<ContentItem>?> ReturningContentItemEventEnvelopeFunction();
 
@@ -70,6 +69,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemOrchestrationException);
             }
+            catch (AlreadyExistsContentItemOrchestrationException alreadyExistsContentItemOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: alreadyExistsContentItemOrchestrationException);
+            }
             catch (ContentItemValidationException contentItemValidationException)
             {
                 throw await CreateAndLogDependencyValidationExceptionAsync(exception: contentItemValidationException);
@@ -101,12 +105,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             }
         }
 
-        private async ValueTask<ContentItemSubmissionResult> TryCatch(
-            ReturningContentItemSubmissionResultFunction returningContentItemSubmissionResultFunction)
+        private async ValueTask<ContentItem> TryCatch(
+            ReturningContentItemFunction returningContentItemFunction)
         {
             try
             {
-                return await returningContentItemSubmissionResultFunction();
+                return await returningContentItemFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
@@ -139,6 +143,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             catch (InvalidContentItemOrchestrationException invalidContentItemOrchestrationException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemOrchestrationException);
+            }
+            catch (AlreadyExistsContentItemOrchestrationException alreadyExistsContentItemOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: alreadyExistsContentItemOrchestrationException);
             }
             catch (ContentItemValidationException contentItemValidationException)
             {

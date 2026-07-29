@@ -9,21 +9,14 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.Core.Models.Foundations.ContentItems;
+using Xeptions;
 
-namespace Glory2Him.Core.Models.Orchestrations.ContentItems
+namespace Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions
 {
-    /// <summary>
-    /// Outcome of a content item submission. When the normalized content duplicates an
-    /// existing non-deleted item of the same content type (design §3.4.2), no record is
-    /// created: <see cref="IsCreated"/> is <c>false</c>, <see cref="ContentItem"/> is
-    /// <c>null</c> and only the polite acknowledgement in <see cref="Message"/> is
-    /// returned — the duplicate is never revealed to the caller.
-    /// </summary>
-    public class ContentItemSubmissionResult
+    public class AlreadyExistsContentItemOrchestrationException : Xeption
     {
-        public bool IsCreated { get; set; }
-        public ContentItem? ContentItem { get; set; }
-        public string Message { get; set; } = string.Empty;
+        public AlreadyExistsContentItemOrchestrationException(string message)
+            : base(message)
+        { }
     }
 }

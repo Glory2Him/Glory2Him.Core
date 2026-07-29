@@ -13,7 +13,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Orchestrations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
@@ -27,20 +26,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentItemEventEnvelope(envelope);
 
-                ContentItemSubmissionResult contentItemSubmissionResult =
+                ContentItem submittedContentItem =
                     await DoSubmitContentItemAsync(
                         contentItem: envelope.Content,
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
-                // duplicate submission: nothing was created and no reply is recorded —
-                // a replayed request lands here too, so the flow is naturally idempotent
-                if (contentItemSubmissionResult.IsCreated is false)
-                    return null;
-
                 return await this.eventEnvelopeFactory.CreateNextAsync(
                     sourceEnvelope: envelope,
-                    content: contentItemSubmissionResult.ContentItem!);
+                    content: submittedContentItem);
             });
     }
 }

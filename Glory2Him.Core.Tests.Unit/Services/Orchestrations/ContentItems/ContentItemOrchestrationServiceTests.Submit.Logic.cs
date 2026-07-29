@@ -18,7 +18,6 @@ using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Orchestrations.ContentItems;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
@@ -58,13 +57,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             };
 
             ContentItem addedContentItem = expectedMappedContentItem.DeepClone();
-
-            var expectedContentItemSubmissionResult = new ContentItemSubmissionResult
-            {
-                IsCreated = true,
-                ContentItem = addedContentItem.DeepClone(),
-                Message = "Thank you for your submission."
-            };
+            ContentItem expectedContentItem = addedContentItem.DeepClone();
 
             this.eventEnvelopeFactoryMock.Setup(factory =>
                 factory.CreateAsync(inputContentItem))
@@ -92,13 +85,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(addedContentItem);
 
             // when
-            ContentItemSubmissionResult actualContentItemSubmissionResult =
+            ContentItem actualContentItem =
                 await this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualContentItemSubmissionResult.Should().BeEquivalentTo(expectedContentItemSubmissionResult);
+            actualContentItem.Should().BeEquivalentTo(expectedContentItem);
             capturedContentItem.Should().BeEquivalentTo(expectedMappedContentItem);
 
             this.eventEnvelopeFactoryMock.Verify(factory =>
@@ -177,74 +170,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldReturnPoliteAcknowledgementWithoutCreatingOnSubmitIfDuplicateContentExistsAsync()
-        {
-            // given
-            ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
-            string normalizedContent = NormalizeContent(inputContentItem.Content);
-            string contentHash = ComputeContentHash(inputContentItem.Content);
-            ContentItem duplicateContentItem = CreateRandomContentItem();
-            duplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            duplicateContentItem.ContentHash = contentHash;
-            duplicateContentItem.IsDeleted = false;
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
-
-            var expectedContentItemSubmissionResult = new ContentItemSubmissionResult
-            {
-                IsCreated = false,
-                ContentItem = null,
-                Message = "Thank you for your submission."
-            };
-
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(inputContentItem))
-                    .ReturnsAsync(inboundEnvelope);
-
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent))
-                    .ReturnsAsync(contentHash);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { duplicateContentItem }.AsQueryable());
-
-            // when
-            ContentItemSubmissionResult actualContentItemSubmissionResult =
-                await this.contentItemOrchestrationService.SubmitContentItemAsync(
-                    inputContentItem,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualContentItemSubmissionResult.Should().BeEquivalentTo(expectedContentItemSubmissionResult);
-
-            this.eventEnvelopeFactoryMock.Verify(factory =>
-                factory.CreateAsync(inputContentItem),
-                Times.Once);
-
-            this.hashBrokerMock.Verify(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
-            this.hashBrokerMock.VerifyNoOtherCalls();
-            this.contentItemServiceMock.VerifyNoOtherCalls();
-            this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
         public async Task ShouldCreateContentItemOnSubmitIfMatchingContentIsDeletedOrOtherContentTypeAsync()
         {
             // given
@@ -284,13 +209,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inputContentItem);
 
             // when
-            ContentItemSubmissionResult actualContentItemSubmissionResult =
+            ContentItem actualContentItem =
                 await this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualContentItemSubmissionResult.IsCreated.Should().BeTrue();
+            actualContentItem.Should().NotBeNull();
 
             this.contentItemServiceMock.Verify(service =>
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),

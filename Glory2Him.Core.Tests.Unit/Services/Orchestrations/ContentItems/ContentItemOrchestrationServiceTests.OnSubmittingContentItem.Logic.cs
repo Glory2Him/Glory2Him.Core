@@ -104,58 +104,5 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReplyNullWithoutCreatingOnSubmittingContentItemEventIfDuplicateContentExistsAsync()
-        {
-            // given
-            ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
-            string normalizedContent = NormalizeContent(inputContentItem.Content);
-            string contentHash = ComputeContentHash(inputContentItem.Content);
-            ContentItem duplicateContentItem = CreateRandomContentItem();
-            duplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            duplicateContentItem.ContentHash = contentHash;
-            duplicateContentItem.IsDeleted = false;
-
-            EventEnvelope<ContentItem> requestEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
-
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent))
-                    .ReturnsAsync(contentHash);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { duplicateContentItem }.AsQueryable());
-
-            // when
-            EventEnvelope<ContentItem>? actualReplyEnvelope =
-                await this.contentItemOrchestrationService.OnSubmittingContentItemAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
-
-            // then: nothing created, no reply — a replayed submission lands here too,
-            // so the duplicate-content rule makes the event path naturally idempotent
-            actualReplyEnvelope.Should().BeNull();
-
-            this.hashBrokerMock.Verify(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
-            this.hashBrokerMock.VerifyNoOtherCalls();
-            this.contentItemServiceMock.VerifyNoOtherCalls();
-            this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
     }
 }

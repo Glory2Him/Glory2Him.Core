@@ -20,15 +20,13 @@ using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Orchestrations.ContentItems;
+using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService : IContentItemOrchestrationService
     {
-        private const string ThankYouForYourSubmissionMessage = "Thank you for your submission.";
-
         private readonly IContentItemService contentItemService;
         private readonly IHashBroker hashBroker;
         private readonly IIdentifierBroker identifierBroker;
@@ -49,7 +47,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             this.loggingBroker = loggingBroker;
         }
 
-        public ValueTask<ContentItemSubmissionResult> SubmitContentItemAsync(
+        public ValueTask<ContentItem> SubmitContentItemAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -66,7 +64,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
-        private async ValueTask<ContentItemSubmissionResult> DoSubmitContentItemAsync(
+        private async ValueTask<ContentItem> DoSubmitContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
@@ -81,12 +79,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
             if (duplicateContentExists)
             {
-                return new ContentItemSubmissionResult
-                {
-                    IsCreated = false,
-                    ContentItem = null,
-                    Message = ThankYouForYourSubmissionMessage
-                };
+                throw new AlreadyExistsContentItemOrchestrationException(
+                    message: "Content item already exists with the same content.");
             }
 
             ContentItem newContentItem = new ContentItem
@@ -106,16 +100,9 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 IsDeleted = false
             };
 
-            ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
+            return await this.contentItemService.AddContentItemAsync(
                 contentItem: newContentItem,
                 cancellationToken: cancellationToken);
-
-            return new ContentItemSubmissionResult
-            {
-                IsCreated = true,
-                ContentItem = addedContentItem,
-                Message = ThankYouForYourSubmissionMessage
-            };
         }
 
         private async ValueTask<bool> CheckDuplicateContentExistsAsync(

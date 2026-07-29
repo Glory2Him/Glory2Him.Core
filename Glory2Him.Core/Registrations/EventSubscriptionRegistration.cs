@@ -283,7 +283,7 @@ namespace Glory2Him.Core.Registrations
                     Description = "Handles submit requests: runs the contribution gate and the " +
                         "duplicate-content rule, adds the content item via the foundation " +
                         "service (which publishes ContentItem-Added), and replies with the " +
-                        "created entity; duplicate submissions reply null."
+                        "created entity; duplicate submissions fail as already existing."
                 },
                 operation: ContentItemSubmissionEventOperation.Submitting,
                 contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnSubmittingContentItemAsync,

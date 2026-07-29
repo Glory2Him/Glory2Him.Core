@@ -16,7 +16,6 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Orchestrations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Moq;
 using Xeptions;
@@ -61,7 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(dependencyValidationException);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
@@ -118,7 +117,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(dependencyException);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
@@ -182,7 +181,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
@@ -213,7 +212,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             await cancellationTokenSource.CancelAsync();
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     cancellationTokenSource.Token);
@@ -252,7 +251,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);

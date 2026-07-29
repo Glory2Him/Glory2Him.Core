@@ -10,11 +10,12 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Orchestrations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -48,7 +49,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
@@ -105,7 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
@@ -149,7 +150,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: nullContentItemOrchestrationException);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     nullContentItem,
                     TestContext.Current.CancellationToken);
@@ -214,7 +215,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItemSubmissionResult> submitContentItemTask =
+            ValueTask<ContentItem> submitContentItemTask =
                 this.contentItemOrchestrationService.SubmitContentItemAsync(
                     invalidContentItem,
                     TestContext.Current.CancellationToken);
@@ -232,6 +233,86 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
+            this.hashBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnSubmitIfDuplicateContentExistsAndLogItAsync()
+        {
+            // given
+            ContentItem randomContentItem = CreateRandomContentItem();
+            ContentItem inputContentItem = randomContentItem;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string contentHash = ComputeContentHash(inputContentItem.Content);
+            ContentItem duplicateContentItem = CreateRandomContentItem();
+            duplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
+            duplicateContentItem.ContentHash = contentHash;
+            duplicateContentItem.IsDeleted = false;
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            var alreadyExistsContentItemOrchestrationException =
+                new AlreadyExistsContentItemOrchestrationException(
+                    message: "Content item already exists with the same content.");
+
+            var expectedContentItemOrchestrationValidationException =
+                new ContentItemOrchestrationValidationException(
+                    message: "Content item orchestration validation error occurred, fix the errors and try again.",
+                    innerException: alreadyExistsContentItemOrchestrationException);
+
+            this.eventEnvelopeFactoryMock.Setup(factory =>
+                factory.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(contentHash);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new[] { duplicateContentItem }.AsQueryable());
+
+            // when
+            ValueTask<ContentItem> submitContentItemTask =
+                this.contentItemOrchestrationService.SubmitContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
+                await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
+                    submitContentItemTask.AsTask);
+
+            // then
+            actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
+                expectedContentItemOrchestrationValidationException);
+
+            this.eventEnvelopeFactoryMock.Verify(factory =>
+                factory.CreateAsync(inputContentItem),
+                Times.Once);
+
+            this.hashBrokerMock.Verify(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent),
+                Times.Once);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemOrchestrationValidationException))),
+                Times.Once);
+
+            this.eventEnvelopeFactoryMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
