@@ -26,6 +26,25 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
             {
                 return await returningObjectFunction();
             }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutEventEnvelopeException =
+                    new TimeoutEventEnvelopeException(
+                        message: "Failed event envelope timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutEventEnvelopeException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (InvalidArgumentEventEnvelopeException invalidArgumentEventEnvelopeException)
             {
                 throw await CreateAndLogValidationExceptionAsync(
@@ -51,6 +70,17 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
                     innerException: exception);
 
             return eventEnvelopeValidationException;
+        }
+
+        private async ValueTask<EventEnvelopeDependencyException> CreateAndLogTimeoutDependencyExceptionAsync(
+            Xeption exception)
+        {
+            var eventEnvelopeDependencyException =
+                new EventEnvelopeDependencyException(
+                    message: "Event envelope dependency error occurred, contact support.",
+                    innerException: exception);
+
+            return eventEnvelopeDependencyException;
         }
 
         private async ValueTask<EventEnvelopeServiceException> CreateAndLogServiceExceptionAsync(

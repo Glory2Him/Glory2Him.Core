@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Threading;
 using System.Threading.Tasks;
 using G2H.EventEnvelope.Client.Models.Foundations;
 
@@ -27,7 +28,9 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
         /// Used by the non-event path to convert an incoming object into the envelope
         /// currency before calling the shared do-work methods.
         /// </summary>
-        ValueTask<EventEnvelope<T>> CreateAsync<T>(T content);
+        ValueTask<EventEnvelope<T>> CreateAsync<T>(
+            T content,
+            CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Creates the next envelope in a causation chain: fresh event identifier,
@@ -37,6 +40,7 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
         /// </summary>
         ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
             EventEnvelope<TSource> sourceEnvelope,
-            T content);
+            T content,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.EventEnvelope.Client.Models.Foundations;
@@ -27,7 +28,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
             EventEnvelope<string> expectedEventEnvelope = randomEventEnvelope;
 
             this.eventEnvelopeServiceMock.Setup(service =>
-                service.CreateAsync(randomContent))
+                service.CreateAsync(randomContent, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(randomEventEnvelope);
 
             // when
@@ -38,7 +39,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
             actualEventEnvelope.Should().BeEquivalentTo(expectedEventEnvelope);
 
             this.eventEnvelopeServiceMock.Verify(service =>
-                service.CreateAsync(randomContent),
+                service.CreateAsync(randomContent, It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.eventEnvelopeServiceMock.VerifyNoOtherCalls();

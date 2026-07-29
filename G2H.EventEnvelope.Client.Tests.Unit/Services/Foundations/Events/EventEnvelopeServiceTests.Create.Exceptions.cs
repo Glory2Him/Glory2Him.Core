@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.EventEnvelope.Client.Models.Foundations;
@@ -101,6 +102,70 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
             this.securityBrokerMock.Verify(broker =>
                 broker.GetCurrentSecurityContextAsync(),
                     Times.Once);
+
+            this.securityBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowDependencyExceptionOnCreateIfOperationCanceledExceptionOccursAndLogItAsync()
+        {
+            // given
+            string someContent = GetRandomString();
+            var operationCanceledException = new OperationCanceledException();
+
+            var timeoutException =
+                new TimeoutException("The dependency operation timed out.");
+
+            var timeoutEventEnvelopeException =
+                new TimeoutEventEnvelopeException(
+                    message: "Failed event envelope timeout error occurred, contact support.",
+                    innerException: timeoutException,
+                    data: timeoutException.Data);
+
+            var expectedEventEnvelopeDependencyException =
+                new EventEnvelopeDependencyException(
+                    message: "Event envelope dependency error occurred, contact support.",
+                    innerException: timeoutEventEnvelopeException);
+
+            this.securityBrokerMock.Setup(broker =>
+                broker.GetCurrentSecurityContextAsync())
+                    .Throws(operationCanceledException);
+
+            // when
+            ValueTask<EventEnvelope<string>> createTask =
+                this.eventEnvelopeService.CreateAsync(someContent);
+
+            EventEnvelopeDependencyException actualEventEnvelopeDependencyException =
+                await Assert.ThrowsAsync<EventEnvelopeDependencyException>(createTask.AsTask);
+
+            // then
+            actualEventEnvelopeDependencyException.Should()
+                .BeEquivalentTo(expectedEventEnvelopeDependencyException);
+
+            this.securityBrokerMock.Verify(broker =>
+                broker.GetCurrentSecurityContextAsync(),
+                    Times.Once);
+
+            this.securityBrokerMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnCreateIfCancellationRequestedAsync()
+        {
+            // given
+            string someContent = GetRandomString();
+            var cancellationToken = new CancellationToken(canceled: true);
+
+            // when
+            ValueTask<EventEnvelope<string>> createTask =
+                this.eventEnvelopeService.CreateAsync(someContent, cancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(createTask.AsTask);
 
             this.securityBrokerMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();

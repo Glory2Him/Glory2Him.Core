@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using G2H.EventEnvelope.Client.Brokers.DateTimes;
 using G2H.EventEnvelope.Client.Brokers.Identifiers;
@@ -34,9 +35,12 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
             this.securityBroker = securityBroker;
         }
 
-        public ValueTask<EventEnvelope<T>> CreateAsync<T>(T content) =>
+        public ValueTask<EventEnvelope<T>> CreateAsync<T>(
+            T content,
+            CancellationToken cancellationToken = default) =>
         TryCatch(async () =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ValidateOnCreate(content);
 
             EventSecurityContext securityContext =
@@ -70,9 +74,11 @@ namespace G2H.EventEnvelope.Client.Services.Foundations.Events
 
         public ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
             EventEnvelope<TSource> sourceEnvelope,
-            T content) =>
+            T content,
+            CancellationToken cancellationToken = default) =>
         TryCatch(async () =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
             ValidateOnCreateNext(sourceEnvelope, content);
             Guid eventId = await this.identifierBroker.GetIdentifierAsync();
 

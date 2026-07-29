@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using G2H.EventEnvelope.Client.Brokers.DateTimes;
 using G2H.EventEnvelope.Client.Brokers.Identifiers;
@@ -39,11 +40,17 @@ namespace G2H.EventEnvelope.Client.Clients
             this.eventEnvelopeService = eventEnvelopeService;
         }
 
-        public async ValueTask<EventEnvelope<T>> CreateAsync<T>(T content)
+        public async ValueTask<EventEnvelope<T>> CreateAsync<T>(
+            T content,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                return await this.eventEnvelopeService.CreateAsync(content);
+                return await this.eventEnvelopeService.CreateAsync(content, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (EventEnvelopeValidationException eventEnvelopeValidationException)
             {
@@ -73,11 +80,19 @@ namespace G2H.EventEnvelope.Client.Clients
 
         public async ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
             EventEnvelope<TSource> sourceEnvelope,
-            T content)
+            T content,
+            CancellationToken cancellationToken = default)
         {
             try
             {
-                return await this.eventEnvelopeService.CreateNextAsync(sourceEnvelope, content);
+                return await this.eventEnvelopeService.CreateNextAsync(
+                    sourceEnvelope,
+                    content,
+                    cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (EventEnvelopeValidationException eventEnvelopeValidationException)
             {

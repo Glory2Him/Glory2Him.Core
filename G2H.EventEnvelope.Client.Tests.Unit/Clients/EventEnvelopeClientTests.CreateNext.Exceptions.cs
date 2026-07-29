@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.EventEnvelope.Client.Models.Clients.Exceptions;
@@ -37,7 +38,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
                     data: validationException.InnerException?.Data!);
 
             this.eventEnvelopeServiceMock.Setup(service =>
-                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>()))
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                     .Throws(validationException);
 
             // when
@@ -52,7 +53,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
                 .BeEquivalentTo(expectedEventEnvelopeClientValidationException);
 
             this.eventEnvelopeServiceMock.Verify(service =>
-                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>()),
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.eventEnvelopeServiceMock.VerifyNoOtherCalls();
@@ -74,7 +75,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
                     data: dependencyException.InnerException?.Data!);
 
             this.eventEnvelopeServiceMock.Setup(service =>
-                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>()))
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                     .Throws(dependencyException);
 
             // when
@@ -89,7 +90,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
                 .BeEquivalentTo(expectedEventEnvelopeClientDependencyException);
 
             this.eventEnvelopeServiceMock.Verify(service =>
-                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>()),
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.eventEnvelopeServiceMock.VerifyNoOtherCalls();
@@ -110,7 +111,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
                     data: serviceException.Data);
 
             this.eventEnvelopeServiceMock.Setup(service =>
-                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>()))
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                     .Throws(serviceException);
 
             // when
@@ -125,7 +126,33 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
                 .BeEquivalentTo(expectedEventEnvelopeClientServiceException);
 
             this.eventEnvelopeServiceMock.Verify(service =>
-                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>()),
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                    Times.Once);
+
+            this.eventEnvelopeServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnCreateNextIfCancellationRequestedAsync()
+        {
+            // given
+            EventEnvelope<string> someSourceEnvelope = CreateRandomEventEnvelope();
+            string someContent = GetRandomString();
+            var operationCanceledException = new OperationCanceledException();
+
+            this.eventEnvelopeServiceMock.Setup(service =>
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                    .Throws(operationCanceledException);
+
+            // when
+            ValueTask<EventEnvelope<string>> createNextTask =
+                this.eventEnvelopeClient.CreateNextAsync(someSourceEnvelope, someContent);
+
+            // then: cancellation is never wrapped in a client exception
+            await Assert.ThrowsAsync<OperationCanceledException>(createNextTask.AsTask);
+
+            this.eventEnvelopeServiceMock.Verify(service =>
+                service.CreateNextAsync(It.IsAny<EventEnvelope<string>>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.eventEnvelopeServiceMock.VerifyNoOtherCalls();
