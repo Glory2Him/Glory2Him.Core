@@ -54,8 +54,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
-            this.eventEnvelopeFactoryMock.Verify(factory =>
-                factory.CreateNextAsync(requestEnvelope, storageContentItemAssociation),
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(requestEnvelope, storageContentItemAssociation),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

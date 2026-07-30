@@ -21,7 +21,7 @@ using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -40,7 +40,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         private readonly Mock<IDateTimeBroker> dateTimeBrokerMock;
         private readonly Mock<IIdentifierBroker> identifierBrokerMock;
         private readonly Mock<IEventBroker> eventBrokerMock;
-        private readonly Mock<IEventEnvelopeFactory> eventEnvelopeFactoryMock;
+        private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemService contentItemService;
@@ -51,12 +51,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.dateTimeBrokerMock = new Mock<IDateTimeBroker>();
             this.identifierBrokerMock = new Mock<IIdentifierBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
-            this.eventEnvelopeFactoryMock = new Mock<IEventEnvelopeFactory>();
+            this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateAsync(It.IsAny<ContentItem>()))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.IsAny<ContentItem>()))
                     .Returns((ContentItem content) =>
                         new ValueTask<EventEnvelope<ContentItem>>(
                             new EventEnvelope<ContentItem>
@@ -65,8 +65,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateNextAsync(
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(
                     It.IsAny<EventEnvelope<ContentItem>>(),
                     It.IsAny<ContentItem>()))
                         .Returns((EventEnvelope<ContentItem> sourceEnvelope, ContentItem content) =>
@@ -82,7 +82,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
                 eventBroker: this.eventBrokerMock.Object,
-                eventEnvelopeFactory: this.eventEnvelopeFactoryMock.Object,
+                eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }

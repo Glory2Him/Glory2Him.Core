@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class ContentItemAssociationService
+    internal partial class ContentItemAssociationService
     {
         public ValueTask<EventEnvelope<ContentItemAssociation>?> OnAddingContentItemAssociationAsync(
             EventEnvelope<ContentItemAssociation> envelope,
@@ -56,7 +56,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedContentItemAssociation);
             });
@@ -84,7 +84,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedContentItemAssociation);
             });
@@ -113,7 +113,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedContentItemAssociation);
             });
@@ -141,7 +141,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedContentItemAssociation);
             });
@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                         contentItemAssociationId: envelope.Content.Id,
                         cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedContentItemAssociation);
             });

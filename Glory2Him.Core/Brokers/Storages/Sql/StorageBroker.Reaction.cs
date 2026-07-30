@@ -14,13 +14,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using EFxceptions;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Microsoft.EntityFrameworkCore;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial class StorageBroker : EFxceptionsContext, IStorageBroker
+    internal partial class StorageBroker
     {
         public DbSet<Reaction> Reactions { get; set; }
 

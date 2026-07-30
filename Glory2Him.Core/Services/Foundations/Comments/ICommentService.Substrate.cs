@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface ICommentService
+    internal partial interface ICommentService
     {
         ValueTask<EventEnvelope<Comment>?> OnAddingCommentAsync(
             EventEnvelope<Comment> envelope,

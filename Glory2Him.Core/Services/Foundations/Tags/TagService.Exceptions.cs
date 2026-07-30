@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
-    public partial class TagService
+    internal partial class TagService
     {
         private delegate ValueTask<Tag> ReturningTagFunction();
         private delegate ValueTask<IQueryable<Tag>> ReturningTagsFunction();

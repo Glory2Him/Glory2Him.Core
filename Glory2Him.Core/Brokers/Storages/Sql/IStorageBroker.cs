@@ -11,6 +11,6 @@
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial interface IStorageBroker
+    internal partial interface IStorageBroker
     { }
 }

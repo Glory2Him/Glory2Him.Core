@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class BibleReferenceService
+    internal partial class BibleReferenceService
     {
         public ValueTask<EventEnvelope<BibleReference>?> OnAddingBibleReferenceAsync(
             EventEnvelope<BibleReference> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedBibleReference);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedBibleReference);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedBibleReference);
             });
@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedBibleReference);
             });
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     bibleReferenceId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedBibleReference);
             });

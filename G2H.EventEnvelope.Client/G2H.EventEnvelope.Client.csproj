@@ -1,0 +1,73 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Title>G2H.EventEnvelope.Client</Title>
+		<Authors>Christo du Toit</Authors>
+		<Description>
+			A Standard-compliant client that wraps event envelope functionality.
+		</Description>
+		<Copyright>Copyright (c) 2025 Intelligence Solutions for London</Copyright>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+		<PackageIcon>Glory2Him-Square.png</PackageIcon>
+		<Version>1.0.0.0</Version>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<FileVersion>1.0.0.0</FileVersion>
+		<NeutralLanguage>en-US</NeutralLanguage>
+		<PackageLicenseExpression></PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/Glory2Him/G2H.EventEnvelope.Client</PackageProjectUrl>
+		<PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/Glory2Him/G2H.EventEnvelope.Client</RepositoryUrl>
+		<RepositoryType>Github</RepositoryType>
+		<PackageTags> C#, The Standard, Client, Events, Authentication, Authorization, Security, Identity, Claims </PackageTags>
+		<PackageReleaseNotes>
+			v1.0.0 — Initial release.
+		</PackageReleaseNotes>
+		<NoWarn>CS1998,CS8632</NoWarn>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Content Include="..\LICENSE.txt">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</Content>
+		<Content Include="..\README.md">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</Content>
+		<None Include="..\Resources\Images\Glory2Him-Square.png">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+			<Pack>True</Pack>
+			<PackagePath></PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.11" />
+		<PackageReference Include="Microsoft.AspNetCore.Http" Version="2.3.0" />
+		<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.22.0" />
+		<PackageReference Include="Xeption" Version="2.9.0" />
+		<PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.10" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="G2H.EventEnvelope.Client.Tests.Unit" />
+		<InternalsVisibleTo Include="G2H.EventEnvelope.Client.Tests.Acceptance" />
+		<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Clients\SecurityClients\G2H.Security.Client\G2H.Security.Client.csproj" />
+	</ItemGroup>
+
+</Project>

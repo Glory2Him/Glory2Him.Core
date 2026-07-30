@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
 {
-    public partial class ApprovalSettingPublisherRoleService
+    internal partial class ApprovalSettingPublisherRoleService
     {
         private delegate ValueTask<ApprovalSettingPublisherRole> ReturningApprovalSettingPublisherRoleFunction();
         private delegate ValueTask<IQueryable<ApprovalSettingPublisherRole>> ReturningApprovalSettingPublisherRolesFunction();

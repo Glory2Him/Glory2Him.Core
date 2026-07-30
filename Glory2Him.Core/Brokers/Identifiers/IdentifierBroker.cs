@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Glory2Him.Core.Brokers.Identifiers
 {
-    public class IdentifierBroker : IIdentifierBroker
+    internal class IdentifierBroker : IIdentifierBroker
     {
         public async ValueTask<Guid> GetIdentifierAsync() =>
             Guid.CreateVersion7();

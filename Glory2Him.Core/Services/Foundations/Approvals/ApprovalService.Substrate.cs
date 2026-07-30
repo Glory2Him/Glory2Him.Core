@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class ApprovalService
+    internal partial class ApprovalService
     {
         public ValueTask<EventEnvelope<Approval>?> OnAddingApprovalAsync(
             EventEnvelope<Approval> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedApproval);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedApproval);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedApproval);
             });
@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedApproval);
             });
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     approvalId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedApproval);
             });

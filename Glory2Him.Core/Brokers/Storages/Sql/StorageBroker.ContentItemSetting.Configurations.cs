@@ -15,7 +15,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial class StorageBroker
+    internal partial class StorageBroker
     {
         private static void AddContentItemSettingConfigurations(EntityTypeBuilder<ContentItemSetting> model)
         {

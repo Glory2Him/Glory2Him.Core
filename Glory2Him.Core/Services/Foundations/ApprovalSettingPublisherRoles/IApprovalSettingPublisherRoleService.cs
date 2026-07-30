@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
 {
-    public partial interface IApprovalSettingPublisherRoleService
+    internal partial interface IApprovalSettingPublisherRoleService
     {
         ValueTask<ApprovalSettingPublisherRole> AddApprovalSettingPublisherRoleAsync(
             ApprovalSettingPublisherRole approvalSettingPublisherRole,

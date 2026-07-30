@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Brokers.Securities
     /// Provides security-related functionalities such as user authentication, claim verification, and role checks.
     /// Supports both REST API (using <see cref="IHttpContextAccessor"/>) and Azure Functions (using access token).
     /// </summary>
-    public class SecurityBroker : ISecurityBroker
+    internal class SecurityBroker : ISecurityBroker
     {
         private readonly ClaimsPrincipal claimsPrincipal;
         private readonly ISecurityClient securityClient;

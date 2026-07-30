@@ -48,6 +48,8 @@ using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Events.Orchestrations;
+using Glory2Him.Core.Services.Orchestrations.ContentItems;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -69,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IApprovalSettingPublisherRoleService> approvalSettingPublisherRoleServiceMock;
         private readonly Mock<IContentItemAssociationService> contentItemAssociationServiceMock;
         private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
+        private readonly Mock<IContentItemOrchestrationService> contentItemOrchestrationServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -89,6 +92,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.approvalSettingPublisherRoleServiceMock = new Mock<IApprovalSettingPublisherRoleService>();
             this.contentItemAssociationServiceMock = new Mock<IContentItemAssociationService>();
             this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
+            this.contentItemOrchestrationServiceMock = new Mock<IContentItemOrchestrationService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
@@ -106,7 +110,28 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 approvalSettingReviewerRoleService: this.approvalSettingReviewerRoleServiceMock.Object,
                 approvalSettingPublisherRoleService: this.approvalSettingPublisherRoleServiceMock.Object,
                 contentItemAssociationService: this.contentItemAssociationServiceMock.Object,
-                contentItemSettingService: this.contentItemSettingServiceMock.Object);
+                contentItemSettingService: this.contentItemSettingServiceMock.Object,
+                contentItemOrchestrationService: this.contentItemOrchestrationServiceMock.Object);
+        }
+
+        private void VerifyContentItemSubmissionSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ContentItemSubmissionEventOperation expectedOperation,
+            Func<EventEnvelope<ContentItem>, CancellationToken,
+                ValueTask<EventEnvelope<ContentItem>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToContentItemSubmissionEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
+                        ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         private void VerifyContentTypeSubscription(
@@ -1031,10 +1056,20 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.contentItemSettingServiceMock.Object.OnRetrievingContentItemSettingByIdAsync);
 
+            VerifyContentItemSubmissionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionName,
+                expectedOperation: ContentItemSubmissionEventOperation.Submitting,
+                expectedHandler:
+                    this.contentItemOrchestrationServiceMock.Object.OnSubmittingContentItemAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();
+            this.contentItemOrchestrationServiceMock.VerifyNoOtherCalls();
         }
     }
 }

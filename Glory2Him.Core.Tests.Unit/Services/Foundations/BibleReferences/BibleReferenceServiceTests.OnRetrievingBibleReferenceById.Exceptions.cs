@@ -180,8 +180,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageBibleReference);
 
-            this.eventEnvelopeFactoryMock.Setup(factory =>
-                factory.CreateNextAsync(requestEnvelope, storageBibleReference))
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(requestEnvelope, storageBibleReference))
                     .ThrowsAsync(serviceException);
 
             // when

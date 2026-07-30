@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemAssociations.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
 {
-    public partial class ContentItemAssociationService
+    internal partial class ContentItemAssociationService
     {
         private async ValueTask ValidateOnAddContentItemAssociationAsync(
             ContentItemAssociation contentItemAssociation,

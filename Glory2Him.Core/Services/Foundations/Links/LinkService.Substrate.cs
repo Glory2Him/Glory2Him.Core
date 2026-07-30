@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class LinkService
+    internal partial class LinkService
     {
         public ValueTask<EventEnvelope<Link>?> OnAddingLinkAsync(
             EventEnvelope<Link> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedLink);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedLink);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedLink);
             });
@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedLink);
             });
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     linkId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedLink);
             });

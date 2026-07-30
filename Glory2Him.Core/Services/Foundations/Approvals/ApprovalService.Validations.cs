@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Approvals
 {
-    public partial class ApprovalService
+    internal partial class ApprovalService
     {
         private async ValueTask ValidateOnAddApprovalAsync(
             Approval approval,

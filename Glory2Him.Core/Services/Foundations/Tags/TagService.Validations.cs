@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
-    public partial class TagService
+    internal partial class TagService
     {
         private async ValueTask ValidateOnAddTagAsync(
             Tag tag,

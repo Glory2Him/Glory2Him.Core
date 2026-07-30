@@ -22,7 +22,7 @@ using Xeptions;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 {
-    public partial class ApprovalCommentService
+    internal partial class ApprovalCommentService
     {
         private delegate ValueTask<ApprovalComment> ReturningApprovalCommentFunction();
         private delegate ValueTask<IQueryable<ApprovalComment>> ReturningApprovalCommentsFunction();

@@ -18,7 +18,7 @@ using Glory2Him.Core.Models.Foundations.Attachments;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial interface IStorageBroker
+    internal partial interface IStorageBroker
     {
         ValueTask<Attachment> InsertAttachmentAsync(
             Attachment attachment,

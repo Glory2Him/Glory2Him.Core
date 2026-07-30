@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Glory2Him.Core.Brokers.Loggings
 {
-    public interface ILoggingBroker
+    internal interface ILoggingBroker
     {
         ValueTask LogInformationAsync(string message);
         ValueTask LogTraceAsync(string message);

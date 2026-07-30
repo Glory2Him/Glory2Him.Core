@@ -15,21 +15,23 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Services.Foundations.Approvals;
-using Glory2Him.Core.Services.Foundations.ContentItems;
-using Glory2Him.Core.Services.Foundations.ContentTypes;
-using Glory2Him.Core.Services.Foundations.BibleReferences;
-using Glory2Him.Core.Services.Foundations.Tags;
-using Glory2Him.Core.Services.Foundations.Links;
-using Glory2Him.Core.Services.Foundations.Reactions;
-using Glory2Him.Core.Services.Foundations.Comments;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
-using Glory2Him.Core.Services.Foundations.ApprovalSettings;
-using Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.BibleReferences;
+using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Services.Foundations.ContentTypes;
+using Glory2Him.Core.Services.Foundations.Links;
+using Glory2Him.Core.Services.Foundations.Reactions;
+using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Orchestrations.ContentItems;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -58,7 +60,7 @@ namespace Glory2Him.Core.Registrations
     /// <c>EventHighwayConnectionString</c> connection string; the event store schema is
     /// created and migrated automatically on first use.
     /// </remarks>
-    public class EventSubscriptionRegistration : IEventSubscriptionRegistration
+    internal class EventSubscriptionRegistration : IEventSubscriptionRegistration
     {
         private readonly IEventBroker eventBroker;
         private readonly IContentTypeService contentTypeService;
@@ -76,6 +78,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalSettingPublisherRoleService approvalSettingPublisherRoleService;
         private readonly IContentItemAssociationService contentItemAssociationService;
         private readonly IContentItemSettingService contentItemSettingService;
+        private readonly IContentItemOrchestrationService contentItemOrchestrationService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -93,7 +96,8 @@ namespace Glory2Him.Core.Registrations
             IApprovalSettingReviewerRoleService approvalSettingReviewerRoleService,
             IApprovalSettingPublisherRoleService approvalSettingPublisherRoleService,
             IContentItemAssociationService contentItemAssociationService,
-            IContentItemSettingService contentItemSettingService)
+            IContentItemSettingService contentItemSettingService,
+            IContentItemOrchestrationService contentItemOrchestrationService)
         {
             this.eventBroker = eventBroker;
             this.contentTypeService = contentTypeService;
@@ -111,6 +115,7 @@ namespace Glory2Him.Core.Registrations
             this.approvalSettingPublisherRoleService = approvalSettingPublisherRoleService;
             this.contentItemAssociationService = contentItemAssociationService;
             this.contentItemSettingService = contentItemSettingService;
+            this.contentItemOrchestrationService = contentItemOrchestrationService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -266,6 +271,22 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemEventOperation.RetrievingById,
                 contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── ContentItem orchestration request handlers ───────────────────────
+            await this.eventBroker.SubscribeToContentItemSubmissionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionName,
+
+                    Description = "Handles submit requests: runs the contribution gate and the " +
+                        "duplicate-content rule, adds the content item via the foundation " +
+                        "service (which publishes ContentItem-Added), and replies with the " +
+                        "created entity; duplicate submissions fail as already existing."
+                },
+                operation: ContentItemSubmissionEventOperation.Submitting,
+                contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnSubmittingContentItemAsync,
                 cancellationToken: cancellationToken);
 
             // ── Approval request handlers ────────────────────────────────────────

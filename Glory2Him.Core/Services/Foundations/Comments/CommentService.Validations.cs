@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Comments
 {
-    public partial class CommentService
+    internal partial class CommentService
     {
         private async ValueTask ValidateOnAddCommentAsync(
             Comment comment,

@@ -46,6 +46,7 @@ namespace Glory2Him.Core.Models.Configurations
                 BibleReferenceEventAddresses,
                 CommentEventAddresses,
                 ContentItemEventAddresses,
+                ContentItemSubmissionEventAddresses,
                 ContentItemAssociationEventAddresses,
                 ContentItemSettingEventAddresses,
                 ContentTypeEventAddresses,

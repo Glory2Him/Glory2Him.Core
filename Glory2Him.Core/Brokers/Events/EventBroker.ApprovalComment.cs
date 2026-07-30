@@ -19,7 +19,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalComments;
 
 namespace Glory2Him.Core.Brokers.Events
 {
-    public partial class EventBroker
+    internal partial class EventBroker
     {
         public ValueTask<EventPublishResult<ApprovalComment>> PublishApprovalCommentAsync(
             EventEnvelope<ApprovalComment> envelope,

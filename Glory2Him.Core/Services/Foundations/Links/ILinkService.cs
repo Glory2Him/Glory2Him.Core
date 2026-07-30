@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Links;
 
 namespace Glory2Him.Core.Services.Foundations.Links
 {
-    public partial interface ILinkService
+    internal partial interface ILinkService
     {
         ValueTask<Link> AddLinkAsync(
             Link link,

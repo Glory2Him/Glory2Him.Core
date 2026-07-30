@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 {
-    public partial class ContentItemSettingService
+    internal partial class ContentItemSettingService
     {
         private async ValueTask ValidateOnAddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,

@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
 {
-    public partial class ApprovalSettingPublisherRoleService
+    internal partial class ApprovalSettingPublisherRoleService
     {
         private async ValueTask ValidateOnAddApprovalSettingPublisherRoleAsync(
             ApprovalSettingPublisherRole approvalSettingPublisherRole,

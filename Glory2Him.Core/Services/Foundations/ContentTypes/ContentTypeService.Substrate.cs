@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
     /// are categorized into the service's typed exceptions and rethrown so the substrate
     /// records the delivery as <c>Error</c> and drives retries; they are never swallowed.
     /// </summary>
-    public partial class ContentTypeService
+    internal partial class ContentTypeService
     {
         public ValueTask<EventEnvelope<ContentType>?> OnAddingContentTypeAsync(
             EventEnvelope<ContentType> envelope,
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: addedContentType);
             });
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: modifiedContentType);
             });
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: removedContentType);
             });
@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: deletedContentType);
             });
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     contentTypeId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeFactory.CreateNextAsync(
+                return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedContentType);
             });

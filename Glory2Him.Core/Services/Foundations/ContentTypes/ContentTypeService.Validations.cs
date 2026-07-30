@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
-    public partial class ContentTypeService
+    internal partial class ContentTypeService
     {
         private async ValueTask ValidateOnAddContentTypeAsync(
             ContentType contentType,

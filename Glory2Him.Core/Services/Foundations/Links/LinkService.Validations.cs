@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Links
 {
-    public partial class LinkService
+    internal partial class LinkService
     {
         private async ValueTask ValidateOnAddLinkAsync(
             Link link,

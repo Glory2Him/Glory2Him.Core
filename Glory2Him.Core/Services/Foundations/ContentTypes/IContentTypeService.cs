@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentTypes;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
-    public partial interface IContentTypeService
+    internal partial interface IContentTypeService
     {
         ValueTask<ContentType> AddContentTypeAsync(
             ContentType contentType,

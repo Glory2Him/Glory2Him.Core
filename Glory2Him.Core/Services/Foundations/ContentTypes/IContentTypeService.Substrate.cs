@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface IContentTypeService
+    internal partial interface IContentTypeService
     {
         ValueTask<EventEnvelope<ContentType>?> OnAddingContentTypeAsync(
             EventEnvelope<ContentType> envelope,

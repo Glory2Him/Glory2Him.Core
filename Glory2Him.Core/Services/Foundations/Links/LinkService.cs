@@ -14,12 +14,12 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
@@ -36,13 +36,13 @@ namespace Glory2Him.Core.Services.Foundations.Links
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain.
     /// </summary>
-    public partial class LinkService : ILinkService
+    internal partial class LinkService : ILinkService
     {
         private readonly IStorageBroker storageBroker;
         private readonly IDateTimeBroker dateTimeBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventBroker eventBroker;
-        private readonly IEventEnvelopeFactory eventEnvelopeFactory;
+        private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -51,7 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             IDateTimeBroker dateTimeBroker,
             IIdentifierBroker identifierBroker,
             IEventBroker eventBroker,
-            IEventEnvelopeFactory eventEnvelopeFactory,
+            IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
             ILoggingBroker loggingBroker)
         {
@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             this.dateTimeBroker = dateTimeBroker;
             this.identifierBroker = identifierBroker;
             this.eventBroker = eventBroker;
-            this.eventEnvelopeFactory = eventEnvelopeFactory;
+            this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 ValidateLinkIsNotNull(link);
 
                 EventEnvelope<Link> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: link);
+                    await this.eventEnvelopeBroker.CreateAsync(content: link);
 
                 return await DoAddLinkAsync(
                     link: link,
@@ -115,7 +115,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 ValidateLinkIsNotNull(link);
 
                 EventEnvelope<Link> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: link);
+                    await this.eventEnvelopeBroker.CreateAsync(content: link);
 
                 return await DoModifyLinkAsync(
                     link: link,
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 };
 
                 EventEnvelope<Link> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: removeRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
 
                 return await DoRemoveLinkByIdAsync(
                     linkId: linkId,
@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 };
 
                 EventEnvelope<Link> envelope =
-                    await this.eventEnvelopeFactory.CreateAsync(content: hardRemoveRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: hardRemoveRequest);
 
                 return await DoHardRemoveLinkByIdAsync(
                     linkId: linkId,
@@ -189,7 +189,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Link> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: addedLink);
 
@@ -241,7 +241,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Link> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: updatedLink);
 
@@ -291,7 +291,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Link> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: removedLink);
 
@@ -328,7 +328,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 cancellationToken: cancellationToken);
 
             EventEnvelope<Link> outboundEnvelope =
-                await this.eventEnvelopeFactory.CreateNextAsync(
+                await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
                     content: deletedLink);
 

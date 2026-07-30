@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    public partial interface ILinkService
+    internal partial interface ILinkService
     {
         ValueTask<EventEnvelope<Link>?> OnAddingLinkAsync(
             EventEnvelope<Link> envelope,

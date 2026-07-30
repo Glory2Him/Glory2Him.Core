@@ -17,7 +17,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Glory2Him.Core.Brokers.Storages.Sql
 {
-    public partial class StorageBroker
+    internal partial class StorageBroker
     {
         public DbSet<ProcessedEvent> ProcessedEvents { get; set; }
 

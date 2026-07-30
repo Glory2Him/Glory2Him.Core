@@ -16,7 +16,7 @@ using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
-using Glory2Him.Core.Factories.Events;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Microsoft.Extensions.DependencyInjection;
