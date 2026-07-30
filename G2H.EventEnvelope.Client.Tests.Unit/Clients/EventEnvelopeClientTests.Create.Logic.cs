@@ -26,20 +26,22 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
             string randomContent = GetRandomString();
             EventEnvelope<string> randomEventEnvelope = CreateRandomEventEnvelope();
             EventEnvelope<string> expectedEventEnvelope = randomEventEnvelope;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
 
             this.eventEnvelopeServiceMock.Setup(service =>
-                service.CreateAsync(randomContent, It.IsAny<CancellationToken>()))
+                service.CreateAsync(randomContent, cancellationToken))
                     .ReturnsAsync(randomEventEnvelope);
 
             // when
             EventEnvelope<string> actualEventEnvelope =
-                await this.eventEnvelopeClient.CreateAsync(randomContent);
+                await this.eventEnvelopeClient.CreateAsync(randomContent, cancellationToken);
 
-            // then
+            // then: the caller's token must reach the service unchanged
             actualEventEnvelope.Should().BeEquivalentTo(expectedEventEnvelope);
 
             this.eventEnvelopeServiceMock.Verify(service =>
-                service.CreateAsync(randomContent, It.IsAny<CancellationToken>()),
+                service.CreateAsync(randomContent, cancellationToken),
                     Times.Once);
 
             this.eventEnvelopeServiceMock.VerifyNoOtherCalls();
