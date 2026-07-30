@@ -1065,6 +1065,15 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.contentItemOrchestrationServiceMock.Object.OnSubmittingContentItemAsync);
 
+            VerifyContentItemSubmissionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnRevisingContentItemSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnRevisingContentItemSubscriptionName,
+                expectedOperation: ContentItemSubmissionEventOperation.Revising,
+                expectedHandler:
+                    this.contentItemOrchestrationServiceMock.Object.OnRevisingContentItemAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();

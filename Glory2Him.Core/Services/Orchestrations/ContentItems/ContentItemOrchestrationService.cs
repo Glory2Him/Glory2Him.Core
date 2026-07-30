@@ -17,6 +17,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -31,6 +32,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private readonly IHashBroker hashBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ContentItemOrchestrationService(
@@ -38,12 +40,14 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             IHashBroker hashBroker,
             IIdentifierBroker identifierBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
+            ISecurityAuditBroker securityAuditBroker,
             ILoggingBroker loggingBroker)
         {
             this.contentItemService = contentItemService;
             this.hashBroker = hashBroker;
             this.identifierBroker = identifierBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.securityAuditBroker = securityAuditBroker;
             this.loggingBroker = loggingBroker;
         }
 
@@ -105,9 +109,151 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken: cancellationToken);
         }
 
+        public ValueTask<ContentItem> ModifyContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemIsNotNull(contentItem);
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: contentItem);
+
+                return await DoModifyContentItemAsync(
+                    contentItem: contentItem,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        private async ValueTask<ContentItem> DoModifyContentItemAsync(
+            ContentItem contentItem,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnModifyContentItem(contentItem, inboundEnvelope.SecurityContext);
+
+            ContentItem currentContentItem = await this.contentItemService.RetrieveContentItemByIdAsync(
+                contentItemId: contentItem.Id,
+                cancellationToken: cancellationToken);
+
+            ValidateCurrentContentItemIsModifiable(currentContentItem);
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: inboundEnvelope.SecurityContext);
+
+            bool shouldForkNewVersion = ResolveShouldForkNewVersion(
+                currentContentItem: currentContentItem,
+                actorUserId: actorUserId,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            string contentHash = await ComputeContentHashAsync(contentItem.Content);
+
+            bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
+                contentTypeId: contentItem.ContentTypeId,
+                contentHash: contentHash,
+                excludedContentItemGroupId: currentContentItem.ContentItemGroupId,
+                cancellationToken: cancellationToken);
+
+            if (duplicateContentExists)
+            {
+                throw new AlreadyExistsContentItemOrchestrationException(
+                    message: "A content item already exists with the same content.");
+            }
+
+            return shouldForkNewVersion
+                ? await ForkContentItemVersionAsync(
+                    contentItem: contentItem,
+                    currentContentItem: currentContentItem,
+                    contentHash: contentHash,
+                    cancellationToken: cancellationToken)
+
+                : await AmendContentItemInPlaceAsync(
+                    contentItem: contentItem,
+                    currentContentItem: currentContentItem,
+                    contentHash: contentHash,
+                    cancellationToken: cancellationToken);
+        }
+
+        private async ValueTask<ContentItem> AmendContentItemInPlaceAsync(
+            ContentItem contentItem,
+            ContentItem currentContentItem,
+            string contentHash,
+            CancellationToken cancellationToken)
+        {
+            MapPermittedFields(
+                targetContentItem: currentContentItem,
+                sourceContentItem: contentItem,
+                contentHash: contentHash);
+
+            return await this.contentItemService.ModifyContentItemAsync(
+                contentItem: currentContentItem,
+                cancellationToken: cancellationToken);
+        }
+
+        private async ValueTask<ContentItem> ForkContentItemVersionAsync(
+            ContentItem contentItem,
+            ContentItem currentContentItem,
+            string contentHash,
+            CancellationToken cancellationToken)
+        {
+            var newVersionContentItem = new ContentItem
+            {
+                Id = await this.identifierBroker.GetIdentifierAsync(),
+                ContentTypeId = contentItem.ContentTypeId,
+                Title = contentItem.Title,
+                Author = contentItem.Author,
+                Content = contentItem.Content,
+                PublishDate = contentItem.PublishDate,
+                ContentHash = contentHash,
+                ContentItemGroupId = currentContentItem.ContentItemGroupId,
+                Version = currentContentItem.Version + 1,
+                IsLatestVersion = true,
+                IsPublished = false,
+                ApprovalStatus = ApprovalStatus.Draft,
+                IsDeleted = false
+            };
+
+            // the previous latest is demoted before the new row is inserted — the unique
+            // filtered index allows only one IsLatestVersion = true per group at any time
+            currentContentItem.IsLatestVersion = false;
+
+            await this.contentItemService.ModifyContentItemAsync(
+                contentItem: currentContentItem,
+                cancellationToken: cancellationToken);
+
+            return await this.contentItemService.AddContentItemAsync(
+                contentItem: newVersionContentItem,
+                cancellationToken: cancellationToken);
+        }
+
+        private static void MapPermittedFields(
+            ContentItem targetContentItem,
+            ContentItem sourceContentItem,
+            string contentHash)
+        {
+            targetContentItem.ContentTypeId = sourceContentItem.ContentTypeId;
+            targetContentItem.Title = sourceContentItem.Title;
+            targetContentItem.Author = sourceContentItem.Author;
+            targetContentItem.Content = sourceContentItem.Content;
+            targetContentItem.PublishDate = sourceContentItem.PublishDate;
+            targetContentItem.ContentHash = contentHash;
+        }
+
+        private ValueTask<bool> CheckDuplicateContentExistsAsync(
+            Guid contentTypeId,
+            string contentHash,
+            CancellationToken cancellationToken) =>
+            CheckDuplicateContentExistsAsync(
+                contentTypeId: contentTypeId,
+                contentHash: contentHash,
+                excludedContentItemGroupId: null,
+                cancellationToken: cancellationToken);
+
         private async ValueTask<bool> CheckDuplicateContentExistsAsync(
             Guid contentTypeId,
             string contentHash,
+            Guid? excludedContentItemGroupId,
             CancellationToken cancellationToken)
         {
             IQueryable<ContentItem> allContentItems =
@@ -116,7 +262,9 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             return allContentItems.Any(existingContentItem =>
                 existingContentItem.ContentTypeId == contentTypeId
                     && existingContentItem.ContentHash == contentHash
-                    && existingContentItem.IsDeleted == false);
+                    && existingContentItem.IsDeleted == false
+                    && (excludedContentItemGroupId == null
+                        || existingContentItem.ContentItemGroupId != excludedContentItemGroupId));
         }
     }
 }

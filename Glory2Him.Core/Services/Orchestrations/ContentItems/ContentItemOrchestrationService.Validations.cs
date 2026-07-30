@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
@@ -26,6 +27,68 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         {
             ValidateUserIsAllowedToContribute(securityContext);
             ValidateContentItem(contentItem);
+        }
+
+        private static void ValidateOnModifyContentItem(
+            ContentItem contentItem,
+            SecurityContext securityContext)
+        {
+            ValidateUserIsAllowedToContribute(securityContext);
+            ValidateContentItemOnModify(contentItem);
+        }
+
+        private static void ValidateCurrentContentItemIsModifiable(ContentItem currentContentItem)
+        {
+            if (currentContentItem.IsDeleted)
+            {
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+
+            if (currentContentItem.IsLatestVersion is false)
+            {
+                throw new InvalidContentItemOrchestrationException(
+                    message: "Only the latest version of a content item may be modified.");
+            }
+        }
+
+        private static bool ResolveShouldForkNewVersion(
+            ContentItem currentContentItem,
+            string actorUserId,
+            SecurityContext securityContext)
+        {
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && currentContentItem.CreatedBy == actorUserId;
+
+            bool isPublisher =
+                securityContext.Roles.Contains(Roles.Publisher)
+                    || securityContext.Roles.Contains(Roles.ContentItemPublisher);
+
+            bool isAdmin = securityContext.Roles.Contains(Roles.Admin);
+
+            switch (currentContentItem.ApprovalStatus)
+            {
+                // the owner is the only creator of new versions (design §3.4 rule 8) and
+                // takes precedence over the Admin in-place exception when both apply
+                case ApprovalStatus.Approved when isOwner:
+                    return true;
+
+                case ApprovalStatus.Approved when isAdmin:
+                    return false;
+
+                case ApprovalStatus.Submitted when isOwner || isPublisher || isAdmin:
+                    return false;
+
+                case ApprovalStatus.Draft when isOwner:
+                case ApprovalStatus.Rejected when isOwner:
+                case ApprovalStatus.Dismissed when isOwner:
+                    return false;
+
+                default:
+                    throw new UnauthorizedContentItemOrchestrationException(
+                        message: "The current user is not allowed to modify this content item.");
+            }
         }
 
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
@@ -68,6 +131,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private static void ValidateContentItem(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
+
+        private static void ValidateContentItemOnModify(ContentItem contentItem) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
 

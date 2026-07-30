@@ -9,11 +9,14 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-namespace Glory2Him.Core.Models.Events.Orchestrations
+using Xeptions;
+
+namespace Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions
 {
-    public enum ContentItemSubmissionEventOperation
+    public class NotFoundContentItemOrchestrationException : Xeption
     {
-        Submitting,
-        Revising
+        public NotFoundContentItemOrchestrationException(string message)
+            : base(message)
+        { }
     }
 }

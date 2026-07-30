@@ -29,5 +29,16 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         ValueTask<EventEnvelope<ContentItem>?> OnSubmittingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The event path of the modify flow: handles <c>ContentItem-Revising</c> request
+        /// envelopes, converging on the same do-work as <see cref="ModifyContentItemAsync"/>.
+        /// The envelope's <c>SecurityContext</c> carries the original caller for the
+        /// contribution gate and the ownership/role permission checks. Replies with the
+        /// amended (or forked) content item's envelope.
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItem>?> OnRevisingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

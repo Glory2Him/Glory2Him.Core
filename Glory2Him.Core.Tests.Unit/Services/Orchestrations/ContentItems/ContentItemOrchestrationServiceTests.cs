@@ -19,6 +19,8 @@ using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Securities;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -36,6 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         private readonly Mock<IHashBroker> hashBrokerMock;
         private readonly Mock<IIdentifierBroker> identifierBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
+        private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
 
@@ -45,6 +48,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock = new Mock<IHashBroker>();
             this.identifierBrokerMock = new Mock<IIdentifierBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
+            this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             this.contentItemOrchestrationService = new ContentItemOrchestrationService(
@@ -52,6 +56,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 hashBroker: this.hashBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
+                securityAuditBroker: this.securityAuditBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
@@ -147,6 +152,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         private static ContentItem CreateRandomContentItem() =>
             CreateContentItemFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
+
+        // the "current" row the modify flow loads from storage: the modifiable tip of its group
+        private static ContentItem CreateRandomStorageContentItem(
+            Guid contentItemId,
+            ApprovalStatus approvalStatus,
+            string createdBy)
+        {
+            ContentItem storageContentItem = CreateRandomContentItem();
+            storageContentItem.Id = contentItemId;
+            storageContentItem.ApprovalStatus = approvalStatus;
+            storageContentItem.CreatedBy = createdBy;
+            storageContentItem.IsLatestVersion = true;
+            storageContentItem.IsDeleted = false;
+
+            return storageContentItem;
+        }
 
         private static Filler<ContentItem> CreateContentItemFiller(DateTimeOffset dateTimeOffset)
         {

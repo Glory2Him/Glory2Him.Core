@@ -20,16 +20,21 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ContentItemSubmittingEventAddressId =
             new Guid("019fab26-8096-7793-9db4-b88aa480fa6e");
 
+        public static readonly Guid ContentItemRevisingEventAddressId =
+            new Guid("019fb20f-c2ea-78ee-a781-821e6c7ec657");
+
         internal static readonly IReadOnlyDictionary<ContentItemSubmissionEventOperation, Guid>
             ContentItemSubmissionEventAddressIds = new Dictionary<ContentItemSubmissionEventOperation, Guid>
             {
-                { ContentItemSubmissionEventOperation.Submitting, ContentItemSubmittingEventAddressId }
+                { ContentItemSubmissionEventOperation.Submitting, ContentItemSubmittingEventAddressId },
+                { ContentItemSubmissionEventOperation.Revising, ContentItemRevisingEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentItemSubmissionEventAddresses =
             new Dictionary<Guid, string>
             {
-                { ContentItemSubmittingEventAddressId, "ContentItem-Submitting" }
+                { ContentItemSubmittingEventAddressId, "ContentItem-Submitting" },
+                { ContentItemRevisingEventAddressId, "ContentItem-Revising" }
             };
 
         public static readonly Guid ContentItemOrchestrationOnSubmittingContentItemSubscriptionId =
@@ -37,5 +42,11 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ContentItemOrchestrationOnSubmittingContentItemSubscriptionName =
             "ContentItemOrchestrationService.OnSubmittingContentItem";
+
+        public static readonly Guid ContentItemOrchestrationOnRevisingContentItemSubscriptionId =
+            new Guid("019fb20f-c3f7-776e-a0f9-84f99984fbb0");
+
+        public const string ContentItemOrchestrationOnRevisingContentItemSubscriptionName =
+            "ContentItemOrchestrationService.OnRevisingContentItem";
     }
 }

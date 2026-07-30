@@ -65,6 +65,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullContentItemOrchestrationException);
             }
+            catch (NotFoundContentItemOrchestrationException notFoundContentItemOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: notFoundContentItemOrchestrationException);
+            }
             catch (InvalidContentItemOrchestrationException invalidContentItemOrchestrationException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemOrchestrationException);
@@ -139,6 +144,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             catch (NullContentItemOrchestrationException nullContentItemOrchestrationException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullContentItemOrchestrationException);
+            }
+            catch (NotFoundContentItemOrchestrationException notFoundContentItemOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: notFoundContentItemOrchestrationException);
             }
             catch (InvalidContentItemOrchestrationException invalidContentItemOrchestrationException)
             {
