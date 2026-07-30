@@ -48,10 +48,6 @@ namespace G2H.EventEnvelope.Client.Clients
             {
                 return await this.eventEnvelopeService.CreateAsync(content, cancellationToken);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
             catch (EventEnvelopeValidationException eventEnvelopeValidationException)
             {
                 throw CreateEventEnvelopeClientValidationException(
@@ -71,6 +67,10 @@ namespace G2H.EventEnvelope.Client.Clients
             {
                 throw CreateEventEnvelopeClientDependencyException(
                     eventEnvelopeServiceException.InnerException as Xeption);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception exception)
             {
@@ -90,10 +90,6 @@ namespace G2H.EventEnvelope.Client.Clients
                     content,
                     cancellationToken);
             }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
             catch (EventEnvelopeValidationException eventEnvelopeValidationException)
             {
                 throw CreateEventEnvelopeClientValidationException(
@@ -113,6 +109,10 @@ namespace G2H.EventEnvelope.Client.Clients
             {
                 throw CreateEventEnvelopeClientDependencyException(
                     eventEnvelopeServiceException.InnerException as Xeption);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception exception)
             {
