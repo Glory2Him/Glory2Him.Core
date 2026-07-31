@@ -29,15 +29,18 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             ValidateContentItem(contentItem);
         }
 
-        private static void ValidateOnModifyContentItem(
+        private static void ValidateOnAmendingContentItem(
             ContentItem contentItem,
             SecurityContext securityContext)
         {
             ValidateUserIsAllowedToContribute(securityContext);
-            ValidateContentItemOnModify(contentItem);
+            ValidateContentItemOnAmending(contentItem);
         }
 
-        private static void ValidateCurrentContentItemIsModifiable(ContentItem currentContentItem)
+        private static void ValidateCurrentContentItemIsModifiable(
+            ContentItem currentContentItem,
+            string actorUserId,
+            SecurityContext securityContext)
         {
             if (currentContentItem.IsDeleted)
             {
@@ -48,46 +51,31 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             if (currentContentItem.IsLatestVersion is false)
             {
                 throw new InvalidContentItemOrchestrationException(
-                    message: "Only the latest version of a content item may be modified.");
+                    message: "Only the latest version of a content item may be amended.");
             }
-        }
 
-        private static bool ResolveShouldForkNewVersion(
-            ContentItem currentContentItem,
-            string actorUserId,
-            SecurityContext securityContext)
-        {
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentContentItem.CreatedBy == actorUserId;
 
-            bool isPublisher =
-                securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.ContentItemPublisher);
+            // an approved item belongs to its owner alone — the amend then forks a new
+            // version; a not-yet-approved item may also be amended in place by a
+            // Reviewer, Publisher or Admin
+            bool hasAmendRole =
+                securityContext.Roles.Contains(Roles.Reviewer)
+                    || securityContext.Roles.Contains(Roles.ContentItemReviewer)
+                    || securityContext.Roles.Contains(Roles.Publisher)
+                    || securityContext.Roles.Contains(Roles.ContentItemPublisher)
+                    || securityContext.Roles.Contains(Roles.Admin);
 
-            bool isAdmin = securityContext.Roles.Contains(Roles.Admin);
+            bool isPermitted = currentContentItem.ApprovalStatus == ApprovalStatus.Approved
+                ? isOwner
+                : isOwner || hasAmendRole;
 
-            switch (currentContentItem.ApprovalStatus)
+            if (isPermitted is false)
             {
-                // the owner is the only creator of new versions (design §3.4 rule 8) and
-                // takes precedence over the Admin in-place exception when both apply
-                case ApprovalStatus.Approved when isOwner:
-                    return true;
-
-                case ApprovalStatus.Approved when isAdmin:
-                    return false;
-
-                case ApprovalStatus.Submitted when isOwner || isPublisher || isAdmin:
-                    return false;
-
-                case ApprovalStatus.Draft when isOwner:
-                case ApprovalStatus.Rejected when isOwner:
-                case ApprovalStatus.Dismissed when isOwner:
-                    return false;
-
-                default:
-                    throw new UnauthorizedContentItemOrchestrationException(
-                        message: "The current user is not allowed to modify this content item.");
+                throw new UnauthorizedContentItemOrchestrationException(
+                    message: "The current user is not allowed to amend this content item.");
             }
         }
 
@@ -134,7 +122,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
 
-        private static void ValidateContentItemOnModify(ContentItem contentItem) =>
+        private static void ValidateContentItemOnAmending(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),

@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     content: submittedContentItem);
             });
 
-        public ValueTask<EventEnvelope<ContentItem>?> OnRevisingContentItemAsync(
+        public ValueTask<EventEnvelope<ContentItem>?> OnAmendingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default) =>
             TryCatchSubstrate(async () =>
@@ -45,15 +45,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentItemEventEnvelope(envelope);
 
-                ContentItem modifiedContentItem =
-                    await DoModifyContentItemAsync(
+                ContentItem amendedContentItem =
+                    await DoAmendingContentItemAsync(
                         contentItem: envelope.Content,
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
-                    content: modifiedContentItem);
+                    content: amendedContentItem);
             });
     }
 }

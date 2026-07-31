@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -1067,12 +1067,12 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             VerifyContentItemSubmissionSubscription(
                 expectedSubscriptionId:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnRevisingContentItemSubscriptionId,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionId,
                 expectedSubscriptionName:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnRevisingContentItemSubscriptionName,
-                expectedOperation: ContentItemSubmissionEventOperation.Revising,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionName,
+                expectedOperation: ContentItemSubmissionEventOperation.Amending,
                 expectedHandler:
-                    this.contentItemOrchestrationServiceMock.Object.OnRevisingContentItemAsync);
+                    this.contentItemOrchestrationServiceMock.Object.OnAmendingContentItemAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();

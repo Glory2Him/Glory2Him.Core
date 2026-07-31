@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnRevisingContentItemEventIfCancellationRequestedAsync()
+        public async Task ShouldThrowOperationCanceledExceptionOnAmendingContentItemEventIfCancellationRequestedAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -37,13 +37,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             await cancellationTokenSource.CancelAsync();
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onRevisingTask =
-                this.contentItemOrchestrationService.OnRevisingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
+                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
                     requestEnvelope,
                     cancellationTokenSource.Token);
 
             // then
-            await Assert.ThrowsAsync<OperationCanceledException>(onRevisingTask.AsTask);
+            await Assert.ThrowsAsync<OperationCanceledException>(onAmendingTask.AsTask);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
@@ -54,7 +54,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowDependencyExceptionOnRevisingContentItemEventIfOperationCanceledExceptionOccursAndLogItAsync()
+        public async Task ShouldThrowDependencyExceptionOnAmendingContentItemEventIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -83,14 +83,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onRevisingTask =
-                this.contentItemOrchestrationService.OnRevisingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
+                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyException actualContentItemOrchestrationDependencyException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationDependencyException>(
-                    onRevisingTask.AsTask);
+                    onAmendingTask.AsTask);
 
             // then
             actualContentItemOrchestrationDependencyException.Should().BeEquivalentTo(
@@ -106,7 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         [Theory]
         [MemberData(nameof(DependencyValidationExceptions))]
-        public async Task ShouldThrowDependencyValidationExceptionOnRevisingContentItemEventIfErrorOccursAndLogItAsync(
+        public async Task ShouldThrowDependencyValidationExceptionOnAmendingContentItemEventIfErrorOccursAndLogItAsync(
             Xeption dependencyValidationException)
         {
             // given
@@ -127,15 +127,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(dependencyValidationException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onRevisingTask =
-                this.contentItemOrchestrationService.OnRevisingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
+                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyValidationException
                 actualContentItemOrchestrationDependencyValidationException =
                     await Assert.ThrowsAsync<ContentItemOrchestrationDependencyValidationException>(
-                        onRevisingTask.AsTask);
+                        onAmendingTask.AsTask);
 
             // then
             actualContentItemOrchestrationDependencyValidationException.Should().BeEquivalentTo(
@@ -151,7 +151,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         [Theory]
         [MemberData(nameof(DependencyExceptions))]
-        public async Task ShouldThrowDependencyExceptionOnRevisingContentItemEventIfDependencyErrorOccursAndLogItAsync(
+        public async Task ShouldThrowDependencyExceptionOnAmendingContentItemEventIfDependencyErrorOccursAndLogItAsync(
             Xeption dependencyException)
         {
             // given
@@ -171,14 +171,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(dependencyException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onRevisingTask =
-                this.contentItemOrchestrationService.OnRevisingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
+                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyException actualContentItemOrchestrationDependencyException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationDependencyException>(
-                    onRevisingTask.AsTask);
+                    onAmendingTask.AsTask);
 
             // then
             actualContentItemOrchestrationDependencyException.Should().BeEquivalentTo(
@@ -193,7 +193,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowServiceExceptionOnRevisingContentItemEventIfServiceErrorOccursAndLogItAsync()
+        public async Task ShouldThrowServiceExceptionOnAmendingContentItemEventIfServiceErrorOccursAndLogItAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -219,14 +219,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onRevisingTask =
-                this.contentItemOrchestrationService.OnRevisingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
+                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationServiceException actualContentItemOrchestrationServiceException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationServiceException>(
-                    onRevisingTask.AsTask);
+                    onAmendingTask.AsTask);
 
             // then
             actualContentItemOrchestrationServiceException.Should().BeEquivalentTo(

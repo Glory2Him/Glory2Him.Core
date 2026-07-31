@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     {
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
-        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotAuthenticatedAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAmendingIfUserIsNotAuthenticatedAndLogItAsync(
             SecurityContext? unauthenticatedSecurityContext)
         {
             // given
@@ -52,14 +52,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -85,7 +85,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [Theory]
         [InlineData(Roles.ReadOnly)]
         [InlineData(Roles.ContentItemReadOnly)]
-        public async Task ShouldThrowValidationExceptionOnModifyIfUserHasBlockRoleAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAmendingIfUserHasBlockRoleAndLogItAsync(
             string blockRole)
         {
             // given
@@ -110,14 +110,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfContentItemIsNullAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAmendingIfContentItemIsNullAndLogItAsync()
         {
             // given
             ContentItem nullContentItem = null!;
@@ -150,14 +150,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: nullContentItemOrchestrationException);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     nullContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -180,7 +180,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [InlineData(null)]
         [InlineData("")]
         [InlineData(" ")]
-        public async Task ShouldThrowValidationExceptionOnModifyIfContentItemIsInvalidAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAmendingIfContentItemIsInvalidAndLogItAsync(
             string invalidText)
         {
             // given: on modify the Id is required too — it selects the row being modified
@@ -221,14 +221,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     invalidContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -247,7 +247,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfContentItemIsSoftDeletedAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAmendingIfContentItemIsSoftDeletedAndLogItAsync()
         {
             // given: a soft-deleted row is treated as not found — it must not be revived
             // through the modify path
@@ -260,10 +260,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 createdBy: GetRandomString());
 
             storageContentItem.IsDeleted = true;
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
+                securityContext: securityContext);
 
             var notFoundContentItemOrchestrationException =
                 new NotFoundContentItemOrchestrationException(
@@ -282,15 +283,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(GetRandomString());
+
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -298,6 +303,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(securityContext),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
@@ -317,7 +326,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfContentItemIsNotLatestVersionAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAmendingIfContentItemIsNotLatestVersionAndLogItAsync()
         {
             // given: edits go to the tip of the version chain only (§3.4.1) — modifying a
             // superseded row would end up creating a second IsLatestVersion = true on fork
@@ -330,14 +339,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 createdBy: GetRandomString());
 
             storageContentItem.IsLatestVersion = false;
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
+                securityContext: securityContext);
 
             var invalidContentItemOrchestrationException =
                 new InvalidContentItemOrchestrationException(
-                    message: "Only the latest version of a content item may be modified.");
+                    message: "Only the latest version of a content item may be amended.");
 
             var expectedContentItemOrchestrationValidationException =
                 new ContentItemOrchestrationValidationException(
@@ -352,15 +362,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(GetRandomString());
+
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -369,6 +383,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.contentItemServiceMock.Verify(service =>
                 service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(securityContext),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
@@ -382,23 +400,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Theory]
-        [InlineData(ApprovalStatus.Draft, false, false)]
-        [InlineData(ApprovalStatus.Rejected, false, false)]
-        [InlineData(ApprovalStatus.Dismissed, false, false)]
-        [InlineData(ApprovalStatus.Draft, true, false)]
-        [InlineData(ApprovalStatus.Rejected, true, false)]
-        [InlineData(ApprovalStatus.Approved, true, false)]
-        [InlineData(ApprovalStatus.Submitted, false, false)]
-        [InlineData(ApprovalStatus.Approved, false, false)]
-        public async Task ShouldThrowValidationExceptionOnModifyIfActorIsNotPermittedAndLogItAsync(
+        [InlineData(ApprovalStatus.Draft, null)]
+        [InlineData(ApprovalStatus.Submitted, null)]
+        [InlineData(ApprovalStatus.Rejected, null)]
+        [InlineData(ApprovalStatus.Dismissed, null)]
+        [InlineData(ApprovalStatus.Approved, null)]
+        [InlineData(ApprovalStatus.Approved, Roles.Reviewer)]
+        [InlineData(ApprovalStatus.Approved, Roles.ContentItemReviewer)]
+        [InlineData(ApprovalStatus.Approved, Roles.Publisher)]
+        [InlineData(ApprovalStatus.Approved, Roles.ContentItemPublisher)]
+        [InlineData(ApprovalStatus.Approved, Roles.Admin)]
+        public async Task ShouldThrowValidationExceptionOnAmendingIfActorIsNotPermittedAndLogItAsync(
             ApprovalStatus approvalStatus,
-            bool actorIsPublisher,
-            bool actorIsAdmin)
+            string? actorRole)
         {
-            // given: BR9 permission matrix — a non-owner may only touch a Submitted item
-            // (Publisher/Admin amend during review) or an Approved item (Admin only);
-            // everyone else is denied. Publisher never touches Draft/Rejected/Dismissed/
-            // Approved, and a plain authenticated user never touches someone else's item.
+            // given: a plain authenticated user never touches someone else's item, and an
+            // approved item belongs to its owner alone — no role (Reviewer, Publisher or
+            // Admin) may amend it on the owner's behalf
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
 
@@ -407,12 +425,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: approvalStatus,
                 createdBy: GetRandomString());
 
-            string[] actorRoles = (actorIsPublisher, actorIsAdmin) switch
-            {
-                (true, false) => new[] { Roles.Publisher },
-                (false, true) => new[] { Roles.Admin },
-                _ => Array.Empty<string>()
-            };
+            string[] actorRoles = actorRole is null
+                ? Array.Empty<string>()
+                : new[] { actorRole };
 
             SecurityContext securityContext = CreateAuthenticatedSecurityContext(actorRoles);
 
@@ -422,7 +437,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             var unauthorizedContentItemOrchestrationException =
                 new UnauthorizedContentItemOrchestrationException(
-                    message: "The current user is not allowed to modify this content item.");
+                    message: "The current user is not allowed to amend this content item.");
 
             var expectedContentItemOrchestrationValidationException =
                 new ContentItemOrchestrationValidationException(
@@ -442,14 +457,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(GetRandomString());
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -474,7 +489,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfDuplicateContentExistsInAnotherGroupAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAmendingIfDuplicateContentExistsInAnotherGroupAndLogItAsync()
         {
             // given: matching normalized content of the same content type in ANOTHER group
             // is a validation error on modify (§3.4.2 rule 6)
@@ -531,14 +546,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(new[] { otherGroupDuplicateContentItem }.AsQueryable());
 
             // when
-            ValueTask<ContentItem> modifyContentItemTask =
-                this.contentItemOrchestrationService.ModifyContentItemAsync(
+            ValueTask<ContentItem> amendContentItemTask =
+                this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    modifyContentItemTask.AsTask);
+                    amendContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(

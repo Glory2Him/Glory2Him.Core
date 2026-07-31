@@ -14,6 +14,6 @@ namespace Glory2Him.Core.Models.Events.Orchestrations
     public enum ContentItemSubmissionEventOperation
     {
         Submitting,
-        Revising
+        Amending
     }
 }

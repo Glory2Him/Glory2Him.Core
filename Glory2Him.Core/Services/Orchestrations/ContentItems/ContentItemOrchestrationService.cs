@@ -68,6 +68,23 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<ContentItem> AmendingContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemIsNotNull(contentItem);
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: contentItem);
+
+                return await DoAmendingContentItemAsync(
+                    contentItem: contentItem,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
         private async ValueTask<ContentItem> DoSubmitContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
@@ -109,40 +126,21 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken: cancellationToken);
         }
 
-        public ValueTask<ContentItem> ModifyContentItemAsync(
-            ContentItem contentItem,
-            CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemIsNotNull(contentItem);
-
-                EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: contentItem);
-
-                return await DoModifyContentItemAsync(
-                    contentItem: contentItem,
-                    inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
-            });
-
-        private async ValueTask<ContentItem> DoModifyContentItemAsync(
+        private async ValueTask<ContentItem> DoAmendingContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateOnModifyContentItem(contentItem, inboundEnvelope.SecurityContext);
+            ValidateOnAmendingContentItem(contentItem, inboundEnvelope.SecurityContext);
 
             ContentItem currentContentItem = await this.contentItemService.RetrieveContentItemByIdAsync(
                 contentItemId: contentItem.Id,
                 cancellationToken: cancellationToken);
 
-            ValidateCurrentContentItemIsModifiable(currentContentItem);
-
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: inboundEnvelope.SecurityContext);
 
-            bool shouldForkNewVersion = ResolveShouldForkNewVersion(
+            ValidateCurrentContentItemIsModifiable(
                 currentContentItem: currentContentItem,
                 actorUserId: actorUserId,
                 securityContext: inboundEnvelope.SecurityContext);
@@ -160,6 +158,9 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 throw new AlreadyExistsContentItemOrchestrationException(
                     message: "A content item already exists with the same content.");
             }
+
+            // an approved item is immutable in place — the owner's amend forks a new version
+            bool shouldForkNewVersion = currentContentItem.ApprovalStatus == ApprovalStatus.Approved;
 
             return shouldForkNewVersion
                 ? await ForkContentItemVersionAsync(
@@ -215,7 +216,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             };
 
             // the previous latest is demoted before the new row is inserted — the unique
-            // filtered index allows only one IsLatestVersion = true per group at any time
+            // filtered index allows only one IsLatestVersion = true per group at any time.
+            // IsLatestVersion only marks the edit tip; IsPublished is untouched here, so the
+            // previously published row stays publicly visible until the new version is
+            // approved and published (§3.4.1)
             currentContentItem.IsLatestVersion = false;
 
             await this.contentItemService.ModifyContentItemAsync(

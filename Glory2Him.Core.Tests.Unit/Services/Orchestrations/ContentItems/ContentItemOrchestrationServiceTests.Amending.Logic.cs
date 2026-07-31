@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldAmendContentItemInPlaceOnModifyIfActorIsOwnerAsync(
+        public async Task ShouldAmendContentItemInPlaceOnAmendingIfActorIsOwnerAsync(
             ApprovalStatus approvalStatus)
         {
             // given: the owner edits a not-yet-approved item — same row, same version
@@ -94,7 +94,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.ModifyContentItemAsync(
+                await this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -139,7 +139,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldForkNewVersionOnModifyIfApprovedItemIsModifiedByOwnerAsync()
+        public async Task ShouldForkNewVersionOnAmendingIfApprovedItemIsAmendedByOwnerAsync()
         {
             // given: an approved item is immutable to its owner — the edit forks a new row
             // with Version + 1 that becomes the latest, the previous latest is demoted
@@ -233,7 +233,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.ModifyContentItemAsync(
+                await this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -283,97 +283,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldAmendApprovedContentItemInPlaceOnModifyIfActorIsAdminAsync()
-        {
-            // given: only an Admin may amend an Approved item in-place — no fork, no new
-            // version; the approval reset to Submitted and review dismissal happen
-            // downstream off the foundation's ContentItem-Modified fact (§3.4 rule 16, BR10)
-            ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
-            string normalizedContent = NormalizeContent(inputContentItem.Content);
-            string expectedContentHash = ComputeContentHash(inputContentItem.Content);
-
-            ContentItem storageContentItem = CreateRandomStorageContentItem(
-                contentItemId: inputContentItem.Id,
-                approvalStatus: ApprovalStatus.Approved,
-                createdBy: GetRandomString());
-
-            ContentItem expectedMappedContentItem = storageContentItem.DeepClone();
-            expectedMappedContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            expectedMappedContentItem.Title = inputContentItem.Title;
-            expectedMappedContentItem.Author = inputContentItem.Author;
-            expectedMappedContentItem.Content = inputContentItem.Content;
-            expectedMappedContentItem.PublishDate = inputContentItem.PublishDate;
-            expectedMappedContentItem.ContentHash = expectedContentHash;
-            ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
-            ContentItem expectedContentItem = updatedContentItem.DeepClone();
-
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
-
-            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
-                securityContext: securityContext);
-
-            this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(inputContentItem))
-                    .ReturnsAsync(inboundEnvelope);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItem);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(securityContext))
-                    .ReturnsAsync(GetRandomString());
-
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent))
-                    .ReturnsAsync(expectedContentHash);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
-
-            ContentItem? capturedContentItem = null;
-
-            this.contentItemServiceMock.Setup(service =>
-                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
-                    .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
-                        capturedContentItem = contentItem)
-                    .ReturnsAsync(updatedContentItem);
-
-            // when
-            ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.ModifyContentItemAsync(
-                    inputContentItem,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualContentItem.Should().BeEquivalentTo(expectedContentItem);
-            capturedContentItem.Should().BeEquivalentTo(expectedMappedContentItem);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.identifierBrokerMock.VerifyNoOtherCalls();
-        }
-
         [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.ContentItemPublisher)]
-        [InlineData(Roles.Admin)]
-        public async Task ShouldAmendSubmittedContentItemInPlaceOnModifyIfActorMayAmendDuringReviewAsync(
+        [InlineData(ApprovalStatus.Draft, Roles.Reviewer)]
+        [InlineData(ApprovalStatus.Submitted, Roles.ContentItemReviewer)]
+        [InlineData(ApprovalStatus.Submitted, Roles.Publisher)]
+        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemPublisher)]
+        [InlineData(ApprovalStatus.Dismissed, Roles.Admin)]
+        public async Task ShouldAmendContentItemInPlaceOnAmendingIfActorHasAmendRoleAsync(
+            ApprovalStatus approvalStatus,
             string amendingRole)
         {
-            // given: a Publisher or Admin (global or ContentItem-scoped publisher) may
-            // amend the text of a Submitted item during review (§12.4.1 BR9); the item
-            // stays on the same row and their identity lands on UpdatedBy downstream
+            // given: while an item is not yet approved, a Reviewer, Publisher or Admin
+            // (global or ContentItem-scoped) may amend it in place alongside the owner;
+            // the item stays on the same row and their identity lands on UpdatedBy
+            // downstream
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
             string normalizedContent = NormalizeContent(inputContentItem.Content);
@@ -381,7 +304,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             ContentItem storageContentItem = CreateRandomStorageContentItem(
                 contentItemId: inputContentItem.Id,
-                approvalStatus: ApprovalStatus.Submitted,
+                approvalStatus: approvalStatus,
                 createdBy: GetRandomString());
 
             ContentItem updatedContentItem = storageContentItem.DeepClone();
@@ -417,7 +340,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.ModifyContentItemAsync(
+                await this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -434,7 +357,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldModifyContentItemIfMatchingContentIsInOwnGroupAsync()
+        public async Task ShouldAmendContentItemIfMatchingContentIsInOwnGroupAsync()
         {
             // given: the duplicate rule excludes the item's own group on modify (§3.4.2
             // rule 4) — a later version legitimately reverting to earlier wording of the
@@ -488,7 +411,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.ModifyContentItemAsync(
+                await this.contentItemOrchestrationService.AmendingContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 

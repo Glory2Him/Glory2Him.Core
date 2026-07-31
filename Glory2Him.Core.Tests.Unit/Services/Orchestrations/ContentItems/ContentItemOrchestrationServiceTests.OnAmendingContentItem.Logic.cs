@@ -25,7 +25,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         [Fact]
-        public async Task ShouldModifyContentItemAndReplyOnRevisingContentItemEventAsync()
+        public async Task ShouldModifyContentItemAndReplyOnAmendingContentItemEventAsync()
         {
             // given: the ContentItem-Revising request path converges on the same do-work
             // as the direct ModifyContentItemAsync — the envelope carries the original
@@ -89,7 +89,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             EventEnvelope<ContentItem>? actualReplyEnvelope =
-                await this.contentItemOrchestrationService.OnRevisingContentItemAsync(
+                await this.contentItemOrchestrationService.OnAmendingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 

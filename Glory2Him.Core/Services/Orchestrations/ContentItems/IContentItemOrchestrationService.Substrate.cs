@@ -31,13 +31,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The event path of the modify flow: handles <c>ContentItem-Revising</c> request
-        /// envelopes, converging on the same do-work as <see cref="ModifyContentItemAsync"/>.
+        /// The event path of the amend flow: handles <c>ContentItem-Amending</c> request
+        /// envelopes, converging on the same do-work as <see cref="AmendingContentItemAsync"/>.
         /// The envelope's <c>SecurityContext</c> carries the original caller for the
         /// contribution gate and the ownership/role permission checks. Replies with the
         /// amended (or forked) content item's envelope.
         /// </summary>
-        ValueTask<EventEnvelope<ContentItem>?> OnRevisingContentItemAsync(
+        ValueTask<EventEnvelope<ContentItem>?> OnAmendingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
     }
