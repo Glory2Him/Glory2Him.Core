@@ -114,15 +114,15 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 contentItemOrchestrationService: this.contentItemOrchestrationServiceMock.Object);
         }
 
-        private void VerifyContentItemSubmissionSubscription(
+        private void VerifyContentItemOrchestrationSubscription(
             Guid expectedSubscriptionId,
             string expectedSubscriptionName,
-            ContentItemSubmissionEventOperation expectedOperation,
+            ContentItemOrchestrationEventOperation expectedOperation,
             Func<EventEnvelope<ContentItem>, CancellationToken,
                 ValueTask<EventEnvelope<ContentItem>?>> expectedHandler)
         {
             this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToContentItemSubmissionEventAsync(
+                broker.SubscribeToContentItemOrchestrationEventAsync(
                     It.Is<EventSubscription>(subscription =>
                         subscription.Id == expectedSubscriptionId
                             && subscription.Name == expectedSubscriptionName),
@@ -1056,32 +1056,32 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.contentItemSettingServiceMock.Object.OnRetrievingContentItemSettingByIdAsync);
 
-            VerifyContentItemSubmissionSubscription(
+            VerifyContentItemOrchestrationSubscription(
                 expectedSubscriptionId:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionId,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnAddingContentItemSubscriptionId,
                 expectedSubscriptionName:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionName,
-                expectedOperation: ContentItemSubmissionEventOperation.Submitting,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnAddingContentItemSubscriptionName,
+                expectedOperation: ContentItemOrchestrationEventOperation.Adding,
                 expectedHandler:
-                    this.contentItemOrchestrationServiceMock.Object.OnSubmittingContentItemAsync);
+                    this.contentItemOrchestrationServiceMock.Object.OnAddingContentItemAsync);
 
-            VerifyContentItemSubmissionSubscription(
+            VerifyContentItemOrchestrationSubscription(
                 expectedSubscriptionId:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionId,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnModifyingContentItemSubscriptionId,
                 expectedSubscriptionName:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionName,
-                expectedOperation: ContentItemSubmissionEventOperation.Amending,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnModifyingContentItemSubscriptionName,
+                expectedOperation: ContentItemOrchestrationEventOperation.Modifying,
                 expectedHandler:
-                    this.contentItemOrchestrationServiceMock.Object.OnAmendingContentItemAsync);
+                    this.contentItemOrchestrationServiceMock.Object.OnModifyingContentItemAsync);
 
-            VerifyContentItemSubmissionSubscription(
+            VerifyContentItemOrchestrationSubscription(
                 expectedSubscriptionId:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnWithdrawingContentItemSubscriptionId,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnRemovingContentItemByIdSubscriptionId,
                 expectedSubscriptionName:
-                    EventBrokerIdentifiers.ContentItemOrchestrationOnWithdrawingContentItemSubscriptionName,
-                expectedOperation: ContentItemSubmissionEventOperation.Withdrawing,
+                    EventBrokerIdentifiers.ContentItemOrchestrationOnRemovingContentItemByIdSubscriptionName,
+                expectedOperation: ContentItemOrchestrationEventOperation.RemovingById,
                 expectedHandler:
-                    this.contentItemOrchestrationServiceMock.Object.OnWithdrawingContentItemAsync);
+                    this.contentItemOrchestrationServiceMock.Object.OnRemovingContentItemByIdAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentTypeServiceMock.VerifyNoOtherCalls();

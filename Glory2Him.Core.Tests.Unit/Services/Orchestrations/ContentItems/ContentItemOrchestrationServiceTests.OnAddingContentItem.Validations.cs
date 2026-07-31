@@ -44,13 +44,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         [Theory]
         [MemberData(nameof(InvalidEventEnvelopes))]
-        public async Task ShouldThrowValidationExceptionOnSubmittingContentItemEventIfEnvelopeIsInvalidAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfEnvelopeIsInvalidAndLogItAsync(
             EventEnvelope<ContentItem>? invalidEnvelope)
         {
             // given
             var invalidContentItemOrchestrationEventException =
                 new InvalidContentItemOrchestrationEventException(
-                    message: "Invalid content item submission event. " +
+                    message: "Invalid content item orchestration event. " +
                         "The event envelope, its content and metadata are required.");
 
             var expectedContentItemOrchestrationValidationException =
@@ -59,14 +59,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: invalidContentItemOrchestrationEventException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onSubmittingTask =
-                this.contentItemOrchestrationService.OnSubmittingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     invalidEnvelope!,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onSubmittingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -86,7 +86,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
-        public async Task ShouldThrowValidationExceptionOnSubmittingContentItemEventIfCallerIsNotAuthenticatedAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfCallerIsNotAuthenticatedAndLogItAsync(
             SecurityContext? unauthenticatedSecurityContext)
         {
             // given
@@ -107,14 +107,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: unauthorizedContentItemOrchestrationException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onSubmittingTask =
-                this.contentItemOrchestrationService.OnSubmittingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onSubmittingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [Theory]
         [InlineData(Roles.ReadOnly)]
         [InlineData(Roles.ContentItemReadOnly)]
-        public async Task ShouldThrowValidationExceptionOnSubmittingContentItemEventIfCallerHasBlockRoleAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfCallerHasBlockRoleAndLogItAsync(
             string blockRole)
         {
             // given
@@ -156,14 +156,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: unauthorizedContentItemOrchestrationException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onSubmittingTask =
-                this.contentItemOrchestrationService.OnSubmittingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onSubmittingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -182,7 +182,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnSubmittingContentItemEventIfDuplicateContentExistsAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfDuplicateContentExistsAndLogItAsync()
         {
             // given: a replayed or duplicated submission request lands here too, so the
             // duplicate-content rule keeps the event path from ever creating twice
@@ -217,14 +217,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(new[] { duplicateContentItem }.AsQueryable());
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onSubmittingTask =
-                this.contentItemOrchestrationService.OnSubmittingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onSubmittingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(

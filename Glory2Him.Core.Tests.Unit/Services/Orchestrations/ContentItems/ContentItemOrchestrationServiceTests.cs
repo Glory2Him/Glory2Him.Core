@@ -19,9 +19,11 @@ using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -38,6 +40,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         private readonly Mock<IHashBroker> hashBrokerMock;
         private readonly Mock<IIdentifierBroker> identifierBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
+        private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
@@ -48,6 +51,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock = new Mock<IHashBroker>();
             this.identifierBrokerMock = new Mock<IIdentifierBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
+            this.eventBrokerMock = new Mock<IEventBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
@@ -56,6 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 hashBroker: this.hashBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
+                eventBroker: this.eventBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
@@ -110,9 +115,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
 
-        // the withdraw request payload is minted inside the service, so it is matched on the
+        // the remove request payload is minted inside the service, so it is matched on the
         // instruction it carries: the id of the row to remove and the optional reason
-        private static Expression<Func<ContentItem, bool>> SameWithdrawRequestAs(
+        // every completed do-work publishes the orchestration's own fact on the next
+        // envelope in the causation chain; the helpers keep that setup out of each test
+        private EventEnvelope<ContentItem> SetupCompletionFactPublish(
+            EventEnvelope<ContentItem> inboundEnvelope,
+            ContentItem resultContentItem,
+            ContentItemOrchestrationEventOperation operation)
+        {
+            var outboundEnvelope = new EventEnvelope<ContentItem>
+            {
+                Content = resultContentItem,
+                SecurityContext = inboundEnvelope.SecurityContext,
+
+                Metadata = new EventMetadata
+                {
+                    EventId = Guid.NewGuid(),
+                    CausationId = inboundEnvelope.Metadata.EventId.ToString()
+                }
+            };
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(inboundEnvelope, resultContentItem))
+                    .ReturnsAsync(outboundEnvelope);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemOrchestrationAsync(outboundEnvelope, operation))
+                    .ReturnsAsync(new EventPublishResult<ContentItem>());
+
+            return outboundEnvelope;
+        }
+
+        private void VerifyCompletionFactPublished(
+            EventEnvelope<ContentItem> outboundEnvelope,
+            ContentItemOrchestrationEventOperation operation)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishContentItemOrchestrationAsync(outboundEnvelope, operation),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+        }
+
+        private static Expression<Func<ContentItem, bool>> SameRemoveRequestAs(
             Guid expectedContentItemId,
             string? expectedDeletionReason) =>
             actualContentItem => actualContentItem.Id == expectedContentItemId

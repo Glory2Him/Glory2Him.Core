@@ -14,12 +14,14 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Glory2Him.Core.Services.Foundations.ContentItems;
@@ -32,6 +34,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private readonly IHashBroker hashBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly IEventBroker eventBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -40,6 +43,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             IHashBroker hashBroker,
             IIdentifierBroker identifierBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
+            IEventBroker eventBroker,
             ISecurityAuditBroker securityAuditBroker,
             ILoggingBroker loggingBroker)
         {
@@ -47,11 +51,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             this.hashBroker = hashBroker;
             this.identifierBroker = identifierBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.eventBroker = eventBroker;
             this.securityAuditBroker = securityAuditBroker;
             this.loggingBroker = loggingBroker;
         }
 
-        public ValueTask<ContentItem> SubmitContentItemAsync(
+        public ValueTask<ContentItem> AddContentItemAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -62,13 +67,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 EventEnvelope<ContentItem> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: contentItem);
 
-                return await DoSubmitContentItemAsync(
+                return await DoAddContentItemAsync(
                     contentItem: contentItem,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
-        public ValueTask<ContentItem> AmendingContentItemAsync(
+        public ValueTask<ContentItem> ModifyContentItemAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -79,13 +84,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 EventEnvelope<ContentItem> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: contentItem);
 
-                return await DoAmendingContentItemAsync(
+                return await DoModifyContentItemAsync(
                     contentItem: contentItem,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
-        public ValueTask<ContentItem> WithdrawingContentItemAsync(
+        public ValueTask<ContentItem> RemoveContentItemByIdAsync(
             Guid contentItemId,
             string? deletionReason = null,
             CancellationToken cancellationToken = default) =>
@@ -93,28 +98,28 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var withdrawRequest = new ContentItem
+                var removeRequest = new ContentItem
                 {
                     Id = contentItemId,
                     DeletionReason = deletionReason
                 };
 
                 EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: withdrawRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
 
-                return await DoWithdrawingContentItemAsync(
+                return await DoRemoveContentItemByIdAsync(
                     contentItemId: contentItemId,
                     deletionReason: deletionReason,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
-        private async ValueTask<ContentItem> DoSubmitContentItemAsync(
+        private async ValueTask<ContentItem> DoAddContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateOnSubmitContentItem(contentItem, inboundEnvelope.SecurityContext);
+            ValidateOnAddContentItem(contentItem, inboundEnvelope.SecurityContext);
             string contentHash = await ComputeContentHashAsync(contentItem.Content);
 
             bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
@@ -145,17 +150,24 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 IsDeleted = false
             };
 
-            return await this.contentItemService.AddContentItemAsync(
+            ContentItem addedContentItem = await this.contentItemService.AddContentItemAsync(
                 contentItem: newContentItem,
                 cancellationToken: cancellationToken);
+
+            await PublishContentItemOrchestrationFactAsync(
+                inboundEnvelope: inboundEnvelope,
+                contentItem: addedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Added);
+
+            return addedContentItem;
         }
 
-        private async ValueTask<ContentItem> DoAmendingContentItemAsync(
+        private async ValueTask<ContentItem> DoModifyContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateOnAmendingContentItem(contentItem, inboundEnvelope.SecurityContext);
+            ValidateOnModifyContentItem(contentItem, inboundEnvelope.SecurityContext);
 
             ContentItem currentContentItem = await this.contentItemService.RetrieveContentItemByIdAsync(
                 contentItemId: contentItem.Id,
@@ -183,30 +195,39 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     message: "A content item already exists with the same content.");
             }
 
-            // an approved item is immutable in place — the owner's amend forks a new version
+            // an approved item is immutable in place — the owner's modify forks a new version
             bool shouldForkNewVersion = currentContentItem.ApprovalStatus == ApprovalStatus.Approved;
 
-            return shouldForkNewVersion
+            ContentItem modifiedContentItem = shouldForkNewVersion
                 ? await ForkContentItemVersionAsync(
                     contentItem: contentItem,
                     currentContentItem: currentContentItem,
                     contentHash: contentHash,
                     cancellationToken: cancellationToken)
 
-                : await AmendContentItemInPlaceAsync(
+                : await ModifyContentItemInPlaceAsync(
                     contentItem: contentItem,
                     currentContentItem: currentContentItem,
                     contentHash: contentHash,
                     cancellationToken: cancellationToken);
+
+            // one fact per completed process: a fork writes two foundation rows, but the
+            // orchestration announces the amend exactly once, after both writes have landed
+            await PublishContentItemOrchestrationFactAsync(
+                inboundEnvelope: inboundEnvelope,
+                contentItem: modifiedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Modified);
+
+            return modifiedContentItem;
         }
 
-        private async ValueTask<ContentItem> DoWithdrawingContentItemAsync(
+        private async ValueTask<ContentItem> DoRemoveContentItemByIdAsync(
             Guid contentItemId,
             string? deletionReason,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateOnWithdrawingContentItem(contentItemId, inboundEnvelope.SecurityContext);
+            ValidateOnRemoveContentItemById(contentItemId, inboundEnvelope.SecurityContext);
 
             ContentItem currentContentItem = await this.contentItemService.RetrieveContentItemByIdAsync(
                 contentItemId: contentItemId,
@@ -215,20 +236,44 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: inboundEnvelope.SecurityContext);
 
-            ValidateCurrentContentItemIsWithdrawable(
+            ValidateCurrentContentItemIsRemovable(
                 currentContentItem: currentContentItem,
                 actorUserId: actorUserId,
                 securityContext: inboundEnvelope.SecurityContext);
 
             // the foundation owns the soft-delete control fields (IsDeleted, DeletedBy,
             // DeletedWhen, DeletionReason) and leaves ApprovalStatus alone
-            return await this.contentItemService.RemoveContentItemByIdAsync(
+            ContentItem removedContentItem = await this.contentItemService.RemoveContentItemByIdAsync(
                 contentItemId: contentItemId,
                 deletionReason: deletionReason,
                 cancellationToken: cancellationToken);
+
+            await PublishContentItemOrchestrationFactAsync(
+                inboundEnvelope: inboundEnvelope,
+                contentItem: removedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Removed);
+
+            return removedContentItem;
         }
 
-        private async ValueTask<ContentItem> AmendContentItemInPlaceAsync(
+        // the orchestration's own completion fact, distinct from the foundation's entity
+        // fact: it asserts that this process finished with its gates passed and its
+        // invariants restored, which is what downstream processes chain off
+        private async ValueTask PublishContentItemOrchestrationFactAsync(
+            EventEnvelope<ContentItem> inboundEnvelope,
+            ContentItem contentItem,
+            ContentItemOrchestrationEventOperation operation)
+        {
+            EventEnvelope<ContentItem> outboundEnvelope = await this.eventEnvelopeBroker.CreateNextAsync(
+                sourceEnvelope: inboundEnvelope,
+                content: contentItem);
+
+            await this.eventBroker.PublishContentItemOrchestrationAsync(
+                envelope: outboundEnvelope,
+                operation: operation);
+        }
+
+        private async ValueTask<ContentItem> ModifyContentItemInPlaceAsync(
             ContentItem contentItem,
             ContentItem currentContentItem,
             string contentHash,

@@ -18,7 +18,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService
     {
-        public ValueTask<EventEnvelope<ContentItem>?> OnSubmittingContentItemAsync(
+        public ValueTask<EventEnvelope<ContentItem>?> OnAddingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default) =>
             TryCatchSubstrate(async () =>
@@ -26,18 +26,18 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentItemEventEnvelope(envelope);
 
-                ContentItem submittedContentItem =
-                    await DoSubmitContentItemAsync(
+                ContentItem addedContentItem =
+                    await DoAddContentItemAsync(
                         contentItem: envelope.Content,
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
-                    content: submittedContentItem);
+                    content: addedContentItem);
             });
 
-        public ValueTask<EventEnvelope<ContentItem>?> OnAmendingContentItemAsync(
+        public ValueTask<EventEnvelope<ContentItem>?> OnModifyingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default) =>
             TryCatchSubstrate(async () =>
@@ -45,18 +45,18 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentItemEventEnvelope(envelope);
 
-                ContentItem amendedContentItem =
-                    await DoAmendingContentItemAsync(
+                ContentItem modifiedContentItem =
+                    await DoModifyContentItemAsync(
                         contentItem: envelope.Content,
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
-                    content: amendedContentItem);
+                    content: modifiedContentItem);
             });
 
-        public ValueTask<EventEnvelope<ContentItem>?> OnWithdrawingContentItemAsync(
+        public ValueTask<EventEnvelope<ContentItem>?> OnRemovingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default) =>
             TryCatchSubstrate(async () =>
@@ -64,8 +64,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentItemEventEnvelope(envelope);
 
-                ContentItem withdrawnContentItem =
-                    await DoWithdrawingContentItemAsync(
+                ContentItem removedContentItem =
+                    await DoRemoveContentItemByIdAsync(
                         contentItemId: envelope.Content.Id,
                         deletionReason: envelope.Content.DeletionReason,
                         inboundEnvelope: envelope,
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
-                    content: withdrawnContentItem);
+                    content: removedContentItem);
             });
     }
 }

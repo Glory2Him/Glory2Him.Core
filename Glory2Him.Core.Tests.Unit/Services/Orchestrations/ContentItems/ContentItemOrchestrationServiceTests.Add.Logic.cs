@@ -17,6 +17,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Moq;
 
@@ -25,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         [Fact]
-        public async Task ShouldSubmitContentItemAsync()
+        public async Task ShouldAddContentItemAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -84,9 +85,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                         capturedContentItem = contentItem)
                     .ReturnsAsync(addedContentItem);
 
+            EventEnvelope<ContentItem> outboundEnvelope = SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: addedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Added);
+
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.SubmitContentItemAsync(
+                await this.contentItemOrchestrationService.AddContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -114,6 +120,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, addedContentItem),
+                Times.Once);
+
+            VerifyCompletionFactPublished(
+                outboundEnvelope: outboundEnvelope,
+                operation: ContentItemOrchestrationEventOperation.Added);
+
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
@@ -122,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldComputeContentHashPerFrozenContractOnSubmitAsync()
+        public async Task ShouldComputeContentHashPerFrozenContractOnAddAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -161,7 +175,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(inputContentItem);
 
             // when
-            await this.contentItemOrchestrationService.SubmitContentItemAsync(
+            await this.contentItemOrchestrationService.AddContentItemAsync(
                 inputContentItem,
                 TestContext.Current.CancellationToken);
 
@@ -170,7 +184,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldCreateContentItemOnSubmitIfMatchingContentIsDeletedOrOtherContentTypeAsync()
+        public async Task ShouldCreateContentItemOnAddIfMatchingContentIsDeletedOrOtherContentTypeAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -210,7 +224,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.SubmitContentItemAsync(
+                await this.contentItemOrchestrationService.AddContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 

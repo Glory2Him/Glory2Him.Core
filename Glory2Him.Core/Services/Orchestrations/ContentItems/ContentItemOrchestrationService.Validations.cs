@@ -21,7 +21,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 {
     internal partial class ContentItemOrchestrationService
     {
-        private static void ValidateOnSubmitContentItem(
+        private static void ValidateOnAddContentItem(
             ContentItem contentItem,
             SecurityContext securityContext)
         {
@@ -29,29 +29,29 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             ValidateContentItem(contentItem);
         }
 
-        private static void ValidateOnAmendingContentItem(
+        private static void ValidateOnModifyContentItem(
             ContentItem contentItem,
             SecurityContext securityContext)
         {
             ValidateUserIsAllowedToContribute(securityContext);
-            ValidateContentItemOnAmending(contentItem);
+            ValidateContentItemOnModify(contentItem);
         }
 
-        private static void ValidateOnWithdrawingContentItem(
+        private static void ValidateOnRemoveContentItemById(
             Guid contentItemId,
             SecurityContext securityContext)
         {
             ValidateUserIsAllowedToContribute(securityContext);
-            ValidateContentItemIdOnWithdrawing(contentItemId);
+            ValidateContentItemIdOnRemove(contentItemId);
         }
 
-        private static void ValidateCurrentContentItemIsWithdrawable(
+        private static void ValidateCurrentContentItemIsRemovable(
             ContentItem currentContentItem,
             string actorUserId,
             SecurityContext securityContext)
         {
-            // a withdraw is idempotent from the caller's point of view, but an already
-            // withdrawn row must never be presented as a fresh removal
+            // a remove is idempotent from the caller's point of view, but an already
+            // removed row must never be presented as a fresh removal
             if (currentContentItem.IsDeleted)
             {
                 throw new NotFoundContentItemOrchestrationException(
@@ -62,15 +62,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentContentItem.CreatedBy == actorUserId;
 
-            // removing content is a takedown, not a moderation step — the owner may withdraw
-            // their own item and an Admin may withdraw anyone's; Reviewers and Publishers
+            // removing content is a takedown, not a moderation step — the owner may remove
+            // their own item and an Admin may remove anyone's; Reviewers and Publishers
             // moderate through the approval workflow instead
             bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Admin);
 
             if (isPermitted is false)
             {
                 throw new UnauthorizedContentItemOrchestrationException(
-                    message: "The current user is not allowed to withdraw this content item.");
+                    message: "The current user is not allowed to remove this content item.");
             }
         }
 
@@ -88,17 +88,17 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             if (currentContentItem.IsLatestVersion is false)
             {
                 throw new InvalidContentItemOrchestrationException(
-                    message: "Only the latest version of a content item may be amended.");
+                    message: "Only the latest version of a content item may be modified.");
             }
 
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentContentItem.CreatedBy == actorUserId;
 
-            // an approved item belongs to its owner alone — the amend then forks a new
-            // version; a not-yet-approved item may also be amended in place by a
+            // an approved item belongs to its owner alone — the modify then forks a new
+            // version; a not-yet-approved item may also be modified in place by a
             // Reviewer, Publisher or Admin
-            bool hasAmendRole =
+            bool hasModifyRole =
                 securityContext.Roles.Contains(Roles.Reviewer)
                     || securityContext.Roles.Contains(Roles.ContentItemReviewer)
                     || securityContext.Roles.Contains(Roles.Publisher)
@@ -107,12 +107,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
             bool isPermitted = currentContentItem.ApprovalStatus == ApprovalStatus.Approved
                 ? isOwner
-                : isOwner || hasAmendRole;
+                : isOwner || hasModifyRole;
 
             if (isPermitted is false)
             {
                 throw new UnauthorizedContentItemOrchestrationException(
-                    message: "The current user is not allowed to amend this content item.");
+                    message: "The current user is not allowed to modify this content item.");
             }
         }
 
@@ -148,7 +148,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             if (envelope is null || envelope.Content is null || envelope.Metadata is null)
             {
                 throw new InvalidContentItemOrchestrationEventException(
-                    message: "Invalid content item submission event. " +
+                    message: "Invalid content item orchestration event. " +
                         "The event envelope, its content and metadata are required.");
             }
         }
@@ -159,14 +159,14 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
 
-        private static void ValidateContentItemOnAmending(ContentItem contentItem) =>
+        private static void ValidateContentItemOnModify(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
 
-        private static void ValidateContentItemIdOnWithdrawing(Guid contentItemId) =>
+        private static void ValidateContentItemIdOnRemove(Guid contentItemId) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));

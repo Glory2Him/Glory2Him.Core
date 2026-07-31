@@ -862,19 +862,27 @@ The component design uses events to decouple entity creation and update operatio
 
 ### 10.2 Event System Behaviour
 
-Every entity should publish consistent lifecycle events.
+Every service publishes consistent lifecycle events on its own event addresses. An address is named `<Subject>-<Verb>`, where the **subject is the service** — its class name minus the `Service` suffix — and the **verb** is the operation. Tense encodes direction: the present participle (`-ing`) is a **request** the owning service receives, and the past tense (`-ed`) is a **fact** it publishes once the work is done. Because the subject identifies the service, the verbs stay the standard CRUD set at every layer and never have to be reinvented to avoid collisions:
 
-1. Create operations emit `CreatedEvent`.
-2. Update operations emit `UpdatedEvent`.
-3. Soft delete operations emit `DeletedEvent`.
-4. No hard delete events are required because hard deletes are not planned.
-5. Approval services subscribe to relevant entity lifecycle events.
-6. Event handlers determine whether approval must be created, retained, dismissed, reset, or updated.
-7. Event handlers can update the denormalized `ApprovalStatus` field where appropriate, for example setting `ApprovalStatus = ApprovalStatus.Approved` when the threshold is met.
+| Service | Request addresses | Fact addresses |
+| --- | --- | --- |
+| `ContentItemService` (foundation) | `ContentItem-Adding`, `ContentItem-Modifying`, `ContentItem-RemovingById`, `ContentItem-HardRemovingById`, `ContentItem-RetrievingById` | `ContentItem-Added`, `ContentItem-Modified`, `ContentItem-Removed` |
+| `ContentItemOrchestrationService` | `ContentItemOrchestration-Adding`, `ContentItemOrchestration-Modifying`, `ContentItemOrchestration-RemovingById` | `ContentItemOrchestration-Added`, `ContentItemOrchestration-Modified`, `ContentItemOrchestration-Removed` |
+
+1. Create operations emit an `-Added` fact.
+2. Update operations emit a `-Modified` fact.
+3. Soft delete operations emit a `-Removed` fact.
+4. No hard delete facts are required because hard deletes are not planned.
+5. A service publishes a fact only about its **own** unit of work. A foundation `-Added` means a row was written; an orchestration `-Added` means that orchestrated process completed with its gates passed and its invariants restored. They are different facts about different units of work, never two publishers of the same fact, so an orchestration must not republish the foundation's fact.
+6. Subscribers choose accordingly. A foundation fact fires for **every** write to that entity regardless of the path that produced it, which suits projections and indexes that only need current row state. A layer fact fires only when that process completed, which is what a subscriber needs when its reaction depends on the guarantees that layer added, or when the process makes several foundation writes and the intermediate states must not be observed. Never subscribe to both for one reaction — it would double-fire.
+7. A verb outside the CRUD set is introduced only when one service has two operations that CRUD cannot tell apart — a state transition such as `Approving`/`Approved` or `Publishing`/`Published` owns a narrower field scope than a general modify, so it is a separate method and therefore a separate verb.
+8. Approval services subscribe to relevant lifecycle facts.
+9. Event handlers determine whether approval must be created, retained, dismissed, reset, or updated.
+10. Event handlers can update the denormalized `ApprovalStatus` field where appropriate, for example setting `ApprovalStatus = ApprovalStatus.Approved` when the threshold is met.
 
 ### 10.3 Recommended Events
 
-Recommended domain events:
+Recommended domain events. The names below identify each event's **intent**; the address actually registered for it follows the `<Subject>-<Verb>` scheme in §10.2 and §10.10 — for example `ContentItemCreatedEvent` is published on the `ContentItem-Added` address by `ContentItemService`.
 
 | Event | Purpose |
 | --- | --- |
@@ -1148,7 +1156,7 @@ CausationId: 2
 
 ### 10.10 Current Implementation (EventHighway)
 
-Events are published through the `EventBroker`, which wraps [EventHighway](https://github.com/The-Standard-Organization/EventHighway) — a durable, SQL-backed pub/sub substrate. Every entity has seven event addresses split into two families: **requests** in the present tense (`ContentItem-Adding`, `-Modifying`, `-RemovingById`, `-RetrievingById`), answered by responder handlers on the owning service, and **facts** in the past tense (`ContentItem-Added`, `-Modified`, `-Removed`), published by the service after the work is done for observers to react to. The address is selected by a strongly typed per-entity operation enum passed on publish (for example `ContentItemEventOperation.Adding`) — no magic strings, and entity-specific operations can be added per entity without affecting the others. The broker composes the stored event name from the entity and operation (for example `"ContentItemAdding"`). Every publish persists the event and dispatches it inline to the in-process delegate handlers subscribed to that address; handler failures are recorded per listener (with retry support) instead of failing the publisher. Subscriptions bind to exactly one operation. Handlers may optionally return a reply envelope (`ValueTask<EventEnvelope<T>?>`), which the broker serializes onto the delivery's `ListenerEventV2` row — the observable reply channel for request-style events such as `RetrievedById`, carrying the same security-context and metadata discipline as the request.
+Events are published through the `EventBroker`, which wraps [EventHighway](https://github.com/The-Standard-Organization/EventHighway) — a durable, SQL-backed pub/sub substrate. Each service owns a set of event addresses named `<Subject>-<Verb>` (§10.2), split into two families: **requests** in the present tense (`ContentItem-Adding`, `-Modifying`, `-RemovingById`, `-RetrievingById`), answered by responder handlers on the owning service, and **facts** in the past tense (`ContentItem-Added`, `-Modified`, `-Removed`), published by the service after its work is done for observers to react to. The subject is the service rather than the entity, so a higher-level service announcing completion of its own unit of work sits on its own addresses — `ContentItemOrchestration-Adding` is handled by `ContentItemOrchestrationService`, which publishes `ContentItemOrchestration-Added` once the orchestrated add has completed. Receiver handler methods are always named `On<Verb><Entity>Async` (`OnAddingContentItemAsync`); the `On` prefix marks the receiver and never appears in the address itself. The address is selected by a strongly typed per-service operation enum passed on publish (for example `ContentItemEventOperation.Adding`, `ContentItemOrchestrationEventOperation.Added`) — no magic strings, and operations can be added per service without affecting the others. The broker composes the stored event name from the subject and operation (for example `"ContentItemAdding"`, `"ContentItemOrchestrationAdded"`), so the subject must be distinct per service or the stored names would collide. Every publish persists the event and dispatches it inline to the in-process delegate handlers subscribed to that address; handler failures are recorded per listener (with retry support) instead of failing the publisher. Subscriptions bind to exactly one operation. Handlers may optionally return a reply envelope (`ValueTask<EventEnvelope<T>?>`), which the broker serializes onto the delivery's `ListenerEventV2` row — the observable reply channel for request-style events such as `RetrievedById`, carrying the same security-context and metadata discipline as the request.
 
 Publishing returns an `EventPublishResult<T>`: the persisted event id plus one `EventDelivery<T>` per subscription, each with its dispatch-time status and — for responders — the reply envelope deserialized back to `EventEnvelope<T>`. This is a dispatch-time snapshot: failed deliveries may still succeed later via retries, and the durable truth remains the event store. Notification-style publishers simply ignore the result.
 
@@ -1617,7 +1625,7 @@ Responsibilities:
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Orchestrate soft delete across the content item and flag dependent associations as appropriate.
-6. Publish `ContentItemCreatedEvent`, `ContentItemUpdatedEvent`, and `ContentItemDeletedEvent` via `ContentItemEventService`.
+6. Publish its own completion facts — `ContentItemOrchestration-Added`, `ContentItemOrchestration-Modified`, and `ContentItemOrchestration-Removed` — via `IEventBroker` once the orchestrated work has completed. The underlying row-level facts (`ContentItem-Added`, `-Modified`, `-Removed`) are published by `ContentItemService` and must not be republished here (§10.2).
 7. The approval orchestration service subscribes to these events to manage approval records and workflow state.
 
 Business Rules:

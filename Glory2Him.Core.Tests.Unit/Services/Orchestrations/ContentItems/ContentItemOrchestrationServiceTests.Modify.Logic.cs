@@ -18,6 +18,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -31,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldAmendContentItemInPlaceOnAmendingIfActorIsOwnerAsync(
+        public async Task ShouldModifyContentItemInPlaceOnModifyIfActorIsOwnerAsync(
             ApprovalStatus approvalStatus)
         {
             // given: the owner edits a not-yet-approved item — same row, same version
@@ -92,9 +93,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                         capturedContentItem = contentItem)
                     .ReturnsAsync(updatedContentItem);
 
+            EventEnvelope<ContentItem> outboundEnvelope = SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: updatedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Modified);
+
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.AmendingContentItemAsync(
+                await this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -130,6 +136,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, updatedContentItem),
+                Times.Once);
+
+            VerifyCompletionFactPublished(
+                outboundEnvelope: outboundEnvelope,
+                operation: ContentItemOrchestrationEventOperation.Modified);
+
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
@@ -139,7 +153,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldForkNewVersionOnAmendingIfApprovedItemIsAmendedByOwnerAsync()
+        public async Task ShouldForkNewVersionOnModifyIfApprovedItemIsModifiedByOwnerAsync()
         {
             // given: an approved item is immutable to its owner — the edit forks a new row
             // with Version + 1 that becomes the latest, the previous latest is demoted
@@ -231,9 +245,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     })
                     .ReturnsAsync(addedContentItem);
 
+            EventEnvelope<ContentItem> outboundEnvelope = SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: addedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Modified);
+
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.AmendingContentItemAsync(
+                await this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -275,6 +294,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.CreateAsync(inputContentItem),
                 Times.Once);
 
+            // the fork writes two foundation rows but announces the amend exactly once
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, addedContentItem),
+                Times.Once);
+
+            VerifyCompletionFactPublished(
+                outboundEnvelope: outboundEnvelope,
+                operation: ContentItemOrchestrationEventOperation.Modified);
+
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
@@ -289,12 +317,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [InlineData(ApprovalStatus.Submitted, Roles.Publisher)]
         [InlineData(ApprovalStatus.Rejected, Roles.ContentItemPublisher)]
         [InlineData(ApprovalStatus.Dismissed, Roles.Admin)]
-        public async Task ShouldAmendContentItemInPlaceOnAmendingIfActorHasAmendRoleAsync(
+        public async Task ShouldModifyContentItemInPlaceOnModifyIfActorHasModifyRoleAsync(
             ApprovalStatus approvalStatus,
-            string amendingRole)
+            string modifyingRole)
         {
             // given: while an item is not yet approved, a Reviewer, Publisher or Admin
-            // (global or ContentItem-scoped) may amend it in place alongside the owner;
+            // (global or ContentItem-scoped) may modify it in place alongside the owner;
             // the item stays on the same row and their identity lands on UpdatedBy
             // downstream
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -308,7 +336,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 createdBy: GetRandomString());
 
             ContentItem updatedContentItem = storageContentItem.DeepClone();
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext(amendingRole);
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext(modifyingRole);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
@@ -340,7 +368,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.AmendingContentItemAsync(
+                await this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -357,7 +385,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldAmendContentItemIfMatchingContentIsInOwnGroupAsync()
+        public async Task ShouldModifyContentItemIfMatchingContentIsInOwnGroupAsync()
         {
             // given: the duplicate rule excludes the item's own group on modify (§3.4.2
             // rule 4) — a later version legitimately reverting to earlier wording of the
@@ -411,7 +439,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.AmendingContentItemAsync(
+                await this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 

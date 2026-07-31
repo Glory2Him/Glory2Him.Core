@@ -21,39 +21,39 @@ namespace Glory2Him.Core.Brokers.Events
 {
     internal partial class EventBroker
     {
-        public ValueTask<EventPublishResult<ContentItem>> PublishContentItemSubmissionAsync(
+        public ValueTask<EventPublishResult<ContentItem>> PublishContentItemOrchestrationAsync(
             EventEnvelope<ContentItem> envelope,
-            ContentItemSubmissionEventOperation operation) =>
+            ContentItemOrchestrationEventOperation operation) =>
                 PublishEventAsync(
-                    eventAddressIds: EventBrokerIdentifiers.ContentItemSubmissionEventAddressIds,
-                    entityName: nameof(ContentItem),
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemOrchestrationEventAddressIds,
+                    entityName: "ContentItemOrchestration",
                     envelope: envelope,
                     operation: operation);
 
-        public ValueTask SubscribeToContentItemSubmissionEventAsync(
+        public ValueTask SubscribeToContentItemOrchestrationEventAsync(
             EventSubscription subscription,
-            ContentItemSubmissionEventOperation operation,
+            ContentItemOrchestrationEventOperation operation,
             Func<EventEnvelope<ContentItem>, CancellationToken,
-                ValueTask> contentItemSubmissionEventHandler,
+                ValueTask> contentItemOrchestrationEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    eventAddressIds: EventBrokerIdentifiers.ContentItemSubmissionEventAddressIds,
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemOrchestrationEventAddressIds,
                     subscription: subscription,
                     operation: operation,
-                    eventHandler: contentItemSubmissionEventHandler,
+                    eventHandler: contentItemOrchestrationEventHandler,
                     cancellationToken: cancellationToken);
 
-        public ValueTask SubscribeToContentItemSubmissionEventAsync(
+        public ValueTask SubscribeToContentItemOrchestrationEventAsync(
             EventSubscription subscription,
-            ContentItemSubmissionEventOperation operation,
+            ContentItemOrchestrationEventOperation operation,
             Func<EventEnvelope<ContentItem>, CancellationToken,
-                ValueTask<EventEnvelope<ContentItem>?>> contentItemSubmissionEventHandler,
+                ValueTask<EventEnvelope<ContentItem>?>> contentItemOrchestrationEventHandler,
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
-                    eventAddressIds: EventBrokerIdentifiers.ContentItemSubmissionEventAddressIds,
+                    eventAddressIds: EventBrokerIdentifiers.ContentItemOrchestrationEventAddressIds,
                     subscription: subscription,
                     operation: operation,
-                    eventHandler: contentItemSubmissionEventHandler,
+                    eventHandler: contentItemOrchestrationEventHandler,
                     cancellationToken: cancellationToken);
     }
 }

@@ -19,37 +19,37 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
     internal partial interface IContentItemOrchestrationService
     {
         /// <summary>
-        /// The event path of the orchestration: handles <c>ContentItem-Submitting</c> request
-        /// envelopes, converging on the same do-work as <see cref="SubmitContentItemAsync"/>.
+        /// The event path of the orchestration: handles <c>ContentItemOrchestration-Adding</c> request
+        /// envelopes, converging on the same do-work as <see cref="AddContentItemAsync"/>.
         /// The envelope's <c>SecurityContext</c> carries the original caller for the
         /// contribution gate. Replies with the created content item's envelope; a
         /// duplicate submission fails with an already-exists validation error, so a
         /// replayed request can never create a second item.
         /// </summary>
-        ValueTask<EventEnvelope<ContentItem>?> OnSubmittingContentItemAsync(
+        ValueTask<EventEnvelope<ContentItem>?> OnAddingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The event path of the amend flow: handles <c>ContentItem-Amending</c> request
-        /// envelopes, converging on the same do-work as <see cref="AmendingContentItemAsync"/>.
+        /// The event path of the modify flow: handles <c>ContentItemOrchestration-Modifying</c> request
+        /// envelopes, converging on the same do-work as <see cref="ModifyContentItemAsync"/>.
         /// The envelope's <c>SecurityContext</c> carries the original caller for the
         /// contribution gate and the ownership/role permission checks. Replies with the
         /// amended (or forked) content item's envelope.
         /// </summary>
-        ValueTask<EventEnvelope<ContentItem>?> OnAmendingContentItemAsync(
+        ValueTask<EventEnvelope<ContentItem>?> OnModifyingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The event path of the withdraw flow: handles <c>ContentItem-Withdrawing</c> request
-        /// envelopes, converging on the same do-work as <see cref="WithdrawingContentItemAsync"/>.
-        /// The request payload is the withdraw instruction — the content item's <c>Id</c> and
+        /// The event path of the remove flow: handles <c>ContentItemOrchestration-RemovingById</c> request
+        /// envelopes, converging on the same do-work as <see cref="RemoveContentItemByIdAsync"/>.
+        /// The request payload is the remove instruction — the content item's <c>Id</c> and
         /// the optional <c>DeletionReason</c>; the envelope's <c>SecurityContext</c> carries
         /// the original caller for the contribution gate and the owner/<c>Admin</c> check.
-        /// Replies with the withdrawn content item's envelope.
+        /// Replies with the removed content item's envelope.
         /// </summary>
-        ValueTask<EventEnvelope<ContentItem>?> OnWithdrawingContentItemAsync(
+        ValueTask<EventEnvelope<ContentItem>?> OnRemovingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
     }

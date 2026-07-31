@@ -16,6 +16,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -30,10 +31,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
         [InlineData(ApprovalStatus.Approved)]
-        public async Task ShouldWithdrawContentItemOnWithdrawingIfActorIsOwnerAsync(
+        public async Task ShouldRemoveContentItemOnRemoveByIdIfActorIsOwnerAsync(
             ApprovalStatus approvalStatus)
         {
-            // given: the owner may withdraw their own item at any point of the approval
+            // given: the owner may remove their own item at any point of the approval
             // workflow — deletion is not an ApprovalStatus (§10.5), so the status of the
             // row is irrelevant to the decision and is left untouched by the soft delete
             Guid randomContentItemId = Guid.NewGuid();
@@ -47,10 +48,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: approvalStatus,
                 createdBy: actorUserId);
 
-            ContentItem withdrawnContentItem = storageContentItem.DeepClone();
-            withdrawnContentItem.IsDeleted = true;
-            withdrawnContentItem.DeletionReason = inputDeletionReason;
-            ContentItem expectedContentItem = withdrawnContentItem.DeepClone();
+            ContentItem removedContentItem = storageContentItem.DeepClone();
+            removedContentItem.IsDeleted = true;
+            removedContentItem.DeletionReason = inputDeletionReason;
+            ContentItem expectedContentItem = removedContentItem.DeepClone();
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -58,7 +59,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 securityContext: securityContext);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameWithdrawRequestAs(
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(
                     inputContentItemId,
                     inputDeletionReason))))
                         .ReturnsAsync(inboundEnvelope);
@@ -76,11 +77,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     inputContentItemId,
                     inputDeletionReason,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(withdrawnContentItem);
+                        .ReturnsAsync(removedContentItem);
+
+            EventEnvelope<ContentItem> outboundEnvelope = SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: removedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Removed);
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.WithdrawingContentItemAsync(
+                await this.contentItemOrchestrationService.RemoveContentItemByIdAsync(
                     inputContentItemId,
                     inputDeletionReason,
                     TestContext.Current.CancellationToken);
@@ -89,7 +95,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameWithdrawRequestAs(
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(
                     inputContentItemId,
                     inputDeletionReason))),
                 Times.Once);
@@ -113,6 +119,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, removedContentItem),
+                Times.Once);
+
+            VerifyCompletionFactPublished(
+                outboundEnvelope: outboundEnvelope,
+                operation: ContentItemOrchestrationEventOperation.Removed);
+
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
@@ -122,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldWithdrawContentItemOnWithdrawingIfActorIsAdminAsync()
+        public async Task ShouldRemoveContentItemOnRemoveByIdIfActorIsAdminAsync()
         {
             // given: an Admin may take down anyone's content (§16.6) — the owner check
             // fails but the Admin role carries the takedown on its own
@@ -134,8 +148,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: ApprovalStatus.Approved,
                 createdBy: GetRandomString());
 
-            ContentItem withdrawnContentItem = storageContentItem.DeepClone();
-            withdrawnContentItem.IsDeleted = true;
+            ContentItem removedContentItem = storageContentItem.DeepClone();
+            removedContentItem.IsDeleted = true;
             SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -143,7 +157,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 securityContext: securityContext);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameWithdrawRequestAs(inputContentItemId, null))))
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(inputContentItemId, null))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -159,17 +173,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     inputContentItemId,
                     null,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(withdrawnContentItem);
+                        .ReturnsAsync(removedContentItem);
+
+            EventEnvelope<ContentItem> outboundEnvelope = SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: removedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Removed);
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemOrchestrationService.WithdrawingContentItemAsync(
+                await this.contentItemOrchestrationService.RemoveContentItemByIdAsync(
                     inputContentItemId,
                     deletionReason: null,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualContentItem.Should().BeEquivalentTo(withdrawnContentItem);
+            actualContentItem.Should().BeEquivalentTo(removedContentItem);
 
             this.contentItemServiceMock.Verify(service =>
                 service.RemoveContentItemByIdAsync(
@@ -185,6 +204,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.contentItemServiceMock.Verify(service =>
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            VerifyCompletionFactPublished(
+                outboundEnvelope: outboundEnvelope,
+                operation: ContentItemOrchestrationEventOperation.Removed);
 
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();

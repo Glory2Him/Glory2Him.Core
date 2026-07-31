@@ -274,50 +274,50 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // ── ContentItem orchestration request handlers ───────────────────────
-            await this.eventBroker.SubscribeToContentItemSubmissionEventAsync(
+            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
                 subscription: new EventSubscription
                 {
-                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnSubmittingContentItemSubscriptionName,
+                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnAddingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnAddingContentItemSubscriptionName,
 
-                    Description = "Handles submit requests: runs the contribution gate and the " +
+                    Description = "Handles add requests: runs the contribution gate and the " +
                         "duplicate-content rule, adds the content item via the foundation " +
                         "service (which publishes ContentItem-Added), and replies with the " +
-                        "created entity; duplicate submissions fail as already existing."
+                        "created entity; duplicate adds fail as already existing."
                 },
-                operation: ContentItemSubmissionEventOperation.Submitting,
-                contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnSubmittingContentItemAsync,
+                operation: ContentItemOrchestrationEventOperation.Adding,
+                contentItemOrchestrationEventHandler: this.contentItemOrchestrationService.OnAddingContentItemAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemSubmissionEventAsync(
+            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
                 subscription: new EventSubscription
                 {
-                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionName,
+                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnModifyingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnModifyingContentItemSubscriptionName,
 
-                    Description = "Handles amend requests: runs the contribution gate, the " +
+                    Description = "Handles modify requests: runs the contribution gate, the " +
                         "ownership/role permission rules and the duplicate-content rule, then " +
-                        "amends the content item in place (which publishes ContentItem-Modified) " +
-                        "or forks a new version for an owner amend of an approved item (which " +
+                        "modifies the content item in place (which publishes ContentItem-Modified) " +
+                        "or forks a new version for an owner modify of an approved item (which " +
                         "publishes ContentItem-Added), and replies with the resulting entity."
                 },
-                operation: ContentItemSubmissionEventOperation.Amending,
-                contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnAmendingContentItemAsync,
+                operation: ContentItemOrchestrationEventOperation.Modifying,
+                contentItemOrchestrationEventHandler: this.contentItemOrchestrationService.OnModifyingContentItemAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemSubmissionEventAsync(
+            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
                 subscription: new EventSubscription
                 {
-                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnWithdrawingContentItemSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnWithdrawingContentItemSubscriptionName,
+                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnRemovingContentItemByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnRemovingContentItemByIdSubscriptionName,
 
-                    Description = "Handles withdraw requests: runs the contribution gate and the " +
+                    Description = "Handles remove requests: runs the contribution gate and the " +
                         "owner/Admin permission rule, then soft deletes the content item via " +
                         "the foundation service (which publishes ContentItem-Removed), and " +
-                        "replies with the withdrawn entity; ApprovalStatus is left untouched."
+                        "replies with the removed entity; ApprovalStatus is left untouched."
                 },
-                operation: ContentItemSubmissionEventOperation.Withdrawing,
-                contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnWithdrawingContentItemAsync,
+                operation: ContentItemOrchestrationEventOperation.RemovingById,
+                contentItemOrchestrationEventHandler: this.contentItemOrchestrationService.OnRemovingContentItemByIdAsync,
                 cancellationToken: cancellationToken);
 
             // ── Approval request handlers ────────────────────────────────────────
