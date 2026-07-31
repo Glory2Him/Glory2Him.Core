@@ -37,6 +37,43 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             ValidateContentItemOnAmending(contentItem);
         }
 
+        private static void ValidateOnWithdrawingContentItem(
+            Guid contentItemId,
+            SecurityContext securityContext)
+        {
+            ValidateUserIsAllowedToContribute(securityContext);
+            ValidateContentItemIdOnWithdrawing(contentItemId);
+        }
+
+        private static void ValidateCurrentContentItemIsWithdrawable(
+            ContentItem currentContentItem,
+            string actorUserId,
+            SecurityContext securityContext)
+        {
+            // a withdraw is idempotent from the caller's point of view, but an already
+            // withdrawn row must never be presented as a fresh removal
+            if (currentContentItem.IsDeleted)
+            {
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && currentContentItem.CreatedBy == actorUserId;
+
+            // removing content is a takedown, not a moderation step — the owner may withdraw
+            // their own item and an Admin may withdraw anyone's; Reviewers and Publishers
+            // moderate through the approval workflow instead
+            bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Admin);
+
+            if (isPermitted is false)
+            {
+                throw new UnauthorizedContentItemOrchestrationException(
+                    message: "The current user is not allowed to withdraw this content item.");
+            }
+        }
+
         private static void ValidateCurrentContentItemIsModifiable(
             ContentItem currentContentItem,
             string actorUserId,
@@ -128,6 +165,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
+
+        private static void ValidateContentItemIdOnWithdrawing(Guid contentItemId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
         private static dynamic IsInvalid(Guid id) => new
         {

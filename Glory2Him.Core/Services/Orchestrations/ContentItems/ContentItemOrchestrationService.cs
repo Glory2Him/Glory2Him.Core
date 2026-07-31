@@ -85,6 +85,30 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<ContentItem> WithdrawingContentItemAsync(
+            Guid contentItemId,
+            string? deletionReason = null,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var withdrawRequest = new ContentItem
+                {
+                    Id = contentItemId,
+                    DeletionReason = deletionReason
+                };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: withdrawRequest);
+
+                return await DoWithdrawingContentItemAsync(
+                    contentItemId: contentItemId,
+                    deletionReason: deletionReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
         private async ValueTask<ContentItem> DoSubmitContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
@@ -174,6 +198,34 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     currentContentItem: currentContentItem,
                     contentHash: contentHash,
                     cancellationToken: cancellationToken);
+        }
+
+        private async ValueTask<ContentItem> DoWithdrawingContentItemAsync(
+            Guid contentItemId,
+            string? deletionReason,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnWithdrawingContentItem(contentItemId, inboundEnvelope.SecurityContext);
+
+            ContentItem currentContentItem = await this.contentItemService.RetrieveContentItemByIdAsync(
+                contentItemId: contentItemId,
+                cancellationToken: cancellationToken);
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: inboundEnvelope.SecurityContext);
+
+            ValidateCurrentContentItemIsWithdrawable(
+                currentContentItem: currentContentItem,
+                actorUserId: actorUserId,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            // the foundation owns the soft-delete control fields (IsDeleted, DeletedBy,
+            // DeletedWhen, DeletionReason) and leaves ApprovalStatus alone
+            return await this.contentItemService.RemoveContentItemByIdAsync(
+                contentItemId: contentItemId,
+                deletionReason: deletionReason,
+                cancellationToken: cancellationToken);
         }
 
         private async ValueTask<ContentItem> AmendContentItemInPlaceAsync(

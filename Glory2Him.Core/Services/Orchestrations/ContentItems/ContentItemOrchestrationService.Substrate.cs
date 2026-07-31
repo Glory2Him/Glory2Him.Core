@@ -55,5 +55,25 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     sourceEnvelope: envelope,
                     content: amendedContentItem);
             });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnWithdrawingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemEventEnvelope(envelope);
+
+                ContentItem withdrawnContentItem =
+                    await DoWithdrawingContentItemAsync(
+                        contentItemId: envelope.Content.Id,
+                        deletionReason: envelope.Content.DeletionReason,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: withdrawnContentItem);
+            });
     }
 }

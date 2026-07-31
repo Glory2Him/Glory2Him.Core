@@ -40,5 +40,17 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         ValueTask<EventEnvelope<ContentItem>?> OnAmendingContentItemAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The event path of the withdraw flow: handles <c>ContentItem-Withdrawing</c> request
+        /// envelopes, converging on the same do-work as <see cref="WithdrawingContentItemAsync"/>.
+        /// The request payload is the withdraw instruction — the content item's <c>Id</c> and
+        /// the optional <c>DeletionReason</c>; the envelope's <c>SecurityContext</c> carries
+        /// the original caller for the contribution gate and the owner/<c>Admin</c> check.
+        /// Replies with the withdrawn content item's envelope.
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItem>?> OnWithdrawingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

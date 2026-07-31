@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -42,6 +43,21 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// </summary>
         ValueTask<ContentItem> AmendingContentItemAsync(
             ContentItem contentItem,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Withdraws an existing content item (Flow 3 — the soft delete of design §10.4). The
+        /// caller must be authenticated, not blocked, and either the item's owner
+        /// (<c>CreatedBy</c>) or an <c>Admin</c>. The control fields (<c>IsDeleted</c>,
+        /// <c>DeletedBy</c>, <c>DeletedWhen</c>, <c>DeletionReason</c>) are set internally by
+        /// the foundation service, never accepted from the caller; <c>ApprovalStatus</c> is
+        /// deliberately left untouched because deletion is not part of the approval workflow
+        /// (§10.5). An already-withdrawn item is reported as not found, and a withdrawn item
+        /// drops out of the duplicate-content rule so its wording may be submitted again.
+        /// </summary>
+        ValueTask<ContentItem> WithdrawingContentItemAsync(
+            Guid contentItemId,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
     }
 }

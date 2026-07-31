@@ -110,6 +110,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
 
+        // the withdraw request payload is minted inside the service, so it is matched on the
+        // instruction it carries: the id of the row to remove and the optional reason
+        private static Expression<Func<ContentItem, bool>> SameWithdrawRequestAs(
+            Guid expectedContentItemId,
+            string? expectedDeletionReason) =>
+            actualContentItem => actualContentItem.Id == expectedContentItemId
+                && actualContentItem.DeletionReason == expectedDeletionReason;
+
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();
 

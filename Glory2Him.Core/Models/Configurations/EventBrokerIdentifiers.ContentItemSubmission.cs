@@ -23,18 +23,23 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ContentItemAmendingEventAddressId =
             new Guid("019fb20f-c2ea-78ee-a781-821e6c7ec657");
 
+        public static readonly Guid ContentItemWithdrawingEventAddressId =
+            new Guid("019fba3f-b27d-736c-8984-3c900911dfef");
+
         internal static readonly IReadOnlyDictionary<ContentItemSubmissionEventOperation, Guid>
             ContentItemSubmissionEventAddressIds = new Dictionary<ContentItemSubmissionEventOperation, Guid>
             {
                 { ContentItemSubmissionEventOperation.Submitting, ContentItemSubmittingEventAddressId },
-                { ContentItemSubmissionEventOperation.Amending, ContentItemAmendingEventAddressId }
+                { ContentItemSubmissionEventOperation.Amending, ContentItemAmendingEventAddressId },
+                { ContentItemSubmissionEventOperation.Withdrawing, ContentItemWithdrawingEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentItemSubmissionEventAddresses =
             new Dictionary<Guid, string>
             {
                 { ContentItemSubmittingEventAddressId, "ContentItem-Submitting" },
-                { ContentItemAmendingEventAddressId, "ContentItem-Amending" }
+                { ContentItemAmendingEventAddressId, "ContentItem-Amending" },
+                { ContentItemWithdrawingEventAddressId, "ContentItem-Withdrawing" }
             };
 
         public static readonly Guid ContentItemOrchestrationOnSubmittingContentItemSubscriptionId =
@@ -48,5 +53,11 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ContentItemOrchestrationOnAmendingContentItemSubscriptionName =
             "ContentItemOrchestrationService.OnAmendingContentItem";
+
+        public static readonly Guid ContentItemOrchestrationOnWithdrawingContentItemSubscriptionId =
+            new Guid("019fba3f-b284-734a-a436-c35341f73c5e");
+
+        public const string ContentItemOrchestrationOnWithdrawingContentItemSubscriptionName =
+            "ContentItemOrchestrationService.OnWithdrawingContentItem";
     }
 }

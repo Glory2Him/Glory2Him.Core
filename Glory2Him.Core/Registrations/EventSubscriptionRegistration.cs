@@ -305,6 +305,21 @@ namespace Glory2Him.Core.Registrations
                 contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnAmendingContentItemAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToContentItemSubmissionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnWithdrawingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnWithdrawingContentItemSubscriptionName,
+
+                    Description = "Handles withdraw requests: runs the contribution gate and the " +
+                        "owner/Admin permission rule, then soft deletes the content item via " +
+                        "the foundation service (which publishes ContentItem-Removed), and " +
+                        "replies with the withdrawn entity; ApprovalStatus is left untouched."
+                },
+                operation: ContentItemSubmissionEventOperation.Withdrawing,
+                contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnWithdrawingContentItemAsync,
+                cancellationToken: cancellationToken);
+
             // ── Approval request handlers ────────────────────────────────────────
             await this.eventBroker.SubscribeToApprovalEventAsync(
                 subscription: new EventSubscription
