@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
@@ -26,6 +27,56 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         {
             ValidateUserIsAllowedToContribute(securityContext);
             ValidateContentItem(contentItem);
+        }
+
+        private static void ValidateOnAmendingContentItem(
+            ContentItem contentItem,
+            SecurityContext securityContext)
+        {
+            ValidateUserIsAllowedToContribute(securityContext);
+            ValidateContentItemOnAmending(contentItem);
+        }
+
+        private static void ValidateCurrentContentItemIsModifiable(
+            ContentItem currentContentItem,
+            string actorUserId,
+            SecurityContext securityContext)
+        {
+            if (currentContentItem.IsDeleted)
+            {
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+
+            if (currentContentItem.IsLatestVersion is false)
+            {
+                throw new InvalidContentItemOrchestrationException(
+                    message: "Only the latest version of a content item may be amended.");
+            }
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && currentContentItem.CreatedBy == actorUserId;
+
+            // an approved item belongs to its owner alone — the amend then forks a new
+            // version; a not-yet-approved item may also be amended in place by a
+            // Reviewer, Publisher or Admin
+            bool hasAmendRole =
+                securityContext.Roles.Contains(Roles.Reviewer)
+                    || securityContext.Roles.Contains(Roles.ContentItemReviewer)
+                    || securityContext.Roles.Contains(Roles.Publisher)
+                    || securityContext.Roles.Contains(Roles.ContentItemPublisher)
+                    || securityContext.Roles.Contains(Roles.Admin);
+
+            bool isPermitted = currentContentItem.ApprovalStatus == ApprovalStatus.Approved
+                ? isOwner
+                : isOwner || hasAmendRole;
+
+            if (isPermitted is false)
+            {
+                throw new UnauthorizedContentItemOrchestrationException(
+                    message: "The current user is not allowed to amend this content item.");
+            }
         }
 
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
@@ -68,6 +119,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private static void ValidateContentItem(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
+
+        private static void ValidateContentItemOnAmending(ContentItem contentItem) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
 

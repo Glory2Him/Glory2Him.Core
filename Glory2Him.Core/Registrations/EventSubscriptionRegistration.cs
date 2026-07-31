@@ -289,6 +289,22 @@ namespace Glory2Him.Core.Registrations
                 contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnSubmittingContentItemAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToContentItemSubmissionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnAmendingContentItemSubscriptionName,
+
+                    Description = "Handles amend requests: runs the contribution gate, the " +
+                        "ownership/role permission rules and the duplicate-content rule, then " +
+                        "amends the content item in place (which publishes ContentItem-Modified) " +
+                        "or forks a new version for an owner amend of an approved item (which " +
+                        "publishes ContentItem-Added), and replies with the resulting entity."
+                },
+                operation: ContentItemSubmissionEventOperation.Amending,
+                contentItemSubmissionEventHandler: this.contentItemOrchestrationService.OnAmendingContentItemAsync,
+                cancellationToken: cancellationToken);
+
             // ── Approval request handlers ────────────────────────────────────────
             await this.eventBroker.SubscribeToApprovalEventAsync(
                 subscription: new EventSubscription

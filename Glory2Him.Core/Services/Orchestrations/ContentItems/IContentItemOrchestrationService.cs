@@ -27,5 +27,21 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         ValueTask<ContentItem> SubmitContentItemAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Amends an existing content item (Flow 2), branching on the current
+        /// <c>ApprovalStatus</c>: a not-yet-approved item is amended in place on the same row
+        /// and version by its owner or by a <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c>;
+        /// an <c>Approved</c> item may only be amended by its owner, which forks a new version
+        /// row (<c>Version + 1</c>, new row becomes the latest, previous latest is demoted).
+        /// Only the permitted caller fields (<c>Title</c>, <c>Author</c>, <c>Content</c>,
+        /// <c>ContentTypeId</c>, <c>PublishDate</c>) are mapped onto the entity loaded from
+        /// storage, so control fields can never be tampered with; <c>CreatedBy</c> never
+        /// changes on an update. Duplicate content in another group (design §3.4.2) fails
+        /// with an already-exists validation error.
+        /// </summary>
+        ValueTask<ContentItem> AmendingContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default);
     }
 }
