@@ -116,6 +116,35 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             }
         }
 
+        private static void ValidateCurrentContentItemIsRetrievable(
+            ContentItem currentContentItem,
+            string actorUserId,
+            SecurityContext securityContext)
+        {
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && currentContentItem.CreatedBy == actorUserId;
+
+            // a non-public version may be read by its owner and by the moderation roles
+            // (Reviewer, Publisher, Admin — global or ContentItem-scoped, §16.6) for
+            // review and audit; everyone else gets not-found so a probe cannot tell a
+            // non-public version from a missing one
+            bool hasReviewRole =
+                securityContext.Roles.Contains(Roles.Reviewer)
+                    || securityContext.Roles.Contains(Roles.ContentItemReviewer)
+                    || securityContext.Roles.Contains(Roles.Publisher)
+                    || securityContext.Roles.Contains(Roles.ContentItemPublisher)
+                    || securityContext.Roles.Contains(Roles.Admin);
+
+            bool isPermitted = isOwner || hasReviewRole;
+
+            if (isPermitted is false)
+            {
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+        }
+
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -165,6 +194,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
                 (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
+
+        private static void ValidateContentItemIdOnRetrieve(Guid contentItemId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
         private static void ValidateContentItemIdOnRemove(Guid contentItemId) =>
             Validate(

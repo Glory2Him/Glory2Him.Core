@@ -75,5 +75,26 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     sourceEnvelope: envelope,
                     content: removedContentItem);
             });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemEventEnvelope(envelope);
+
+                // read-only: naturally idempotent and publishes no completion fact — the
+                // reply envelope is the whole outcome
+                ContentItem retrievedContentItem =
+                    await DoRetrieveContentItemByIdAsync(
+                        contentItemId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: retrievedContentItem);
+            });
     }
 }

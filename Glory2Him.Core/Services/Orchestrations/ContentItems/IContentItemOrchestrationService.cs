@@ -66,5 +66,24 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             Guid contentItemId,
             string? deletionReason = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieves a single content item version by its <c>Id</c>, enforcing the read
+        /// posture of design §14.1/§16.6: a version that satisfies canonical content
+        /// visibility (not deleted, <c>Approved</c>, <c>IsPublished</c>, and
+        /// <c>PublishDate</c> null or past) is readable by anyone — reads carry no
+        /// contribution gate, so anonymous and even <c>ReadOnly</c>-blocked callers may
+        /// read public content. A non-public version (<c>Draft</c>, <c>Submitted</c>,
+        /// <c>Rejected</c>, <c>Dismissed</c>, unpublished, or scheduled in the future) is
+        /// readable only by its owner (<c>CreatedBy</c>) or a <c>Reviewer</c>,
+        /// <c>Publisher</c> or <c>Admin</c> (global or ContentItem-scoped) for review and
+        /// audit; every other caller receives not-found — never unauthorized — so an
+        /// unprivileged probe cannot tell a non-public version from a missing one. A
+        /// soft-deleted row is not found for every caller. Being a read, no completion
+        /// fact is published.
+        /// </summary>
+        ValueTask<ContentItem> RetrieveContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -26,6 +26,9 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ContentItemOrchestrationRemovingByIdEventAddressId =
             new Guid("019fba3f-b27d-736c-8984-3c900911dfef");
 
+        public static readonly Guid ContentItemOrchestrationRetrievingByIdEventAddressId =
+            new Guid("019fbf0b-835d-71c2-8b2c-6ec3cefde90f");
+
         public static readonly Guid ContentItemOrchestrationAddedEventAddressId =
             new Guid("019fba7b-a32e-7f00-8a60-bca984bf36bd");
 
@@ -51,6 +54,10 @@ namespace Glory2Him.Core.Models.Configurations
                     ContentItemOrchestrationRemovingByIdEventAddressId
                 },
                 {
+                    ContentItemOrchestrationEventOperation.RetrievingById,
+                    ContentItemOrchestrationRetrievingByIdEventAddressId
+                },
+                {
                     ContentItemOrchestrationEventOperation.Added,
                     ContentItemOrchestrationAddedEventAddressId
                 },
@@ -70,6 +77,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemOrchestrationAddingEventAddressId, "ContentItemOrchestration-Adding" },
                 { ContentItemOrchestrationModifyingEventAddressId, "ContentItemOrchestration-Modifying" },
                 { ContentItemOrchestrationRemovingByIdEventAddressId, "ContentItemOrchestration-RemovingById" },
+                { ContentItemOrchestrationRetrievingByIdEventAddressId, "ContentItemOrchestration-RetrievingById" },
                 { ContentItemOrchestrationAddedEventAddressId, "ContentItemOrchestration-Added" },
                 { ContentItemOrchestrationModifiedEventAddressId, "ContentItemOrchestration-Modified" },
                 { ContentItemOrchestrationRemovedEventAddressId, "ContentItemOrchestration-Removed" }
@@ -92,5 +100,11 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ContentItemOrchestrationOnRemovingContentItemByIdSubscriptionName =
             "ContentItemOrchestrationService.OnRemovingContentItemById";
+
+        public static readonly Guid ContentItemOrchestrationOnRetrievingContentItemByIdSubscriptionId =
+            new Guid("019fbf0b-83eb-7488-8bb4-9020462b997b");
+
+        public const string ContentItemOrchestrationOnRetrievingContentItemByIdSubscriptionName =
+            "ContentItemOrchestrationService.OnRetrievingContentItemById";
     }
 }

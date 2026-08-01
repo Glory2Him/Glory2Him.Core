@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Hashes;
@@ -31,6 +32,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
     internal partial class ContentItemOrchestrationService : IContentItemOrchestrationService
     {
         private readonly IContentItemService contentItemService;
+        private readonly IDateTimeBroker dateTimeBroker;
         private readonly IHashBroker hashBroker;
         private readonly IIdentifierBroker identifierBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
@@ -40,6 +42,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
         public ContentItemOrchestrationService(
             IContentItemService contentItemService,
+            IDateTimeBroker dateTimeBroker,
             IHashBroker hashBroker,
             IIdentifierBroker identifierBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
@@ -48,6 +51,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             ILoggingBroker loggingBroker)
         {
             this.contentItemService = contentItemService;
+            this.dateTimeBroker = dateTimeBroker;
             this.hashBroker = hashBroker;
             this.identifierBroker = identifierBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
@@ -110,6 +114,27 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 return await DoRemoveContentItemByIdAsync(
                     contentItemId: contentItemId,
                     deletionReason: deletionReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var retrieveRequest = new ContentItem
+                {
+                    Id = contentItemId
+                };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
+
+                return await DoRetrieveContentItemByIdAsync(
+                    contentItemId: contentItemId,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
@@ -254,6 +279,62 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 operation: ContentItemOrchestrationEventOperation.Removed);
 
             return removedContentItem;
+        }
+
+        private async ValueTask<ContentItem> DoRetrieveContentItemByIdAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateContentItemIdOnRetrieve(contentItemId);
+
+            ContentItem contentItem = await this.contentItemService.RetrieveContentItemByIdAsync(
+                contentItemId: contentItemId,
+                cancellationToken: cancellationToken);
+
+            // a removed row is gone for every caller, privileged or not — review and audit
+            // reads cover the approval workflow, not takedowns
+            if (contentItem.IsDeleted)
+            {
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            // canonical content visibility (§14.1): a publicly visible version is readable by
+            // anyone, including anonymous callers — reads carry no contribution gate and the
+            // block roles only block contributions (§16.6)
+            bool isPubliclyVisible =
+                contentItem.ApprovalStatus == ApprovalStatus.Approved
+                    && contentItem.IsPublished
+                    && (contentItem.PublishDate is null
+                        || contentItem.PublishDate <= currentDateTime);
+
+            if (isPubliclyVisible)
+            {
+                return contentItem;
+            }
+
+            SecurityContext securityContext = inboundEnvelope.SecurityContext;
+
+            // a non-public version is reported as not found — never as unauthorized — so an
+            // unprivileged caller cannot probe which ids exist in the approval pipeline
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            ValidateCurrentContentItemIsRetrievable(
+                currentContentItem: contentItem,
+                actorUserId: actorUserId,
+                securityContext: securityContext);
+
+            return contentItem;
         }
 
         // the orchestration's own completion fact, distinct from the foundation's entity
