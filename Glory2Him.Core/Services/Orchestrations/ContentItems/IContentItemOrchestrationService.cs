@@ -89,16 +89,31 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
         /// <summary>
         /// Retrieves all content item versions the caller is allowed to see, as a further
-        /// composable query. Soft-deleted rows are excluded for every caller. An anonymous
-        /// caller sees only versions that satisfy canonical content visibility (design
-        /// §14.1: <c>Approved</c>, <c>IsPublished</c>, and <c>PublishDate</c> null or past);
-        /// an authenticated caller additionally sees their own versions in any state; a
+        /// composable query — the general read backing admin, moderation and work-queue
+        /// surfaces. Soft-deleted rows are excluded for every caller. An anonymous caller
+        /// sees only versions that satisfy canonical content visibility (design §14.1:
+        /// <c>Approved</c>, <c>IsPublished</c>, and <c>PublishDate</c> null or past); an
+        /// authenticated caller additionally sees their own versions in any state; a
         /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c> (global or ContentItem-scoped,
-        /// §16.6) sees every non-deleted version for review and audit. Being a read, no
-        /// completion fact is published. The feed is a separate projection (§14.2) and is
-        /// deliberately not served here.
+        /// §16.6) sees every non-deleted version for review and audit. Public-facing
+        /// surfaces should prefer <see cref="RetrieveAllPublicContentItemsAsync"/>, which
+        /// never widens with the caller's privileges. Being a read, no completion fact is
+        /// published. The feed is a separate projection (§14.2) and is deliberately not
+        /// served here.
         /// </summary>
         ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieves exactly the canonically visible content item versions (design §14.1:
+        /// not deleted, <c>Approved</c>, <c>IsPublished</c>, and <c>PublishDate</c> null or
+        /// past), as a further composable query. The read is caller-independent: no
+        /// security context is consulted, so even a privileged caller receives the same set
+        /// an anonymous visitor would — the safe default for public-facing surfaces, where
+        /// <see cref="RetrieveAllContentItemsAsync"/> would widen the set with the caller's
+        /// own or reviewable rows. Being a read, no completion fact is published.
+        /// </summary>
+        ValueTask<IQueryable<ContentItem>> RetrieveAllPublicContentItemsAsync(
             CancellationToken cancellationToken = default);
 
         /// <summary>

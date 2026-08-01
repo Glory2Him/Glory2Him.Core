@@ -156,6 +156,17 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<IQueryable<ContentItem>> RetrieveAllPublicContentItemsAsync(
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // the public projection is caller-independent, so no envelope is minted —
+                // there is no security context to capture and nothing downstream reads one
+                return await DoRetrieveAllPublicContentItemsAsync(cancellationToken);
+            });
+
         public ValueTask<IQueryable<ContentItem>> RetrieveContentItemsByGroupIdAsync(
             Guid contentItemGroupId,
             CancellationToken cancellationToken = default) =>
@@ -397,6 +408,20 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 securityContext: inboundEnvelope.SecurityContext);
         }
 
+        private async ValueTask<IQueryable<ContentItem>> DoRetrieveAllPublicContentItemsAsync(
+            CancellationToken cancellationToken)
+        {
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            // running the collection filter without a security context yields exactly the
+            // canonical visible set (§14.1) — a privileged caller reads the same set an
+            // anonymous visitor would
+            return await ApplyCollectionReadVisibilityFilterAsync(
+                contentItems: allContentItems,
+                securityContext: null);
+        }
+
         private async ValueTask<IQueryable<ContentItem>> DoRetrieveContentItemsByGroupIdAsync(
             Guid contentItemGroupId,
             EventEnvelope<ContentItem> inboundEnvelope,
@@ -514,7 +539,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         // reveals how many non-public versions exist
         private async ValueTask<IQueryable<ContentItem>> ApplyCollectionReadVisibilityFilterAsync(
             IQueryable<ContentItem> contentItems,
-            SecurityContext securityContext)
+            SecurityContext? securityContext)
         {
             // a removed row is gone for every caller, privileged or not — review and audit
             // reads cover the approval workflow, not takedowns
