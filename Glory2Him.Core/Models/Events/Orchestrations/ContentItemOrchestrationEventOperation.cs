@@ -11,7 +11,7 @@
 
 namespace Glory2Him.Core.Models.Events.Orchestrations
 {
-    public enum ContentItemOrchestrationEventOperation
+    internal enum ContentItemOrchestrationEventOperation
     {
         Adding,
         Modifying,

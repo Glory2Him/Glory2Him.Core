@@ -48,7 +48,7 @@ namespace Glory2Him.Core.Models.Configurations
     /// with its gates passed. They are distinct facts, so exactly one service publishes any
     /// given address and a higher layer never republishes a lower layer's fact.</para>
     /// </summary>
-    public static partial class EventBrokerIdentifiers
+    internal static partial class EventBrokerIdentifiers
     {
         public static readonly Guid Glory2HimParticipantId =
             new Guid("019f814e-89c0-70a2-9587-2701065a097d");
