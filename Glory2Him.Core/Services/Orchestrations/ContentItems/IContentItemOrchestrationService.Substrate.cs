@@ -52,5 +52,19 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         ValueTask<EventEnvelope<ContentItem>?> OnRemovingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The event path of the retrieve flow: handles <c>ContentItemOrchestration-RetrievingById</c>
+        /// request envelopes, converging on the same do-work as
+        /// <see cref="RetrieveContentItemByIdAsync"/>. The request payload carries the
+        /// content item's <c>Id</c>; the envelope's <c>SecurityContext</c> carries the
+        /// original caller for the visibility posture — public versions reply for any
+        /// caller, non-public versions only for the owner or a review role. Replies with
+        /// the retrieved content item's envelope; being a read it is naturally idempotent
+        /// and publishes no completion fact.
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

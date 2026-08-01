@@ -15,6 +15,7 @@ using System.Linq.Expressions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Loggings;
@@ -37,6 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         private readonly Mock<IContentItemService> contentItemServiceMock;
+        private readonly Mock<IDateTimeBroker> dateTimeBrokerMock;
         private readonly Mock<IHashBroker> hashBrokerMock;
         private readonly Mock<IIdentifierBroker> identifierBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
@@ -48,6 +50,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         public ContentItemOrchestrationServiceTests()
         {
             this.contentItemServiceMock = new Mock<IContentItemService>();
+            this.dateTimeBrokerMock = new Mock<IDateTimeBroker>();
             this.hashBrokerMock = new Mock<IHashBroker>();
             this.identifierBrokerMock = new Mock<IIdentifierBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
@@ -57,6 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemOrchestrationService = new ContentItemOrchestrationService(
                 contentItemService: this.contentItemServiceMock.Object,
+                dateTimeBroker: this.dateTimeBrokerMock.Object,
                 hashBroker: this.hashBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
@@ -164,6 +168,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             actualContentItem => actualContentItem.Id == expectedContentItemId
                 && actualContentItem.DeletionReason == expectedDeletionReason;
 
+        // the retrieve request payload carries only the id of the version to read
+        private static Expression<Func<ContentItem, bool>> SameRetrieveRequestAs(
+            Guid expectedContentItemId) =>
+            actualContentItem => actualContentItem.Id == expectedContentItemId;
+
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();
 
@@ -219,6 +228,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             storageContentItem.CreatedBy = createdBy;
             storageContentItem.IsLatestVersion = true;
             storageContentItem.IsDeleted = false;
+
+            return storageContentItem;
+        }
+
+        // a row that satisfies canonical content visibility (§14.1) as of currentDateTime
+        private static ContentItem CreateRandomPubliclyVisibleContentItem(
+            Guid contentItemId,
+            DateTimeOffset currentDateTime,
+            bool hasPublishDate)
+        {
+            ContentItem storageContentItem = CreateRandomContentItem();
+            storageContentItem.Id = contentItemId;
+            storageContentItem.ApprovalStatus = ApprovalStatus.Approved;
+            storageContentItem.IsPublished = true;
+            storageContentItem.IsDeleted = false;
+
+            storageContentItem.PublishDate = hasPublishDate
+                ? currentDateTime.AddDays(-1)
+                : null;
 
             return storageContentItem;
         }

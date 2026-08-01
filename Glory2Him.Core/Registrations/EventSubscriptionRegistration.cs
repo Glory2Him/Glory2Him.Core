@@ -320,6 +320,24 @@ namespace Glory2Him.Core.Registrations
                 contentItemOrchestrationEventHandler: this.contentItemOrchestrationService.OnRemovingContentItemByIdAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnRetrievingContentItemByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnRetrievingContentItemByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: applies the canonical content " +
+                        "visibility rules — public versions reply for any caller, non-public " +
+                        "versions only for the owner or a review role — and replies with the " +
+                        "retrieved entity on the delivery; no completion fact is published."
+                },
+                operation: ContentItemOrchestrationEventOperation.RetrievingById,
+
+                contentItemOrchestrationEventHandler:
+                    this.contentItemOrchestrationService.OnRetrievingContentItemByIdAsync,
+
+                cancellationToken: cancellationToken);
+
             // ── Approval request handlers ────────────────────────────────────────
             await this.eventBroker.SubscribeToApprovalEventAsync(
                 subscription: new EventSubscription

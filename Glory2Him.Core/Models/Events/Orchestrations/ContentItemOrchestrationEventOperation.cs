@@ -16,6 +16,7 @@ namespace Glory2Him.Core.Models.Events.Orchestrations
         Adding,
         Modifying,
         RemovingById,
+        RetrievingById,
         Added,
         Modified,
         Removed
