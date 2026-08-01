@@ -173,6 +173,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             Guid expectedContentItemId) =>
             actualContentItem => actualContentItem.Id == expectedContentItemId;
 
+        // a group read's request payload carries only the group whose versions to read
+        private static Expression<Func<ContentItem, bool>> SameGroupRetrieveRequestAs(
+            Guid expectedContentItemGroupId) =>
+            actualContentItem => actualContentItem.ContentItemGroupId == expectedContentItemGroupId;
+
+        // an unfiltered collection read carries no instruction at all — the request payload
+        // is an empty content item minted only to capture the ambient security context
+        private static Expression<Func<ContentItem, bool>> SameRetrieveAllRequest() =>
+            actualContentItem => actualContentItem.Id == Guid.Empty
+                && actualContentItem.ContentItemGroupId == Guid.Empty;
+
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();
 
@@ -247,6 +258,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             storageContentItem.PublishDate = hasPublishDate
                 ? currentDateTime.AddDays(-1)
                 : null;
+
+            return storageContentItem;
+        }
+
+        // a row that misses canonical visibility (§14.1): unpublished and not approved —
+        // visible only to its owner and the review roles on collection reads
+        private static ContentItem CreateRandomNonPublicContentItem(string createdBy)
+        {
+            ContentItem storageContentItem = CreateRandomContentItem();
+            storageContentItem.ApprovalStatus = ApprovalStatus.Draft;
+            storageContentItem.IsPublished = false;
+            storageContentItem.IsDeleted = false;
+            storageContentItem.CreatedBy = createdBy;
+
+            return storageContentItem;
+        }
+
+        private static ContentItem CreateRandomDeletedContentItem(DateTimeOffset currentDateTime)
+        {
+            ContentItem storageContentItem = CreateRandomPubliclyVisibleContentItem(
+                contentItemId: Guid.NewGuid(),
+                currentDateTime: currentDateTime,
+                hasPublishDate: true);
+
+            storageContentItem.IsDeleted = true;
 
             return storageContentItem;
         }

@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -84,6 +85,59 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// </summary>
         ValueTask<ContentItem> RetrieveContentItemByIdAsync(
             Guid contentItemId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieves all content item versions the caller is allowed to see, as a further
+        /// composable query. Soft-deleted rows are excluded for every caller. An anonymous
+        /// caller sees only versions that satisfy canonical content visibility (design
+        /// §14.1: <c>Approved</c>, <c>IsPublished</c>, and <c>PublishDate</c> null or past);
+        /// an authenticated caller additionally sees their own versions in any state; a
+        /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c> (global or ContentItem-scoped,
+        /// §16.6) sees every non-deleted version for review and audit. Being a read, no
+        /// completion fact is published. The feed is a separate projection (§14.2) and is
+        /// deliberately not served here.
+        /// </summary>
+        ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieves all versions of a content item group (design §15.1
+        /// <c>/groups/{groupId}</c>), applying the same per-caller visibility filter as
+        /// <see cref="RetrieveAllContentItemsAsync"/>: deleted rows are gone for everyone,
+        /// anonymous callers see only publicly visible versions, owners also see their own,
+        /// and the review roles see every non-deleted version of the group.
+        /// </summary>
+        ValueTask<IQueryable<ContentItem>> RetrieveContentItemsByGroupIdAsync(
+            Guid contentItemGroupId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieves the single latest version (<c>IsLatestVersion</c>) of a content item
+        /// group — the edit tip, which may still be an unapproved draft. The read posture
+        /// matches <see cref="RetrieveContentItemByIdAsync"/>: a publicly visible latest
+        /// version is readable by anyone; a non-public one only by its owner or a
+        /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c>; every other caller receives
+        /// not-found — never unauthorized — so an unprivileged probe cannot tell a
+        /// non-public tip from a missing group. A group with no non-deleted latest version
+        /// is not found for every caller.
+        /// </summary>
+        ValueTask<ContentItem> RetrieveLatestContentItemByGroupIdAsync(
+            Guid contentItemGroupId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieves the single published version (<c>IsPublished</c>) of a content item
+        /// group — the row the public currently reads, which stays published while a newer
+        /// draft is in review (§3.4.1). The read posture matches
+        /// <see cref="RetrieveContentItemByIdAsync"/>: when the published row is publicly
+        /// visible anyone may read it; a published row scheduled in the future
+        /// (<c>PublishDate</c> not yet passed) is readable only by its owner or a
+        /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c>; everyone else receives
+        /// not-found, as does every caller when the group has no non-deleted published row.
+        /// </summary>
+        ValueTask<ContentItem> RetrievePublishedContentItemByGroupIdAsync(
+            Guid contentItemGroupId,
             CancellationToken cancellationToken = default);
     }
 }
