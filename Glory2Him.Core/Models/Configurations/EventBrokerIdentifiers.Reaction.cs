@@ -15,7 +15,7 @@ using Glory2Him.Core.Models.Events.Foundations;
 
 namespace Glory2Him.Core.Models.Configurations
 {
-    public static partial class EventBrokerIdentifiers
+    internal static partial class EventBrokerIdentifiers
     {
         public static readonly Guid ReactionAddingEventAddressId =
             new Guid("019f814e-89c1-7c63-bc4e-eea12ab72bab");
