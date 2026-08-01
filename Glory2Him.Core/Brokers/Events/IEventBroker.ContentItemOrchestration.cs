@@ -20,22 +20,22 @@ namespace Glory2Him.Core.Brokers.Events
 {
     internal partial interface IEventBroker
     {
-        ValueTask<EventPublishResult<ContentItem>> PublishContentItemSubmissionAsync(
+        ValueTask<EventPublishResult<ContentItem>> PublishContentItemOrchestrationAsync(
             EventEnvelope<ContentItem> envelope,
-            ContentItemSubmissionEventOperation operation);
+            ContentItemOrchestrationEventOperation operation);
 
-        ValueTask SubscribeToContentItemSubmissionEventAsync(
+        ValueTask SubscribeToContentItemOrchestrationEventAsync(
             EventSubscription subscription,
-            ContentItemSubmissionEventOperation operation,
+            ContentItemOrchestrationEventOperation operation,
             Func<EventEnvelope<ContentItem>, CancellationToken,
-                ValueTask> contentItemSubmissionEventHandler,
+                ValueTask> contentItemOrchestrationEventHandler,
             CancellationToken cancellationToken = default);
 
-        ValueTask SubscribeToContentItemSubmissionEventAsync(
+        ValueTask SubscribeToContentItemOrchestrationEventAsync(
             EventSubscription subscription,
-            ContentItemSubmissionEventOperation operation,
+            ContentItemOrchestrationEventOperation operation,
             Func<EventEnvelope<ContentItem>, CancellationToken,
-                ValueTask<EventEnvelope<ContentItem>?>> contentItemSubmissionEventHandler,
+                ValueTask<EventEnvelope<ContentItem>?>> contentItemOrchestrationEventHandler,
             CancellationToken cancellationToken = default);
     }
 }

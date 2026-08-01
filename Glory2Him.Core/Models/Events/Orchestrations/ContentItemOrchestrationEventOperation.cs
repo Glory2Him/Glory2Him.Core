@@ -11,9 +11,13 @@
 
 namespace Glory2Him.Core.Models.Events.Orchestrations
 {
-    public enum ContentItemSubmissionEventOperation
+    internal enum ContentItemOrchestrationEventOperation
     {
-        Submitting,
-        Amending
+        Adding,
+        Modifying,
+        RemovingById,
+        Added,
+        Modified,
+        Removed
     }
 }

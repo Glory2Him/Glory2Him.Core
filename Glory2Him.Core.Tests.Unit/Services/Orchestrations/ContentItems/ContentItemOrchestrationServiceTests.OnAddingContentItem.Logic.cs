@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Moq;
 
@@ -24,7 +25,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     public partial class ContentItemOrchestrationServiceTests
     {
         [Fact]
-        public async Task ShouldAddContentItemAndReplyOnSubmittingContentItemEventAsync()
+        public async Task ShouldAddContentItemAndReplyOnAddingContentItemEventAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -71,9 +72,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.CreateNextAsync(requestEnvelope, addedContentItem))
                     .ReturnsAsync(expectedReplyEnvelope);
 
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemOrchestrationAsync(
+                    expectedReplyEnvelope,
+                    ContentItemOrchestrationEventOperation.Added))
+                        .ReturnsAsync(new EventPublishResult<ContentItem>());
+
             // when
             EventEnvelope<ContentItem>? actualReplyEnvelope =
-                await this.contentItemOrchestrationService.OnSubmittingContentItemAsync(
+                await this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
@@ -98,9 +105,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.GetIdentifierAsync(),
                 Times.Exactly(2));
 
+            // twice on the event path: once for the completion fact inside the do-work,
+            // once for the reply envelope the substrate hands back to the requester
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, addedContentItem),
+                Times.Exactly(2));
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishContentItemOrchestrationAsync(
+                    expectedReplyEnvelope,
+                    ContentItemOrchestrationEventOperation.Added),
                 Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();

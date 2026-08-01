@@ -14,7 +14,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
-using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
@@ -25,15 +24,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 {
     public partial class ContentItemOrchestrationServiceTests
     {
+        public static TheoryData<EventEnvelope<ContentItem>?> InvalidEventEnvelopes() =>
+            new TheoryData<EventEnvelope<ContentItem>?>
+            {
+                null,
+
+                new EventEnvelope<ContentItem>
+                {
+                    Content = null!,
+                    Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                },
+
+                new EventEnvelope<ContentItem>
+                {
+                    Content = new ContentItem { Id = Guid.NewGuid() },
+                    Metadata = null!
+                }
+            };
+
         [Theory]
         [MemberData(nameof(InvalidEventEnvelopes))]
-        public async Task ShouldThrowValidationExceptionOnAmendingContentItemEventIfEnvelopeIsInvalidAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfEnvelopeIsInvalidAndLogItAsync(
             EventEnvelope<ContentItem>? invalidEnvelope)
         {
             // given
             var invalidContentItemOrchestrationEventException =
                 new InvalidContentItemOrchestrationEventException(
-                    message: "Invalid content item submission event. " +
+                    message: "Invalid content item orchestration event. " +
                         "The event envelope, its content and metadata are required.");
 
             var expectedContentItemOrchestrationValidationException =
@@ -42,14 +59,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: invalidContentItemOrchestrationEventException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
-                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     invalidEnvelope!,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onAmendingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -64,13 +81,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
-        public async Task ShouldThrowValidationExceptionOnAmendingContentItemEventIfCallerIsNotAuthenticatedAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfCallerIsNotAuthenticatedAndLogItAsync(
             SecurityContext? unauthenticatedSecurityContext)
         {
             // given
@@ -91,14 +107,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: unauthorizedContentItemOrchestrationException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
-                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onAmendingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -113,14 +129,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Theory]
         [InlineData(Roles.ReadOnly)]
         [InlineData(Roles.ContentItemReadOnly)]
-        public async Task ShouldThrowValidationExceptionOnAmendingContentItemEventIfCallerHasBlockRoleAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfCallerHasBlockRoleAndLogItAsync(
             string blockRole)
         {
             // given
@@ -141,14 +156,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: unauthorizedContentItemOrchestrationException);
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
-                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onAmendingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -163,31 +178,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnAmendingContentItemEventIfDuplicateContentExistsAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventIfDuplicateContentExistsAndLogItAsync()
         {
-            // given: a modify request carrying content that already exists in another
-            // group fails as a validation error on the event path too (§3.4.2 rule 6)
+            // given: a replayed or duplicated submission request lands here too, so the
+            // duplicate-content rule keeps the event path from ever creating twice
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
             string normalizedContent = NormalizeContent(inputContentItem.Content);
             string contentHash = ComputeContentHash(inputContentItem.Content);
-            string actorUserId = GetRandomString();
-
-            ContentItem storageContentItem = CreateRandomStorageContentItem(
-                contentItemId: inputContentItem.Id,
-                approvalStatus: ApprovalStatus.Draft,
-                createdBy: actorUserId);
-
-            ContentItem otherGroupDuplicateContentItem = CreateRandomContentItem();
-            otherGroupDuplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            otherGroupDuplicateContentItem.ContentHash = contentHash;
-            otherGroupDuplicateContentItem.ContentItemGroupId = Guid.NewGuid();
-            otherGroupDuplicateContentItem.IsDeleted = false;
+            ContentItem duplicateContentItem = CreateRandomContentItem();
+            duplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
+            duplicateContentItem.ContentHash = contentHash;
+            duplicateContentItem.IsDeleted = false;
 
             EventEnvelope<ContentItem> requestEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
@@ -202,39 +208,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item orchestration validation error occurred, fix the errors and try again.",
                     innerException: alreadyExistsContentItemOrchestrationException);
 
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageContentItem);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(requestEnvelope.SecurityContext))
-                    .ReturnsAsync(actorUserId);
-
             this.hashBrokerMock.Setup(broker =>
                 broker.ComputeSha256HashAsync(normalizedContent))
                     .ReturnsAsync(contentHash);
 
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { otherGroupDuplicateContentItem }.AsQueryable());
+                    .ReturnsAsync(new[] { duplicateContentItem }.AsQueryable());
 
             // when
-            ValueTask<EventEnvelope<ContentItem>?> onAmendingTask =
-                this.contentItemOrchestrationService.OnAmendingContentItemAsync(
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    onAmendingTask.AsTask);
+                    onAddingTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationValidationException);
 
+            this.hashBrokerMock.Verify(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent),
+                Times.Once);
+
             this.contentItemServiceMock.Verify(service =>
-                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
-                Times.Never);
+                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
@@ -246,6 +248,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Once);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.hashBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

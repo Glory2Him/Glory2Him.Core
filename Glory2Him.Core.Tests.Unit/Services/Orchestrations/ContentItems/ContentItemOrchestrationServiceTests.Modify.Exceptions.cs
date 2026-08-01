@@ -10,7 +10,6 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -26,10 +25,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     {
         [Theory]
         [MemberData(nameof(DependencyValidationExceptions))]
-        public async Task ShouldThrowDependencyValidationExceptionOnSubmitIfDependencyValidationErrorOccursAndLogItAsync(
+        public async Task ShouldThrowDependencyValidationExceptionOnModifyIfDependencyValidationErrorOccursAndLogItAsync(
             Xeption dependencyValidationException)
         {
-            // given
+            // given: the foundation's not-found (a missing row) surfaces here as a
+            // dependency validation error, alongside the other validation faults
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
 
@@ -47,35 +47,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(It.IsAny<string>()))
-                    .ReturnsAsync(GetRandomString());
-
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
-
-            this.contentItemServiceMock.Setup(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ThrowsAsync(dependencyValidationException);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyValidationException
                 actualContentItemOrchestrationDependencyValidationException =
                     await Assert.ThrowsAsync<ContentItemOrchestrationDependencyValidationException>(
-                        submitContentItemTask.AsTask);
+                        modifyContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationDependencyValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationDependencyValidationException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -88,7 +80,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         [Theory]
         [MemberData(nameof(DependencyExceptions))]
-        public async Task ShouldThrowDependencyExceptionOnSubmitIfDependencyErrorOccursAndLogItAsync(
+        public async Task ShouldThrowDependencyExceptionOnModifyIfDependencyErrorOccursAndLogItAsync(
             Xeption dependencyException)
         {
             // given
@@ -108,30 +100,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(It.IsAny<string>()))
-                    .ReturnsAsync(GetRandomString());
-
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ThrowsAsync(dependencyException);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyException actualContentItemOrchestrationDependencyException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationDependencyException>(
-                    submitContentItemTask.AsTask);
+                    modifyContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationDependencyException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationDependencyException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -143,9 +131,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowDependencyExceptionOnSubmitIfOperationCanceledExceptionOccursAndLogItAsync()
+        public async Task ShouldThrowDependencyExceptionOnModifyIfOperationCanceledExceptionOccursAndLogItAsync()
         {
-            // given
+            // given: an OperationCanceledException without a cancellation request is a
+            // dependency timeout, not a caller cancellation
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
             var operationCanceledException = new OperationCanceledException();
@@ -172,23 +161,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.CreateAsync(inputContentItem))
                     .ReturnsAsync(inboundEnvelope);
 
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(It.IsAny<string>()))
-                    .ReturnsAsync(GetRandomString());
-
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ThrowsAsync(operationCanceledException);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyException actualContentItemOrchestrationDependencyException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationDependencyException>(
-                    submitContentItemTask.AsTask);
+                    modifyContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationDependencyException.Should().BeEquivalentTo(
@@ -203,7 +188,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
-        public async Task ShouldThrowOperationCanceledExceptionOnSubmitIfCancellationRequestedAsync()
+        public async Task ShouldThrowOperationCanceledExceptionOnModifyIfCancellationRequestedAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -212,23 +197,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             await cancellationTokenSource.CancelAsync();
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     cancellationTokenSource.Token);
 
             // then
-            await Assert.ThrowsAsync<OperationCanceledException>(submitContentItemTask.AsTask);
+            await Assert.ThrowsAsync<OperationCanceledException>(modifyContentItemTask.AsTask);
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowServiceExceptionOnSubmitIfServiceErrorOccursAndLogItAsync()
+        public async Task ShouldThrowServiceExceptionOnModifyIfServiceErrorOccursAndLogItAsync()
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
@@ -251,14 +237,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ThrowsAsync(serviceException);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemOrchestrationService.ModifyContentItemAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationServiceException actualContentItemOrchestrationServiceException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationServiceException>(
-                    submitContentItemTask.AsTask);
+                    modifyContentItemTask.AsTask);
 
             // then
             actualContentItemOrchestrationServiceException.Should().BeEquivalentTo(
@@ -272,6 +258,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }

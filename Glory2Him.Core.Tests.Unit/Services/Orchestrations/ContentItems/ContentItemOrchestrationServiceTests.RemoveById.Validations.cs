@@ -10,10 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
@@ -26,15 +26,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
     {
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
-        public async Task ShouldThrowValidationExceptionOnSubmitIfUserIsNotAuthenticatedAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
             SecurityContext? unauthenticatedSecurityContext)
         {
             // given
+            Guid randomContentItemId = Guid.NewGuid();
+            Guid inputContentItemId = randomContentItemId;
             ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
+                contentItem: randomContentItem,
                 securityContext: unauthenticatedSecurityContext!);
 
             var unauthorizedContentItemOrchestrationException =
@@ -47,25 +48,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: unauthorizedContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(inputContentItem))
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(inputContentItemId, null))))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
-                    inputContentItem,
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemOrchestrationService.RemoveContentItemByIdAsync(
+                    inputContentItemId,
+                    deletionReason: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    submitContentItemTask.AsTask);
+                    removeContentItemByIdTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationValidationException);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(inputContentItem),
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(inputContentItemId, null))),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -77,21 +79,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Theory]
         [InlineData(Roles.ReadOnly)]
         [InlineData(Roles.ContentItemReadOnly)]
-        public async Task ShouldThrowValidationExceptionOnSubmitIfUserHasBlockRoleAndLogItAsync(
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserHasBlockRoleAndLogItAsync(
             string blockRole)
         {
             // given
+            Guid randomContentItemId = Guid.NewGuid();
+            Guid inputContentItemId = randomContentItemId;
             ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
+                contentItem: randomContentItem,
                 securityContext: CreateAuthenticatedSecurityContext(blockRole));
 
             var unauthorizedContentItemOrchestrationException =
@@ -104,95 +108,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: unauthorizedContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(inputContentItem))
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(inputContentItemId, null))))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
-                    inputContentItem,
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemOrchestrationService.RemoveContentItemByIdAsync(
+                    inputContentItemId,
+                    deletionReason: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    submitContentItemTask.AsTask);
+                    removeContentItemByIdTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationValidationException);
-
-            this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(inputContentItem),
-                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
-            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnSubmitIfContentItemIsNullAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfContentItemIdIsInvalidAndLogItAsync()
         {
-            // given
-            ContentItem nullContentItem = null!;
-
-            var nullContentItemOrchestrationException =
-                new NullContentItemOrchestrationException(message: "Content item is null.");
-
-            var expectedContentItemOrchestrationValidationException =
-                new ContentItemOrchestrationValidationException(
-                    message: "Content item orchestration validation error occurred, fix the errors and try again.",
-                    innerException: nullContentItemOrchestrationException);
-
-            // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
-                    nullContentItem,
-                    TestContext.Current.CancellationToken);
-
-            ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
-                await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    submitContentItemTask.AsTask);
-
-            // then
-            actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
-                expectedContentItemOrchestrationValidationException);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedContentItemOrchestrationValidationException))),
-                Times.Once);
-
-            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
-            this.hashBrokerMock.VerifyNoOtherCalls();
-            this.contentItemServiceMock.VerifyNoOtherCalls();
-            this.identifierBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Theory]
-        [InlineData(null)]
-        [InlineData("")]
-        [InlineData(" ")]
-        public async Task ShouldThrowValidationExceptionOnSubmitIfContentItemIsInvalidAndLogItAsync(
-            string invalidText)
-        {
-            // given
-            var invalidContentItem = new ContentItem
-            {
-                ContentTypeId = Guid.Empty,
-                Content = invalidText!
-            };
+            // given: the id is the whole instruction on this path — nothing selects a row
+            // without it
+            Guid invalidContentItemId = Guid.Empty;
+            ContentItem randomContentItem = CreateRandomContentItem();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: invalidContentItem,
+                contentItem: randomContentItem,
                 securityContext: CreateAuthenticatedSecurityContext());
 
             var invalidContentItemOrchestrationException =
@@ -200,12 +155,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item is invalid, fix the errors and try again.");
 
             invalidContentItemOrchestrationException.AddData(
-                key: nameof(ContentItem.ContentTypeId),
+                key: nameof(ContentItem.Id),
                 values: "Id is required");
-
-            invalidContentItemOrchestrationException.AddData(
-                key: nameof(ContentItem.Content),
-                values: "Text is required");
 
             var expectedContentItemOrchestrationValidationException =
                 new ContentItemOrchestrationValidationException(
@@ -213,18 +164,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: invalidContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(invalidContentItem))
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(invalidContentItemId, null))))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
-                    invalidContentItem,
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemOrchestrationService.RemoveContentItemByIdAsync(
+                    invalidContentItemId,
+                    deletionReason: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    submitContentItemTask.AsTask);
+                    removeContentItemByIdTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
@@ -238,75 +190,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnSubmitIfDuplicateContentExistsAndLogItAsync()
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfContentItemIsAlreadyRemovedAndLogItAsync()
         {
-            // given
-            ContentItem randomContentItem = CreateRandomContentItem();
-            ContentItem inputContentItem = randomContentItem;
-            string normalizedContent = NormalizeContent(inputContentItem.Content);
-            string contentHash = ComputeContentHash(inputContentItem.Content);
-            ContentItem duplicateContentItem = CreateRandomContentItem();
-            duplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            duplicateContentItem.ContentHash = contentHash;
-            duplicateContentItem.IsDeleted = false;
+            // given: removing an already soft-deleted row must not report a second
+            // removal — from the caller's point of view the item is simply gone
+            Guid randomContentItemId = Guid.NewGuid();
+            Guid inputContentItemId = randomContentItemId;
+            string actorUserId = GetRandomString();
+
+            ContentItem storageContentItem = CreateRandomStorageContentItem(
+                contentItemId: inputContentItemId,
+                approvalStatus: ApprovalStatus.Draft,
+                createdBy: actorUserId);
+
+            storageContentItem.IsDeleted = true;
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: inputContentItem,
-                securityContext: CreateAuthenticatedSecurityContext());
+                contentItem: storageContentItem,
+                securityContext: securityContext);
 
-            var alreadyExistsContentItemOrchestrationException =
-                new AlreadyExistsContentItemOrchestrationException(
-                    message: "A content item already exists with the same content.");
+            var notFoundContentItemOrchestrationException =
+                new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
 
             var expectedContentItemOrchestrationValidationException =
                 new ContentItemOrchestrationValidationException(
                     message: "Content item orchestration validation error occurred, fix the errors and try again.",
-                    innerException: alreadyExistsContentItemOrchestrationException);
+                    innerException: notFoundContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(inputContentItem))
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(inputContentItemId, null))))
                     .ReturnsAsync(inboundEnvelope);
 
-            this.hashBrokerMock.Setup(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent))
-                    .ReturnsAsync(contentHash);
-
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { duplicateContentItem }.AsQueryable());
+                service.RetrieveContentItemByIdAsync(inputContentItemId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(actorUserId);
 
             // when
-            ValueTask<ContentItem> submitContentItemTask =
-                this.contentItemOrchestrationService.SubmitContentItemAsync(
-                    inputContentItem,
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemOrchestrationService.RemoveContentItemByIdAsync(
+                    inputContentItemId,
+                    deletionReason: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
                 await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
-                    submitContentItemTask.AsTask);
+                    removeContentItemByIdTask.AsTask);
 
             // then
             actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
                 expectedContentItemOrchestrationValidationException);
 
-            this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(inputContentItem),
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(inputContentItemId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            this.hashBrokerMock.Verify(broker =>
-                broker.ComputeSha256HashAsync(normalizedContent),
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(securityContext),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                service.RemoveContentItemByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -314,9 +271,92 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
-            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData(Roles.Reviewer)]
+        [InlineData(Roles.ContentItemReviewer)]
+        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.ContentItemPublisher)]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfActorIsNotPermittedAndLogItAsync(
+            string? actorRole)
+        {
+            // given: removing someone else's content is a takedown, reserved for the
+            // owner and an Admin — a Reviewer or Publisher moderates through the approval
+            // workflow instead and never removes the row
+            Guid randomContentItemId = Guid.NewGuid();
+            Guid inputContentItemId = randomContentItemId;
+
+            ContentItem storageContentItem = CreateRandomStorageContentItem(
+                contentItemId: inputContentItemId,
+                approvalStatus: ApprovalStatus.Draft,
+                createdBy: GetRandomString());
+
+            string[] actorRoles = actorRole is null
+                ? Array.Empty<string>()
+                : new[] { actorRole };
+
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext(actorRoles);
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: storageContentItem,
+                securityContext: securityContext);
+
+            var unauthorizedContentItemOrchestrationException =
+                new UnauthorizedContentItemOrchestrationException(
+                    message: "The current user is not allowed to remove this content item.");
+
+            var expectedContentItemOrchestrationValidationException =
+                new ContentItemOrchestrationValidationException(
+                    message: "Content item orchestration validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedContentItemOrchestrationException);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is(SameRemoveRequestAs(inputContentItemId, null))))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(inputContentItemId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(GetRandomString());
+
+            // when
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemOrchestrationService.RemoveContentItemByIdAsync(
+                    inputContentItemId,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
+                await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
+                    removeContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
+                expectedContentItemOrchestrationValidationException);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.RemoveContentItemByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemOrchestrationValidationException))),
+                Times.Once);
+
+            this.hashBrokerMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }

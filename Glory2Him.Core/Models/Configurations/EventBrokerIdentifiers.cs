@@ -16,13 +16,39 @@ namespace Glory2Him.Core.Models.Configurations
 {
     /// <summary>
     /// Fixed, well-known identifiers for the event substrate: the Glory 2 Him participant and
-    /// one event address per entity operation (for example <c>ContentItem-Adding</c>). Each
-    /// entity's identifiers live in its own partial (<c>EventBrokerIdentifiers.[Entity].cs</c>);
-    /// this file holds the participant and composes the flat address map used for
-    /// registration. These identifiers are persisted in the event store, so they must never
-    /// change once deployed; registration is idempotent on these values.
+    /// one event address per service operation. Each service's identifiers live in its own
+    /// partial (<c>EventBrokerIdentifiers.[Subject].cs</c>); this file holds the participant
+    /// and composes the flat address map used for registration. These identifiers are
+    /// persisted in the event store, so they must never change once deployed; registration is
+    /// idempotent on these values.
+    ///
+    /// <para><b>Address naming.</b> An address is <c>&lt;Subject&gt;-&lt;Verb&gt;</c>, where the
+    /// subject is the <i>owning service</i> — its class name minus the <c>Service</c> suffix —
+    /// and tense encodes direction: present participle (<c>-ing</c>) is a request the service
+    /// receives, past tense (<c>-ed</c>) is a fact it publishes. So
+    /// <c>ContentItemService</c> owns <c>ContentItem-Adding</c> / <c>ContentItem-Added</c>, and
+    /// <c>ContentItemOrchestrationService</c> owns <c>ContentItemOrchestration-Adding</c> /
+    /// <c>ContentItemOrchestration-Added</c>.</para>
+    ///
+    /// <para>Because the subject carries the service, the verb is free to stay the standard CRUD
+    /// set (<c>Adding</c>, <c>Modifying</c>, <c>RemovingById</c>, <c>HardRemovingById</c>,
+    /// <c>RetrievingById</c>) at every layer — no verb has to be invented to dodge a collision.
+    /// A non-CRUD verb is introduced only when one service has two operations CRUD cannot
+    /// distinguish, which happens when a state transition owns a narrower field scope than a
+    /// general modify (<c>Approving</c>/<c>Approved</c>, <c>Publishing</c>/<c>Published</c>).</para>
+    ///
+    /// <para>Two rules keep the namespace unambiguous. Subjects must be distinct across all
+    /// services, because the broker composes the stored event name as
+    /// <c>subject + operation</c>. And the <c>On</c> prefix belongs to the receiver <i>method</i>
+    /// (<c>OnAddingContentItemAsync</c>) and to the subscription name
+    /// (<c>ContentItemOrchestrationService.OnAddingContentItem</c>) — never to the address.</para>
+    ///
+    /// <para>A fact asserts only the publisher's own unit of work: a foundation <c>-Added</c>
+    /// means a row was written, an orchestration <c>-Added</c> means that process completed
+    /// with its gates passed. They are distinct facts, so exactly one service publishes any
+    /// given address and a higher layer never republishes a lower layer's fact.</para>
     /// </summary>
-    public static partial class EventBrokerIdentifiers
+    internal static partial class EventBrokerIdentifiers
     {
         public static readonly Guid Glory2HimParticipantId =
             new Guid("019f814e-89c0-70a2-9587-2701065a097d");
@@ -46,7 +72,7 @@ namespace Glory2Him.Core.Models.Configurations
                 BibleReferenceEventAddresses,
                 CommentEventAddresses,
                 ContentItemEventAddresses,
-                ContentItemSubmissionEventAddresses,
+                ContentItemOrchestrationEventAddresses,
                 ContentItemAssociationEventAddresses,
                 ContentItemSettingEventAddresses,
                 ContentTypeEventAddresses,
