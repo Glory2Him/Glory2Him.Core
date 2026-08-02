@@ -82,8 +82,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(GetRandomString());
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(operationCanceledException);
+                service.CheckContentItemContentExistsAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(operationCanceledException);
 
             // when
             ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
@@ -130,8 +134,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(GetRandomString());
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyValidationException);
+                service.CheckContentItemContentExistsAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyValidationException);
 
             // when
             ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
@@ -178,8 +186,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(GetRandomString());
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ThrowsAsync(dependencyException);
+                service.CheckContentItemContentExistsAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
 
             // when
             ValueTask<EventEnvelope<ContentItem>?> onAddingTask =

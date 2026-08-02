@@ -249,10 +249,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             ContentItem inputContentItem = randomContentItem;
             string normalizedContent = NormalizeContent(inputContentItem.Content);
             string contentHash = ComputeContentHash(inputContentItem.Content);
-            ContentItem duplicateContentItem = CreateRandomContentItem();
-            duplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            duplicateContentItem.ContentHash = contentHash;
-            duplicateContentItem.IsDeleted = false;
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
@@ -276,8 +272,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(contentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { duplicateContentItem }.AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    null,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(true);
 
             // when
             ValueTask<ContentItem> addContentItemTask =
@@ -302,7 +302,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    null,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>

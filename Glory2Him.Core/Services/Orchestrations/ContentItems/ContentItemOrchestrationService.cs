@@ -692,21 +692,18 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 excludedContentItemGroupId: null,
                 cancellationToken: cancellationToken);
 
+        // the foundation's boolean probe runs over the UNFILTERED store (§3.4.2/§14.6), so
+        // the duplicate rule stays global even though the entity-returning reads are
+        // visibility-filtered per caller
         private async ValueTask<bool> CheckDuplicateContentExistsAsync(
             Guid contentTypeId,
             string contentHash,
             Guid? excludedContentItemGroupId,
-            CancellationToken cancellationToken)
-        {
-            IQueryable<ContentItem> allContentItems =
-                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
-
-            return allContentItems.Any(existingContentItem =>
-                existingContentItem.ContentTypeId == contentTypeId
-                    && existingContentItem.ContentHash == contentHash
-                    && existingContentItem.IsDeleted == false
-                    && (excludedContentItemGroupId == null
-                        || existingContentItem.ContentItemGroupId != excludedContentItemGroupId));
-        }
+            CancellationToken cancellationToken) =>
+            await this.contentItemService.CheckContentItemContentExistsAsync(
+                contentTypeId: contentTypeId,
+                contentHash: contentHash,
+                excludedContentItemGroupId: excludedContentItemGroupId,
+                cancellationToken: cancellationToken);
     }
 }

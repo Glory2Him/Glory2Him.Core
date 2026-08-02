@@ -26,6 +26,22 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Answers whether any non-deleted content item of the given type already carries
+        /// the given content hash, optionally ignoring one group (the duplicate-content
+        /// rule of design §3.4.2). Deliberately computed over the UNFILTERED store —
+        /// unlike the entity-returning reads, this returns only a boolean, which reveals
+        /// no row data beyond what the duplicate rule already reveals to submitters — so
+        /// the rule stays global under the per-caller visibility filtering of §14.6.
+        /// Requires a caller allowed to contribute; the probe exists to support the
+        /// contribution flows.
+        /// </summary>
+        ValueTask<bool> CheckContentItemContentExistsAsync(
+            Guid contentTypeId,
+            string contentHash,
+            Guid? excludedContentItemGroupId = null,
+            CancellationToken cancellationToken = default);
+
         ValueTask<ContentItem> RetrieveContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default);

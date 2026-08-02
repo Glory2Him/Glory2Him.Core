@@ -105,6 +105,41 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     securityContext: envelope.SecurityContext);
             });
 
+        public ValueTask<bool> CheckContentItemContentExistsAsync(
+            Guid contentTypeId,
+            string contentHash,
+            Guid? excludedContentItemGroupId = null,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var checkRequest = new ContentItem
+                {
+                    ContentTypeId = contentTypeId,
+                    ContentHash = contentHash
+                };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: checkRequest);
+
+                ValidateUserIsAllowedToContribute(envelope.SecurityContext);
+                ValidateOnCheckContentItemContentExists(contentTypeId, contentHash);
+
+                IQueryable<ContentItem> allContentItems =
+                    await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
+
+                // deliberately unfiltered (§3.4.2/§14.6): the duplicate rule is global, and
+                // a boolean reveals no row data — only that identical content already
+                // exists, which the duplicate rule already reveals to submitters
+                return allContentItems.Any(contentItem =>
+                    contentItem.ContentTypeId == contentTypeId
+                        && contentItem.ContentHash == contentHash
+                        && contentItem.IsDeleted == false
+                        && (excludedContentItemGroupId == null
+                            || contentItem.ContentItemGroupId != excludedContentItemGroupId));
+            });
+
         public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default) =>

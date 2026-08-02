@@ -77,8 +77,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(contentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             this.contentItemServiceMock.Setup(service =>
                 service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
@@ -118,7 +122,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>

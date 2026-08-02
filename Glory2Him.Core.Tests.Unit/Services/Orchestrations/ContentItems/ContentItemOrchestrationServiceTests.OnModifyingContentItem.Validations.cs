@@ -183,12 +183,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: ApprovalStatus.Draft,
                 createdBy: actorUserId);
 
-            ContentItem otherGroupDuplicateContentItem = CreateRandomContentItem();
-            otherGroupDuplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            otherGroupDuplicateContentItem.ContentHash = contentHash;
-            otherGroupDuplicateContentItem.ContentItemGroupId = Guid.NewGuid();
-            otherGroupDuplicateContentItem.IsDeleted = false;
-
             EventEnvelope<ContentItem> requestEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
                 securityContext: CreateAuthenticatedSecurityContext());
@@ -215,8 +209,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(contentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { otherGroupDuplicateContentItem }.AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(true);
 
             // when
             ValueTask<EventEnvelope<ContentItem>?> onModifyingTask =

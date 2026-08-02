@@ -69,8 +69,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(expectedContentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    null,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             this.identifierBrokerMock.SetupSequence(broker =>
                 broker.GetIdentifierAsync())
@@ -109,7 +113,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    null,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.identifierBrokerMock.Verify(broker =>
@@ -163,8 +171,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(expectedContentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    null,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             ContentItem? capturedContentItem = null;
 
@@ -192,16 +204,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             string normalizedContent = NormalizeContent(inputContentItem.Content);
             string contentHash = ComputeContentHash(inputContentItem.Content);
 
-            ContentItem deletedMatchingContentItem = CreateRandomContentItem();
-            deletedMatchingContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            deletedMatchingContentItem.ContentHash = contentHash;
-            deletedMatchingContentItem.IsDeleted = true;
-
-            ContentItem otherContentTypeContentItem = CreateRandomContentItem();
-            otherContentTypeContentItem.ContentTypeId = Guid.NewGuid();
-            otherContentTypeContentItem.ContentHash = contentHash;
-            otherContentTypeContentItem.IsDeleted = false;
-
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
                 securityContext: CreateAuthenticatedSecurityContext());
@@ -214,9 +216,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.ComputeSha256HashAsync(normalizedContent))
                     .ReturnsAsync(contentHash);
 
+            // the foundation probe already excludes soft-deleted rows and other content
+            // types, so a matching row in either state reports no duplicate
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { deletedMatchingContentItem, otherContentTypeContentItem }.AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    null,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             this.contentItemServiceMock.Setup(service =>
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))

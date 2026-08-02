@@ -227,6 +227,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
 
+        // the duplicate probe's request payload carries only the content type and hash
+        // being checked — the envelope exists to capture the ambient security context
+        private static Expression<Func<ContentItem, bool>> SameCheckRequestAs(
+            Guid expectedContentTypeId,
+            string expectedContentHash) =>
+            actualContentItem => actualContentItem.ContentTypeId == expectedContentTypeId
+                && actualContentItem.ContentHash == expectedContentHash;
+
         private static SqlException GetSqlException() =>
             (SqlException)RuntimeHelpers.GetUninitializedObject(typeof(SqlException));
 
