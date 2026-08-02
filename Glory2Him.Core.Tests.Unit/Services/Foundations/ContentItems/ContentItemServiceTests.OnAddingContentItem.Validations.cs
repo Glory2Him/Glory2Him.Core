@@ -68,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given
             var invalidEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItem { Id = Guid.NewGuid() },
                 Metadata = null!
             };
@@ -113,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given
             var invalidEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = null!,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

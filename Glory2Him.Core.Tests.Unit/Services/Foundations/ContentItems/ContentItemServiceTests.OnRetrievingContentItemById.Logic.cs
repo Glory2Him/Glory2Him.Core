@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Moq;
@@ -25,10 +26,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem storageContentItem = randomContentItem;
+            storageContentItem.IsDeleted = false;
+            storageContentItem.ApprovalStatus = ApprovalStatus.Approved;
+            storageContentItem.IsPublished = true;
+            storageContentItem.PublishDate = null;
             ContentItem expectedContentItem = storageContentItem;
 
             var requestEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItem { Id = randomContentItem.Id }
             };
 
@@ -37,6 +43,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     randomContentItem.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageContentItem);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             // when
             EventEnvelope<ContentItem>? actualReplyEnvelope =
@@ -56,6 +66,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageContentItem),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

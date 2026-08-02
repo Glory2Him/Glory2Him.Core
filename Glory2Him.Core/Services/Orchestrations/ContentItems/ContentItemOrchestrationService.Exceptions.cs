@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -22,6 +23,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
     internal partial class ContentItemOrchestrationService
     {
         private delegate ValueTask<ContentItem> ReturningContentItemFunction();
+
+        private delegate ValueTask<IQueryable<ContentItem>> ReturningContentItemsFunction();
 
         private delegate ValueTask<EventEnvelope<ContentItem>?> ReturningContentItemEventEnvelopeFunction();
 
@@ -158,6 +161,67 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             {
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: alreadyExistsContentItemOrchestrationException);
+            }
+            catch (ContentItemValidationException contentItemValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(exception: contentItemValidationException);
+            }
+            catch (ContentItemDependencyValidationException contentItemDependencyValidationException)
+            {
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    exception: contentItemDependencyValidationException);
+            }
+            catch (ContentItemDependencyException contentItemDependencyException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(exception: contentItemDependencyException);
+            }
+            catch (ContentItemServiceException contentItemServiceException)
+            {
+                throw await CreateAndLogDependencyExceptionAsync(exception: contentItemServiceException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemOrchestrationServiceException =
+                    new FailedContentItemOrchestrationServiceException(
+                        message: "Failed content item orchestration service error occurred, " +
+                            "please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    exception: failedContentItemOrchestrationServiceException);
+            }
+        }
+
+        private async ValueTask<IQueryable<ContentItem>> TryCatch(
+            ReturningContentItemsFunction returningContentItemsFunction)
+        {
+            try
+            {
+                return await returningContentItemsFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutContentItemOrchestrationException =
+                    new TimeoutContentItemOrchestrationException(
+                        message: "Failed content item orchestration timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutContentItemOrchestrationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (InvalidContentItemOrchestrationException invalidContentItemOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemOrchestrationException);
             }
             catch (ContentItemValidationException contentItemValidationException)
             {

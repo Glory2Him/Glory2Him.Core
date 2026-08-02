@@ -139,6 +139,97 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<IQueryable<ContentItem>> RetrieveAllContentItemsAsync(
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // an unfiltered collection read carries no instruction beyond the caller's
+                // identity, so the request payload is empty — the envelope exists to capture
+                // the ambient security context the visibility filter runs against
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ContentItem());
+
+                return await DoRetrieveAllContentItemsAsync(
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<IQueryable<ContentItem>> RetrieveAllPublicContentItemsAsync(
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // the public projection is caller-independent, so no envelope is minted —
+                // there is no security context to capture and nothing downstream reads one
+                return await DoRetrieveAllPublicContentItemsAsync(cancellationToken);
+            });
+
+        public ValueTask<IQueryable<ContentItem>> RetrieveContentItemsByGroupIdAsync(
+            Guid contentItemGroupId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var retrieveRequest = new ContentItem
+                {
+                    ContentItemGroupId = contentItemGroupId
+                };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
+
+                return await DoRetrieveContentItemsByGroupIdAsync(
+                    contentItemGroupId: contentItemGroupId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<ContentItem> RetrieveLatestContentItemByGroupIdAsync(
+            Guid contentItemGroupId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var retrieveRequest = new ContentItem
+                {
+                    ContentItemGroupId = contentItemGroupId
+                };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
+
+                return await DoRetrieveLatestContentItemByGroupIdAsync(
+                    contentItemGroupId: contentItemGroupId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<ContentItem> RetrievePublishedContentItemByGroupIdAsync(
+            Guid contentItemGroupId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var retrieveRequest = new ContentItem
+                {
+                    ContentItemGroupId = contentItemGroupId
+                };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
+
+                return await DoRetrievePublishedContentItemByGroupIdAsync(
+                    contentItemGroupId: contentItemGroupId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
         private async ValueTask<ContentItem> DoAddContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
@@ -296,15 +387,139 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             // reads cover the approval workflow, not takedowns
             if (contentItem.IsDeleted)
             {
+                // the caller-facing error stays a reason-free not-found (no existence
+                // leak), so the true reason is recorded server-side before the throw
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item read denied. Content item {contentItemId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }
 
+            return await ApplySingleReadVisibilityPostureAsync(
+                contentItem: contentItem,
+                securityContext: inboundEnvelope.SecurityContext);
+        }
+
+        private async ValueTask<IQueryable<ContentItem>> DoRetrieveAllContentItemsAsync(
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            return await ApplyCollectionReadVisibilityFilterAsync(
+                contentItems: allContentItems,
+                securityContext: inboundEnvelope.SecurityContext);
+        }
+
+        private async ValueTask<IQueryable<ContentItem>> DoRetrieveAllPublicContentItemsAsync(
+            CancellationToken cancellationToken)
+        {
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            // running the collection filter without a security context yields exactly the
+            // canonical visible set (§14.1) — a privileged caller reads the same set an
+            // anonymous visitor would
+            return await ApplyCollectionReadVisibilityFilterAsync(
+                contentItems: allContentItems,
+                securityContext: null);
+        }
+
+        private async ValueTask<IQueryable<ContentItem>> DoRetrieveContentItemsByGroupIdAsync(
+            Guid contentItemGroupId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateContentItemGroupIdOnRetrieve(contentItemGroupId);
+
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            IQueryable<ContentItem> groupContentItems = allContentItems.Where(contentItem =>
+                contentItem.ContentItemGroupId == contentItemGroupId);
+
+            return await ApplyCollectionReadVisibilityFilterAsync(
+                contentItems: groupContentItems,
+                securityContext: inboundEnvelope.SecurityContext);
+        }
+
+        private async ValueTask<ContentItem> DoRetrieveLatestContentItemByGroupIdAsync(
+            Guid contentItemGroupId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateContentItemGroupIdOnRetrieve(contentItemGroupId);
+
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            // the edit tip of the group (§3.4.1) — at most one non-deleted row per group
+            // carries IsLatestVersion under the unique filtered index
+            ContentItem? latestContentItem = allContentItems.FirstOrDefault(contentItem =>
+                contentItem.ContentItemGroupId == contentItemGroupId
+                    && contentItem.IsLatestVersion
+                    && contentItem.IsDeleted == false);
+
+            if (latestContentItem is null)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item read denied. Group {contentItemGroupId} has no " +
+                        "non-deleted latest version; reported to the caller as not found.");
+
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+
+            return await ApplySingleReadVisibilityPostureAsync(
+                contentItem: latestContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
+        }
+
+        private async ValueTask<ContentItem> DoRetrievePublishedContentItemByGroupIdAsync(
+            Guid contentItemGroupId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateContentItemGroupIdOnRetrieve(contentItemGroupId);
+
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            // the row the public currently reads — it stays published while a newer draft
+            // moves through review, so it is found independently of IsLatestVersion
+            ContentItem? publishedContentItem = allContentItems.FirstOrDefault(contentItem =>
+                contentItem.ContentItemGroupId == contentItemGroupId
+                    && contentItem.IsPublished
+                    && contentItem.IsDeleted == false);
+
+            if (publishedContentItem is null)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item read denied. Group {contentItemGroupId} has no " +
+                        "non-deleted published version; reported to the caller as not found.");
+
+                throw new NotFoundContentItemOrchestrationException(
+                    message: "The content item was not found.");
+            }
+
+            return await ApplySingleReadVisibilityPostureAsync(
+                contentItem: publishedContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
+        }
+
+        // the shared read posture of design §14.1/§16.6 for single-row reads: a publicly
+        // visible version is readable by anyone — reads carry no contribution gate and the
+        // block roles only block contributions; a non-public version answers not-found —
+        // never unauthorized — to everyone but the owner and the review roles
+        private async ValueTask<ContentItem> ApplySingleReadVisibilityPostureAsync(
+            ContentItem contentItem,
+            SecurityContext securityContext)
+        {
             DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
 
-            // canonical content visibility (§14.1): a publicly visible version is readable by
-            // anyone, including anonymous callers — reads carry no contribution gate and the
-            // block roles only block contributions (§16.6)
             bool isPubliclyVisible =
                 contentItem.ApprovalStatus == ApprovalStatus.Approved
                     && contentItem.IsPublished
@@ -316,12 +531,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 return contentItem;
             }
 
-            SecurityContext securityContext = inboundEnvelope.SecurityContext;
-
-            // a non-public version is reported as not found — never as unauthorized — so an
-            // unprivileged caller cannot probe which ids exist in the approval pipeline
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
+                // the caller-facing error stays a reason-free not-found (no existence
+                // leak), so the true reason is recorded server-side before the throw
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item read denied. Content item {contentItem.Id} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }
@@ -329,12 +547,54 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: securityContext);
 
-            ValidateCurrentContentItemIsRetrievable(
+            await ValidateCurrentContentItemIsRetrievableAsync(
                 currentContentItem: contentItem,
                 actorUserId: actorUserId,
                 securityContext: securityContext);
 
             return contentItem;
+        }
+
+        // the collection twin of the single-row posture: instead of throwing not-found, a
+        // row the caller may not see simply drops out of the set, so a collection read never
+        // reveals how many non-public versions exist
+        private async ValueTask<IQueryable<ContentItem>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<ContentItem> contentItems,
+            SecurityContext? securityContext)
+        {
+            // a removed row is gone for every caller, privileged or not — review and audit
+            // reads cover the approval workflow, not takedowns
+            IQueryable<ContentItem> visibleContentItems = contentItems.Where(contentItem =>
+                contentItem.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            // a review-role caller audits the whole pipeline: every non-deleted row,
+            // including drafts and future-scheduled rows — the clock and the caller's
+            // identity are never consulted
+            if (isAuthenticated && HasReviewRole(securityContext!))
+            {
+                return visibleContentItems;
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            string? actorUserId = isAuthenticated
+                ? await this.securityAuditBroker.GetUserIdAsync(securityContext: securityContext!)
+                : null;
+
+            // an authenticated caller follows their own items through the workflow, so their
+            // own rows join the publicly visible set; an anonymous caller (or one whose
+            // identity cannot be resolved) sees the public set alone
+            bool includeOwnContentItems = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleContentItems.Where(contentItem =>
+                (contentItem.ApprovalStatus == ApprovalStatus.Approved
+                    && contentItem.IsPublished
+                    && (contentItem.PublishDate == null
+                        || contentItem.PublishDate <= currentDateTime))
+                || (includeOwnContentItems && contentItem.CreatedBy == actorUserId));
         }
 
         // the orchestration's own completion fact, distinct from the foundation's entity
@@ -432,21 +692,18 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 excludedContentItemGroupId: null,
                 cancellationToken: cancellationToken);
 
+        // the foundation's boolean probe runs over the UNFILTERED store (§3.4.2/§14.6), so
+        // the duplicate rule stays global even though the entity-returning reads are
+        // visibility-filtered per caller
         private async ValueTask<bool> CheckDuplicateContentExistsAsync(
             Guid contentTypeId,
             string contentHash,
             Guid? excludedContentItemGroupId,
-            CancellationToken cancellationToken)
-        {
-            IQueryable<ContentItem> allContentItems =
-                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
-
-            return allContentItems.Any(existingContentItem =>
-                existingContentItem.ContentTypeId == contentTypeId
-                    && existingContentItem.ContentHash == contentHash
-                    && existingContentItem.IsDeleted == false
-                    && (excludedContentItemGroupId == null
-                        || existingContentItem.ContentItemGroupId != excludedContentItemGroupId));
-        }
+            CancellationToken cancellationToken) =>
+            await this.contentItemService.CheckContentItemContentExistsAsync(
+                contentTypeId: contentTypeId,
+                contentHash: contentHash,
+                excludedContentItemGroupId: excludedContentItemGroupId,
+                cancellationToken: cancellationToken);
     }
 }

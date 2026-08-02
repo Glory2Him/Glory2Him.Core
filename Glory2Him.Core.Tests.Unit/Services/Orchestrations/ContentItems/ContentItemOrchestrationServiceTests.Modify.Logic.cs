@@ -82,8 +82,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(expectedContentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             ContentItem? capturedContentItem = null;
 
@@ -125,7 +129,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
@@ -216,8 +224,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(expectedContentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             this.identifierBrokerMock.Setup(broker =>
                 broker.GetIdentifierAsync())
@@ -275,7 +287,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.identifierBrokerMock.Verify(broker =>
@@ -359,8 +375,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(expectedContentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(Enumerable.Empty<ContentItem>().AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    expectedContentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             this.contentItemServiceMock.Setup(service =>
                 service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
@@ -401,12 +421,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: ApprovalStatus.Draft,
                 createdBy: actorUserId);
 
-            ContentItem sameGroupMatchingContentItem = CreateRandomContentItem();
-            sameGroupMatchingContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            sameGroupMatchingContentItem.ContentHash = contentHash;
-            sameGroupMatchingContentItem.ContentItemGroupId = storageContentItem.ContentItemGroupId;
-            sameGroupMatchingContentItem.IsDeleted = false;
-
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -429,9 +443,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 broker.ComputeSha256HashAsync(normalizedContent))
                     .ReturnsAsync(contentHash);
 
+            // the probe is asked to exclude the item's own group, so a match confined to
+            // that group reports no duplicate
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { sameGroupMatchingContentItem }.AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
 
             this.contentItemServiceMock.Setup(service =>
                 service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))

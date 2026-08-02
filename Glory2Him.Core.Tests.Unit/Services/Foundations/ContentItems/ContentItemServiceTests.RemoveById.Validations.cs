@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -115,5 +118,156 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someContentItemId = Guid.NewGuid();
+
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is not authenticated.");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
+
+            // when
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemService.RemoveContentItemByIdAsync(
+                    someContentItemId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    removeContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(Roles.ReadOnly)]
+        [InlineData(Roles.ContentItemReadOnly)]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsBlockedFromContributingAndLogItAsync(
+            string blockedRole)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(blockedRole);
+            Guid someContentItemId = Guid.NewGuid();
+
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is blocked from contributing content items.");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
+
+            // when
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemService.RemoveContentItemByIdAsync(
+                    someContentItemId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    removeContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotOwnerAndNotAdminAndLogItAsync()
+        {
+            // given
+            string randomActorUserId = GetRandomString();
+            ContentItem storageContentItem = CreateRandomContentItem();
+            Guid someContentItemId = storageContentItem.Id;
+
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is not allowed to remove this content item.");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<ContentItem> removeContentItemByIdTask =
+                this.contentItemService.RemoveContentItemByIdAsync(
+                    someContentItemId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    removeContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

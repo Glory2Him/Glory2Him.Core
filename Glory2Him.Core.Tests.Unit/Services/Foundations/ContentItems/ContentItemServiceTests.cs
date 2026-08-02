@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemService contentItemService;
+        private SecurityContext ambientSecurityContext;
 
         public ContentItemServiceTests()
         {
@@ -55,6 +57,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // the ambient caller the envelope broker captures on the direct path — tests
+            // override this field (before acting) to run as a different caller
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<ContentItem>()))
                     .Returns((ContentItem content) =>
@@ -62,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                             new EventEnvelope<ContentItem>
                             {
                                 Content = content,
+                                SecurityContext = this.ambientSecurityContext,
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -74,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                                 new EventEnvelope<ContentItem>
                                 {
                                     Content = content,
+                                    SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
@@ -116,6 +124,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 randomTimeInPast
             };
         }
+
+        public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
+        public static TheoryData<string[]> NonAdminRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Reviewer }
+            };
+
+        public static TheoryData<string> ReviewRoles() =>
+            new TheoryData<string>
+            {
+                Roles.Reviewer,
+                Roles.ContentItemReviewer,
+                Roles.Publisher,
+                Roles.ContentItemPublisher,
+                Roles.Admin
+            };
 
         public static TheoryData<Exception, Xeption> DependencyValidationExceptions()
         {
@@ -195,6 +227,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
 
+        // the duplicate probe's request payload carries only the content type and hash
+        // being checked — the envelope exists to capture the ambient security context
+        private static Expression<Func<ContentItem, bool>> SameCheckRequestAs(
+            Guid expectedContentTypeId,
+            string expectedContentHash) =>
+            actualContentItem => actualContentItem.ContentTypeId == expectedContentTypeId
+                && actualContentItem.ContentHash == expectedContentHash;
+
         private static SqlException GetSqlException() =>
             (SqlException)RuntimeHelpers.GetUninitializedObject(typeof(SqlException));
 
@@ -220,11 +260,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         private static ContentItem CreateRandomContentItem() =>
             CreateContentItemFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        private static EventEnvelope<ContentItem> CreateRandomContentItemRequestEnvelope() =>
+        private static EventEnvelope<ContentItem> CreateRandomContentItemRequestEnvelope(
+            SecurityContext? securityContext = null) =>
             new EventEnvelope<ContentItem>
             {
                 Content = new ContentItem { Id = Guid.NewGuid() },
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
             };
 
         private static ContentItem CreateRandomContentItem(DateTimeOffset dateTimeOffset, string userId = "") =>

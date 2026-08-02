@@ -504,12 +504,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: ApprovalStatus.Draft,
                 createdBy: actorUserId);
 
-            ContentItem otherGroupDuplicateContentItem = CreateRandomContentItem();
-            otherGroupDuplicateContentItem.ContentTypeId = inputContentItem.ContentTypeId;
-            otherGroupDuplicateContentItem.ContentHash = contentHash;
-            otherGroupDuplicateContentItem.ContentItemGroupId = Guid.NewGuid();
-            otherGroupDuplicateContentItem.IsDeleted = false;
-
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -542,8 +536,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     .ReturnsAsync(contentHash);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(new[] { otherGroupDuplicateContentItem }.AsQueryable());
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(true);
 
             // when
             ValueTask<ContentItem> modifyContentItemTask =
@@ -560,7 +558,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 expectedContentItemOrchestrationValidationException);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentTypeId,
+                    contentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>

@@ -130,6 +130,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.RetrieveContentItemByIdAsync(randomContentItemId, It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            // the outward answer is reason-free, so the true denial reason must land in
+            // the server-side log — the event path audits the same way as the direct one
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item read denied. Content item {randomContentItemId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found."),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),

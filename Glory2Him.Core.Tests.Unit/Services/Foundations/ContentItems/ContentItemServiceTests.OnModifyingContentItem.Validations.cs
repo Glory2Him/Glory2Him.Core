@@ -75,6 +75,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             var requestEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = inputContentItem,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

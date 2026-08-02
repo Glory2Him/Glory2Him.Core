@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -116,7 +117,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             }
         }
 
-        private static void ValidateCurrentContentItemIsRetrievable(
+        // instance and async, unlike its sibling validations: the caller-facing error is a
+        // deliberately reason-free not-found (no existence leak), so this is the only place
+        // the true denial reason can be recorded — server-side, never on the exception
+        private async ValueTask ValidateCurrentContentItemIsRetrievableAsync(
             ContentItem currentContentItem,
             string actorUserId,
             SecurityContext securityContext)
@@ -129,21 +133,28 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             // (Reviewer, Publisher, Admin — global or ContentItem-scoped, §16.6) for
             // review and audit; everyone else gets not-found so a probe cannot tell a
             // non-public version from a missing one
-            bool hasReviewRole =
-                securityContext.Roles.Contains(Roles.Reviewer)
-                    || securityContext.Roles.Contains(Roles.ContentItemReviewer)
-                    || securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.ContentItemPublisher)
-                    || securityContext.Roles.Contains(Roles.Admin);
-
-            bool isPermitted = isOwner || hasReviewRole;
+            bool isPermitted = isOwner || HasReviewRole(securityContext);
 
             if (isPermitted is false)
             {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item read denied. Content item {currentContentItem.Id} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }
         }
+
+        // the moderation roles that may read non-public versions for review and audit
+        // (Reviewer, Publisher, Admin — global or ContentItem-scoped, §16.6)
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.ContentItemReviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
+                || securityContext.Roles.Contains(Roles.Admin);
 
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
         {
@@ -199,6 +210,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
+
+        private static void ValidateContentItemGroupIdOnRetrieve(Guid contentItemGroupId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemGroupId), Parameter: nameof(ContentItem.ContentItemGroupId)));
 
         private static void ValidateContentItemIdOnRemove(Guid contentItemId) =>
             Validate(

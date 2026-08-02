@@ -10,15 +10,106 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     internal partial class ContentItemService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is not authenticated.");
+            }
+
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.ContentItemReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is blocked from contributing content items.");
+            }
+        }
+
+        // the moderation roles that may act on and read non-public versions for review and
+        // audit (Reviewer, Publisher, Admin — global or ContentItem-scoped, §16.6)
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.ContentItemReviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
+                || securityContext.Roles.Contains(Roles.Admin);
+
+        // row-level write permission: the owner or a review role may write the row — the
+        // narrower process rules (approved items fork, only the latest version is amended)
+        // stay in the orchestration, which needs owner writes to approved rows for the
+        // version fork and role writes for the publish flip
+        private async ValueTask ValidateUserCanModifyStorageContentItemAsync(
+            ContentItem storageContentItem,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageContentItem.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is not allowed to modify this content item.");
+            }
+        }
+
+        // removing content is a takedown, not a moderation step — the owner may remove
+        // their own item and an Admin may remove anyone's; Reviewers and Publishers
+        // moderate through the approval workflow instead
+        private async ValueTask ValidateUserCanRemoveStorageContentItemAsync(
+            ContentItem storageContentItem,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageContentItem.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is not allowed to remove this content item.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveContentItem(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is not allowed to permanently remove this content item.");
+            }
+        }
+
         private async ValueTask ValidateOnAddContentItem(
             ContentItem contentItem,
             SecurityContext securityContext)
@@ -102,6 +193,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 (Rule: await IsNotRecentAsync(contentItem.UpdatedWhen),
                     Parameter: nameof(ContentItem.UpdatedWhen)));
         }
+
+        private static void ValidateOnCheckContentItemContentExists(
+            Guid contentTypeId,
+            string contentHash) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentHash), Parameter: nameof(ContentItem.ContentHash)));
 
         private static void ValidateOnRetrieveContentItemById(Guid contentItemId) =>
             Validate(
