@@ -387,6 +387,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             // reads cover the approval workflow, not takedowns
             if (contentItem.IsDeleted)
             {
+                // the caller-facing error stays a reason-free not-found (no existence
+                // leak), so the true reason is recorded server-side before the throw
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item read denied. Content item {contentItemId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }
@@ -459,6 +465,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
             if (latestContentItem is null)
             {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item read denied. Group {contentItemGroupId} has no " +
+                        "non-deleted latest version; reported to the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }
@@ -487,6 +497,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
             if (publishedContentItem is null)
             {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item read denied. Group {contentItemGroupId} has no " +
+                        "non-deleted published version; reported to the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }
@@ -519,6 +533,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
+                // the caller-facing error stays a reason-free not-found (no existence
+                // leak), so the true reason is recorded server-side before the throw
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item read denied. Content item {contentItem.Id} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }
@@ -526,7 +547,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: securityContext);
 
-            ValidateCurrentContentItemIsRetrievable(
+            await ValidateCurrentContentItemIsRetrievableAsync(
                 currentContentItem: contentItem,
                 actorUserId: actorUserId,
                 securityContext: securityContext);

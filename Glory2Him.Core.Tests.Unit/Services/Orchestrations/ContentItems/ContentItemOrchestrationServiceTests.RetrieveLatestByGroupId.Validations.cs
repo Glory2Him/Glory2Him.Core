@@ -148,6 +148,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            // the outward answer is reason-free, so the true denial reason must land in
+            // the server-side log — and only there
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(
+                    $"Content item read denied. Group {inputContentItemGroupId} has no " +
+                        "non-deleted latest version; reported to the caller as not found."),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
@@ -229,6 +237,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            // the outward answer is reason-free, so the true denial reason must land in
+            // the server-side log — and only there
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item read denied. Content item {latestContentItem.Id} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found."),
+                Times.Once);
+
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
@@ -264,6 +281,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             }.AsQueryable();
 
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+            string actorUserId = GetRandomString();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: new ContentItem { ContentItemGroupId = inputContentItemGroupId },
@@ -292,7 +310,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
-                    .ReturnsAsync(GetRandomString());
+                    .ReturnsAsync(actorUserId);
 
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
@@ -314,6 +332,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(securityContext),
+                Times.Once);
+
+            // the outward answer is reason-free, so the true denial reason — including
+            // who was denied — must land in the server-side log, and only there
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content item read denied. Content item {latestContentItem.Id} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found."),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

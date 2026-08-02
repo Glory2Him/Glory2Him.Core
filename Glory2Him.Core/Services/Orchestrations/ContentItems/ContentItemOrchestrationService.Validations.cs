@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -116,7 +117,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             }
         }
 
-        private static void ValidateCurrentContentItemIsRetrievable(
+        // instance and async, unlike its sibling validations: the caller-facing error is a
+        // deliberately reason-free not-found (no existence leak), so this is the only place
+        // the true denial reason can be recorded — server-side, never on the exception
+        private async ValueTask ValidateCurrentContentItemIsRetrievableAsync(
             ContentItem currentContentItem,
             string actorUserId,
             SecurityContext securityContext)
@@ -133,6 +137,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
             if (isPermitted is false)
             {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item read denied. Content item {currentContentItem.Id} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found.");
+
                 throw new NotFoundContentItemOrchestrationException(
                     message: "The content item was not found.");
             }

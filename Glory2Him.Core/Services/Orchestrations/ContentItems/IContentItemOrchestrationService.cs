@@ -80,8 +80,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// <c>Publisher</c> or <c>Admin</c> (global or ContentItem-scoped) for review and
         /// audit; every other caller receives not-found — never unauthorized — so an
         /// unprivileged probe cannot tell a non-public version from a missing one. A
-        /// soft-deleted row is not found for every caller. Being a read, no completion
-        /// fact is published.
+        /// soft-deleted row is not found for every caller. Every denial is logged
+        /// server-side with its true reason before the reason-free error is thrown
+        /// (§14.5) — the reason never travels outward on the exception. Being a read,
+        /// no completion fact is published.
         /// </summary>
         ValueTask<ContentItem> RetrieveContentItemByIdAsync(
             Guid contentItemId,
@@ -135,7 +137,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c>; every other caller receives
         /// not-found — never unauthorized — so an unprivileged probe cannot tell a
         /// non-public tip from a missing group. A group with no non-deleted latest version
-        /// is not found for every caller.
+        /// is not found for every caller. Every denial is logged server-side with its true
+        /// reason before the reason-free error is thrown (§14.5).
         /// </summary>
         ValueTask<ContentItem> RetrieveLatestContentItemByGroupIdAsync(
             Guid contentItemGroupId,
@@ -150,6 +153,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// (<c>PublishDate</c> not yet passed) is readable only by its owner or a
         /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c>; everyone else receives
         /// not-found, as does every caller when the group has no non-deleted published row.
+        /// Every denial is logged server-side with its true reason before the reason-free
+        /// error is thrown (§14.5).
         /// </summary>
         ValueTask<ContentItem> RetrievePublishedContentItemByGroupIdAsync(
             Guid contentItemGroupId,
