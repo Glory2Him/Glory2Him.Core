@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -29,6 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldAddContentTypeAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ContentType randomContentType = CreateContentTypeFiller(randomDateTimeOffset).Create();
             ContentType inputContentType = randomContentType;

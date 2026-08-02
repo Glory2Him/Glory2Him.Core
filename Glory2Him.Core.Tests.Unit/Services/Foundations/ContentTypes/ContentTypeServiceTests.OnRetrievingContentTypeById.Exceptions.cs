@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
@@ -157,6 +158,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         {
             // given
             ContentType storageContentType = CreateRandomContentType();
+            storageContentType.IsDeleted = false;
+            storageContentType.ApprovalStatus = ApprovalStatus.Approved;
+            storageContentType.IsPublished = true;
+            storageContentType.PublishDate = null;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<ContentType>

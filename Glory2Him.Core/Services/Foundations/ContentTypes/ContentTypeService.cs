@@ -21,9 +21,11 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
@@ -34,7 +36,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — content
+    /// types are reference data, so every write (including hard removal) is Admin only and
+    /// the §14.1/§14.5 read visibility posture answers not-found for non-public rows to
+    /// everyone but an Admin — never assuming an upstream orchestration already gated the
+    /// caller.
     /// </summary>
     internal partial class ContentTypeService : IContentTypeService
     {
@@ -87,7 +93,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllContentTypesAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ContentType> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ContentType());
+
+                IQueryable<ContentType> allContentTypes =
+                    await this.storageBroker.SelectAllContentTypesAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    contentTypes: allContentTypes,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ContentType> RetrieveContentTypeByIdAsync(
@@ -96,14 +112,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveContentTypeById(contentTypeId);
 
-                ContentType maybeContentType =
-                    await this.storageBroker.SelectContentTypeByIdAsync(contentTypeId, cancellationToken);
+                var retrieveRequest = new ContentType
+                {
+                    Id = contentTypeId
+                };
 
-                ValidateStorageContentType(maybeContentType, contentTypeId);
+                EventEnvelope<ContentType> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeContentType;
+                return await DoRetrieveContentTypeByIdAsync(
+                    contentTypeId: contentTypeId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentType> ModifyContentTypeAsync(
@@ -168,11 +189,110 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: a publicly visible content
+        // type is readable by anyone; a non-public one answers not-found — never
+        // unauthorized — to everyone but an Admin, with the true denial reason logged
+        // server-side only (no owner branch: only admins author reference data)
+        private async ValueTask<ContentType> DoRetrieveContentTypeByIdAsync(
+            Guid contentTypeId,
+            EventEnvelope<ContentType> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveContentTypeById(contentTypeId);
+
+            ContentType maybeContentType = await this.storageBroker.SelectContentTypeByIdAsync(
+                contentTypeId: contentTypeId,
+                cancellationToken: cancellationToken);
+
+            ValidateStorageContentType(maybeContentType, contentTypeId);
+
+            if (maybeContentType.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content type read denied. Content type {contentTypeId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {contentTypeId}.");
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            bool isPubliclyVisible =
+                maybeContentType.ApprovalStatus == ApprovalStatus.Approved
+                    && maybeContentType.IsPublished
+                    && (maybeContentType.PublishDate is null
+                        || maybeContentType.PublishDate <= currentDateTime);
+
+            if (isPubliclyVisible)
+            {
+                return maybeContentType;
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content type read denied. Content type {contentTypeId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
+                throw new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {contentTypeId}.");
+            }
+
+            if (HasAdminRole(securityContext) is false)
+            {
+                string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                    securityContext: securityContext);
+
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content type read denied. Content type {contentTypeId} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is not an " +
+                        "Admin; reported to the caller as not found.");
+
+                throw new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {contentTypeId}.");
+            }
+
+            return maybeContentType;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many non-public rows exist
+        private async ValueTask<IQueryable<ContentType>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<ContentType> contentTypes,
+            SecurityContext? securityContext)
+        {
+            IQueryable<ContentType> visibleContentTypes = contentTypes.Where(contentType =>
+                contentType.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated && HasAdminRole(securityContext!))
+            {
+                return visibleContentTypes;
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            return visibleContentTypes.Where(contentType =>
+                contentType.ApprovalStatus == ApprovalStatus.Approved
+                    && contentType.IsPublished
+                    && (contentType.PublishDate == null
+                        || contentType.PublishDate <= currentDateTime));
+        }
+
         private async ValueTask<ContentType> DoAddContentTypeAsync(
             ContentType contentType,
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerContentTypes(inboundEnvelope.SecurityContext);
+
             contentType = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: contentType, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +330,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerContentTypes(inboundEnvelope.SecurityContext);
+
             contentType = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: contentType, securityContext: inboundEnvelope.SecurityContext);
 
@@ -263,6 +385,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            // the gate comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            ValidateUserIsAllowedToAdministerContentTypes(inboundEnvelope.SecurityContext);
             ValidateOnRemoveContentTypeById(contentTypeId);
 
             ContentType maybeContentType =
@@ -312,6 +437,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             EventEnvelope<ContentType> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveContentType(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveContentTypeById(contentTypeId);
 
             ContentType maybeContentType =

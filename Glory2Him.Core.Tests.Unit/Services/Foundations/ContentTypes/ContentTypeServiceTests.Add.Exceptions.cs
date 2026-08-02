@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Microsoft.Data.SqlClient;
 using Moq;
@@ -28,6 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowDependencyExceptionOnAddIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ContentType someContentType = CreateRandomContentType();
             var operationCanceledException = new OperationCanceledException();
 
@@ -85,6 +87,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ContentType someContentType = CreateRandomContentType();
 
             var expectedContentTypeDependencyException = new ContentTypeDependencyException(
@@ -129,6 +132,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowOperationCanceledExceptionOnAddIfCancellationRequestedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ContentType someContentType = CreateRandomContentType();
             var cancellationToken = new CancellationToken(canceled: true);
 
@@ -153,6 +157,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowCriticalDependencyExceptionOnAddIfSqlErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ContentType someContentType = CreateRandomContentType();
             SqlException sqlException = GetSqlException();
 
@@ -206,6 +211,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ContentType someContentType = CreateRandomContentType();
 
             var expectedContentTypeDependencyValidationException = new ContentTypeDependencyValidationException(
@@ -250,6 +256,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowServiceExceptionOnAddIfServiceErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ContentType someContentType = CreateRandomContentType();
             var serviceException = new Exception();
 

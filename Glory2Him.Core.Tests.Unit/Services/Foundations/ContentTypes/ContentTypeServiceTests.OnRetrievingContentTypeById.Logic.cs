@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Moq;
@@ -22,9 +23,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         [Fact]
         public async Task ShouldReplyWithContentTypeOnRetrievingContentTypeByIdEventAsync()
         {
-            // given
+            // given: the shared do-work runs the visibility posture against the request
+            // envelope's caller — a publicly visible row needs no privileged caller
             ContentType randomContentType = CreateRandomContentType();
             ContentType storageContentType = randomContentType;
+            storageContentType.IsDeleted = false;
+            storageContentType.ApprovalStatus = ApprovalStatus.Approved;
+            storageContentType.IsPublished = true;
+            storageContentType.PublishDate = null;
             ContentType expectedContentType = storageContentType;
 
             var requestEnvelope = new EventEnvelope<ContentType>
@@ -37,6 +43,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     randomContentType.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageContentType);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             // when
             EventEnvelope<ContentType>? actualReplyEnvelope =
@@ -56,6 +66,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageContentType),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

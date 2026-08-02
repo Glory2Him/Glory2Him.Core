@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentTypeId = Guid.NewGuid();
 
             var expectedContentTypeDependencyException = new ContentTypeDependencyException(
@@ -80,6 +82,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowDependencyExceptionOnRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentTypeId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
@@ -138,6 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowOperationCanceledExceptionOnRemoveByIdIfCancellationRequestedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentTypeId = Guid.NewGuid();
             var cancellationToken = new CancellationToken(canceled: true);
 
@@ -162,6 +166,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowCriticalDependencyExceptionOnRemoveByIdIfSqlErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentTypeId = Guid.NewGuid();
             SqlException sqlException = GetSqlException();
 
@@ -216,6 +221,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowDependencyValidationExceptionOnRemoveByIdIfDbUpdateConcurrencyExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentTypeId = Guid.NewGuid();
             ContentType someContentType = CreateRandomContentType();
             someContentType.IsDeleted = false;
@@ -292,6 +298,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowServiceExceptionOnRemoveByIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentTypeId = Guid.NewGuid();
             var serviceException = new Exception();
 
