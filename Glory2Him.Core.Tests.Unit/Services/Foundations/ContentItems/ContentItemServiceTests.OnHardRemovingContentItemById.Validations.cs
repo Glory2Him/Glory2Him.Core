@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -70,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given
             var requestEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new ContentItem { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -133,6 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             var requestEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new ContentItem { Id = someContentItemId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

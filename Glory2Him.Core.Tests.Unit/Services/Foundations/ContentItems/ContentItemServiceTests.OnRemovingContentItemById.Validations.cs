@@ -70,6 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given
             var requestEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItem { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -133,6 +134,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             var requestEnvelope = new EventEnvelope<ContentItem>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItem { Id = someContentItemId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

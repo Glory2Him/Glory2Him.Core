@@ -21,9 +21,11 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
@@ -34,7 +36,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — the
+    /// contribution gate on writes, owner-or-moderation-role write permission (removal by
+    /// owner or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility
+    /// posture — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ContentItemService : IContentItemService
     {
@@ -87,7 +92,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ContentItem());
+
+                IQueryable<ContentItem> allContentItems =
+                    await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    contentItems: allContentItems,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
@@ -96,15 +111,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveContentItemById(contentItemId);
 
-                ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
+                var retrieveRequest = new ContentItem
+                {
+                    Id = contentItemId
+                };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
+
+                return await DoRetrieveContentItemByIdAsync(
                     contentItemId: contentItemId,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
-
-                ValidateStorageContentItem(maybeContentItem, contentItemId);
-
-                return maybeContentItem;
             });
 
         public ValueTask<ContentItem> ModifyContentItemAsync(
@@ -170,11 +189,121 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: a publicly visible version
+        // is readable by anyone; a non-public version answers not-found — never
+        // unauthorized — to everyone but the owner and the review roles, with the true
+        // denial reason logged server-side only
+        private async ValueTask<ContentItem> DoRetrieveContentItemByIdAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveContentItemById(contentItemId);
+
+            ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
+                contentItemId: contentItemId,
+                cancellationToken: cancellationToken);
+
+            ValidateStorageContentItem(maybeContentItem, contentItemId);
+
+            if (maybeContentItem.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item read denied. Content item {contentItemId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundContentItemException(
+                    message: $"Content item not found with id: {contentItemId}.");
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            bool isPubliclyVisible =
+                maybeContentItem.ApprovalStatus == ApprovalStatus.Approved
+                    && maybeContentItem.IsPublished
+                    && (maybeContentItem.PublishDate is null
+                        || maybeContentItem.PublishDate <= currentDateTime);
+
+            if (isPubliclyVisible)
+            {
+                return maybeContentItem;
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item read denied. Content item {contentItemId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
+                throw new NotFoundContentItemException(
+                    message: $"Content item not found with id: {contentItemId}.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeContentItem.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item read denied. Content item {contentItemId} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found.");
+
+                throw new NotFoundContentItemException(
+                    message: $"Content item not found with id: {contentItemId}.");
+            }
+
+            return maybeContentItem;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many non-public rows exist
+        private async ValueTask<IQueryable<ContentItem>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<ContentItem> contentItems,
+            SecurityContext? securityContext)
+        {
+            IQueryable<ContentItem> visibleContentItems = contentItems.Where(contentItem =>
+                contentItem.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated && HasReviewRole(securityContext!))
+            {
+                return visibleContentItems;
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            string? actorUserId = isAuthenticated
+                ? await this.securityAuditBroker.GetUserIdAsync(securityContext: securityContext!)
+                : null;
+
+            bool includeOwnContentItems = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleContentItems.Where(contentItem =>
+                (contentItem.ApprovalStatus == ApprovalStatus.Approved
+                    && contentItem.IsPublished
+                    && (contentItem.PublishDate == null
+                        || contentItem.PublishDate <= currentDateTime))
+                || (includeOwnContentItems && contentItem.CreatedBy == actorUserId));
+        }
+
         private async ValueTask<ContentItem> DoAddContentItemAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             contentItem = await this.securityAuditBroker.ApplyAddAuditValuesAsync(
                 entity: contentItem,
                 securityContext: inboundEnvelope.SecurityContext);
@@ -211,6 +340,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             contentItem = await this.securityAuditBroker.ApplyModifyAuditValuesAsync(
                 entity: contentItem,
                 securityContext: inboundEnvelope.SecurityContext);
@@ -222,6 +353,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
 
             ValidateStorageContentItem(maybeContentItem, contentItem.Id);
+
+            await ValidateUserCanModifyStorageContentItemAsync(
+                storageContentItem: maybeContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
 
             contentItem = await this.securityAuditBroker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                 entity: contentItem,
@@ -262,6 +397,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnRemoveContentItemById(contentItemId);
 
             ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
@@ -269,6 +405,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
 
             ValidateStorageContentItem(maybeContentItem, contentItemId);
+
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            await ValidateUserCanRemoveStorageContentItemAsync(
+                storageContentItem: maybeContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
 
             if (maybeContentItem.IsDeleted)
                 return maybeContentItem;
@@ -310,6 +452,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveContentItem(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveContentItemById(contentItemId);
 
             ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(

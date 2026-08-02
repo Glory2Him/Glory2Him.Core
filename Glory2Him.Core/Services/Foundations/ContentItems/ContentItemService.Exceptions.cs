@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidContentItemEventException);
             }
+            catch (UnauthorizedContentItemException unauthorizedContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedContentItemException);
+            }
             catch (NullContentItemException nullContentItemException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullContentItemException);
@@ -172,6 +176,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedContentItemException unauthorizedContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedContentItemException);
             }
             catch (NullContentItemException nullContentItemException)
             {

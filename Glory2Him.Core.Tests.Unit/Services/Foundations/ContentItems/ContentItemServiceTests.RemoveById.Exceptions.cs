@@ -237,6 +237,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .ReturnsAsync(someContentItem);
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(someContentItem.CreatedBy);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(someContentItem, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(someContentItem);
 
@@ -264,6 +268,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.SelectContentItemByIdAsync(
                     someContentItemId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>

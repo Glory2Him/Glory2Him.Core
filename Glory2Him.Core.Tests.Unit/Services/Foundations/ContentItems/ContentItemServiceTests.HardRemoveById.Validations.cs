@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -24,6 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             var invalidContentItemId = Guid.Empty;
 
             var invalidContentItemException = new InvalidContentItemException(
@@ -67,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfContentItemNotFoundAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentItemId = Guid.NewGuid();
             ContentItem noContentItem = null;
 
@@ -107,6 +112,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemValidationException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someContentItemId = Guid.NewGuid();
+
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is not authenticated.");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
+
+            // when
+            ValueTask<ContentItem> hardRemoveContentItemByIdTask =
+                this.contentItemService.HardRemoveContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    hardRemoveContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            Guid someContentItemId = Guid.NewGuid();
+
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is not allowed to permanently remove this content item.");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
+
+            // when
+            ValueTask<ContentItem> hardRemoveContentItemByIdTask =
+                this.contentItemService.HardRemoveContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    hardRemoveContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

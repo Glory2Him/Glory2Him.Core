@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
@@ -28,6 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldHardRemoveContentItemByIdAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem storageContentItem = randomContentItem;
             ContentItem expectedContentItem = storageContentItem.DeepClone();

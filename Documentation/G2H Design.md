@@ -2127,6 +2127,18 @@ So that debugging and audit remain correct despite the deliberately opaque outwa
 
 This posture and its logging rule apply to every read surface — by id, latest/published per group, and collection reads — and to both the direct and event (substrate) paths, which converge on the same do-work methods.
 
+### 14.6 Security Enforcement in Every Layer
+
+An exposer (controller, page, or any other host) may bind to a foundation service, a processing service, or an orchestration service directly — there is no guarantee that a request passes through any particular layer. Therefore:
+
+1. **Every service enforces security itself.** Each service — foundation, processing, and orchestration — applies authentication, role, ownership, and visibility rules against the ambient `SecurityContext` (captured on its own inbound envelope) for every operation it exposes. No service ever assumes an upstream layer already gated the caller.
+2. **Duplicate enforcement across layers is intended** (defense in depth). An orchestration re-checking a rule its foundation also checks is correct, not redundant: either service must be safe when called alone.
+3. **Each layer enforces the rules appropriate to its altitude.** Foundations enforce row-level rules — the contribution gate (authenticated, not blocked by a `ReadOnly` role), row write permission (owner or moderation role; removal by owner or `Admin`; hard removal by `Admin` only), and read visibility (§14.1, §14.5). Orchestrations additionally enforce process rules that span rows or states — for example that an `Approved` content item is amended only by its owner and only by forking a new version, which requires the foundation to still permit the owner's write to the approved row being demoted.
+4. **The same rules apply on both entry paths.** The direct method path and the event (substrate) path converge on the same do-work methods, so the event path enforces the rules against the request envelope's `SecurityContext` — a forged or replayed request envelope gains nothing.
+5. **Denials follow §14.5**: reads answer not-found with the true reason logged server-side; writes answer unauthorized (revealing a write denial leaks nothing the caller did not already assert).
+
+Known consequence, accepted for now: because the foundation's collection read is visibility-filtered for the caller, cross-row rules evaluated over that read (such as the duplicate-content rule, §3.4.2) see only the caller's visible set — an ordinary user's add is not checked against another user's non-public draft at the service layer. A simple database unique index over (`ContentTypeId`, `ContentHash`) is not a valid backstop, because versions within the same group may legitimately share a hash (the duplicate rule deliberately excludes the item's own group). Closing this gap — for example with a group-aware database constraint or a privileged internal duplicate probe — is tracked as follow-up work.
+
 ## 15. Recommended Corrections
 
 ### 14.1 Correct Typographical Issues
