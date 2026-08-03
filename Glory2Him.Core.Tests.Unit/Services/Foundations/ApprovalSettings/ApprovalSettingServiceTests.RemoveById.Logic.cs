@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -29,6 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldRemoveApprovalSettingByIdAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
             randomApprovalSetting.IsDeleted = false;
             ApprovalSetting storageApprovalSetting = randomApprovalSetting;
@@ -112,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldRemoveApprovalSettingByIdWithDeletionReasonAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string someDeletionReason = GetRandomString();
             ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
             randomApprovalSetting.IsDeleted = false;
@@ -197,6 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldReturnEarlyOnRemoveByIdIfAlreadyDeletedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSetting alreadyDeletedApprovalSetting = CreateRandomApprovalSetting();
             alreadyDeletedApprovalSetting.IsDeleted = true;
             Guid someApprovalSettingId = alreadyDeletedApprovalSetting.Id;

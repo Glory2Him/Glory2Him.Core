@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
 using Moq;
 
@@ -66,7 +67,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             // given
             var requestEnvelope = new EventEnvelope<ApprovalSetting>
             {
-                Content = new ApprovalSetting { Id = Guid.NewGuid() }
+                Content = new ApprovalSetting { Id = Guid.NewGuid() },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
             };
 
             this.storageBrokerMock.Setup(broker =>

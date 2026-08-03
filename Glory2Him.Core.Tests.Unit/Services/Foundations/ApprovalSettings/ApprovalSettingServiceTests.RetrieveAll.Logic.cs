@@ -9,11 +9,14 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
@@ -24,7 +27,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldRetrieveAllApprovalSettingsAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             IQueryable<ApprovalSetting> randomApprovalSettings = CreateRandomApprovalSettings();
+
+            foreach (ApprovalSetting approvalSetting in randomApprovalSettings)
+            {
+                approvalSetting.IsDeleted = false;
+            }
+
             IQueryable<ApprovalSetting> storageApprovalSettings = randomApprovalSettings;
             IQueryable<ApprovalSetting> expectedApprovalSettings = storageApprovalSettings;
 
@@ -39,6 +49,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
 
             // then
             actualApprovalSettings.Should().BeEquivalentTo(expectedApprovalSettings);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(AuthenticatedRoleSets))]
+        public async Task ShouldRetrieveAllNonDeletedApprovalSettingsWhenUserIsAuthenticatedAsync(
+            string[] roles)
+        {
+            // given: every signed-in caller reads the whole policy — only deleted rows drop
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
+
+            ApprovalSetting activeApprovalSetting = CreateRandomApprovalSetting();
+            activeApprovalSetting.IsDeleted = false;
+
+            ApprovalSetting anotherActiveApprovalSetting = CreateRandomApprovalSetting();
+            anotherActiveApprovalSetting.IsDeleted = false;
+
+            ApprovalSetting deletedApprovalSetting = CreateRandomApprovalSetting();
+            deletedApprovalSetting.IsDeleted = true;
+
+            IQueryable<ApprovalSetting> storageApprovalSettings = new List<ApprovalSetting>
+            {
+                activeApprovalSetting,
+                anotherActiveApprovalSetting,
+                deletedApprovalSetting
+            }.AsQueryable();
+
+            IQueryable<ApprovalSetting> expectedApprovalSettings = new List<ApprovalSetting>
+            {
+                activeApprovalSetting,
+                anotherActiveApprovalSetting
+            }.AsQueryable();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageApprovalSettings);
+
+            // when
+            IQueryable<ApprovalSetting> actualApprovalSettings =
+                await this.approvalSettingService.RetrieveAllApprovalSettingsAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalSettings.Should().BeEquivalentTo(expectedApprovalSettings);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldRetrieveNoApprovalSettingsWhenCallerIsAnonymousAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given: an anonymous collection read answers the empty set, not an error, so
+            // it never reveals how many settings exist
+            this.ambientSecurityContext = invalidSecurityContext;
+
+            ApprovalSetting activeApprovalSetting = CreateRandomApprovalSetting();
+            activeApprovalSetting.IsDeleted = false;
+
+            ApprovalSetting deletedApprovalSetting = CreateRandomApprovalSetting();
+            deletedApprovalSetting.IsDeleted = true;
+
+            IQueryable<ApprovalSetting> storageApprovalSettings = new List<ApprovalSetting>
+            {
+                activeApprovalSetting,
+                deletedApprovalSetting
+            }.AsQueryable();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageApprovalSettings);
+
+            // when
+            IQueryable<ApprovalSetting> actualApprovalSettings =
+                await this.approvalSettingService.RetrieveAllApprovalSettingsAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalSettings.Should().BeEmpty();
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()),

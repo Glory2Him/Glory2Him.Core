@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidApprovalSettingEventException);
             }
+            catch (UnauthorizedApprovalSettingException unauthorizedApprovalSettingException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalSettingException);
+            }
             catch (NullApprovalSettingException nullApprovalSettingException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullApprovalSettingException);
@@ -173,6 +177,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedApprovalSettingException unauthorizedApprovalSettingException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalSettingException);
             }
             catch (NullApprovalSettingException nullApprovalSettingException)
             {

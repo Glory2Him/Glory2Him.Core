@@ -10,15 +10,39 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
 {
     internal partial class ApprovalSettingService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        // approval settings are admin policy configuration — every write (add, modify,
+        // remove, hard remove) is Admin only
+        private static void ValidateUserIsAllowedToAdministerApprovalSettings(
+            SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalSettingException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalSettingException(
+                    message: "The current user is not allowed to administer approval settings.");
+            }
+        }
+
         private async ValueTask ValidateOnAddApprovalSettingAsync(
             ApprovalSetting approvalSetting,
             SecurityContext securityContext)

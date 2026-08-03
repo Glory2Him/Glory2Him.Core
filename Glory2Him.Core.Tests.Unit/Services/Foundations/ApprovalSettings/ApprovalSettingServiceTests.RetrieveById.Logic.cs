@@ -12,6 +12,7 @@
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
@@ -24,6 +25,48 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             // given
             ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
             ApprovalSetting storageApprovalSetting = randomApprovalSetting;
+            storageApprovalSetting.IsDeleted = false;
+            ApprovalSetting expectedApprovalSetting = storageApprovalSetting;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalSettingByIdAsync(
+                    randomApprovalSetting.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalSetting);
+
+            // when
+            ApprovalSetting actualApprovalSetting =
+                await this.approvalSettingService.RetrieveApprovalSettingByIdAsync(
+                    randomApprovalSetting.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalSetting.Should().BeEquivalentTo(expectedApprovalSetting);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalSettingByIdAsync(
+                    randomApprovalSetting.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(AuthenticatedRoleSets))]
+        public async Task ShouldRetrieveApprovalSettingByIdWhenUserIsAuthenticatedAsync(
+            string[] roles)
+        {
+            // given: approval settings are the published rules of the submission process —
+            // any signed-in caller may read them, whatever their role
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
+            ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
+            ApprovalSetting storageApprovalSetting = randomApprovalSetting;
+            storageApprovalSetting.IsDeleted = false;
             ApprovalSetting expectedApprovalSetting = storageApprovalSetting;
 
             this.storageBrokerMock.Setup(broker =>

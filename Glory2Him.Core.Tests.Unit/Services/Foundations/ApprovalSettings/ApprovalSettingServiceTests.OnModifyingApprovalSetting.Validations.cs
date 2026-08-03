@@ -16,6 +16,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
 using Moq;
 
@@ -77,6 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             var requestEnvelope = new EventEnvelope<ApprovalSetting>
             {
                 Content = inputApprovalSetting,
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

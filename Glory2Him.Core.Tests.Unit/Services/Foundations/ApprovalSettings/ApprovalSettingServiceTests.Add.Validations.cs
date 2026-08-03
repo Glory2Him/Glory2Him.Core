@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
 using Moq;
 
@@ -25,6 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfApprovalSettingIsNullAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSetting nullApprovalSetting = null;
 
             var nullApprovalSettingException =
@@ -69,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             string invalidText)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             DateTimeOffset startDate = randomDateTimeOffset.AddSeconds(-90);
             DateTimeOffset endDate = randomDateTimeOffset;
@@ -171,6 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfApprovalSettingExceedsMaxLengthAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -248,6 +252,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedWhenIsNotSameAsCreatedWhenAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSetting randomApprovalSetting =
@@ -322,6 +327,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedByIsNotSameAsCurrentUserIdAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             string differentUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -398,6 +404,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedByIsNotSameAsCreatedByAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSetting randomApprovalSetting =
@@ -473,6 +480,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedWhenIsNotRecentAndLogItAsync(int minutes)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSetting randomApprovalSetting =
@@ -535,6 +543,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalSetting someApprovalSetting = CreateRandomApprovalSetting();
+
+            var unauthorizedApprovalSettingException = new UnauthorizedApprovalSettingException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalSettingValidationException = new ApprovalSettingValidationException(
+                message: "Approval setting validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingException);
+
+            // when
+            ValueTask<ApprovalSetting> addApprovalSettingTask =
+                this.approvalSettingService.AddApprovalSettingAsync(
+                    someApprovalSetting,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingValidationException actualApprovalSettingValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingValidationException>(
+                    addApprovalSettingTask.AsTask);
+
+            // then
+            actualApprovalSettingValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            ApprovalSetting someApprovalSetting = CreateRandomApprovalSetting();
+
+            var unauthorizedApprovalSettingException = new UnauthorizedApprovalSettingException(
+                message: "The current user is not allowed to administer approval settings.");
+
+            var expectedApprovalSettingValidationException = new ApprovalSettingValidationException(
+                message: "Approval setting validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingException);
+
+            // when
+            ValueTask<ApprovalSetting> addApprovalSettingTask =
+                this.approvalSettingService.AddApprovalSettingAsync(
+                    someApprovalSetting,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingValidationException actualApprovalSettingValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingValidationException>(
+                    addApprovalSettingTask.AsTask);
+
+            // then
+            actualApprovalSettingValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

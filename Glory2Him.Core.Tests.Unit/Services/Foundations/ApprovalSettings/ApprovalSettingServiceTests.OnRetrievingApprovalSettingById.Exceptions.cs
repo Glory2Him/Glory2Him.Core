@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
 using Microsoft.Data.SqlClient;
 using Moq;
@@ -157,11 +158,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         {
             // given
             ApprovalSetting storageApprovalSetting = CreateRandomApprovalSetting();
+            storageApprovalSetting.IsDeleted = false;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<ApprovalSetting>
             {
                 Content = new ApprovalSetting { Id = storageApprovalSetting.Id },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
 {
@@ -34,7 +35,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — every
+    /// write is Admin only, and reads require an authenticated caller (any role), with
+    /// soft-deleted rows answering not-found and dropping out of collection reads — never
+    /// assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ApprovalSettingService : IApprovalSettingService
     {
@@ -87,7 +91,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllApprovalSettingsAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ApprovalSetting> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ApprovalSetting());
+
+                IQueryable<ApprovalSetting> allApprovalSettings =
+                    await this.storageBroker.SelectAllApprovalSettingsAsync(cancellationToken);
+
+                return ApplyCollectionReadVisibilityFilter(
+                    approvalSettings: allApprovalSettings,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ApprovalSetting> RetrieveApprovalSettingByIdAsync(
@@ -96,14 +110,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveApprovalSettingById(approvalSettingId);
 
-                ApprovalSetting maybeApprovalSetting =
-                    await this.storageBroker.SelectApprovalSettingByIdAsync(approvalSettingId, cancellationToken);
+                var retrieveRequest = new ApprovalSetting
+                {
+                    Id = approvalSettingId
+                };
 
-                ValidateStorageApprovalSetting(maybeApprovalSetting, approvalSettingId);
+                EventEnvelope<ApprovalSetting> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeApprovalSetting;
+                return await DoRetrieveApprovalSettingByIdAsync(
+                    approvalSettingId: approvalSettingId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ApprovalSetting> ModifyApprovalSettingAsync(
@@ -168,11 +187,78 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: approval settings are the
+        // published rules of the submission process, so any signed-in caller may read them;
+        // an anonymous caller — like a soft-deleted row — answers not-found, never
+        // unauthorized, with the true denial reason logged server-side only
+        private async ValueTask<ApprovalSetting> DoRetrieveApprovalSettingByIdAsync(
+            Guid approvalSettingId,
+            EventEnvelope<ApprovalSetting> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveApprovalSettingById(approvalSettingId);
+
+            ApprovalSetting maybeApprovalSetting =
+                await this.storageBroker.SelectApprovalSettingByIdAsync(approvalSettingId, cancellationToken);
+
+            ValidateStorageApprovalSetting(maybeApprovalSetting, approvalSettingId);
+
+            if (maybeApprovalSetting.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Approval setting read denied. Approval setting {approvalSettingId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundApprovalSettingException(
+                    message: $"Approval setting not found with id: {approvalSettingId}.");
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval setting read denied. Approval setting {approvalSettingId} is " +
+                        "visible to authenticated callers only and the caller is not authenticated; " +
+                        "reported to the caller as not found.");
+
+                throw new NotFoundApprovalSettingException(
+                    message: $"Approval setting not found with id: {approvalSettingId}.");
+            }
+
+            return maybeApprovalSetting;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many settings exist — an anonymous caller simply reads nothing
+        private static IQueryable<ApprovalSetting> ApplyCollectionReadVisibilityFilter(
+            IQueryable<ApprovalSetting> approvalSettings,
+            SecurityContext? securityContext)
+        {
+            IQueryable<ApprovalSetting> visibleApprovalSettings = approvalSettings.Where(approvalSetting =>
+                approvalSetting.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated is false)
+            {
+                return visibleApprovalSettings.Where(approvalSetting => false);
+            }
+
+            // every signed-in caller sees the whole policy — settings carry no per-row
+            // ownership or approval state to narrow the set by
+            return visibleApprovalSettings;
+        }
+
         private async ValueTask<ApprovalSetting> DoAddApprovalSettingAsync(
             ApprovalSetting approvalSetting,
             EventEnvelope<ApprovalSetting> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerApprovalSettings(inboundEnvelope.SecurityContext);
+
             approvalSetting = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: approvalSetting, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +296,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             EventEnvelope<ApprovalSetting> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerApprovalSettings(inboundEnvelope.SecurityContext);
+
             approvalSetting = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: approvalSetting, securityContext: inboundEnvelope.SecurityContext);
 
@@ -263,6 +351,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             EventEnvelope<ApprovalSetting> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            ValidateUserIsAllowedToAdministerApprovalSettings(inboundEnvelope.SecurityContext);
             ValidateOnRemoveApprovalSettingById(approvalSettingId);
 
             ApprovalSetting maybeApprovalSetting =
@@ -312,6 +403,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             EventEnvelope<ApprovalSetting> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerApprovalSettings(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveApprovalSettingById(approvalSettingId);
 
             ApprovalSetting maybeApprovalSetting =
