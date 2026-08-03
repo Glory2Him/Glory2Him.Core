@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
@@ -157,10 +158,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         {
             // given
             Link storageLink = CreateRandomLink();
+            storageLink.IsDeleted = false;
+            storageLink.ApprovalStatus = ApprovalStatus.Approved;
+            storageLink.IsPublished = true;
+            storageLink.PublishDate = null;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<Link>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Link { Id = storageLink.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -179,6 +185,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                     storageLink.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageLink);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageLink))

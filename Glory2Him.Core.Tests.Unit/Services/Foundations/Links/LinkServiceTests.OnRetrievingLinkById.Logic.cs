@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using Moq;
@@ -25,10 +26,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given
             Link randomLink = CreateRandomLink();
             Link storageLink = randomLink;
+            storageLink.IsDeleted = false;
+            storageLink.ApprovalStatus = ApprovalStatus.Approved;
+            storageLink.IsPublished = true;
+            storageLink.PublishDate = null;
             Link expectedLink = storageLink;
 
             var requestEnvelope = new EventEnvelope<Link>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Link { Id = randomLink.Id }
             };
 
@@ -37,6 +43,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                     randomLink.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageLink);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             // when
             EventEnvelope<Link>? actualReplyEnvelope =
@@ -52,6 +62,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 broker.SelectLinkByIdAsync(
                     randomLink.Id,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
