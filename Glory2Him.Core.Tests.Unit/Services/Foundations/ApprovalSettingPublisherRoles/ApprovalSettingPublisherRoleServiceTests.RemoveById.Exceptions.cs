@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingPublisherRoleId = Guid.NewGuid();
 
             var expectedApprovalSettingPublisherRoleDependencyException = new ApprovalSettingPublisherRoleDependencyException(
@@ -80,6 +82,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowDependencyExceptionOnRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingPublisherRoleId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
@@ -138,6 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowOperationCanceledExceptionOnRemoveByIdIfCancellationRequestedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingPublisherRoleId = Guid.NewGuid();
             var cancellationToken = new CancellationToken(canceled: true);
 
@@ -162,6 +166,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowCriticalDependencyExceptionOnRemoveByIdIfSqlErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingPublisherRoleId = Guid.NewGuid();
             SqlException sqlException = GetSqlException();
 
@@ -216,6 +221,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowDependencyValidationExceptionOnRemoveByIdIfDbUpdateConcurrencyExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingPublisherRoleId = Guid.NewGuid();
             ApprovalSettingPublisherRole someApprovalSettingPublisherRole = CreateRandomApprovalSettingPublisherRole();
             someApprovalSettingPublisherRole.IsDeleted = false;
@@ -292,6 +298,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowServiceExceptionOnRemoveByIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingPublisherRoleId = Guid.NewGuid();
             var serviceException = new Exception();
 

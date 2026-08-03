@@ -10,15 +10,49 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
 {
     internal partial class ApprovalSettingPublisherRoleService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        // approval setting publisher roles are policy configuration authored by
+        // administrators only — a single Admin gate covers Add, Modify and Remove
+        private static void ValidateUserIsAllowedToAdministerApprovalSettingPublisherRoles(
+            SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalSettingPublisherRoleException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (HasAdminRole(securityContext) is false)
+            {
+                throw new UnauthorizedApprovalSettingPublisherRoleException(
+                    message: "The current user is not allowed to administer approval setting publisher roles.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only, same as
+        // every other approval setting publisher role write
+        private static void ValidateUserCanHardRemoveApprovalSettingPublisherRole(SecurityContext securityContext) =>
+            ValidateUserIsAllowedToAdministerApprovalSettingPublisherRoles(securityContext);
+
+        // the only role that may write policy configuration — reads need no role at all,
+        // just an authenticated caller, so submitters can see the approval rules
+        private static bool HasAdminRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Admin);
+
         private async ValueTask ValidateOnAddApprovalSettingPublisherRoleAsync(
             ApprovalSettingPublisherRole approvalSettingPublisherRole,
             SecurityContext securityContext)

@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublisherRoles
@@ -22,13 +23,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         [Fact]
         public async Task ShouldReplyWithApprovalSettingPublisherRoleOnRetrievingApprovalSettingPublisherRoleByIdEventAsync()
         {
-            // given
+            // given: the shared do-work runs the visibility posture against the request
+            // envelope's caller — a live row needs only an authenticated one
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomApprovalSettingPublisherRole();
             ApprovalSettingPublisherRole storageApprovalSettingPublisherRole = randomApprovalSettingPublisherRole;
+            storageApprovalSettingPublisherRole.IsDeleted = false;
             ApprovalSettingPublisherRole expectedApprovalSettingPublisherRole = storageApprovalSettingPublisherRole;
 
             var requestEnvelope = new EventEnvelope<ApprovalSettingPublisherRole>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ApprovalSettingPublisherRole { Id = randomApprovalSettingPublisherRole.Id }
             };
 

@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
 {
@@ -34,7 +35,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — approval
+    /// setting publisher roles are administrative policy configuration, so every write
+    /// (including hard removal) is Admin only, while reads answer not-found for a
+    /// soft-deleted row or an unauthenticated caller — the policy is visible to any signed-in
+    /// user so submitters can see the rules — never assuming an upstream orchestration
+    /// already gated the caller.
     /// </summary>
     internal partial class ApprovalSettingPublisherRoleService : IApprovalSettingPublisherRoleService
     {
@@ -87,7 +93,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllApprovalSettingPublisherRolesAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ApprovalSettingPublisherRole> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ApprovalSettingPublisherRole());
+
+                IQueryable<ApprovalSettingPublisherRole> allApprovalSettingPublisherRoles =
+                    await this.storageBroker.SelectAllApprovalSettingPublisherRolesAsync(cancellationToken);
+
+                return ApplyCollectionReadVisibilityFilter(
+                    approvalSettingPublisherRoles: allApprovalSettingPublisherRoles,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ApprovalSettingPublisherRole> RetrieveApprovalSettingPublisherRoleByIdAsync(
@@ -96,14 +112,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveApprovalSettingPublisherRoleById(approvalSettingPublisherRoleId);
 
-                ApprovalSettingPublisherRole maybeApprovalSettingPublisherRole =
-                    await this.storageBroker.SelectApprovalSettingPublisherRoleByIdAsync(approvalSettingPublisherRoleId, cancellationToken);
+                var retrieveRequest = new ApprovalSettingPublisherRole
+                {
+                    Id = approvalSettingPublisherRoleId
+                };
 
-                ValidateStorageApprovalSettingPublisherRole(maybeApprovalSettingPublisherRole, approvalSettingPublisherRoleId);
+                EventEnvelope<ApprovalSettingPublisherRole> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeApprovalSettingPublisherRole;
+                return await DoRetrieveApprovalSettingPublisherRoleByIdAsync(
+                    approvalSettingPublisherRoleId: approvalSettingPublisherRoleId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ApprovalSettingPublisherRole> ModifyApprovalSettingPublisherRoleAsync(
@@ -168,11 +189,72 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: approval policy has no
+        // public face — an existing row is readable by any authenticated caller so
+        // submitters can see the rules, while a soft-deleted row or an anonymous caller
+        // answers not-found — never unauthorized — with the true denial reason logged
+        // server-side only (no owner branch: only admins author policy configuration)
+        private async ValueTask<ApprovalSettingPublisherRole> DoRetrieveApprovalSettingPublisherRoleByIdAsync(
+            Guid approvalSettingPublisherRoleId,
+            EventEnvelope<ApprovalSettingPublisherRole> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveApprovalSettingPublisherRoleById(approvalSettingPublisherRoleId);
+
+            ApprovalSettingPublisherRole maybeApprovalSettingPublisherRole =
+                await this.storageBroker.SelectApprovalSettingPublisherRoleByIdAsync(
+                    approvalSettingPublisherRoleId: approvalSettingPublisherRoleId,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageApprovalSettingPublisherRole(maybeApprovalSettingPublisherRole, approvalSettingPublisherRoleId);
+
+            if (maybeApprovalSettingPublisherRole.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Approval setting publisher role read denied. Approval setting publisher role " +
+                        $"{approvalSettingPublisherRoleId} is soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundApprovalSettingPublisherRoleException(
+                    message: $"Approval setting publisher role not found with id: {approvalSettingPublisherRoleId}.");
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval setting publisher role read denied. Approval setting publisher role " +
+                        $"{approvalSettingPublisherRoleId} is only visible to authenticated callers and the " +
+                        "caller is not authenticated; reported to the caller as not found.");
+
+                throw new NotFoundApprovalSettingPublisherRoleException(
+                    message: $"Approval setting publisher role not found with id: {approvalSettingPublisherRoleId}.");
+            }
+
+            return maybeApprovalSettingPublisherRole;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many rows exist — an anonymous caller simply gets an empty set
+        private static IQueryable<ApprovalSettingPublisherRole> ApplyCollectionReadVisibilityFilter(
+            IQueryable<ApprovalSettingPublisherRole> approvalSettingPublisherRoles,
+            SecurityContext? securityContext)
+        {
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            return approvalSettingPublisherRoles.Where(approvalSettingPublisherRole =>
+                isAuthenticated && approvalSettingPublisherRole.IsDeleted == false);
+        }
+
         private async ValueTask<ApprovalSettingPublisherRole> DoAddApprovalSettingPublisherRoleAsync(
             ApprovalSettingPublisherRole approvalSettingPublisherRole,
             EventEnvelope<ApprovalSettingPublisherRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerApprovalSettingPublisherRoles(inboundEnvelope.SecurityContext);
+
             approvalSettingPublisherRole = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: approvalSettingPublisherRole, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +292,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
             EventEnvelope<ApprovalSettingPublisherRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerApprovalSettingPublisherRoles(inboundEnvelope.SecurityContext);
+
             approvalSettingPublisherRole = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: approvalSettingPublisherRole, securityContext: inboundEnvelope.SecurityContext);
 
@@ -263,6 +347,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
             EventEnvelope<ApprovalSettingPublisherRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            // the gate comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            ValidateUserIsAllowedToAdministerApprovalSettingPublisherRoles(inboundEnvelope.SecurityContext);
             ValidateOnRemoveApprovalSettingPublisherRoleById(approvalSettingPublisherRoleId);
 
             ApprovalSettingPublisherRole maybeApprovalSettingPublisherRole =
@@ -312,6 +399,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
             EventEnvelope<ApprovalSettingPublisherRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveApprovalSettingPublisherRole(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveApprovalSettingPublisherRoleById(approvalSettingPublisherRoleId);
 
             ApprovalSettingPublisherRole maybeApprovalSettingPublisherRole =
