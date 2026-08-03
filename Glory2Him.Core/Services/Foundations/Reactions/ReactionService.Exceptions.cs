@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidReactionEventException);
             }
+            catch (UnauthorizedReactionException unauthorizedReactionException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedReactionException);
+            }
             catch (NullReactionException nullReactionException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullReactionException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedReactionException unauthorizedReactionException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedReactionException);
             }
             catch (NullReactionException nullReactionException)
             {

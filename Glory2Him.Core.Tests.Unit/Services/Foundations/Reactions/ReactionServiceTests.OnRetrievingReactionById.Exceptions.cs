@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
@@ -157,10 +158,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         {
             // given
             Reaction storageReaction = CreateRandomReaction();
+            storageReaction.IsDeleted = false;
+            storageReaction.ApprovalStatus = ApprovalStatus.Approved;
+            storageReaction.IsPublished = true;
+            storageReaction.PublishDate = null;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Reaction { Id = storageReaction.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -179,6 +185,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     storageReaction.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageReaction);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageReaction))

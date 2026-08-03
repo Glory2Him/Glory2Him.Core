@@ -66,6 +66,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             var requestEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Reaction { Id = Guid.NewGuid() }
             };
 

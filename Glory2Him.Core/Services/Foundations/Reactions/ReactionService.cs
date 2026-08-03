@@ -21,9 +21,11 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Reactions
 {
@@ -34,7 +36,10 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — the
+    /// contribution gate on writes, owner-or-moderation-role write permission (removal by
+    /// owner or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility
+    /// posture — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ReactionService : IReactionService
     {
@@ -87,7 +92,17 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllReactionsAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<Reaction> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new Reaction());
+
+                IQueryable<Reaction> allReactions =
+                    await this.storageBroker.SelectAllReactionsAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    reactions: allReactions,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<Reaction> RetrieveReactionByIdAsync(
@@ -96,14 +111,19 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveReactionById(reactionId);
 
-                Reaction maybeReaction =
-                    await this.storageBroker.SelectReactionByIdAsync(reactionId, cancellationToken);
+                var retrieveRequest = new Reaction
+                {
+                    Id = reactionId
+                };
 
-                ValidateStorageReaction(maybeReaction, reactionId);
+                EventEnvelope<Reaction> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeReaction;
+                return await DoRetrieveReactionByIdAsync(
+                    reactionId: reactionId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<Reaction> ModifyReactionAsync(
@@ -168,11 +188,120 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: a publicly visible version
+        // is readable by anyone; a non-public version answers not-found — never
+        // unauthorized — to everyone but the owner and the review roles, with the true
+        // denial reason logged server-side only
+        private async ValueTask<Reaction> DoRetrieveReactionByIdAsync(
+            Guid reactionId,
+            EventEnvelope<Reaction> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveReactionById(reactionId);
+
+            Reaction maybeReaction =
+                await this.storageBroker.SelectReactionByIdAsync(reactionId, cancellationToken);
+
+            ValidateStorageReaction(maybeReaction, reactionId);
+
+            if (maybeReaction.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Reaction read denied. Reaction {reactionId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundReactionException(
+                    message: $"Reaction not found with id: {reactionId}.");
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            bool isPubliclyVisible =
+                maybeReaction.ApprovalStatus == ApprovalStatus.Approved
+                    && maybeReaction.IsPublished
+                    && (maybeReaction.PublishDate is null
+                        || maybeReaction.PublishDate <= currentDateTime);
+
+            if (isPubliclyVisible)
+            {
+                return maybeReaction;
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Reaction read denied. Reaction {reactionId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
+                throw new NotFoundReactionException(
+                    message: $"Reaction not found with id: {reactionId}.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeReaction.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Reaction read denied. Reaction {reactionId} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found.");
+
+                throw new NotFoundReactionException(
+                    message: $"Reaction not found with id: {reactionId}.");
+            }
+
+            return maybeReaction;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many non-public rows exist
+        private async ValueTask<IQueryable<Reaction>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<Reaction> reactions,
+            SecurityContext? securityContext)
+        {
+            IQueryable<Reaction> visibleReactions = reactions.Where(reaction =>
+                reaction.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated && HasReviewRole(securityContext!))
+            {
+                return visibleReactions;
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            string? actorUserId = isAuthenticated
+                ? await this.securityAuditBroker.GetUserIdAsync(securityContext: securityContext!)
+                : null;
+
+            bool includeOwnReactions = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleReactions.Where(reaction =>
+                (reaction.ApprovalStatus == ApprovalStatus.Approved
+                    && reaction.IsPublished
+                    && (reaction.PublishDate == null
+                        || reaction.PublishDate <= currentDateTime))
+                || (includeOwnReactions && reaction.CreatedBy == actorUserId));
+        }
+
         private async ValueTask<Reaction> DoAddReactionAsync(
             Reaction reaction,
             EventEnvelope<Reaction> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             reaction = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: reaction, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +339,8 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             EventEnvelope<Reaction> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             reaction = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: reaction, securityContext: inboundEnvelope.SecurityContext);
 
@@ -222,6 +353,10 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 cancellationToken: cancellationToken);
 
             ValidateStorageReaction(maybeReaction, reactionId: reaction.Id);
+
+            await ValidateUserCanModifyStorageReactionAsync(
+                storageReaction: maybeReaction,
+                securityContext: inboundEnvelope.SecurityContext);
 
             reaction = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -263,12 +398,19 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             EventEnvelope<Reaction> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnRemoveReactionById(reactionId);
 
             Reaction maybeReaction =
                 await this.storageBroker.SelectReactionByIdAsync(reactionId, cancellationToken);
 
             ValidateStorageReaction(maybeReaction, reactionId);
+
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            await ValidateUserCanRemoveStorageReactionAsync(
+                storageReaction: maybeReaction,
+                securityContext: inboundEnvelope.SecurityContext);
 
             if (maybeReaction.IsDeleted)
                 return maybeReaction;
@@ -312,6 +454,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             EventEnvelope<Reaction> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveReaction(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveReactionById(reactionId);
 
             Reaction maybeReaction =

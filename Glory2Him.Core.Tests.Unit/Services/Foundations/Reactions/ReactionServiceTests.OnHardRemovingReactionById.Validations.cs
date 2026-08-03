@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
@@ -70,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             var requestEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new Reaction { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -133,6 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             var requestEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new Reaction { Id = someReactionId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

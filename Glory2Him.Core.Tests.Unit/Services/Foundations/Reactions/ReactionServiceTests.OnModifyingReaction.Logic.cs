@@ -42,6 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             var requestEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = inputReaction,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -153,6 +154,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             var requestEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Reaction { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

@@ -68,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             var invalidEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Reaction { Id = Guid.NewGuid() },
                 Metadata = null!
             };
@@ -113,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             var invalidEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = null!,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
