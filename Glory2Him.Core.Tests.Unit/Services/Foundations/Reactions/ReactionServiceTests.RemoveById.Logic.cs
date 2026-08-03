@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
@@ -43,6 +44,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     randomReaction.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageReaction.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageReaction, It.IsAny<SecurityContext>()))
@@ -73,6 +78,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 broker.SelectReactionByIdAsync(
                     randomReaction.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -130,6 +139,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                         .ReturnsAsync(storageReaction);
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageReaction.CreatedBy);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageReaction, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditedReaction);
 
@@ -158,6 +171,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 broker.SelectReactionByIdAsync(
                     randomReaction.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -208,6 +225,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(alreadyDeletedReaction);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedReaction.CreatedBy);
+
             // when
             Reaction actualReaction =
                 await this.reactionService.RemoveReactionByIdAsync(
@@ -222,6 +243,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     someReactionId,
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRemoveSomeoneElsesReactionByIdWhenUserIsAdminAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            string randomActorUserId = GetRandomString();
+            Reaction randomReaction = CreateRandomReaction();
+            randomReaction.IsDeleted = false;
+            Reaction storageReaction = randomReaction;
+
+            Reaction auditedReaction = storageReaction.DeepClone();
+            auditedReaction.IsDeleted = true;
+
+            Reaction expectedReaction = auditedReaction.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    randomReaction.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageReaction, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditedReaction);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateReactionAsync(auditedReaction, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(expectedReaction);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishReactionAsync(
+                    It.IsAny<EventEnvelope<Reaction>>(),
+                    ReactionEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<Reaction>>(
+                        new EventPublishResult<Reaction>()));
+
+            // when
+            Reaction actualReaction =
+                await this.reactionService.RemoveReactionByIdAsync(
+                    randomReaction.Id,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReaction.Should().BeEquivalentTo(expectedReaction);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    randomReaction.Id,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageReaction, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateReactionAsync(auditedReaction, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishReactionAsync(
+                    It.IsAny<EventEnvelope<Reaction>>(),
+                    ReactionEventOperation.Removed),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.ReactionOnRemovingReactionByIdSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

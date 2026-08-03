@@ -237,6 +237,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                         .ReturnsAsync(someBibleReference);
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(someBibleReference.CreatedBy);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(someBibleReference, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(someBibleReference);
 
@@ -264,6 +268,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 broker.SelectBibleReferenceByIdAsync(
                     someBibleReferenceId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>

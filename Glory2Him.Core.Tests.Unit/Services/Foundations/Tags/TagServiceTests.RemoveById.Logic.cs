@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
@@ -43,6 +44,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     randomTag.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageTag.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>()))
@@ -73,6 +78,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.SelectTagByIdAsync(
                     randomTag.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -130,6 +139,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                         .ReturnsAsync(storageTag);
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageTag.CreatedBy);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditedTag);
 
@@ -158,6 +171,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.SelectTagByIdAsync(
                     randomTag.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -208,6 +225,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(alreadyDeletedTag);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedTag.CreatedBy);
+
             // when
             Tag actualTag =
                 await this.tagService.RemoveTagByIdAsync(
@@ -222,6 +243,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     someTagId,
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRemoveSomeoneElsesTagByIdWhenUserIsAdminAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            string randomActorUserId = GetRandomString();
+            Tag randomTag = CreateRandomTag();
+            randomTag.IsDeleted = false;
+            Tag storageTag = randomTag;
+
+            Tag auditedTag = storageTag.DeepClone();
+            auditedTag.IsDeleted = true;
+
+            Tag expectedTag = auditedTag.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagByIdAsync(
+                    randomTag.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditedTag);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateTagAsync(auditedTag, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(expectedTag);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    TagEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<Tag>>(
+                        new EventPublishResult<Tag>()));
+
+            // when
+            Tag actualTag =
+                await this.tagService.RemoveTagByIdAsync(
+                    randomTag.Id,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualTag.Should().BeEquivalentTo(expectedTag);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectTagByIdAsync(
+                    randomTag.Id,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateTagAsync(auditedTag, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    TagEventOperation.Removed),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.TagOnRemovingTagByIdSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
@@ -35,7 +36,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
             var requestEnvelope = new EventEnvelope<Approval>
             {
-                Content = new Approval { Id = storageApproval.Id },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                Content =new Approval { Id = storageApproval.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -129,7 +131,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // given
             var requestEnvelope = new EventEnvelope<Approval>
             {
-                Content = new Approval { Id = Guid.NewGuid() },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                Content =new Approval { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

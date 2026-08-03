@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
@@ -22,14 +23,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         [Fact]
         public async Task ShouldReplyWithApprovalSettingOnRetrievingApprovalSettingByIdEventAsync()
         {
-            // given
+            // given: the shared do-work runs the visibility posture against the request
+            // envelope's caller — a non-deleted row needs only an authenticated one
             ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
             ApprovalSetting storageApprovalSetting = randomApprovalSetting;
+            storageApprovalSetting.IsDeleted = false;
             ApprovalSetting expectedApprovalSetting = storageApprovalSetting;
 
             var requestEnvelope = new EventEnvelope<ApprovalSetting>
             {
-                Content = new ApprovalSetting { Id = randomApprovalSetting.Id }
+                Content = new ApprovalSetting { Id = randomApprovalSetting.Id },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
             };
 
             this.storageBrokerMock.Setup(broker =>

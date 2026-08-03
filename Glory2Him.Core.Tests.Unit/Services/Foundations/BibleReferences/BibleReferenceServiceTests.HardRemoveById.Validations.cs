@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
@@ -24,6 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             var invalidBibleReferenceId = Guid.Empty;
 
             var invalidBibleReferenceException = new InvalidBibleReferenceException(
@@ -67,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfBibleReferenceNotFoundAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someBibleReferenceId = Guid.NewGuid();
             BibleReference noBibleReference = null;
 
@@ -107,6 +112,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedBibleReferenceValidationException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someBibleReferenceId = Guid.NewGuid();
+
+            var unauthorizedBibleReferenceException = new UnauthorizedBibleReferenceException(
+                message: "The current user is not authenticated.");
+
+            var expectedBibleReferenceValidationException = new BibleReferenceValidationException(
+                message: "Bible reference validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedBibleReferenceException);
+
+            // when
+            ValueTask<BibleReference> hardRemoveBibleReferenceByIdTask =
+                this.bibleReferenceService.HardRemoveBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    hardRemoveBibleReferenceByIdTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteBibleReferenceAsync(
+                    It.IsAny<BibleReference>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            Guid someBibleReferenceId = Guid.NewGuid();
+
+            var unauthorizedBibleReferenceException = new UnauthorizedBibleReferenceException(
+                message: "The current user is not allowed to permanently remove this bible reference.");
+
+            var expectedBibleReferenceValidationException = new BibleReferenceValidationException(
+                message: "Bible reference validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedBibleReferenceException);
+
+            // when
+            ValueTask<BibleReference> hardRemoveBibleReferenceByIdTask =
+                this.bibleReferenceService.HardRemoveBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    hardRemoveBibleReferenceByIdTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteBibleReferenceAsync(
+                    It.IsAny<BibleReference>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

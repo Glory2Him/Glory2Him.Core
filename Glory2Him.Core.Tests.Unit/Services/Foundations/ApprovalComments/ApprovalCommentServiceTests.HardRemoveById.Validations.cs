@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
@@ -24,6 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             var invalidApprovalCommentId = Guid.Empty;
 
             var invalidApprovalCommentException = new InvalidApprovalCommentException(
@@ -67,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfApprovalCommentNotFoundAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalCommentId = Guid.NewGuid();
             ApprovalComment noApprovalComment = null;
 
@@ -107,6 +112,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedApprovalCommentValidationException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someApprovalCommentId = Guid.NewGuid();
+
+            var unauthorizedApprovalCommentException = new UnauthorizedApprovalCommentException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalCommentValidationException = new ApprovalCommentValidationException(
+                message: "Approval comment validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalCommentException);
+
+            // when
+            ValueTask<ApprovalComment> hardRemoveApprovalCommentByIdTask =
+                this.approvalCommentService.HardRemoveApprovalCommentByIdAsync(
+                    someApprovalCommentId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    hardRemoveApprovalCommentByIdTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteApprovalCommentAsync(
+                    It.IsAny<ApprovalComment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            Guid someApprovalCommentId = Guid.NewGuid();
+
+            var unauthorizedApprovalCommentException = new UnauthorizedApprovalCommentException(
+                message: "The current user is not allowed to permanently remove this approval comment.");
+
+            var expectedApprovalCommentValidationException = new ApprovalCommentValidationException(
+                message: "Approval comment validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalCommentException);
+
+            // when
+            ValueTask<ApprovalComment> hardRemoveApprovalCommentByIdTask =
+                this.approvalCommentService.HardRemoveApprovalCommentByIdAsync(
+                    someApprovalCommentId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    hardRemoveApprovalCommentByIdTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteApprovalCommentAsync(
+                    It.IsAny<ApprovalComment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

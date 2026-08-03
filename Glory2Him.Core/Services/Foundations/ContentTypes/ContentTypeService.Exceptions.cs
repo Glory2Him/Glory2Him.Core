@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidContentTypeEventException);
             }
+            catch (UnauthorizedContentTypeException unauthorizedContentTypeException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedContentTypeException);
+            }
             catch (NullContentTypeException nullContentTypeException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullContentTypeException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedContentTypeException unauthorizedContentTypeException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedContentTypeException);
             }
             catch (NullContentTypeException nullContentTypeException)
             {

@@ -75,6 +75,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             var requestEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = inputComment,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

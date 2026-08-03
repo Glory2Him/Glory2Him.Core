@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
 {
@@ -34,7 +35,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — recording
+    /// a verdict requires a review role (§8.9), a review is amended or withdrawn only by its
+    /// author or an Admin, hard removal is Admin-only, and reads are never public: an
+    /// approval review answers not-found to everyone but its owner and the review roles —
+    /// never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ApprovalReviewService : IApprovalReviewService
     {
@@ -87,7 +92,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllApprovalReviewsAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ApprovalReview> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ApprovalReview());
+
+                IQueryable<ApprovalReview> allApprovalReviews =
+                    await this.storageBroker.SelectAllApprovalReviewsAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    approvalReviews: allApprovalReviews,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ApprovalReview> RetrieveApprovalReviewByIdAsync(
@@ -96,14 +111,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveApprovalReviewById(approvalReviewId);
 
-                ApprovalReview maybeApprovalReview =
-                    await this.storageBroker.SelectApprovalReviewByIdAsync(approvalReviewId, cancellationToken);
+                var retrieveRequest = new ApprovalReview
+                {
+                    Id = approvalReviewId
+                };
 
-                ValidateStorageApprovalReview(maybeApprovalReview, approvalReviewId);
+                EventEnvelope<ApprovalReview> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeApprovalReview;
+                return await DoRetrieveApprovalReviewByIdAsync(
+                    approvalReviewId: approvalReviewId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ApprovalReview> ModifyApprovalReviewAsync(
@@ -168,11 +188,104 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: a verdict is never public —
+        // it answers not-found — never unauthorized — to everyone but the reviewer who
+        // wrote it and the review roles, with the true denial reason logged server-side only
+        private async ValueTask<ApprovalReview> DoRetrieveApprovalReviewByIdAsync(
+            Guid approvalReviewId,
+            EventEnvelope<ApprovalReview> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveApprovalReviewById(approvalReviewId);
+
+            ApprovalReview maybeApprovalReview =
+                await this.storageBroker.SelectApprovalReviewByIdAsync(approvalReviewId, cancellationToken);
+
+            ValidateStorageApprovalReview(maybeApprovalReview, approvalReviewId);
+
+            if (maybeApprovalReview.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Approval review read denied. Approval review {approvalReviewId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundApprovalReviewException(
+                    message: $"Approval review not found with id: {approvalReviewId}.");
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval review read denied. Approval review {approvalReviewId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
+                throw new NotFoundApprovalReviewException(
+                    message: $"Approval review not found with id: {approvalReviewId}.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeApprovalReview.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval review read denied. Approval review {approvalReviewId} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found.");
+
+                throw new NotFoundApprovalReviewException(
+                    message: $"Approval review not found with id: {approvalReviewId}.");
+            }
+
+            return maybeApprovalReview;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many verdicts exist — an anonymous caller sees none at all
+        private async ValueTask<IQueryable<ApprovalReview>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<ApprovalReview> approvalReviews,
+            SecurityContext? securityContext)
+        {
+            IQueryable<ApprovalReview> visibleApprovalReviews = approvalReviews.Where(approvalReview =>
+                approvalReview.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated is false)
+            {
+                return Enumerable.Empty<ApprovalReview>().AsQueryable();
+            }
+
+            if (HasReviewRole(securityContext!))
+            {
+                return visibleApprovalReviews;
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext!);
+
+            bool includeOwnApprovalReviews = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleApprovalReviews.Where(approvalReview =>
+                includeOwnApprovalReviews && approvalReview.CreatedBy == actorUserId);
+        }
+
         private async ValueTask<ApprovalReview> DoAddApprovalReviewAsync(
             ApprovalReview approvalReview,
             EventEnvelope<ApprovalReview> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToReviewApprovals(inboundEnvelope.SecurityContext);
+
             approvalReview = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: approvalReview, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +323,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             EventEnvelope<ApprovalReview> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             approvalReview = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: approvalReview, securityContext: inboundEnvelope.SecurityContext);
 
@@ -222,6 +337,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 cancellationToken: cancellationToken);
 
             ValidateStorageApprovalReview(maybeApprovalReview, approvalReviewId: approvalReview.Id);
+
+            await ValidateUserCanModifyStorageApprovalReviewAsync(
+                storageApprovalReview: maybeApprovalReview,
+                securityContext: inboundEnvelope.SecurityContext);
 
             approvalReview = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -263,12 +382,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             EventEnvelope<ApprovalReview> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnRemoveApprovalReviewById(approvalReviewId);
 
             ApprovalReview maybeApprovalReview =
                 await this.storageBroker.SelectApprovalReviewByIdAsync(approvalReviewId, cancellationToken);
 
             ValidateStorageApprovalReview(maybeApprovalReview, approvalReviewId);
+
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            await ValidateUserCanRemoveStorageApprovalReviewAsync(
+                storageApprovalReview: maybeApprovalReview,
+                securityContext: inboundEnvelope.SecurityContext);
 
             if (maybeApprovalReview.IsDeleted)
                 return maybeApprovalReview;
@@ -312,6 +438,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             EventEnvelope<ApprovalReview> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveApprovalReview(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveApprovalReviewById(approvalReviewId);
 
             ApprovalReview maybeApprovalReview =

@@ -10,12 +10,14 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
@@ -325,7 +327,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
+                Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
@@ -359,6 +361,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalReview randomApprovalReview = CreateRandomModifyApprovalReview(randomDateTimeOffset, randomUserId);
@@ -424,7 +427,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
+                Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
@@ -521,7 +524,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
+                Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
@@ -846,6 +849,177 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalReview someApprovalReview = CreateRandomApprovalReview();
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            // when
+            ValueTask<ApprovalReview> modifyApprovalReviewTask =
+                this.approvalReviewService.ModifyApprovalReviewAsync(
+                    someApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    modifyApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsBlockedFromContributingAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReadOnly);
+            ApprovalReview someApprovalReview = CreateRandomApprovalReview();
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is blocked from contributing approval reviews.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            // when
+            ValueTask<ApprovalReview> modifyApprovalReviewTask =
+                this.approvalReviewService.ModifyApprovalReviewAsync(
+                    someApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    modifyApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndNotAdminAndLogItAsync()
+        {
+            // given: a review is the reviewer's own verdict — a peer reviewer records
+            // their own review instead of amending someone else's
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            ApprovalReview randomApprovalReview = CreateRandomModifyApprovalReview(randomDateTimeOffset, randomUserId);
+            ApprovalReview inputApprovalReview = randomApprovalReview;
+            ApprovalReview storageApprovalReview = randomApprovalReview.DeepClone();
+            storageApprovalReview.CreatedBy = GetRandomString();
+            storageApprovalReview.UpdatedWhen = storageApprovalReview.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is not allowed to modify this approval review.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputApprovalReview, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    inputApprovalReview.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            // when
+            ValueTask<ApprovalReview> modifyApprovalReviewTask =
+                this.approvalReviewService.ModifyApprovalReviewAsync(
+                    inputApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    modifyApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputApprovalReview, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    inputApprovalReview.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

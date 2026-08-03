@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IReactionService reactionService;
+        private SecurityContext ambientSecurityContext;
 
         public ReactionServiceTests()
         {
@@ -55,6 +57,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // the ambient caller the envelope broker captures on the direct path — tests
+            // override this field (before acting) to run as a different caller
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<Reaction>()))
                     .Returns((Reaction content) =>
@@ -62,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                             new EventEnvelope<Reaction>
                             {
                                 Content = content,
+                                SecurityContext = this.ambientSecurityContext,
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -74,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                                 new EventEnvelope<Reaction>
                                 {
                                     Content = content,
+                                    SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
@@ -120,6 +128,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 randomTimeInPast
             };
         }
+
+        public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
+        public static TheoryData<string[]> NonAdminRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Reviewer }
+            };
+
+        public static TheoryData<string> ReviewRoles() =>
+            new TheoryData<string>
+            {
+                Roles.Reviewer,
+                Roles.ReactionReviewer,
+                Roles.Publisher,
+                Roles.ReactionPublisher,
+                Roles.Admin
+            };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
@@ -199,11 +231,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         private static Reaction CreateRandomReaction() =>
             CreateReactionFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        private static EventEnvelope<Reaction> CreateRandomReactionRequestEnvelope() =>
+        private static EventEnvelope<Reaction> CreateRandomReactionRequestEnvelope(
+            SecurityContext? securityContext = null) =>
             new EventEnvelope<Reaction>
             {
                 Content = new Reaction { Id = Guid.NewGuid() },
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
             };
 
         private static Reaction CreateRandomModifyReaction(
@@ -237,6 +278,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             filler.Setup()
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
+                // IsDeleted gates every read and remove path, so it is pinned here rather
+                // than drawn: a posture-sensitive test must never depend on the draw. Tests
+                // that want a soft-deleted row set it explicitly.
+                .OnProperty(reaction => reaction.IsDeleted).Use(false)
                 .OnProperty(reaction => reaction.CreatedBy).Use(userId)
                 .OnProperty(reaction => reaction.UpdatedBy).Use(userId);
 

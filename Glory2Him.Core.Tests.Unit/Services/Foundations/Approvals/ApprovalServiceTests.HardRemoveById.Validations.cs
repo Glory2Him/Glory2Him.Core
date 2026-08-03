@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
@@ -24,6 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             var invalidApprovalId = Guid.Empty;
 
             var invalidApprovalException = new InvalidApprovalException(
@@ -67,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfApprovalNotFoundAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalId = Guid.NewGuid();
             Approval noApproval = null;
 
@@ -107,6 +112,102 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedApprovalValidationException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someApprovalId = Guid.NewGuid();
+
+            var unauthorizedApprovalException = new UnauthorizedApprovalException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalValidationException = new ApprovalValidationException(
+                message: "Approval validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalException);
+
+            // when
+            ValueTask<Approval> hardRemoveApprovalByIdTask =
+                this.approvalService.HardRemoveApprovalByIdAsync(
+                    someApprovalId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    hardRemoveApprovalByIdTask.AsTask);
+
+            // then
+            actualApprovalValidationException.Should().BeEquivalentTo(
+                expectedApprovalValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            Guid someApprovalId = Guid.NewGuid();
+
+            var unauthorizedApprovalException = new UnauthorizedApprovalException(
+                message: "The current user is not allowed to permanently remove this approval.");
+
+            var expectedApprovalValidationException = new ApprovalValidationException(
+                message: "Approval validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalException);
+
+            // when
+            ValueTask<Approval> hardRemoveApprovalByIdTask =
+                this.approvalService.HardRemoveApprovalByIdAsync(
+                    someApprovalId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    hardRemoveApprovalByIdTask.AsTask);
+
+            // then
+            actualApprovalValidationException.Should().BeEquivalentTo(
+                expectedApprovalValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

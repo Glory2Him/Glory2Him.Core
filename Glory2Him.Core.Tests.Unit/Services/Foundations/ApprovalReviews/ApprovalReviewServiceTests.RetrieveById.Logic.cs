@@ -11,7 +11,9 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
@@ -21,9 +23,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         [Fact]
         public async Task ShouldRetrieveApprovalReviewByIdAsync()
         {
-            // given
+            // given: the caller is the reviewer who wrote the verdict
             ApprovalReview randomApprovalReview = CreateRandomApprovalReview();
             ApprovalReview storageApprovalReview = randomApprovalReview;
+            storageApprovalReview.IsDeleted = false;
             ApprovalReview expectedApprovalReview = storageApprovalReview;
 
             this.storageBrokerMock.Setup(broker =>
@@ -31,6 +34,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     randomApprovalReview.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApprovalReview.CreatedBy);
 
             // when
             ApprovalReview actualApprovalReview =
@@ -45,6 +52,60 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 broker.SelectApprovalReviewByIdAsync(
                     randomApprovalReview.Id,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ReviewRoles))]
+        public async Task ShouldRetrieveApprovalReviewByIdWhenUserHasReviewRoleAsync(
+            string reviewRole)
+        {
+            // given: the caller did not write the verdict but holds a review role — the
+            // entity-scoped roles count by their §16.6 suffix
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
+            string randomActorUserId = GetRandomString();
+            ApprovalReview randomApprovalReview = CreateRandomApprovalReview();
+            ApprovalReview storageApprovalReview = randomApprovalReview;
+            storageApprovalReview.IsDeleted = false;
+            ApprovalReview expectedApprovalReview = storageApprovalReview;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    randomApprovalReview.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ApprovalReview actualApprovalReview =
+                await this.approvalReviewService.RetrieveApprovalReviewByIdAsync(
+                    randomApprovalReview.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalReview.Should().BeEquivalentTo(expectedApprovalReview);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    randomApprovalReview.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

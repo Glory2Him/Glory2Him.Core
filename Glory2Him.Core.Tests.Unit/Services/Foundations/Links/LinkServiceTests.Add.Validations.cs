@@ -15,6 +15,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
@@ -564,6 +565,91 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Link someLink = CreateRandomLink();
+
+            var unauthorizedLinkException = new UnauthorizedLinkException(
+                message: "The current user is not authenticated.");
+
+            var expectedLinkValidationException = new LinkValidationException(
+                message: "Link validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedLinkException);
+
+            // when
+            ValueTask<Link> addLinkTask =
+                this.linkService.AddLinkAsync(
+                    someLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    addLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(Roles.ReadOnly)]
+        [InlineData(Roles.LinkReadOnly)]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsBlockedFromContributingAndLogItAsync(
+            string blockedRole)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(blockedRole);
+            Link someLink = CreateRandomLink();
+
+            var unauthorizedLinkException = new UnauthorizedLinkException(
+                message: "The current user is blocked from contributing links.");
+
+            var expectedLinkValidationException = new LinkValidationException(
+                message: "Link validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedLinkException);
+
+            // when
+            ValueTask<Link> addLinkTask =
+                this.linkService.AddLinkAsync(
+                    someLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    addLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

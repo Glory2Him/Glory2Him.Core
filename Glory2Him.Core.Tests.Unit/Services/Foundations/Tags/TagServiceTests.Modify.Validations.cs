@@ -10,12 +10,14 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
@@ -320,7 +322,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
+                Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
@@ -354,6 +356,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Tag randomTag = CreateRandomModifyTag(randomDateTimeOffset, randomUserId);
@@ -419,7 +422,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
+                Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
@@ -516,7 +519,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
+                Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
@@ -841,6 +844,178 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Tag someTag = CreateRandomTag();
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: "The current user is not authenticated.");
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            // when
+            ValueTask<Tag> modifyTagTask =
+                this.tagService.ModifyTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    modifyTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(Roles.ReadOnly)]
+        [InlineData(Roles.TagReadOnly)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsBlockedFromContributingAndLogItAsync(
+            string blockedRole)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(blockedRole);
+            Tag someTag = CreateRandomTag();
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: "The current user is blocked from contributing tags.");
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            // when
+            ValueTask<Tag> modifyTagTask =
+                this.tagService.ModifyTagAsync(
+                    someTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    modifyTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndHasNoReviewRoleAndLogItAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Tag randomTag = CreateRandomModifyTag(randomDateTimeOffset, randomUserId);
+            Tag inputTag = randomTag;
+            Tag storageTag = randomTag.DeepClone();
+            storageTag.CreatedBy = GetRandomString();
+            storageTag.UpdatedWhen = storageTag.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: "The current user is not allowed to modify this tag.");
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagByIdAsync(
+                    inputTag.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageTag);
+
+            // when
+            ValueTask<Tag> modifyTagTask =
+                this.tagService.ModifyTagAsync(
+                    inputTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    modifyTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputTag, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectTagByIdAsync(
+                    inputTag.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateTagAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

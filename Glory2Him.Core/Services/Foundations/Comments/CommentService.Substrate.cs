@@ -147,9 +147,12 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateCommentEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                Comment retrievedComment = await RetrieveCommentByIdAsync(
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture against the REQUEST envelope's
+                // security context, not the ambient one
+                Comment retrievedComment = await DoRetrieveCommentByIdAsync(
                     commentId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

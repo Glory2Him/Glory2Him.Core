@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.Approvals
 {
@@ -34,7 +35,11 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — the
+    /// contribution gate on writes, owner-or-review-role write permission (removal by owner
+    /// or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility posture
+    /// (an approval is a workflow record, never public: only its owner and the review roles
+    /// may read it) — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ApprovalService : IApprovalService
     {
@@ -87,7 +92,17 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllApprovalsAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<Approval> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new Approval());
+
+                IQueryable<Approval> allApprovals =
+                    await this.storageBroker.SelectAllApprovalsAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    approvals: allApprovals,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<Approval> RetrieveApprovalByIdAsync(
@@ -96,14 +111,19 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveApprovalById(approvalId);
 
-                Approval maybeApproval =
-                    await this.storageBroker.SelectApprovalByIdAsync(approvalId, cancellationToken);
+                var retrieveRequest = new Approval
+                {
+                    Id = approvalId
+                };
 
-                ValidateStorageApproval(maybeApproval, approvalId);
+                EventEnvelope<Approval> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeApproval;
+                return await DoRetrieveApprovalByIdAsync(
+                    approvalId: approvalId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<Approval> ModifyApprovalAsync(
@@ -168,11 +188,107 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: an approval is a workflow
+        // record and is never publicly visible — only the submitter who owns it and the
+        // review roles may read it; everyone else answers not-found — never unauthorized —
+        // with the true denial reason logged server-side only
+        private async ValueTask<Approval> DoRetrieveApprovalByIdAsync(
+            Guid approvalId,
+            EventEnvelope<Approval> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveApprovalById(approvalId);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId: approvalId,
+                cancellationToken: cancellationToken);
+
+            ValidateStorageApproval(maybeApproval, approvalId);
+
+            if (maybeApproval.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Approval read denied. Approval {approvalId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundApprovalException(
+                    message: $"Approval not found with id: {approvalId}.");
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval read denied. Approval {approvalId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
+                throw new NotFoundApprovalException(
+                    message: $"Approval not found with id: {approvalId}.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeApproval.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval read denied. Approval {approvalId} " +
+                        $"is not publicly visible and user \"{actorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found.");
+
+                throw new NotFoundApprovalException(
+                    message: $"Approval not found with id: {approvalId}.");
+            }
+
+            return maybeApproval;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many approvals exist
+        private async ValueTask<IQueryable<Approval>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<Approval> approvals,
+            SecurityContext? securityContext)
+        {
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            // nothing here is public, so an anonymous caller sees nothing at all
+            if (isAuthenticated is false)
+            {
+                return Enumerable.Empty<Approval>().AsQueryable();
+            }
+
+            IQueryable<Approval> visibleApprovals = approvals.Where(approval =>
+                approval.IsDeleted == false);
+
+            if (HasReviewRole(securityContext!))
+            {
+                return visibleApprovals;
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext!);
+
+            bool includeOwnApprovals = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleApprovals.Where(approval =>
+                includeOwnApprovals && approval.CreatedBy == actorUserId);
+        }
+
         private async ValueTask<Approval> DoAddApprovalAsync(
             Approval approval,
             EventEnvelope<Approval> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             approval = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: approval, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +326,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             EventEnvelope<Approval> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             approval = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: approval, securityContext: inboundEnvelope.SecurityContext);
 
@@ -222,6 +340,10 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 cancellationToken: cancellationToken);
 
             ValidateStorageApproval(maybeApproval, approvalId: approval.Id);
+
+            await ValidateUserCanModifyStorageApprovalAsync(
+                storageApproval: maybeApproval,
+                securityContext: inboundEnvelope.SecurityContext);
 
             approval = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -263,12 +385,19 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             EventEnvelope<Approval> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnRemoveApprovalById(approvalId);
 
             Approval maybeApproval =
                 await this.storageBroker.SelectApprovalByIdAsync(approvalId, cancellationToken);
 
             ValidateStorageApproval(maybeApproval, approvalId);
+
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            await ValidateUserCanRemoveStorageApprovalAsync(
+                storageApproval: maybeApproval,
+                securityContext: inboundEnvelope.SecurityContext);
 
             if (maybeApproval.IsDeleted)
                 return maybeApproval;
@@ -312,6 +441,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             EventEnvelope<Approval> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveApproval(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveApprovalById(approvalId);
 
             Approval maybeApproval =

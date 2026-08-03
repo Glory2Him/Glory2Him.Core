@@ -10,15 +10,106 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Links
 {
     internal partial class LinkService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not authenticated.");
+            }
+
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.LinkReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is blocked from contributing links.");
+            }
+        }
+
+        // the moderation roles that may act on and read non-public versions for review and
+        // audit (Reviewer, Publisher, Admin — global or Link-scoped, §16.6)
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.LinkReviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.LinkPublisher)
+                || securityContext.Roles.Contains(Roles.Admin);
+
+        // row-level write permission: the owner or a review role may write the row — the
+        // narrower process rules (approved items fork, only the latest version is amended)
+        // stay in the orchestration, which needs owner writes to approved rows for the
+        // version fork and role writes for the publish flip
+        private async ValueTask ValidateUserCanModifyStorageLinkAsync(
+            Link storageLink,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageLink.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not allowed to modify this link.");
+            }
+        }
+
+        // removing content is a takedown, not a moderation step — the owner may remove
+        // their own link and an Admin may remove anyone's; Reviewers and Publishers
+        // moderate through the approval workflow instead
+        private async ValueTask ValidateUserCanRemoveStorageLinkAsync(
+            Link storageLink,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageLink.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not allowed to remove this link.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveLink(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not allowed to permanently remove this link.");
+            }
+        }
+
         private async ValueTask ValidateOnAddLinkAsync(
             Link link,
             SecurityContext securityContext)

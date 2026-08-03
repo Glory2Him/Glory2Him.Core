@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalSettingPublisherRoleService approvalSettingPublisherRoleService;
+        private SecurityContext ambientSecurityContext;
 
         public ApprovalSettingPublisherRoleServiceTests()
         {
@@ -55,6 +57,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // the ambient caller the envelope broker captures on the direct path — tests
+            // override this field (before acting) to run as a different caller
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<ApprovalSettingPublisherRole>()))
                     .Returns((ApprovalSettingPublisherRole content) =>
@@ -62,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
                             new EventEnvelope<ApprovalSettingPublisherRole>
                             {
                                 Content = content,
+                                SecurityContext = this.ambientSecurityContext,
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -74,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
                                 new EventEnvelope<ApprovalSettingPublisherRole>
                                 {
                                     Content = content,
+                                    SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
@@ -120,6 +128,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
                 randomTimeInPast
             };
         }
+
+        public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
+        public static TheoryData<string[]> NonAdminRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Reviewer }
+            };
+
+        // reads ask only for an authenticated caller, so every role set — including none
+        // at all — sees the same live policy
+        public static TheoryData<string[]> AuthenticatedRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.ReadOnly },
+                new[] { Roles.Reviewer },
+                new[] { Roles.Admin }
+            };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
@@ -199,11 +232,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         private static ApprovalSettingPublisherRole CreateRandomApprovalSettingPublisherRole() =>
             CreateApprovalSettingPublisherRoleFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        private static EventEnvelope<ApprovalSettingPublisherRole> CreateRandomApprovalSettingPublisherRoleRequestEnvelope() =>
+        private static EventEnvelope<ApprovalSettingPublisherRole> CreateRandomApprovalSettingPublisherRoleRequestEnvelope(
+            SecurityContext? securityContext = null) =>
             new EventEnvelope<ApprovalSettingPublisherRole>
             {
                 Content = new ApprovalSettingPublisherRole { Id = Guid.NewGuid() },
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Admin),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
             };
 
         private static ApprovalSettingPublisherRole CreateRandomModifyApprovalSettingPublisherRole(
@@ -238,6 +280,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
                 .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.ApprovalSetting).IgnoreIt()
+                // IsDeleted gates every read and remove path, so it is pinned here rather
+                // than drawn: a posture-sensitive test must never depend on the draw. Tests
+                // that want a soft-deleted row set it explicitly.
+                .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.IsDeleted).Use(false)
                 .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.CreatedBy).Use(userId)
                 .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.UpdatedBy).Use(userId);
 

@@ -10,15 +10,127 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
 {
     internal partial class ApprovalReviewService
     {
+        // the §16.6 scoped-role suffixes; the entity prefix in front of them varies per
+        // entity type, so only the suffix is a fixed part of the convention
+        private const string ScopedReviewerRoleSuffix = "-Reviewer";
+        private const string ScopedPublisherRoleSuffix = "-Publisher";
+
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not authenticated.");
+            }
+
+            // an approval review is workflow bookkeeping rather than user-contributed
+            // content, so no ApprovalReview-scoped ReadOnly role exists — only the global
+            // block role applies here
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is blocked from contributing approval reviews.");
+            }
+        }
+
+        // recording a verdict IS the review act (§8.9), so adding a review demands a review
+        // role on top of the contribution gate — a submitter may be reviewed, never review
+        private static void ValidateUserIsAllowedToReviewApprovals(SecurityContext securityContext)
+        {
+            ValidateUserIsAllowedToContribute(securityContext);
+
+            if (HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not allowed to review approvals.");
+            }
+        }
+
+        // the review roles that may record and read verdicts: the global Reviewer,
+        // Publisher and Admin roles plus — by the §16.6 naming convention — any
+        // entity-scoped "%EntityType%-Reviewer"/"%EntityType%-Publisher" role. The
+        // approval review row names no entity type, so the foundation cannot tell a
+        // Tag-Reviewer's verdict from a Link-Reviewer's one row-locally; narrowing a
+        // reviewer to the entity type they actually review is an orchestration concern,
+        // which reaches the approval and the item under review
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.Admin)
+                || securityContext.Roles.Any(role =>
+                    role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
+                        || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
+
+        // row-level write permission: a review is the reviewer's own verdict, so only its
+        // author may amend it — another reviewer records their own review instead; an
+        // Admin may correct anyone's for support and moderation
+        private async ValueTask ValidateUserCanModifyStorageApprovalReviewAsync(
+            ApprovalReview storageApprovalReview,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageApprovalReview.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not allowed to modify this approval review.");
+            }
+        }
+
+        // withdrawing a review is the author's own retraction — the owner may remove their
+        // verdict and an Admin may remove anyone's; other reviewers cannot erase a peer's
+        private async ValueTask ValidateUserCanRemoveStorageApprovalReviewAsync(
+            ApprovalReview storageApprovalReview,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageApprovalReview.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not allowed to remove this approval review.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveApprovalReview(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not allowed to permanently remove this approval review.");
+            }
+        }
+
         private async ValueTask ValidateOnAddApprovalReviewAsync(
             ApprovalReview approvalReview,
             SecurityContext securityContext)

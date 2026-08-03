@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemAssociationService contentItemAssociationService;
+        private SecurityContext ambientSecurityContext;
 
         public ContentItemAssociationServiceTests()
         {
@@ -55,6 +57,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // the ambient caller the envelope broker captures on the direct path — tests
+            // override this field (before acting) to run as a different caller
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<ContentItemAssociation>()))
                     .Returns((ContentItemAssociation content) =>
@@ -62,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                             new EventEnvelope<ContentItemAssociation>
                             {
                                 Content = content,
+                                SecurityContext = this.ambientSecurityContext,
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -76,6 +83,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                                 new EventEnvelope<ContentItemAssociation>
                                 {
                                     Content = content,
+                                    SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
@@ -122,6 +130,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                 randomTimeInPast
             };
         }
+
+        public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
+        public static TheoryData<string[]> NonAdminRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Reviewer }
+            };
+
+        public static TheoryData<string> ReviewRoles() =>
+            new TheoryData<string>
+            {
+                Roles.Reviewer,
+                Roles.ContentItemAssociationReviewer,
+                Roles.Publisher,
+                Roles.ContentItemAssociationPublisher,
+                Roles.Admin
+            };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
@@ -202,11 +234,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
             CreateContentItemAssociationFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
         private static EventEnvelope<ContentItemAssociation>
-            CreateRandomContentItemAssociationRequestEnvelope() =>
+            CreateRandomContentItemAssociationRequestEnvelope(
+                SecurityContext? securityContext = null) =>
             new EventEnvelope<ContentItemAssociation>
             {
                 Content = new ContentItemAssociation { Id = Guid.NewGuid() },
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
             };
 
         private static ContentItemAssociation CreateRandomModifyContentItemAssociation(
@@ -244,6 +285,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
             filler.Setup()
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
+                // IsDeleted gates every read and remove path, so it is pinned here rather
+                // than drawn: a posture-sensitive test must never depend on the draw. Tests
+                // that want a soft-deleted row set it explicitly.
+                .OnProperty(contentItemAssociation => contentItemAssociation.IsDeleted).Use(false)
                 .OnProperty(contentItemAssociation => contentItemAssociation.CreatedBy).Use(userId)
                 .OnProperty(contentItemAssociation => contentItemAssociation.UpdatedBy).Use(userId);
 

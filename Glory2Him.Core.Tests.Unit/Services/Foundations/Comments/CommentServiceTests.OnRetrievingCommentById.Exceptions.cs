@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
@@ -157,10 +158,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         {
             // given
             Comment storageComment = CreateRandomComment();
+            storageComment.IsDeleted = false;
+            storageComment.ApprovalStatus = ApprovalStatus.Approved;
+            storageComment.IsPublished = true;
+            storageComment.PublishDate = null;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Comment { Id = storageComment.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -179,6 +185,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                     storageComment.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageComment);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageComment))

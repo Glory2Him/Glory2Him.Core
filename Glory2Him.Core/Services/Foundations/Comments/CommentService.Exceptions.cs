@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidCommentEventException);
             }
+            catch (UnauthorizedCommentException unauthorizedCommentException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedCommentException);
+            }
             catch (NullCommentException nullCommentException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullCommentException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedCommentException unauthorizedCommentException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedCommentException);
             }
             catch (NullCommentException nullCommentException)
             {

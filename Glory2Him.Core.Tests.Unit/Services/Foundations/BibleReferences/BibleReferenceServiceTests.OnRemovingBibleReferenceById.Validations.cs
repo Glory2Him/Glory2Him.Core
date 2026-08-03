@@ -70,6 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -133,6 +134,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference { Id = someBibleReferenceId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

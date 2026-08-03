@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.Exceptions;
 using Microsoft.Data.SqlClient;
 using Moq;
@@ -31,6 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
 
             var expectedApprovalSettingReviewerRoleDependencyException = new ApprovalSettingReviewerRoleDependencyException(
@@ -75,6 +77,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowDependencyExceptionOnModifyIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             var operationCanceledException = new OperationCanceledException();
 
@@ -129,6 +132,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowOperationCanceledExceptionOnModifyIfCancellationRequestedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             var cancellationToken = new CancellationToken(canceled: true);
 
@@ -153,6 +157,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowCriticalDependencyExceptionOnModifyIfSqlErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             SqlException sqlException = GetSqlException();
 
@@ -206,6 +211,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
 
             var expectedApprovalSettingReviewerRoleDependencyValidationException = new ApprovalSettingReviewerRoleDependencyValidationException(
@@ -250,6 +256,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowServiceExceptionOnModifyIfServiceErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             var serviceException = new Exception();
 

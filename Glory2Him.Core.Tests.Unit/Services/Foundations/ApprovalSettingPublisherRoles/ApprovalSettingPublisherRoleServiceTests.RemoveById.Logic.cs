@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -29,6 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldRemoveApprovalSettingPublisherRoleByIdAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomApprovalSettingPublisherRole();
             randomApprovalSettingPublisherRole.IsDeleted = false;
             ApprovalSettingPublisherRole storageApprovalSettingPublisherRole = randomApprovalSettingPublisherRole;
@@ -112,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldRemoveApprovalSettingPublisherRoleByIdWithDeletionReasonAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string someDeletionReason = GetRandomString();
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomApprovalSettingPublisherRole();
             randomApprovalSettingPublisherRole.IsDeleted = false;
@@ -197,6 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldReturnEarlyOnRemoveByIdIfAlreadyDeletedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingPublisherRole alreadyDeletedApprovalSettingPublisherRole = CreateRandomApprovalSettingPublisherRole();
             alreadyDeletedApprovalSettingPublisherRole.IsDeleted = true;
             Guid someApprovalSettingPublisherRoleId = alreadyDeletedApprovalSettingPublisherRole.Id;

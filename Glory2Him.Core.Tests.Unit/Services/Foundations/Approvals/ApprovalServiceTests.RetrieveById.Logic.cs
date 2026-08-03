@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Moq;
 
@@ -21,9 +22,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         [Fact]
         public async Task ShouldRetrieveApprovalByIdAsync()
         {
-            // given
+            // given: the submitter who owns the approval reads their own row
             Approval randomApproval = CreateRandomApproval();
             Approval storageApproval = randomApproval;
+            storageApproval.IsDeleted = false;
             Approval expectedApproval = storageApproval;
 
             this.storageBrokerMock.Setup(broker =>
@@ -31,6 +33,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     randomApproval.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApproval.CreatedBy);
 
             // when
             Approval actualApproval =
@@ -45,6 +51,59 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.SelectApprovalByIdAsync(
                     randomApproval.Id,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ReviewRoles))]
+        public async Task ShouldRetrieveApprovalByIdWhenUserHasReviewRoleAsync(
+            string reviewRole)
+        {
+            // given: the caller is not the owner but holds a review role
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
+            string randomActorUserId = GetRandomString();
+            Approval randomApproval = CreateRandomApproval();
+            Approval storageApproval = randomApproval;
+            storageApproval.IsDeleted = false;
+            Approval expectedApproval = storageApproval;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    randomApproval.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            Approval actualApproval =
+                await this.approvalService.RetrieveApprovalByIdAsync(
+                    randomApproval.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApproval.Should().BeEquivalentTo(expectedApproval);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalByIdAsync(
+                    randomApproval.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

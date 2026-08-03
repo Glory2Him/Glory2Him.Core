@@ -10,15 +10,48 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ContentTypes
 {
     internal partial class ContentTypeService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        // content types are reference data authored by administrators only — a single
+        // Admin gate covers Add, Modify and Remove
+        private static void ValidateUserIsAllowedToAdministerContentTypes(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedContentTypeException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (HasAdminRole(securityContext) is false)
+            {
+                throw new UnauthorizedContentTypeException(
+                    message: "The current user is not allowed to administer content types.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only, same as
+        // every other content type write
+        private static void ValidateUserCanHardRemoveContentType(SecurityContext securityContext) =>
+            ValidateUserIsAllowedToAdministerContentTypes(securityContext);
+
+        // the only role that may act on and read non-public content types — reference
+        // data has no owner-or-review-role branch because only admins author it (§16.6)
+        private static bool HasAdminRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Admin);
+
         private async ValueTask ValidateOnAddContentTypeAsync(
             ContentType contentType,
             SecurityContext securityContext)

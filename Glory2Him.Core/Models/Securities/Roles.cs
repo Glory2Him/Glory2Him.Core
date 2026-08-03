@@ -28,5 +28,29 @@ namespace Glory2Him.Core.Models.Securities
         public const string ContentItemReadOnly = "ContentItem-ReadOnly";
         public const string ContentItemReviewer = "ContentItem-Reviewer";
         public const string ContentItemPublisher = "ContentItem-Publisher";
+
+        public const string TagReadOnly = "Tag-ReadOnly";
+        public const string TagReviewer = "Tag-Reviewer";
+        public const string TagPublisher = "Tag-Publisher";
+
+        public const string ReactionReadOnly = "Reaction-ReadOnly";
+        public const string ReactionReviewer = "Reaction-Reviewer";
+        public const string ReactionPublisher = "Reaction-Publisher";
+
+        public const string CommentReadOnly = "Comment-ReadOnly";
+        public const string CommentReviewer = "Comment-Reviewer";
+        public const string CommentPublisher = "Comment-Publisher";
+
+        public const string BibleReferenceReadOnly = "BibleReference-ReadOnly";
+        public const string BibleReferenceReviewer = "BibleReference-Reviewer";
+        public const string BibleReferencePublisher = "BibleReference-Publisher";
+
+        public const string LinkReadOnly = "Link-ReadOnly";
+        public const string LinkReviewer = "Link-Reviewer";
+        public const string LinkPublisher = "Link-Publisher";
+
+        public const string ContentItemAssociationReadOnly = "ContentItemAssociation-ReadOnly";
+        public const string ContentItemAssociationReviewer = "ContentItemAssociation-Reviewer";
+        public const string ContentItemAssociationPublisher = "ContentItemAssociation-Publisher";
     }
 }

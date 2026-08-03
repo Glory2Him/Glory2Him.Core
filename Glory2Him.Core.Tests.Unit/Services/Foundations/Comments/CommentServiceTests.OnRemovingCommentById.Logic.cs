@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             var requestEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Comment
                 {
                     Id = storageComment.Id,
@@ -58,6 +59,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                     storageComment.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageComment.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageComment, It.IsAny<SecurityContext>()))
@@ -99,6 +104,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 broker.SelectCommentByIdAsync(
                     storageComment.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -144,6 +153,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // given
             var requestEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Comment { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -187,6 +197,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             var requestEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Comment { Id = alreadyDeletedComment.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -203,6 +214,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                     alreadyDeletedComment.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(alreadyDeletedComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedComment.CreatedBy);
 
             // when
             EventEnvelope<Comment>? actualReplyEnvelope =
@@ -226,6 +241,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 broker.SelectCommentByIdAsync(
                     alreadyDeletedComment.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();

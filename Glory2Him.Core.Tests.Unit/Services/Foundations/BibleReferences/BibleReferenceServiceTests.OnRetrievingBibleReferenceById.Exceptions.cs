@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
@@ -157,10 +158,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         {
             // given
             BibleReference storageBibleReference = CreateRandomBibleReference();
+            storageBibleReference.IsDeleted = false;
+            storageBibleReference.ApprovalStatus = ApprovalStatus.Approved;
+            storageBibleReference.IsPublished = true;
+            storageBibleReference.PublishDate = null;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference { Id = storageBibleReference.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -179,6 +185,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     storageBibleReference.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageBibleReference);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageBibleReference))

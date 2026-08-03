@@ -22,14 +22,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [Fact]
         public async Task ShouldReplyWithApprovalCommentOnRetrievingApprovalCommentByIdEventAsync()
         {
-            // given
+            // given: the event path runs the same read posture against the REQUEST
+            // envelope's caller — here the comment's own author
             ApprovalComment randomApprovalComment = CreateRandomApprovalComment();
             ApprovalComment storageApprovalComment = randomApprovalComment;
+            storageApprovalComment.IsDeleted = false;
             ApprovalComment expectedApprovalComment = storageApprovalComment;
 
             var requestEnvelope = new EventEnvelope<ApprovalComment>
             {
-                Content = new ApprovalComment { Id = randomApprovalComment.Id }
+                Content = new ApprovalComment { Id = randomApprovalComment.Id },
+                SecurityContext = CreateAuthenticatedSecurityContext()
             };
 
             this.storageBrokerMock.Setup(broker =>
@@ -37,6 +40,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     randomApprovalComment.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageApprovalComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApprovalComment.CreatedBy);
 
             // when
             EventEnvelope<ApprovalComment>? actualReplyEnvelope =
@@ -52,6 +59,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.SelectApprovalCommentByIdAsync(
                     randomApprovalComment.Id,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>

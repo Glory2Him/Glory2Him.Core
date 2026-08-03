@@ -12,8 +12,10 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
@@ -104,6 +106,134 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                 broker.SelectContentItemSettingByIdAsync(
                     someContentItemSettingId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfContentItemSettingIsSoftDeletedAndLogItAsync()
+        {
+            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // deleted beats privilege
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
+            storageContentItemSetting.IsDeleted = true;
+            Guid contentItemSettingId = storageContentItemSetting.Id;
+
+            var notFoundContentItemSettingException =
+                new NotFoundContentItemSettingException(
+                    message: $"Content item setting not found with id: {contentItemSettingId}.");
+
+            var expectedContentItemSettingValidationException =
+                new ContentItemSettingValidationException(
+                    message: "Content item setting validation error occurred, fix the errors and try again.",
+                    innerException: notFoundContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    contentItemSettingId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<ContentItemSetting> retrieveContentItemSettingByIdTask =
+                this.contentItemSettingService.RetrieveContentItemSettingByIdAsync(
+                    contentItemSettingId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    retrieveContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    contentItemSettingId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(
+                    $"Content item setting read denied. Content item setting {contentItemSettingId} is " +
+                        "soft-deleted; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfSoftDeletedAndUserIsAnonymousAndLogItAsync(
+            SecurityContext anonymousSecurityContext)
+        {
+            // given: the deleted row is the only denial a reader can meet, and it reads
+            // the same to an anonymous caller as it does to an Admin
+            this.ambientSecurityContext = anonymousSecurityContext;
+            ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
+            storageContentItemSetting.IsDeleted = true;
+            Guid contentItemSettingId = storageContentItemSetting.Id;
+
+            var notFoundContentItemSettingException =
+                new NotFoundContentItemSettingException(
+                    message: $"Content item setting not found with id: {contentItemSettingId}.");
+
+            var expectedContentItemSettingValidationException =
+                new ContentItemSettingValidationException(
+                    message: "Content item setting validation error occurred, fix the errors and try again.",
+                    innerException: notFoundContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    contentItemSettingId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<ContentItemSetting> retrieveContentItemSettingByIdTask =
+                this.contentItemSettingService.RetrieveContentItemSettingByIdAsync(
+                    contentItemSettingId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    retrieveContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    contentItemSettingId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(
+                    $"Content item setting read denied. Content item setting {contentItemSettingId} is " +
+                        "soft-deleted; reported to the caller as not found."),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

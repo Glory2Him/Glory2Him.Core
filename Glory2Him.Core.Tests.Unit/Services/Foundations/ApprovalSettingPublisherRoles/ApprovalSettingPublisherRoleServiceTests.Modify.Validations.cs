@@ -15,6 +15,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions;
 using Moq;
 
@@ -26,6 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalSettingPublisherRoleIsNullAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingPublisherRole nullApprovalSettingPublisherRole = null;
 
             var nullApprovalSettingPublisherRoleException =
@@ -70,6 +72,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
             string invalidText)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             DateTimeOffset startDate = randomDateTimeOffset.AddSeconds(-90);
             DateTimeOffset endDate = randomDateTimeOffset;
@@ -183,6 +186,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalSettingPublisherRoleNotFoundAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomModifyApprovalSettingPublisherRole(randomDateTimeOffset, randomUserId);
@@ -262,6 +266,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedWhenNotSameAsInputAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomModifyApprovalSettingPublisherRole(randomDateTimeOffset, randomUserId);
@@ -359,6 +364,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomModifyApprovalSettingPublisherRole(randomDateTimeOffset, randomUserId);
@@ -458,6 +464,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageUpdatedWhenSameAsInputAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomModifyApprovalSettingPublisherRole(randomDateTimeOffset, randomUserId);
@@ -555,6 +562,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedByIsNotSameAsCurrentUserIdAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             string differentUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -629,6 +637,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedWhenIsSameAsCreatedWhenAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomModifyApprovalSettingPublisherRole(randomDateTimeOffset, randomUserId);
@@ -711,6 +720,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfUpdatedWhenIsNotRecentAndLogItAsync(int minutes)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSettingPublisherRole randomApprovalSettingPublisherRole = CreateRandomModifyApprovalSettingPublisherRole(randomDateTimeOffset, randomUserId);
@@ -788,6 +798,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalSettingPublisherRoleExceedsMaxLengthAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSettingPublisherRole invalidApprovalSettingPublisherRole = CreateRandomModifyApprovalSettingPublisherRole(randomDateTimeOffset, randomUserId);
@@ -846,6 +857,92 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingPublisherRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalSettingPublisherRole someApprovalSettingPublisherRole =
+                CreateRandomApprovalSettingPublisherRole();
+
+            var unauthorizedApprovalSettingPublisherRoleException = new UnauthorizedApprovalSettingPublisherRoleException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalSettingPublisherRoleValidationException = new ApprovalSettingPublisherRoleValidationException(
+                message: "Approval setting publisher role validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingPublisherRoleException);
+
+            // when
+            ValueTask<ApprovalSettingPublisherRole> modifyApprovalSettingPublisherRoleTask =
+                this.approvalSettingPublisherRoleService.ModifyApprovalSettingPublisherRoleAsync(
+                    someApprovalSettingPublisherRole,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingPublisherRoleValidationException actualApprovalSettingPublisherRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingPublisherRoleValidationException>(
+                    modifyApprovalSettingPublisherRoleTask.AsTask);
+
+            // then
+            actualApprovalSettingPublisherRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingPublisherRoleValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingPublisherRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            ApprovalSettingPublisherRole someApprovalSettingPublisherRole =
+                CreateRandomApprovalSettingPublisherRole();
+
+            var unauthorizedApprovalSettingPublisherRoleException = new UnauthorizedApprovalSettingPublisherRoleException(
+                message: "The current user is not allowed to administer approval setting publisher roles.");
+
+            var expectedApprovalSettingPublisherRoleValidationException = new ApprovalSettingPublisherRoleValidationException(
+                message: "Approval setting publisher role validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingPublisherRoleException);
+
+            // when
+            ValueTask<ApprovalSettingPublisherRole> modifyApprovalSettingPublisherRoleTask =
+                this.approvalSettingPublisherRoleService.ModifyApprovalSettingPublisherRoleAsync(
+                    someApprovalSettingPublisherRole,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingPublisherRoleValidationException actualApprovalSettingPublisherRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingPublisherRoleValidationException>(
+                    modifyApprovalSettingPublisherRoleTask.AsTask);
+
+            // then
+            actualApprovalSettingPublisherRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingPublisherRoleValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

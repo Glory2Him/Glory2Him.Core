@@ -154,10 +154,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentItemAssociationEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture against the REQUEST envelope's
+                // security context, not the ambient one
                 ContentItemAssociation retrievedContentItemAssociation =
-                    await RetrieveContentItemAssociationByIdAsync(
+                    await DoRetrieveContentItemAssociationByIdAsync(
                         contentItemAssociationId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

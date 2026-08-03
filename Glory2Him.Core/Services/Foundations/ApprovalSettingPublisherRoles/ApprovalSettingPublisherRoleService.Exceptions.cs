@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidApprovalSettingPublisherRoleEventException);
             }
+            catch (UnauthorizedApprovalSettingPublisherRoleException unauthorizedApprovalSettingPublisherRoleException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalSettingPublisherRoleException);
+            }
             catch (NullApprovalSettingPublisherRoleException nullApprovalSettingPublisherRoleException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullApprovalSettingPublisherRoleException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedApprovalSettingPublisherRoleException unauthorizedApprovalSettingPublisherRoleException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalSettingPublisherRoleException);
             }
             catch (NullApprovalSettingPublisherRoleException nullApprovalSettingPublisherRoleException)
             {

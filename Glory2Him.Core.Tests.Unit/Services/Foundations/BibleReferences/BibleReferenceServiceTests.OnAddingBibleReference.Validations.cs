@@ -68,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given
             var invalidEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference { Id = Guid.NewGuid() },
                 Metadata = null!
             };
@@ -113,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given
             var invalidEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = null!,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

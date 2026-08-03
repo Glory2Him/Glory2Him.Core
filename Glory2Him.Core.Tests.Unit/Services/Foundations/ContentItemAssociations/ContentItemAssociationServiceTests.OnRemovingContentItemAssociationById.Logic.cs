@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
 
             var requestEnvelope = new EventEnvelope<ContentItemAssociation>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItemAssociation
                 {
                     Id = storageContentItemAssociation.Id,
@@ -58,6 +59,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                     storageContentItemAssociation.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageContentItemAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageContentItemAssociation.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageContentItemAssociation, It.IsAny<SecurityContext>()))
@@ -99,6 +104,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                 broker.SelectContentItemAssociationByIdAsync(
                     storageContentItemAssociation.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -146,6 +155,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
             // given
             var requestEnvelope = new EventEnvelope<ContentItemAssociation>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItemAssociation { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -189,6 +199,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
 
             var requestEnvelope = new EventEnvelope<ContentItemAssociation>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItemAssociation { Id = alreadyDeletedContentItemAssociation.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -205,6 +216,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                     alreadyDeletedContentItemAssociation.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(alreadyDeletedContentItemAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedContentItemAssociation.CreatedBy);
 
             // when
             EventEnvelope<ContentItemAssociation>? actualReplyEnvelope =
@@ -228,6 +243,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                 broker.SelectContentItemAssociationByIdAsync(
                     alreadyDeletedContentItemAssociation.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();

@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions;
 using Microsoft.Data.SqlClient;
 using Moq;
@@ -157,10 +158,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
         {
             // given
             ApprovalSettingPublisherRole storageApprovalSettingPublisherRole = CreateRandomApprovalSettingPublisherRole();
+            storageApprovalSettingPublisherRole.IsDeleted = false;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<ApprovalSettingPublisherRole>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ApprovalSettingPublisherRole { Id = storageApprovalSettingPublisherRole.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

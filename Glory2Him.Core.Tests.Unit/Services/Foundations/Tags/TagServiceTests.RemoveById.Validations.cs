@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
@@ -115,5 +118,156 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someTagId = Guid.NewGuid();
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: "The current user is not authenticated.");
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            // when
+            ValueTask<Tag> removeTagByIdTask =
+                this.tagService.RemoveTagByIdAsync(
+                    someTagId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    removeTagByIdTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(Roles.ReadOnly)]
+        [InlineData(Roles.TagReadOnly)]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsBlockedFromContributingAndLogItAsync(
+            string blockedRole)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(blockedRole);
+            Guid someTagId = Guid.NewGuid();
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: "The current user is blocked from contributing tags.");
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            // when
+            ValueTask<Tag> removeTagByIdTask =
+                this.tagService.RemoveTagByIdAsync(
+                    someTagId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    removeTagByIdTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotOwnerAndNotAdminAndLogItAsync()
+        {
+            // given
+            string randomActorUserId = GetRandomString();
+            Tag storageTag = CreateRandomTag();
+            Guid someTagId = storageTag.Id;
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: "The current user is not allowed to remove this tag.");
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagByIdAsync(
+                    someTagId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<Tag> removeTagByIdTask =
+                this.tagService.RemoveTagByIdAsync(
+                    someTagId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    removeTagByIdTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectTagByIdAsync(
+                    someTagId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateTagAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

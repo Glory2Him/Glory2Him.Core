@@ -70,6 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // given
             var requestEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Comment { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -133,6 +134,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             var requestEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Comment { Id = someCommentId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

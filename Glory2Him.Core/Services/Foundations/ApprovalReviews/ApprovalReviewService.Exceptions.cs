@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidApprovalReviewEventException);
             }
+            catch (UnauthorizedApprovalReviewException unauthorizedApprovalReviewException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalReviewException);
+            }
             catch (NullApprovalReviewException nullApprovalReviewException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullApprovalReviewException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedApprovalReviewException unauthorizedApprovalReviewException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalReviewException);
             }
             catch (NullApprovalReviewException nullApprovalReviewException)
             {

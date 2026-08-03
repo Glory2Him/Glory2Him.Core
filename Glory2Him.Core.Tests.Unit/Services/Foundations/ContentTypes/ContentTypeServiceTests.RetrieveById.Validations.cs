@@ -12,8 +12,11 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
@@ -103,6 +106,228 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                 broker.SelectContentTypeByIdAsync(
                     someContentTypeId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfContentTypeIsSoftDeletedAndLogItAsync()
+        {
+            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // deleted beats privilege
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            ContentType storageContentType = CreateRandomContentType();
+            storageContentType.IsDeleted = true;
+            Guid contentTypeId = storageContentType.Id;
+
+            var notFoundContentTypeException =
+                new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {contentTypeId}.");
+
+            var expectedContentTypeValidationException =
+                new ContentTypeValidationException(
+                    message: "Content type validation error occurred, fix the errors and try again.",
+                    innerException: notFoundContentTypeException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentType);
+
+            // when
+            ValueTask<ContentType> retrieveContentTypeByIdTask =
+                this.contentTypeService.RetrieveContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    retrieveContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(
+                    $"Content type read denied. Content type {contentTypeId} is " +
+                        "soft-deleted; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfNotVisibleAndUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            ContentType storageContentType = CreateRandomContentType();
+            storageContentType.IsDeleted = false;
+            storageContentType.ApprovalStatus = ApprovalStatus.Draft;
+            storageContentType.IsPublished = false;
+            Guid contentTypeId = storageContentType.Id;
+
+            var notFoundContentTypeException =
+                new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {contentTypeId}.");
+
+            var expectedContentTypeValidationException =
+                new ContentTypeValidationException(
+                    message: "Content type validation error occurred, fix the errors and try again.",
+                    innerException: notFoundContentTypeException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentType);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            // when
+            ValueTask<ContentType> retrieveContentTypeByIdTask =
+                this.contentTypeService.RetrieveContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    retrieveContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content type read denied. Content type {contentTypeId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfNotVisibleAndUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            string randomActorUserId = GetRandomString();
+            ContentType storageContentType = CreateRandomContentType();
+            storageContentType.IsDeleted = false;
+            storageContentType.ApprovalStatus = ApprovalStatus.Draft;
+            storageContentType.IsPublished = false;
+            Guid contentTypeId = storageContentType.Id;
+
+            var notFoundContentTypeException =
+                new NotFoundContentTypeException(
+                    message: $"Content type not found with id: {contentTypeId}.");
+
+            var expectedContentTypeValidationException =
+                new ContentTypeValidationException(
+                    message: "Content type validation error occurred, fix the errors and try again.",
+                    innerException: notFoundContentTypeException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentType);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<ContentType> retrieveContentTypeByIdTask =
+                this.contentTypeService.RetrieveContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    retrieveContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentTypeByIdAsync(
+                    contentTypeId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Content type read denied. Content type {contentTypeId} " +
+                        $"is not publicly visible and user \"{randomActorUserId}\" is not an " +
+                        "Admin; reported to the caller as not found."),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

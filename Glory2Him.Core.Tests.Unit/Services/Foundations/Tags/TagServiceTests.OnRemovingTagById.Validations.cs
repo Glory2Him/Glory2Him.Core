@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -70,6 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // given
             var requestEnvelope = new EventEnvelope<Tag>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Tag { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -133,6 +134,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             var requestEnvelope = new EventEnvelope<Tag>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Tag { Id = someTagId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

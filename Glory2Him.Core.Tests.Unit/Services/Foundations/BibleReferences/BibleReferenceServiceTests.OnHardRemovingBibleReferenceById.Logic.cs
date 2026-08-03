@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
@@ -35,6 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new BibleReference { Id = storageBibleReference.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -129,6 +131,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new BibleReference { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

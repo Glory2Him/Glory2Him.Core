@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Moq;
@@ -25,10 +26,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given
             BibleReference randomBibleReference = CreateRandomBibleReference();
             BibleReference storageBibleReference = randomBibleReference;
+            storageBibleReference.IsDeleted = false;
+            storageBibleReference.ApprovalStatus = ApprovalStatus.Approved;
+            storageBibleReference.IsPublished = true;
+            storageBibleReference.PublishDate = null;
             BibleReference expectedBibleReference = storageBibleReference;
 
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference { Id = randomBibleReference.Id }
             };
 
@@ -37,6 +43,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     randomBibleReference.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageBibleReference);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             // when
             EventEnvelope<BibleReference>? actualReplyEnvelope =
@@ -56,6 +66,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageBibleReference),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

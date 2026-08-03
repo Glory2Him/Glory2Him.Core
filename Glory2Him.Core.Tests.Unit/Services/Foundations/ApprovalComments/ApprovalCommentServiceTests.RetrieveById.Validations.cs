@@ -12,8 +12,10 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
@@ -104,6 +106,205 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.SelectApprovalCommentByIdAsync(
                     someApprovalCommentId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfApprovalCommentIsSoftDeletedAndLogItAsync()
+        {
+            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // deleted beats privilege
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
+            storageApprovalComment.IsDeleted = true;
+            Guid approvalCommentId = storageApprovalComment.Id;
+
+            var notFoundApprovalCommentException =
+                new NotFoundApprovalCommentException(
+                    message: $"Approval comment not found with id: {approvalCommentId}.");
+
+            var expectedApprovalCommentValidationException =
+                new ApprovalCommentValidationException(
+                    message: "Approval comment validation error occurred, fix the errors and try again.",
+                    innerException: notFoundApprovalCommentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalComment);
+
+            // when
+            ValueTask<ApprovalComment> retrieveApprovalCommentByIdTask =
+                this.approvalCommentService.RetrieveApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    retrieveApprovalCommentByIdTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(
+                    $"Approval comment read denied. Approval comment {approvalCommentId} is " +
+                        "soft-deleted; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
+            storageApprovalComment.IsDeleted = false;
+            Guid approvalCommentId = storageApprovalComment.Id;
+
+            var notFoundApprovalCommentException =
+                new NotFoundApprovalCommentException(
+                    message: $"Approval comment not found with id: {approvalCommentId}.");
+
+            var expectedApprovalCommentValidationException =
+                new ApprovalCommentValidationException(
+                    message: "Approval comment validation error occurred, fix the errors and try again.",
+                    innerException: notFoundApprovalCommentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalComment);
+
+            // when
+            ValueTask<ApprovalComment> retrieveApprovalCommentByIdTask =
+                this.approvalCommentService.RetrieveApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    retrieveApprovalCommentByIdTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Approval comment read denied. Approval comment {approvalCommentId} is not " +
+                        "publicly readable and the caller is not authenticated; reported to " +
+                        "the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfUserIsNotOwnerAndLogItAsync()
+        {
+            // given
+            string randomActorUserId = GetRandomString();
+            ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
+            storageApprovalComment.IsDeleted = false;
+            Guid approvalCommentId = storageApprovalComment.Id;
+
+            var notFoundApprovalCommentException =
+                new NotFoundApprovalCommentException(
+                    message: $"Approval comment not found with id: {approvalCommentId}.");
+
+            var expectedApprovalCommentValidationException =
+                new ApprovalCommentValidationException(
+                    message: "Approval comment validation error occurred, fix the errors and try again.",
+                    innerException: notFoundApprovalCommentException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<ApprovalComment> retrieveApprovalCommentByIdTask =
+                this.approvalCommentService.RetrieveApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    retrieveApprovalCommentByIdTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalCommentByIdAsync(
+                    approvalCommentId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Approval comment read denied. Approval comment {approvalCommentId} " +
+                        $"is not publicly readable and user \"{randomActorUserId}\" is neither the " +
+                        "author nor in a review role; reported to the caller as not found."),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

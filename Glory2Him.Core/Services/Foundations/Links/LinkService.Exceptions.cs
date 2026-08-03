@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.Links
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidLinkEventException);
             }
+            catch (UnauthorizedLinkException unauthorizedLinkException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedLinkException);
+            }
             catch (NullLinkException nullLinkException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullLinkException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.Links
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedLinkException unauthorizedLinkException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedLinkException);
             }
             catch (NullLinkException nullLinkException)
             {

@@ -75,6 +75,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = inputBibleReference,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Moq;
@@ -25,10 +26,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             Reaction randomReaction = CreateRandomReaction();
             Reaction storageReaction = randomReaction;
+            storageReaction.IsDeleted = false;
+            storageReaction.ApprovalStatus = ApprovalStatus.Approved;
+            storageReaction.IsPublished = true;
+            storageReaction.PublishDate = null;
             Reaction expectedReaction = storageReaction;
 
             var requestEnvelope = new EventEnvelope<Reaction>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Reaction { Id = randomReaction.Id }
             };
 
@@ -37,6 +43,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     randomReaction.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageReaction);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             // when
             EventEnvelope<Reaction>? actualReplyEnvelope =
@@ -52,6 +62,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 broker.SelectReactionByIdAsync(
                     randomReaction.Id,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>

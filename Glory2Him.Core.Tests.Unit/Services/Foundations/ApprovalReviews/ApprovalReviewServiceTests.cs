@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalReviewService approvalReviewService;
+        private SecurityContext ambientSecurityContext;
 
         public ApprovalReviewServiceTests()
         {
@@ -55,6 +57,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // the ambient caller the envelope broker captures on the direct path — tests
+            // override this field (before acting) to run as a different caller
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<ApprovalReview>()))
                     .Returns((ApprovalReview content) =>
@@ -62,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                             new EventEnvelope<ApprovalReview>
                             {
                                 Content = content,
+                                SecurityContext = this.ambientSecurityContext,
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -74,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                                 new EventEnvelope<ApprovalReview>
                                 {
                                     Content = content,
+                                    SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
@@ -120,6 +128,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 randomTimeInPast
             };
         }
+
+        public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
+        public static TheoryData<string[]> NonAdminRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Reviewer }
+            };
+
+        // the global review roles plus two scoped ones standing in for the §16.6
+        // "%EntityType%-Reviewer"/"%EntityType%-Publisher" convention the foundation
+        // recognizes by suffix
+        public static TheoryData<string> ReviewRoles() =>
+            new TheoryData<string>
+            {
+                Roles.Reviewer,
+                Roles.Publisher,
+                Roles.Admin,
+                Roles.ContentItemReviewer,
+                Roles.TagPublisher
+            };
+
+        public static TheoryData<string[]> NonReviewRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.ContentItemReadOnly }
+            };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
@@ -199,11 +241,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         private static ApprovalReview CreateRandomApprovalReview() =>
             CreateApprovalReviewFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        private static EventEnvelope<ApprovalReview> CreateRandomApprovalReviewRequestEnvelope() =>
+        private static EventEnvelope<ApprovalReview> CreateRandomApprovalReviewRequestEnvelope(
+            SecurityContext? securityContext = null) =>
             new EventEnvelope<ApprovalReview>
             {
                 Content = new ApprovalReview { Id = Guid.NewGuid() },
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
             };
 
         private static ApprovalReview CreateRandomModifyApprovalReview(
@@ -238,6 +289,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
                 .OnProperty(approvalReview => approvalReview.Approval).IgnoreIt()
+                // IsDeleted gates every read and remove path, so it is pinned here rather
+                // than drawn: a posture-sensitive test must never depend on the draw. Tests
+                // that want a soft-deleted row set it explicitly.
+                .OnProperty(approvalReview => approvalReview.IsDeleted).Use(false)
                 .OnProperty(approvalReview => approvalReview.CreatedBy).Use(userId)
                 .OnProperty(approvalReview => approvalReview.UpdatedBy).Use(userId);
 

@@ -12,7 +12,9 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentTypes;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ContentTypes.Exceptions;
 using Moq;
 
@@ -24,6 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             var invalidContentTypeId = Guid.Empty;
 
             var invalidContentTypeException = new InvalidContentTypeException(
@@ -67,6 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfContentTypeNotFoundAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentTypeId = Guid.NewGuid();
             ContentType noContentType = null;
 
@@ -102,6 +106,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentTypes
                     someContentTypeId,
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someContentTypeId = Guid.NewGuid();
+
+            var unauthorizedContentTypeException = new UnauthorizedContentTypeException(
+                message: "The current user is not authenticated.");
+
+            var expectedContentTypeValidationException = new ContentTypeValidationException(
+                message: "Content type validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentTypeException);
+
+            // when
+            ValueTask<ContentType> hardRemoveContentTypeByIdTask =
+                this.contentTypeService.HardRemoveContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    hardRemoveContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentTypeValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            Guid someContentTypeId = Guid.NewGuid();
+
+            var unauthorizedContentTypeException = new UnauthorizedContentTypeException(
+                message: "The current user is not allowed to administer content types.");
+
+            var expectedContentTypeValidationException = new ContentTypeValidationException(
+                message: "Content type validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentTypeException);
+
+            // when
+            ValueTask<ContentType> hardRemoveContentTypeByIdTask =
+                this.contentTypeService.HardRemoveContentTypeByIdAsync(
+                    someContentTypeId,
+                    TestContext.Current.CancellationToken);
+
+            ContentTypeValidationException actualContentTypeValidationException =
+                await Assert.ThrowsAsync<ContentTypeValidationException>(
+                    hardRemoveContentTypeByIdTask.AsTask);
+
+            // then
+            actualContentTypeValidationException.Should().BeEquivalentTo(
+                expectedContentTypeValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

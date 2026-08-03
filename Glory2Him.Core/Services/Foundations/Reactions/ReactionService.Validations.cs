@@ -10,15 +10,104 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Reactions
 {
     internal partial class ReactionService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedReactionException(
+                    message: "The current user is not authenticated.");
+            }
+
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.ReactionReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedReactionException(
+                    message: "The current user is blocked from contributing reactions.");
+            }
+        }
+
+        // the moderation roles that may act on and read non-public versions for review and
+        // audit (Reviewer, Publisher, Admin — global or Reaction-scoped, §16.6)
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.ReactionReviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.ReactionPublisher)
+                || securityContext.Roles.Contains(Roles.Admin);
+
+        // row-level write permission: the owner or a review role may write the row — the
+        // narrower process rules stay in the orchestration
+        private async ValueTask ValidateUserCanModifyStorageReactionAsync(
+            Reaction storageReaction,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageReaction.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedReactionException(
+                    message: "The current user is not allowed to modify this reaction.");
+            }
+        }
+
+        // removing content is a takedown, not a moderation step — the owner may remove
+        // their own reaction and an Admin may remove anyone's; Reviewers and Publishers
+        // moderate through the approval workflow instead
+        private async ValueTask ValidateUserCanRemoveStorageReactionAsync(
+            Reaction storageReaction,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageReaction.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedReactionException(
+                    message: "The current user is not allowed to remove this reaction.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveReaction(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedReactionException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedReactionException(
+                    message: "The current user is not allowed to permanently remove this reaction.");
+            }
+        }
+
         private async ValueTask ValidateOnAddReactionAsync(
             Reaction reaction,
             SecurityContext securityContext)

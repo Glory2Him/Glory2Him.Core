@@ -147,9 +147,12 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateReactionEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                Reaction retrievedReaction = await RetrieveReactionByIdAsync(
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture against the REQUEST envelope's
+                // security context, not the ambient one
+                Reaction retrievedReaction = await DoRetrieveReactionByIdAsync(
                     reactionId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

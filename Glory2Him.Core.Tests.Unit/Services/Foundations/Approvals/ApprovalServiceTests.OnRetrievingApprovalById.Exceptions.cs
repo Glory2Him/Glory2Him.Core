@@ -157,10 +157,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             Approval storageApproval = CreateRandomApproval();
+            storageApproval.IsDeleted = false;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<Approval>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Approval { Id = storageApproval.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -179,6 +181,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     storageApproval.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApproval.CreatedBy);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageApproval))
@@ -201,6 +207,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedApprovalServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

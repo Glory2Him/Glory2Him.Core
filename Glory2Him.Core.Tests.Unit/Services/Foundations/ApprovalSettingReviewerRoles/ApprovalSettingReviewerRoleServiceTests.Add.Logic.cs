@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -29,6 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldAddApprovalSettingReviewerRoleAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSettingReviewerRole randomApprovalSettingReviewerRole = CreateApprovalSettingReviewerRoleFiller(randomDateTimeOffset).Create();
             ApprovalSettingReviewerRole inputApprovalSettingReviewerRole = randomApprovalSettingReviewerRole;

@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles.Exceptions;
 using Moq;
 
@@ -66,6 +67,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
             // given
             var requestEnvelope = new EventEnvelope<ApprovalSettingPublisherRole>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ApprovalSettingPublisherRole { Id = Guid.NewGuid() }
             };
 

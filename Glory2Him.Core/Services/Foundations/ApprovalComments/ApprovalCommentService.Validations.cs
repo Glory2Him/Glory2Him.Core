@@ -10,15 +10,114 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 {
     internal partial class ApprovalCommentService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        // §16.6 spells an entity-scoped role "{Entity}-Reviewer" / "{Entity}-Publisher"
+        private const string ScopedReviewerRoleSuffix = "-" + Roles.Reviewer;
+        private const string ScopedPublisherRoleSuffix = "-" + Roles.Publisher;
+
+        // commenting on a review thread is a conversation, not a moderation step: the
+        // submitter answers the reviewer's questions on their own submission, so any
+        // authenticated caller who is not globally blocked may comment. No entity-scoped
+        // ReadOnly role exists for approval workflow records, so only the global one blocks.
+        private static void ValidateUserIsAllowedToComment(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalCommentException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedApprovalCommentException(
+                    message: "The current user is blocked from contributing approval comments.");
+            }
+        }
+
+        // the review roles that may act on and read approval workflow records (Reviewer,
+        // Publisher, Admin). Approval comments carry no entity-scoped roles of their own, so
+        // by the §16.6 convention any "{Entity}-Reviewer"/"{Entity}-Publisher" role counts:
+        // the comment row alone does not say which entity type the approval targets, so the
+        // foundation cannot tell a Tag-Reviewer's comment thread from a Link-Reviewer's.
+        // Narrowing a scoped reviewer to the approvals of their own entity type is an
+        // orchestration concern, where the approval and its target are read together.
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.Admin)
+                || securityContext.Roles.Any(role =>
+                    role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
+                        || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
+
+        // row-level write permission: the author may edit their own comment and a review
+        // role may write it too — reviewers flip IsResolved on a submitter's comment as the
+        // thread is worked through
+        private async ValueTask ValidateUserCanModifyStorageApprovalCommentAsync(
+            ApprovalComment storageApprovalComment,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageApprovalComment.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedApprovalCommentException(
+                    message: "The current user is not allowed to modify this approval comment.");
+            }
+        }
+
+        // removing a comment retracts it from the review record — the author may retract
+        // their own and an Admin may retract anyone's; reviewers resolve threads instead
+        private async ValueTask ValidateUserCanRemoveStorageApprovalCommentAsync(
+            ApprovalComment storageApprovalComment,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageApprovalComment.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalCommentException(
+                    message: "The current user is not allowed to remove this approval comment.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveApprovalComment(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalCommentException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalCommentException(
+                    message: "The current user is not allowed to permanently remove this approval comment.");
+            }
+        }
+
         private async ValueTask ValidateOnAddApprovalCommentAsync(
             ApprovalComment approvalComment,
             SecurityContext securityContext)

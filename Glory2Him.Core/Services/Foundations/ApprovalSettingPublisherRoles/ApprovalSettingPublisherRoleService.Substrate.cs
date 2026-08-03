@@ -147,9 +147,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateApprovalSettingPublisherRoleEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                ApprovalSettingPublisherRole retrievedApprovalSettingPublisherRole = await RetrieveApprovalSettingPublisherRoleByIdAsync(
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture against the REQUEST envelope's
+                // security context, not the ambient one
+                ApprovalSettingPublisherRole retrievedApprovalSettingPublisherRole = await DoRetrieveApprovalSettingPublisherRoleByIdAsync(
                     approvalSettingPublisherRoleId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

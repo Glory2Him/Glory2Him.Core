@@ -15,6 +15,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
@@ -549,6 +550,89 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalComment someApprovalComment = CreateRandomApprovalComment();
+
+            var unauthorizedApprovalCommentException = new UnauthorizedApprovalCommentException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalCommentValidationException = new ApprovalCommentValidationException(
+                message: "Approval comment validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalCommentException);
+
+            // when
+            ValueTask<ApprovalComment> addApprovalCommentTask =
+                this.approvalCommentService.AddApprovalCommentAsync(
+                    someApprovalComment,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    addApprovalCommentTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsBlockedFromCommentingAndLogItAsync()
+        {
+            // given: only the global ReadOnly role blocks — approval workflow records
+            // carry no entity-scoped ReadOnly role of their own
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReadOnly);
+            ApprovalComment someApprovalComment = CreateRandomApprovalComment();
+
+            var unauthorizedApprovalCommentException = new UnauthorizedApprovalCommentException(
+                message: "The current user is blocked from contributing approval comments.");
+
+            var expectedApprovalCommentValidationException = new ApprovalCommentValidationException(
+                message: "Approval comment validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalCommentException);
+
+            // when
+            ValueTask<ApprovalComment> addApprovalCommentTask =
+                this.approvalCommentService.AddApprovalCommentAsync(
+                    someApprovalComment,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    addApprovalCommentTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference
                 {
                     Id = storageBibleReference.Id,
@@ -58,6 +59,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     storageBibleReference.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageBibleReference.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageBibleReference, It.IsAny<SecurityContext>()))
@@ -99,6 +104,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 broker.SelectBibleReferenceByIdAsync(
                     storageBibleReference.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -144,6 +153,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -187,6 +197,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new BibleReference { Id = alreadyDeletedBibleReference.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -203,6 +214,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     alreadyDeletedBibleReference.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(alreadyDeletedBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedBibleReference.CreatedBy);
 
             // when
             EventEnvelope<BibleReference>? actualReplyEnvelope =
@@ -226,6 +241,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 broker.SelectBibleReferenceByIdAsync(
                     alreadyDeletedBibleReference.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();

@@ -11,7 +11,9 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
@@ -24,6 +26,88 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             // given
             ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
             ContentItemSetting storageContentItemSetting = randomContentItemSetting;
+            storageContentItemSetting.IsDeleted = false;
+            ContentItemSetting expectedContentItemSetting = storageContentItemSetting;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ContentItemSetting actualContentItemSetting =
+                await this.contentItemSettingService.RetrieveContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItemSetting.Should().BeEquivalentTo(expectedContentItemSetting);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldRetrieveContentItemSettingByIdWhenUserIsNotAuthenticatedAsync(
+            SecurityContext anonymousSecurityContext)
+        {
+            // given: settings drive anonymous page rendering, so a non-deleted row is
+            // readable without authenticating
+            this.ambientSecurityContext = anonymousSecurityContext;
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            ContentItemSetting storageContentItemSetting = randomContentItemSetting;
+            storageContentItemSetting.IsDeleted = false;
+            ContentItemSetting expectedContentItemSetting = storageContentItemSetting;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ContentItemSetting actualContentItemSetting =
+                await this.contentItemSettingService.RetrieveContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItemSetting.Should().BeEquivalentTo(expectedContentItemSetting);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    randomContentItemSetting.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldRetrieveContentItemSettingByIdWhenUserIsNotAdminAsync(
+            string[] nonAdminRoles)
+        {
+            // given: no role is required to read a setting — only writing one is gated
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
+            ContentItemSetting storageContentItemSetting = randomContentItemSetting;
+            storageContentItemSetting.IsDeleted = false;
             ContentItemSetting expectedContentItemSetting = storageContentItemSetting;
 
             this.storageBrokerMock.Setup(broker =>

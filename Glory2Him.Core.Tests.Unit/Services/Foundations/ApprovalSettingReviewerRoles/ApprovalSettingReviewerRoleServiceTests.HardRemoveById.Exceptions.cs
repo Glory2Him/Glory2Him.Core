@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.Exceptions;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -31,6 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
 
             var expectedApprovalSettingReviewerRoleDependencyException = new ApprovalSettingReviewerRoleDependencyException(
@@ -79,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
@@ -137,6 +140,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowOperationCanceledExceptionOnHardRemoveByIdIfCancellationRequestedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
             var cancellationToken = new CancellationToken(canceled: true);
 
@@ -161,6 +165,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowCriticalDependencyExceptionOnHardRemoveByIdIfSqlErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
             SqlException sqlException = GetSqlException();
 
@@ -215,6 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowDependencyValidationExceptionOnHardRemoveByIdIfDbUpdateConcurrencyExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
             ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
@@ -282,6 +288,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowServiceExceptionOnHardRemoveByIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
             var serviceException = new Exception();
 

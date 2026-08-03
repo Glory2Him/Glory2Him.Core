@@ -66,7 +66,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // given
             var requestEnvelope = new EventEnvelope<Approval>
             {
-                Content = new Approval { Id = Guid.NewGuid() }
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content =new Approval { Id = Guid.NewGuid() }
             };
 
             this.storageBrokerMock.Setup(broker =>

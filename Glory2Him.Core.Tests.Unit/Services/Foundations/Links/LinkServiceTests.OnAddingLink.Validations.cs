@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -68,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given
             var invalidEnvelope = new EventEnvelope<Link>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Link { Id = Guid.NewGuid() },
                 Metadata = null!
             };
@@ -113,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given
             var invalidEnvelope = new EventEnvelope<Link>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = null!,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

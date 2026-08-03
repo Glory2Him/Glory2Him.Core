@@ -10,15 +10,114 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Approvals
 {
     internal partial class ApprovalService
     {
+        // the §16.6 scoped-role suffixes, built from the global role names so the
+        // convention has a single source of truth
+        private const string ScopedReviewerRoleSuffix = "-" + Roles.Reviewer;
+        private const string ScopedPublisherRoleSuffix = "-" + Roles.Publisher;
+
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is not authenticated.");
+            }
+
+            // no Approval-scoped ReadOnly role exists — approvals are workflow records,
+            // not entity-scoped content, so only the global block role applies
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is blocked from contributing approvals.");
+            }
+        }
+
+        // the review roles that may act on and read approval workflow records: the global
+        // Reviewer/Publisher/Admin, plus — by the §16.6 convention — any entity-scoped
+        // "{Entity}-Reviewer"/"{Entity}-Publisher" role. This check only ever sees the
+        // caller, so the foundation cannot know row-locally which entity type an approval
+        // targets; narrowing a reviewer to the approval's own entity type (only a
+        // Tag-Reviewer may review a Tag approval) is an orchestration concern, where the
+        // reviewed entity is in hand
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.Admin)
+                || securityContext.Roles.Any(role =>
+                    role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
+                        || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
+
+        // row-level write permission: the submitter who opened the approval may amend it
+        // and a review role may act on it — the narrower workflow rules (which status
+        // transitions are legal, who may bypass) stay in the orchestration
+        private async ValueTask ValidateUserCanModifyStorageApprovalAsync(
+            Approval storageApproval,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageApproval.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is not allowed to modify this approval.");
+            }
+        }
+
+        // removing an approval retracts the workflow record itself — the owner may
+        // withdraw their own and an Admin may remove anyone's; Reviewers and Publishers
+        // act through the approval's status instead
+        private async ValueTask ValidateUserCanRemoveStorageApprovalAsync(
+            Approval storageApproval,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageApproval.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is not allowed to remove this approval.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveApproval(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is not allowed to permanently remove this approval.");
+            }
+        }
+
         private async ValueTask ValidateOnAddApprovalAsync(
             Approval approval,
             SecurityContext securityContext)

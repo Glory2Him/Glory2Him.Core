@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -38,6 +39,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
 
             var requestEnvelope = new EventEnvelope<ApprovalSettingPublisherRole>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new ApprovalSettingPublisherRole
                 {
                     Id = storageApprovalSettingPublisherRole.Id,
@@ -144,6 +146,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
             // given
             var requestEnvelope = new EventEnvelope<ApprovalSettingPublisherRole>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new ApprovalSettingPublisherRole { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -187,6 +190,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
 
             var requestEnvelope = new EventEnvelope<ApprovalSettingPublisherRole>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Content = new ApprovalSettingPublisherRole { Id = alreadyDeletedApprovalSettingPublisherRole.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

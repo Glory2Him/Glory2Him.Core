@@ -147,9 +147,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentTypes
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentTypeEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                ContentType retrievedContentType = await RetrieveContentTypeByIdAsync(
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture against the REQUEST envelope's
+                // security context, not the ambient one
+                ContentType retrievedContentType = await DoRetrieveContentTypeByIdAsync(
                     contentTypeId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(
