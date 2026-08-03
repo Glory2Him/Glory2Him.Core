@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Moq;
@@ -31,6 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentItemAssociationId = Guid.NewGuid();
 
             var expectedContentItemAssociationDependencyException = new ContentItemAssociationDependencyException(
@@ -79,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
         public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentItemAssociationId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
@@ -161,6 +164,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
         public async Task ShouldThrowCriticalDependencyExceptionOnHardRemoveByIdIfSqlErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentItemAssociationId = Guid.NewGuid();
             SqlException sqlException = GetSqlException();
 
@@ -215,6 +219,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
         public async Task ShouldThrowDependencyValidationExceptionOnHardRemoveByIdIfDbUpdateConcurrencyExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentItemAssociationId = Guid.NewGuid();
             ContentItemAssociation someContentItemAssociation = CreateRandomContentItemAssociation();
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
@@ -284,6 +289,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
         public async Task ShouldThrowServiceExceptionOnHardRemoveByIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someContentItemAssociationId = Guid.NewGuid();
             var serviceException = new Exception();
 

@@ -21,9 +21,11 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
+using Glory2Him.Core.Models.Foundations.ContentItemAssociations.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
 {
@@ -34,7 +36,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
     /// request envelope in → shared do-work). The private <c>DoXAsync</c> methods own auditing,
     /// validation, storage, and publishing the past-tense fact, so the two paths cannot
     /// diverge; the inbound envelope carries the original caller's <c>SecurityContext</c> and
-    /// anchors the causation chain.
+    /// anchors the causation chain. Per design §14.6 the foundation enforces security itself
+    /// — the contribution gate on writes, owner-or-moderation-role write permission (removal
+    /// by owner or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility
+    /// posture — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ContentItemAssociationService : IContentItemAssociationService
     {
@@ -87,7 +92,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllContentItemAssociationsAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ContentItemAssociation> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ContentItemAssociation());
+
+                IQueryable<ContentItemAssociation> allContentItemAssociations =
+                    await this.storageBroker.SelectAllContentItemAssociationsAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    contentItemAssociations: allContentItemAssociations,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ContentItemAssociation> RetrieveContentItemAssociationByIdAsync(
@@ -96,16 +111,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveContentItemAssociationById(contentItemAssociationId);
 
-                ContentItemAssociation maybeContentItemAssociation =
-                    await this.storageBroker.SelectContentItemAssociationByIdAsync(
-                        contentItemAssociationId: contentItemAssociationId,
-                        cancellationToken: cancellationToken);
+                var retrieveRequest = new ContentItemAssociation
+                {
+                    Id = contentItemAssociationId
+                };
 
-                ValidateStorageContentItemAssociation(maybeContentItemAssociation, contentItemAssociationId);
+                EventEnvelope<ContentItemAssociation> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeContentItemAssociation;
+                return await DoRetrieveContentItemAssociationByIdAsync(
+                    contentItemAssociationId: contentItemAssociationId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentItemAssociation> ModifyContentItemAssociationAsync(
@@ -170,11 +188,124 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: a publicly visible version
+        // is readable by anyone; a non-public version answers not-found — never
+        // unauthorized — to everyone but the owner and the review roles, with the true
+        // denial reason logged server-side only
+        private async ValueTask<ContentItemAssociation> DoRetrieveContentItemAssociationByIdAsync(
+            Guid contentItemAssociationId,
+            EventEnvelope<ContentItemAssociation> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveContentItemAssociationById(contentItemAssociationId);
+
+            ContentItemAssociation maybeContentItemAssociation =
+                await this.storageBroker.SelectContentItemAssociationByIdAsync(
+                    contentItemAssociationId: contentItemAssociationId,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageContentItemAssociation(maybeContentItemAssociation, contentItemAssociationId);
+
+            if (maybeContentItemAssociation.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item association read denied. Content item association " +
+                        $"{contentItemAssociationId} is soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundContentItemAssociationException(
+                    message: $"Content item association not found with id: {contentItemAssociationId}.");
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            bool isPubliclyVisible =
+                maybeContentItemAssociation.ApprovalStatus == ApprovalStatus.Approved
+                    && maybeContentItemAssociation.IsPublished
+                    && (maybeContentItemAssociation.PublishDate is null
+                        || maybeContentItemAssociation.PublishDate <= currentDateTime);
+
+            if (isPubliclyVisible)
+            {
+                return maybeContentItemAssociation;
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item association read denied. Content item association " +
+                        $"{contentItemAssociationId} is not publicly visible and the caller is not " +
+                        "authenticated; reported to the caller as not found.");
+
+                throw new NotFoundContentItemAssociationException(
+                    message: $"Content item association not found with id: {contentItemAssociationId}.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeContentItemAssociation.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item association read denied. Content item association " +
+                        $"{contentItemAssociationId} is not publicly visible and user \"{actorUserId}\" " +
+                        "is neither the owner nor in a review role; reported to the caller as not found.");
+
+                throw new NotFoundContentItemAssociationException(
+                    message: $"Content item association not found with id: {contentItemAssociationId}.");
+            }
+
+            return maybeContentItemAssociation;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many non-public rows exist
+        private async ValueTask<IQueryable<ContentItemAssociation>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<ContentItemAssociation> contentItemAssociations,
+            SecurityContext? securityContext)
+        {
+            IQueryable<ContentItemAssociation> visibleContentItemAssociations =
+                contentItemAssociations.Where(contentItemAssociation =>
+                    contentItemAssociation.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated && HasReviewRole(securityContext!))
+            {
+                return visibleContentItemAssociations;
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            string? actorUserId = isAuthenticated
+                ? await this.securityAuditBroker.GetUserIdAsync(securityContext: securityContext!)
+                : null;
+
+            bool includeOwnContentItemAssociations = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleContentItemAssociations.Where(contentItemAssociation =>
+                (contentItemAssociation.ApprovalStatus == ApprovalStatus.Approved
+                    && contentItemAssociation.IsPublished
+                    && (contentItemAssociation.PublishDate == null
+                        || contentItemAssociation.PublishDate <= currentDateTime))
+                || (includeOwnContentItemAssociations
+                    && contentItemAssociation.CreatedBy == actorUserId));
+        }
+
         private async ValueTask<ContentItemAssociation> DoAddContentItemAssociationAsync(
             ContentItemAssociation contentItemAssociation,
             EventEnvelope<ContentItemAssociation> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             contentItemAssociation = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(
                     entity: contentItemAssociation,
@@ -218,6 +349,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             EventEnvelope<ContentItemAssociation> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
             contentItemAssociation = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(
                     entity: contentItemAssociation,
@@ -235,6 +368,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             ValidateStorageContentItemAssociation(
                 maybeContentItemAssociation,
                 contentItemAssociationId: contentItemAssociation.Id);
+
+            await ValidateUserCanModifyStorageContentItemAssociationAsync(
+                storageContentItemAssociation: maybeContentItemAssociation,
+                securityContext: inboundEnvelope.SecurityContext);
 
             contentItemAssociation = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -280,6 +417,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             EventEnvelope<ContentItemAssociation> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnRemoveContentItemAssociationById(contentItemAssociationId);
 
             ContentItemAssociation maybeContentItemAssociation =
@@ -288,6 +426,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                     cancellationToken: cancellationToken);
 
             ValidateStorageContentItemAssociation(maybeContentItemAssociation, contentItemAssociationId);
+
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            await ValidateUserCanRemoveStorageContentItemAssociationAsync(
+                storageContentItemAssociation: maybeContentItemAssociation,
+                securityContext: inboundEnvelope.SecurityContext);
 
             if (maybeContentItemAssociation.IsDeleted)
                 return maybeContentItemAssociation;
@@ -334,6 +478,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             EventEnvelope<ContentItemAssociation> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveContentItemAssociation(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveContentItemAssociationById(contentItemAssociationId);
 
             ContentItemAssociation maybeContentItemAssociation =

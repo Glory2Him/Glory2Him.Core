@@ -69,6 +69,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidContentItemAssociationEventException);
             }
+            catch (UnauthorizedContentItemAssociationException unauthorizedContentItemAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedContentItemAssociationException);
+            }
             catch (NullContentItemAssociationException nullContentItemAssociationException)
             {
                 throw await CreateAndLogValidationExceptionAsync(
@@ -192,6 +197,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedContentItemAssociationException unauthorizedContentItemAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedContentItemAssociationException);
             }
             catch (NullContentItemAssociationException nullContentItemAssociationException)
             {

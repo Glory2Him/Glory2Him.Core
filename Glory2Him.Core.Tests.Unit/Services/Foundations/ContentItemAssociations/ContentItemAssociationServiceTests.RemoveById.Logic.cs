@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
@@ -43,6 +44,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                     randomContentItemAssociation.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageContentItemAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageContentItemAssociation.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageContentItemAssociation, It.IsAny<SecurityContext>()))
@@ -73,6 +78,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                 broker.SelectContentItemAssociationByIdAsync(
                     randomContentItemAssociation.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -131,6 +140,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                         .ReturnsAsync(storageContentItemAssociation);
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageContentItemAssociation.CreatedBy);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageContentItemAssociation, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditedContentItemAssociation);
 
@@ -159,6 +172,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                 broker.SelectContentItemAssociationByIdAsync(
                     randomContentItemAssociation.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -210,6 +227,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(alreadyDeletedContentItemAssociation);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedContentItemAssociation.CreatedBy);
+
             // when
             ContentItemAssociation actualContentItemAssociation =
                 await this.contentItemAssociationService.RemoveContentItemAssociationByIdAsync(
@@ -224,6 +245,104 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                     someContentItemAssociationId,
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRemoveSomeoneElsesContentItemAssociationByIdWhenUserIsAdminAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            string randomActorUserId = GetRandomString();
+            ContentItemAssociation randomContentItemAssociation = CreateRandomContentItemAssociation();
+            randomContentItemAssociation.IsDeleted = false;
+            ContentItemAssociation storageContentItemAssociation = randomContentItemAssociation;
+
+            ContentItemAssociation auditedContentItemAssociation = storageContentItemAssociation.DeepClone();
+            auditedContentItemAssociation.IsDeleted = true;
+
+            ContentItemAssociation expectedContentItemAssociation = auditedContentItemAssociation.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemAssociationByIdAsync(
+                    randomContentItemAssociation.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItemAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageContentItemAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditedContentItemAssociation);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateContentItemAssociationAsync(auditedContentItemAssociation, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(expectedContentItemAssociation);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemAssociationAsync(
+                    It.IsAny<EventEnvelope<ContentItemAssociation>>(),
+                    ContentItemAssociationEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<ContentItemAssociation>>(
+                        new EventPublishResult<ContentItemAssociation>()));
+
+            // when
+            ContentItemAssociation actualContentItemAssociation =
+                await this.contentItemAssociationService.RemoveContentItemAssociationByIdAsync(
+                    randomContentItemAssociation.Id,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItemAssociation.Should().BeEquivalentTo(expectedContentItemAssociation);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemAssociationByIdAsync(
+                    randomContentItemAssociation.Id,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageContentItemAssociation, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAssociationAsync(auditedContentItemAssociation, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishContentItemAssociationAsync(
+                    It.IsAny<EventEnvelope<ContentItemAssociation>>(),
+                    ContentItemAssociationEventOperation.Removed),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers
+                                .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemAssociations;
 using Moq;
@@ -25,10 +26,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
             // given
             ContentItemAssociation randomContentItemAssociation = CreateRandomContentItemAssociation();
             ContentItemAssociation storageContentItemAssociation = randomContentItemAssociation;
+            storageContentItemAssociation.IsDeleted = false;
+            storageContentItemAssociation.ApprovalStatus = ApprovalStatus.Approved;
+            storageContentItemAssociation.IsPublished = true;
+            storageContentItemAssociation.PublishDate = null;
             ContentItemAssociation expectedContentItemAssociation = storageContentItemAssociation;
 
             var requestEnvelope = new EventEnvelope<ContentItemAssociation>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new ContentItemAssociation { Id = randomContentItemAssociation.Id }
             };
 
@@ -37,6 +43,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                     randomContentItemAssociation.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageContentItemAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             // when
             EventEnvelope<ContentItemAssociation>? actualReplyEnvelope =
@@ -56,6 +66,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageContentItemAssociation),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
