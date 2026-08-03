@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidBibleReferenceEventException);
             }
+            catch (UnauthorizedBibleReferenceException unauthorizedBibleReferenceException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedBibleReferenceException);
+            }
             catch (NullBibleReferenceException nullBibleReferenceException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullBibleReferenceException);
@@ -173,6 +177,10 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedBibleReferenceException unauthorizedBibleReferenceException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedBibleReferenceException);
             }
             catch (NullBibleReferenceException nullBibleReferenceException)
             {

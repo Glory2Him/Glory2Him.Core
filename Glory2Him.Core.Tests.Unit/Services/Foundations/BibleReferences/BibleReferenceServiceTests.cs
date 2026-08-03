@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IBibleReferenceService bibleReferenceService;
+        private SecurityContext ambientSecurityContext;
 
         public BibleReferenceServiceTests()
         {
@@ -55,6 +57,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // the ambient caller the envelope broker captures on the direct path — tests
+            // override this field (before acting) to run as a different caller
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<BibleReference>()))
                     .Returns((BibleReference content) =>
@@ -62,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                             new EventEnvelope<BibleReference>
                             {
                                 Content = content,
+                                SecurityContext = this.ambientSecurityContext,
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -74,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                                 new EventEnvelope<BibleReference>
                                 {
                                     Content = content,
+                                    SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
@@ -120,6 +128,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 randomTimeInPast
             };
         }
+
+        public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
+        public static TheoryData<string[]> NonAdminRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Reviewer }
+            };
+
+        public static TheoryData<string> ReviewRoles() =>
+            new TheoryData<string>
+            {
+                Roles.Reviewer,
+                Roles.BibleReferenceReviewer,
+                Roles.Publisher,
+                Roles.BibleReferencePublisher,
+                Roles.Admin
+            };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
@@ -199,11 +231,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         private static BibleReference CreateRandomBibleReference() =>
             CreateBibleReferenceFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        private static EventEnvelope<BibleReference> CreateRandomBibleReferenceRequestEnvelope() =>
+        private static EventEnvelope<BibleReference> CreateRandomBibleReferenceRequestEnvelope(
+            SecurityContext? securityContext = null) =>
             new EventEnvelope<BibleReference>
             {
                 Content = new BibleReference { Id = Guid.NewGuid() },
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
             };
 
         private static BibleReference CreateRandomModifyBibleReference(

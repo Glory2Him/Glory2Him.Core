@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
@@ -28,6 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldHardRemoveBibleReferenceByIdAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             BibleReference randomBibleReference = CreateRandomBibleReference();
             BibleReference storageBibleReference = randomBibleReference;
             BibleReference expectedBibleReference = storageBibleReference.DeepClone();

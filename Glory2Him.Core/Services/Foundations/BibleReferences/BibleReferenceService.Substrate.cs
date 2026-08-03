@@ -147,9 +147,12 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateBibleReferenceEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                BibleReference retrievedBibleReference = await RetrieveBibleReferenceByIdAsync(
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture against the REQUEST envelope's
+                // security context, not the ambient one
+                BibleReference retrievedBibleReference = await DoRetrieveBibleReferenceByIdAsync(
                     bibleReferenceId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

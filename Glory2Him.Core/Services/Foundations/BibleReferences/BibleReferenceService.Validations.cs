@@ -10,15 +10,106 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.BibleReferences
 {
     internal partial class BibleReferenceService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedBibleReferenceException(
+                    message: "The current user is not authenticated.");
+            }
+
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.BibleReferenceReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedBibleReferenceException(
+                    message: "The current user is blocked from contributing bible references.");
+            }
+        }
+
+        // the moderation roles that may act on and read non-public versions for review and
+        // audit (Reviewer, Publisher, Admin — global or BibleReference-scoped, §16.6)
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.BibleReferenceReviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.BibleReferencePublisher)
+                || securityContext.Roles.Contains(Roles.Admin);
+
+        // row-level write permission: the owner or a review role may write the row — the
+        // narrower process rules (approved items fork, only the latest version is amended)
+        // stay in the orchestration, which needs owner writes to approved rows for the
+        // version fork and role writes for the publish flip
+        private async ValueTask ValidateUserCanModifyStorageBibleReferenceAsync(
+            BibleReference storageBibleReference,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageBibleReference.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedBibleReferenceException(
+                    message: "The current user is not allowed to modify this bible reference.");
+            }
+        }
+
+        // removing content is a takedown, not a moderation step — the owner may remove
+        // their own item and an Admin may remove anyone's; Reviewers and Publishers
+        // moderate through the approval workflow instead
+        private async ValueTask ValidateUserCanRemoveStorageBibleReferenceAsync(
+            BibleReference storageBibleReference,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageBibleReference.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedBibleReferenceException(
+                    message: "The current user is not allowed to remove this bible reference.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveBibleReference(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedBibleReferenceException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedBibleReferenceException(
+                    message: "The current user is not allowed to permanently remove this bible reference.");
+            }
+        }
+
         private async ValueTask ValidateOnAddBibleReferenceAsync(
             BibleReference bibleReference,
             SecurityContext securityContext)
