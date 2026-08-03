@@ -75,7 +75,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
             var requestEnvelope = new EventEnvelope<Approval>
             {
-                Content = inputApproval,
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content =inputApproval,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

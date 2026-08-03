@@ -147,9 +147,12 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateApprovalEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                Approval retrievedApproval = await RetrieveApprovalByIdAsync(
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture against the REQUEST envelope's
+                // security context, not the ambient one
+                Approval retrievedApproval = await DoRetrieveApprovalByIdAsync(
                     approvalId: envelope.Content.Id,
+                    inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

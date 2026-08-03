@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Microsoft.Data.SqlClient;
 using Moq;
 using Xeptions;
@@ -29,7 +30,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldThrowOperationCanceledExceptionOnHardRemovingApprovalByIdEventIfCancellationRequestedAsync()
         {
             // given
-            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope();
+            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
+                CreateAuthenticatedSecurityContext(Roles.Admin));
             var cancellationToken = new CancellationToken(canceled: true);
 
             // when
@@ -53,7 +55,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldThrowDependencyExceptionOnHardRemovingApprovalByIdEventIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
-            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope();
+            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
+                CreateAuthenticatedSecurityContext(Roles.Admin));
             var operationCanceledException = new OperationCanceledException();
 
             var timeoutException =
@@ -107,7 +110,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             Xeption expectedInnerException)
         {
             // given
-            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope();
+            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
+                CreateAuthenticatedSecurityContext(Roles.Admin));
 
             var expectedApprovalDependencyException = new ApprovalDependencyException(
                 message: "Approval dependency error occurred, contact support.",
@@ -148,7 +152,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldThrowCriticalDependencyExceptionOnHardRemovingApprovalByIdEventIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope();
+            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
+                CreateAuthenticatedSecurityContext(Roles.Admin));
             SqlException sqlException = GetSqlException();
 
             var failedStorageApprovalException = new FailedStorageApprovalException(
@@ -198,7 +203,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             Xeption expectedInnerException)
         {
             // given
-            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope();
+            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
+                CreateAuthenticatedSecurityContext(Roles.Admin));
 
             var expectedApprovalDependencyValidationException = new ApprovalDependencyValidationException(
                 message: "Approval dependency validation error occurred, fix the errors and try again.",
@@ -239,7 +245,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldThrowServiceExceptionOnHardRemovingApprovalByIdEventIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope();
+            EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
+                CreateAuthenticatedSecurityContext(Roles.Admin));
             var serviceException = new Exception();
 
             var failedApprovalServiceException = new FailedApprovalServiceException(

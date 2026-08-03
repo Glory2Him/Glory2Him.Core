@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
@@ -70,7 +71,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // given
             var requestEnvelope = new EventEnvelope<Approval>
             {
-                Content = new Approval { Id = Guid.Empty },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                Content =new Approval { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -133,7 +135,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
             var requestEnvelope = new EventEnvelope<Approval>
             {
-                Content = new Approval { Id = someApprovalId },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                Content =new Approval { Id = someApprovalId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

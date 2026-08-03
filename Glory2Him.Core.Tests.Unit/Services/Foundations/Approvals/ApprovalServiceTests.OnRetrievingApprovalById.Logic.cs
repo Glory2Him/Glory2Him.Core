@@ -25,10 +25,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // given
             Approval randomApproval = CreateRandomApproval();
             Approval storageApproval = randomApproval;
+            storageApproval.IsDeleted = false;
             Approval expectedApproval = storageApproval;
 
             var requestEnvelope = new EventEnvelope<Approval>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Approval { Id = randomApproval.Id }
             };
 
@@ -37,6 +39,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     randomApproval.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApproval.CreatedBy);
 
             // when
             EventEnvelope<Approval>? actualReplyEnvelope =
@@ -56,6 +62,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageApproval),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

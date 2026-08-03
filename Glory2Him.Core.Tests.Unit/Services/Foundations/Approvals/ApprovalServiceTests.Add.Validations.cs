@@ -15,6 +15,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
@@ -534,6 +535,88 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Approval someApproval = CreateRandomApproval();
+
+            var unauthorizedApprovalException = new UnauthorizedApprovalException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalValidationException = new ApprovalValidationException(
+                message: "Approval validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalException);
+
+            // when
+            ValueTask<Approval> addApprovalTask =
+                this.approvalService.AddApprovalAsync(
+                    someApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    addApprovalTask.AsTask);
+
+            // then
+            actualApprovalValidationException.Should().BeEquivalentTo(
+                expectedApprovalValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsBlockedFromContributingAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReadOnly);
+            Approval someApproval = CreateRandomApproval();
+
+            var unauthorizedApprovalException = new UnauthorizedApprovalException(
+                message: "The current user is blocked from contributing approvals.");
+
+            var expectedApprovalValidationException = new ApprovalValidationException(
+                message: "Approval validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalException);
+
+            // when
+            ValueTask<Approval> addApprovalTask =
+                this.approvalService.AddApprovalAsync(
+                    someApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    addApprovalTask.AsTask);
+
+            // then
+            actualApprovalValidationException.Should().BeEquivalentTo(
+                expectedApprovalValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

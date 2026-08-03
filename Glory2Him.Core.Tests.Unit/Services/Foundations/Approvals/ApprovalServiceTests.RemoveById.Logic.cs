@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
@@ -43,6 +44,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     randomApproval.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApproval.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageApproval, It.IsAny<SecurityContext>()))
@@ -73,6 +78,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.SelectApprovalByIdAsync(
                     randomApproval.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -130,6 +139,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                         .ReturnsAsync(storageApproval);
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApproval.CreatedBy);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageApproval, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditedApproval);
 
@@ -158,6 +171,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.SelectApprovalByIdAsync(
                     randomApproval.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -208,6 +225,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(alreadyDeletedApproval);
 
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedApproval.CreatedBy);
+
             // when
             Approval actualApproval =
                 await this.approvalService.RemoveApprovalByIdAsync(
@@ -222,6 +243,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     someApprovalId,
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldRemoveSomeoneElsesApprovalByIdWhenUserIsAdminAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            string randomActorUserId = GetRandomString();
+            Approval randomApproval = CreateRandomApproval();
+            randomApproval.IsDeleted = false;
+            Approval storageApproval = randomApproval;
+
+            Approval auditedApproval = storageApproval.DeepClone();
+            auditedApproval.IsDeleted = true;
+
+            Approval expectedApproval = auditedApproval.DeepClone();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    randomApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageApproval, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditedApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalAsync(auditedApproval, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(expectedApproval);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalAsync(
+                    It.IsAny<EventEnvelope<Approval>>(),
+                    ApprovalEventOperation.Removed))
+                    .Returns(new ValueTask<EventPublishResult<Approval>>(
+                        new EventPublishResult<Approval>()));
+
+            // when
+            Approval actualApproval =
+                await this.approvalService.RemoveApprovalByIdAsync(
+                    randomApproval.Id,
+                    deletionReason: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApproval.Should().BeEquivalentTo(expectedApproval);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalByIdAsync(
+                    randomApproval.Id,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyRemoveAuditValuesAsync(storageApproval, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalAsync(auditedApproval, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalAsync(
+                    It.IsAny<EventEnvelope<Approval>>(),
+                    ApprovalEventOperation.Removed),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.ApprovalOnRemovingApprovalByIdSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
