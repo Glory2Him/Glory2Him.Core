@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
@@ -29,6 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldAddApprovalReviewAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalReview randomApprovalReview = CreateApprovalReviewFiller(randomDateTimeOffset).Create();
             ApprovalReview inputApprovalReview = randomApprovalReview;
@@ -101,6 +103,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ReviewRoles))]
+        public async Task ShouldAddApprovalReviewWhenUserHasReviewRoleAsync(string reviewRole)
+        {
+            // given: the entity-scoped reviewer and publisher roles satisfy the add gate
+            // through the §16.6 suffix convention, exactly like the global ones
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ApprovalReview randomApprovalReview = CreateApprovalReviewFiller(randomDateTimeOffset).Create();
+            ApprovalReview inputApprovalReview = randomApprovalReview;
+            ApprovalReview auditAppliedApprovalReview = inputApprovalReview.DeepClone();
+            ApprovalReview storageApprovalReview = auditAppliedApprovalReview.DeepClone();
+            ApprovalReview expectedApprovalReview = storageApprovalReview.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputApprovalReview, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalReview.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertApprovalReviewAsync(auditAppliedApprovalReview, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageApprovalReview);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalReviewAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    ApprovalReviewEventOperation.Added))
+                    .Returns(new ValueTask<EventPublishResult<ApprovalReview>>(
+                        new EventPublishResult<ApprovalReview>()));
+
+            // when
+            ApprovalReview actualApprovalReview =
+                await this.approvalReviewService.AddApprovalReviewAsync(
+                    inputApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalReview.Should().BeEquivalentTo(expectedApprovalReview);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertApprovalReviewAsync(auditAppliedApprovalReview, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalReviewAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    ApprovalReviewEventOperation.Added),
+                Times.Once);
         }
     }
 }

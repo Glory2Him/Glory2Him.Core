@@ -16,6 +16,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Microsoft.Data.SqlClient;
 using Moq;
 
@@ -157,10 +158,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         {
             // given
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.IsDeleted = false;
             var serviceException = new Exception();
 
             var requestEnvelope = new EventEnvelope<ApprovalReview>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer),
                 Content = new ApprovalReview { Id = storageApprovalReview.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -179,6 +182,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     storageApprovalReview.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageApprovalReview))
@@ -201,6 +208,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedApprovalReviewServiceException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

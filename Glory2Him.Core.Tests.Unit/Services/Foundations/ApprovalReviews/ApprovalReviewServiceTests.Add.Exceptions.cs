@@ -16,6 +16,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Microsoft.Data.SqlClient;
 using Moq;
 using Xeptions;
@@ -28,6 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowDependencyExceptionOnAddIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             ApprovalReview someApprovalReview = CreateRandomApprovalReview();
             var operationCanceledException = new OperationCanceledException();
 
@@ -85,6 +87,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             ApprovalReview someApprovalReview = CreateRandomApprovalReview();
 
             var expectedApprovalReviewDependencyException = new ApprovalReviewDependencyException(
@@ -153,6 +156,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowCriticalDependencyExceptionOnAddIfSqlErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             ApprovalReview someApprovalReview = CreateRandomApprovalReview();
             SqlException sqlException = GetSqlException();
 
@@ -206,6 +210,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             Xeption expectedInnerException)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             ApprovalReview someApprovalReview = CreateRandomApprovalReview();
 
             var expectedApprovalReviewDependencyValidationException = new ApprovalReviewDependencyValidationException(
@@ -250,6 +255,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowServiceExceptionOnAddIfServiceErrorOccursAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             ApprovalReview someApprovalReview = CreateRandomApprovalReview();
             var serviceException = new Exception();
 

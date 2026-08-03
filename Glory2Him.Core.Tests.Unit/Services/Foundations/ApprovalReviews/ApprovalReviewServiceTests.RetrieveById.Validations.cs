@@ -12,8 +12,10 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
@@ -103,6 +105,206 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 broker.SelectApprovalReviewByIdAsync(
                     someApprovalReviewId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfApprovalReviewIsSoftDeletedAndLogItAsync()
+        {
+            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // deleted beats privilege
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.IsDeleted = true;
+            Guid approvalReviewId = storageApprovalReview.Id;
+
+            var notFoundApprovalReviewException =
+                new NotFoundApprovalReviewException(
+                    message: $"Approval review not found with id: {approvalReviewId}.");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: notFoundApprovalReviewException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            // when
+            ValueTask<ApprovalReview> retrieveApprovalReviewByIdTask =
+                this.approvalReviewService.RetrieveApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    retrieveApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(
+                    $"Approval review read denied. Approval review {approvalReviewId} is " +
+                        "soft-deleted; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given: an approval review is never public — an anonymous caller is told
+            // not-found, never unauthorized
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.IsDeleted = false;
+            Guid approvalReviewId = storageApprovalReview.Id;
+
+            var notFoundApprovalReviewException =
+                new NotFoundApprovalReviewException(
+                    message: $"Approval review not found with id: {approvalReviewId}.");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: notFoundApprovalReviewException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            // when
+            ValueTask<ApprovalReview> retrieveApprovalReviewByIdTask =
+                this.approvalReviewService.RetrieveApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    retrieveApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Approval review read denied. Approval review {approvalReviewId} is not " +
+                        "publicly visible and the caller is not authenticated; reported to " +
+                        "the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfUserIsNotOwnerAndHasNoReviewRoleAndLogItAsync()
+        {
+            // given
+            string randomActorUserId = GetRandomString();
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.IsDeleted = false;
+            Guid approvalReviewId = storageApprovalReview.Id;
+
+            var notFoundApprovalReviewException =
+                new NotFoundApprovalReviewException(
+                    message: $"Approval review not found with id: {approvalReviewId}.");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: notFoundApprovalReviewException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<ApprovalReview> retrieveApprovalReviewByIdTask =
+                this.approvalReviewService.RetrieveApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    retrieveApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    approvalReviewId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    $"Approval review read denied. Approval review {approvalReviewId} " +
+                        $"is not publicly visible and user \"{randomActorUserId}\" is neither the " +
+                        "owner nor in a review role; reported to the caller as not found."),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

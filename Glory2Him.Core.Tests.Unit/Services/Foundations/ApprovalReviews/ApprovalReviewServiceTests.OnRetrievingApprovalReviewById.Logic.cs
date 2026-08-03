@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
@@ -22,13 +23,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         [Fact]
         public async Task ShouldReplyWithApprovalReviewOnRetrievingApprovalReviewByIdEventAsync()
         {
-            // given
+            // given: the read posture runs against the request envelope's caller
             ApprovalReview randomApprovalReview = CreateRandomApprovalReview();
             ApprovalReview storageApprovalReview = randomApprovalReview;
+            storageApprovalReview.IsDeleted = false;
             ApprovalReview expectedApprovalReview = storageApprovalReview;
 
             var requestEnvelope = new EventEnvelope<ApprovalReview>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer),
                 Content = new ApprovalReview { Id = randomApprovalReview.Id }
             };
 
@@ -37,6 +40,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     randomApprovalReview.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
 
             // when
             EventEnvelope<ApprovalReview>? actualReplyEnvelope =
@@ -56,6 +63,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageApprovalReview),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

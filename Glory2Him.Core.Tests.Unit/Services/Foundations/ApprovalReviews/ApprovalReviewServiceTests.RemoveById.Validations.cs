@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
@@ -115,5 +118,218 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someApprovalReviewId = Guid.NewGuid();
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            // when
+            ValueTask<ApprovalReview> removeApprovalReviewByIdTask =
+                this.approvalReviewService.RemoveApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    removeApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsBlockedFromContributingAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReadOnly);
+            Guid someApprovalReviewId = Guid.NewGuid();
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is blocked from contributing approval reviews.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            // when
+            ValueTask<ApprovalReview> removeApprovalReviewByIdTask =
+                this.approvalReviewService.RemoveApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    removeApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotOwnerAndNotAdminAndLogItAsync()
+        {
+            // given: a peer reviewer cannot withdraw someone else's verdict
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            string randomActorUserId = GetRandomString();
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.IsDeleted = false;
+            Guid someApprovalReviewId = storageApprovalReview.Id;
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is not allowed to remove this approval review.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<ApprovalReview> removeApprovalReviewByIdTask =
+                this.approvalReviewService.RemoveApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    removeApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAllowedEvenWhenAlreadyDeletedAndLogItAsync()
+        {
+            // given: permission is answered before the idempotent already-deleted
+            // short-circuit, so an unauthorized caller learns nothing about the row
+            string randomActorUserId = GetRandomString();
+            ApprovalReview alreadyDeletedApprovalReview = CreateRandomApprovalReview();
+            alreadyDeletedApprovalReview.IsDeleted = true;
+            Guid someApprovalReviewId = alreadyDeletedApprovalReview.Id;
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is not allowed to remove this approval review.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(alreadyDeletedApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<ApprovalReview> removeApprovalReviewByIdTask =
+                this.approvalReviewService.RemoveApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    removeApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
