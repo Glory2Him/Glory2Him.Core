@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             var requestEnvelope = new EventEnvelope<Tag>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Tag
                 {
                     Id = storageTag.Id,
@@ -58,6 +59,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     storageTag.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageTag.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>()))
@@ -99,6 +104,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.SelectTagByIdAsync(
                     storageTag.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -144,6 +153,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // given
             var requestEnvelope = new EventEnvelope<Tag>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Tag { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -187,6 +197,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             var requestEnvelope = new EventEnvelope<Tag>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Tag { Id = alreadyDeletedTag.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -203,6 +214,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     alreadyDeletedTag.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(alreadyDeletedTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedTag.CreatedBy);
 
             // when
             EventEnvelope<Tag>? actualReplyEnvelope =
@@ -226,6 +241,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 broker.SelectTagByIdAsync(
                     alreadyDeletedTag.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();

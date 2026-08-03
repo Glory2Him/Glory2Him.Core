@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,6 +11,7 @@
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Moq;
@@ -25,10 +26,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // given
             Tag randomTag = CreateRandomTag();
             Tag storageTag = randomTag;
+            storageTag.IsDeleted = false;
+            storageTag.ApprovalStatus = ApprovalStatus.Approved;
+            storageTag.IsPublished = true;
+            storageTag.PublishDate = null;
             Tag expectedTag = storageTag;
 
             var requestEnvelope = new EventEnvelope<Tag>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Tag { Id = randomTag.Id }
             };
 
@@ -37,6 +43,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     randomTag.Id,
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageTag);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
 
             // when
             EventEnvelope<Tag>? actualReplyEnvelope =
@@ -56,6 +66,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(requestEnvelope, storageTag),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidTagEventException);
             }
+            catch (UnauthorizedTagException unauthorizedTagException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedTagException);
+            }
             catch (NullTagException nullTagException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullTagException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedTagException unauthorizedTagException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedTagException);
             }
             catch (NullTagException nullTagException)
             {

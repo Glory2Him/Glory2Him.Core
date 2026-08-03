@@ -10,15 +10,104 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
     internal partial class TagService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedTagException(
+                    message: "The current user is not authenticated.");
+            }
+
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnly)
+                    || securityContext.Roles.Contains(Roles.TagReadOnly);
+
+            if (isBlocked)
+            {
+                throw new UnauthorizedTagException(
+                    message: "The current user is blocked from contributing tags.");
+            }
+        }
+
+        // the moderation roles that may act on and read non-public versions for review and
+        // audit (Reviewer, Publisher, Admin — global or Tag-scoped, §16.6)
+        private static bool HasReviewRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Reviewer)
+                || securityContext.Roles.Contains(Roles.TagReviewer)
+                || securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.TagPublisher)
+                || securityContext.Roles.Contains(Roles.Admin);
+
+        // row-level write permission: the owner or a review role may write the row — the
+        // narrower process rules stay in the orchestration (§14.6 altitude split)
+        private async ValueTask ValidateUserCanModifyStorageTagAsync(
+            Tag storageTag,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageTag.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                throw new UnauthorizedTagException(
+                    message: "The current user is not allowed to modify this tag.");
+            }
+        }
+
+        // removing a tag is a takedown, not a moderation step — the owner may remove
+        // their own tag and an Admin may remove anyone's; Reviewers and Publishers
+        // moderate through the approval workflow instead
+        private async ValueTask ValidateUserCanRemoveStorageTagAsync(
+            Tag storageTag,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageTag.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedTagException(
+                    message: "The current user is not allowed to remove this tag.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only
+        private static void ValidateUserCanHardRemoveTag(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedTagException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedTagException(
+                    message: "The current user is not allowed to permanently remove this tag.");
+            }
+        }
+
         private async ValueTask ValidateOnAddTagAsync(
             Tag tag,
             SecurityContext securityContext)
