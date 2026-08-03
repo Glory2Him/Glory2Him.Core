@@ -278,6 +278,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             filler.Setup()
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
+                // IsDeleted gates every read and remove path, so it is pinned here rather
+                // than drawn: a posture-sensitive test must never depend on the draw. Tests
+                // that want a soft-deleted row set it explicitly.
+                .OnProperty(bibleReference => bibleReference.IsDeleted).Use(false)
                 .OnProperty(bibleReference => bibleReference.CreatedBy).Use(userId)
                 .OnProperty(bibleReference => bibleReference.UpdatedBy).Use(userId);
 

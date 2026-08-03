@@ -280,6 +280,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingPublishe
                 .OnType<DateTimeOffset>().Use(dateTimeOffset)
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
                 .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.ApprovalSetting).IgnoreIt()
+                // IsDeleted gates every read and remove path, so it is pinned here rather
+                // than drawn: a posture-sensitive test must never depend on the draw. Tests
+                // that want a soft-deleted row set it explicitly.
+                .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.IsDeleted).Use(false)
                 .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.CreatedBy).Use(userId)
                 .OnProperty(approvalSettingPublisherRole => approvalSettingPublisherRole.UpdatedBy).Use(userId);
 

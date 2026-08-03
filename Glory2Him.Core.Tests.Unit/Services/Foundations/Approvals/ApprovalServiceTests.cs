@@ -282,6 +282,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 .OnType<DateTimeOffset?>().Use(dateTimeOffset)
                 .OnProperty(approval => approval.ApprovalComments).IgnoreIt()
                 .OnProperty(approval => approval.ApprovalReviews).IgnoreIt()
+                // IsDeleted gates every read and remove path, so it is pinned here rather
+                // than drawn: a posture-sensitive test must never depend on the draw. Tests
+                // that want a soft-deleted row set it explicitly.
+                .OnProperty(approval => approval.IsDeleted).Use(false)
                 .OnProperty(approval => approval.CreatedBy).Use(userId)
                 .OnProperty(approval => approval.UpdatedBy).Use(userId);
 
