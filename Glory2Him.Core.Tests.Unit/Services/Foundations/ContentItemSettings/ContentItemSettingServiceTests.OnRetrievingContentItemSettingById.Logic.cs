@@ -25,6 +25,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             // given
             ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
             ContentItemSetting storageContentItemSetting = randomContentItemSetting;
+            storageContentItemSetting.IsDeleted = false;
             ContentItemSetting expectedContentItemSetting = storageContentItemSetting;
 
             var requestEnvelope = new EventEnvelope<ContentItemSetting>

@@ -10,15 +10,48 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 {
     internal partial class ContentItemSettingService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        // content item settings are administrator-authored display configuration — a
+        // single Admin gate covers Add, Modify and Remove
+        private static void ValidateUserIsAllowedToAdministerContentItemSettings(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedContentItemSettingException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (HasAdminRole(securityContext) is false)
+            {
+                throw new UnauthorizedContentItemSettingException(
+                    message: "The current user is not allowed to administer content item settings.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only, same as
+        // every other content item setting write
+        private static void ValidateUserCanHardRemoveContentItemSetting(SecurityContext securityContext) =>
+            ValidateUserIsAllowedToAdministerContentItemSettings(securityContext);
+
+        // the only role that may write settings — there is no read counterpart: settings
+        // drive anonymous page rendering, so every non-deleted row is public (§14.1)
+        private static bool HasAdminRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Admin);
+
         private async ValueTask ValidateOnAddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,
             SecurityContext securityContext)

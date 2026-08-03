@@ -150,8 +150,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateContentItemSettingEventEnvelope(envelope);
 
-                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping
-                ContentItemSetting retrievedContentItemSetting = await RetrieveContentItemSettingByIdAsync(
+                // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
+                // shared do-work runs the visibility posture, so the event path cannot
+                // drift from the direct one
+                ContentItemSetting retrievedContentItemSetting = await DoRetrieveContentItemSettingByIdAsync(
                     contentItemSettingId: envelope.Content.Id,
                     cancellationToken: cancellationToken);
 
