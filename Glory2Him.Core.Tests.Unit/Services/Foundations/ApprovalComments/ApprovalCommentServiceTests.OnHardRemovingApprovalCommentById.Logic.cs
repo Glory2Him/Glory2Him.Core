@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
@@ -36,6 +37,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             var requestEnvelope = new EventEnvelope<ApprovalComment>
             {
                 Content = new ApprovalComment { Id = storageApprovalComment.Id },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

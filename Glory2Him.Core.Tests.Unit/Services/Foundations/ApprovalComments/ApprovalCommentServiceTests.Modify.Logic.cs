@@ -88,7 +88,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
+                Times.Exactly(2));
 
             this.dateTimeBrokerMock.Verify(broker =>
                     broker.GetCurrentDateTimeOffsetAsync(),

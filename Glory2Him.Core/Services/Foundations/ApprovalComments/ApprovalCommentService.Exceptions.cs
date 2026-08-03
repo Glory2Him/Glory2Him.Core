@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidApprovalCommentEventException);
             }
+            catch (UnauthorizedApprovalCommentException unauthorizedApprovalCommentException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalCommentException);
+            }
             catch (NullApprovalCommentException nullApprovalCommentException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullApprovalCommentException);
@@ -173,6 +177,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedApprovalCommentException unauthorizedApprovalCommentException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalCommentException);
             }
             catch (NullApprovalCommentException nullApprovalCommentException)
             {

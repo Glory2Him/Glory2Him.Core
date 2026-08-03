@@ -71,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             var requestEnvelope = new EventEnvelope<ApprovalComment>
             {
                 Content = new ApprovalComment { Id = Guid.Empty },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -134,6 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             var requestEnvelope = new EventEnvelope<ApprovalComment>
             {
                 Content = new ApprovalComment { Id = someApprovalCommentId },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

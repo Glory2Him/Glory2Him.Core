@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 {
@@ -34,7 +35,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — the
+    /// commenting gate on writes, owner-or-review-role write permission (removal by author or
+    /// Admin, hard removal by Admin only), and the §14.1/§14.5 read posture, under which a
+    /// review thread is never public and answers not found to anyone but its author and the
+    /// review roles — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ApprovalCommentService : IApprovalCommentService
     {
@@ -87,7 +92,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllApprovalCommentsAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ApprovalComment> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ApprovalComment());
+
+                IQueryable<ApprovalComment> allApprovalComments =
+                    await this.storageBroker.SelectAllApprovalCommentsAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    approvalComments: allApprovalComments,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ApprovalComment> RetrieveApprovalCommentByIdAsync(
@@ -96,14 +111,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveApprovalCommentById(approvalCommentId);
 
-                ApprovalComment maybeApprovalComment =
-                    await this.storageBroker.SelectApprovalCommentByIdAsync(approvalCommentId, cancellationToken);
+                var retrieveRequest = new ApprovalComment
+                {
+                    Id = approvalCommentId
+                };
 
-                ValidateStorageApprovalComment(maybeApprovalComment, approvalCommentId);
+                EventEnvelope<ApprovalComment> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeApprovalComment;
+                return await DoRetrieveApprovalCommentByIdAsync(
+                    approvalCommentId: approvalCommentId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ApprovalComment> ModifyApprovalCommentAsync(
@@ -168,11 +188,106 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: a review thread is never
+        // public, so a comment answers not-found — never unauthorized — to everyone but its
+        // author and the review roles, with the true denial reason logged server-side only
+        private async ValueTask<ApprovalComment> DoRetrieveApprovalCommentByIdAsync(
+            Guid approvalCommentId,
+            EventEnvelope<ApprovalComment> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveApprovalCommentById(approvalCommentId);
+
+            ApprovalComment maybeApprovalComment =
+                await this.storageBroker.SelectApprovalCommentByIdAsync(approvalCommentId, cancellationToken);
+
+            ValidateStorageApprovalComment(maybeApprovalComment, approvalCommentId);
+
+            if (maybeApprovalComment.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Approval comment read denied. Approval comment {approvalCommentId} is " +
+                        "soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundApprovalCommentException(
+                    message: $"Approval comment not found with id: {approvalCommentId}.");
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval comment read denied. Approval comment {approvalCommentId} is not " +
+                        "publicly readable and the caller is not authenticated; reported to " +
+                        "the caller as not found.");
+
+                throw new NotFoundApprovalCommentException(
+                    message: $"Approval comment not found with id: {approvalCommentId}.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeApprovalComment.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Approval comment read denied. Approval comment {approvalCommentId} " +
+                        $"is not publicly readable and user \"{actorUserId}\" is neither the " +
+                        "author nor in a review role; reported to the caller as not found.");
+
+                throw new NotFoundApprovalCommentException(
+                    message: $"Approval comment not found with id: {approvalCommentId}.");
+            }
+
+            return maybeApprovalComment;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many comments a review thread holds
+        private async ValueTask<IQueryable<ApprovalComment>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<ApprovalComment> approvalComments,
+            SecurityContext? securityContext)
+        {
+            IQueryable<ApprovalComment> visibleApprovalComments = approvalComments.Where(approvalComment =>
+                approvalComment.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            // an anonymous caller owns nothing and reviews nothing, so the whole set is
+            // filtered away rather than refused — a read still reveals no row count
+            if (isAuthenticated is false)
+            {
+                return Enumerable.Empty<ApprovalComment>().AsQueryable();
+            }
+
+            if (HasReviewRole(securityContext!))
+            {
+                return visibleApprovalComments;
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext!);
+
+            bool includeOwnApprovalComments = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleApprovalComments.Where(approvalComment =>
+                includeOwnApprovalComments && approvalComment.CreatedBy == actorUserId);
+        }
+
         private async ValueTask<ApprovalComment> DoAddApprovalCommentAsync(
             ApprovalComment approvalComment,
             EventEnvelope<ApprovalComment> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToComment(inboundEnvelope.SecurityContext);
+
             approvalComment = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: approvalComment, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +325,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             EventEnvelope<ApprovalComment> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToComment(inboundEnvelope.SecurityContext);
+
             approvalComment = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: approvalComment, securityContext: inboundEnvelope.SecurityContext);
 
@@ -222,6 +339,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 cancellationToken: cancellationToken);
 
             ValidateStorageApprovalComment(maybeApprovalComment, approvalCommentId: approvalComment.Id);
+
+            await ValidateUserCanModifyStorageApprovalCommentAsync(
+                storageApprovalComment: maybeApprovalComment,
+                securityContext: inboundEnvelope.SecurityContext);
 
             approvalComment = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -263,12 +384,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             EventEnvelope<ApprovalComment> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToComment(inboundEnvelope.SecurityContext);
             ValidateOnRemoveApprovalCommentById(approvalCommentId);
 
             ApprovalComment maybeApprovalComment =
                 await this.storageBroker.SelectApprovalCommentByIdAsync(approvalCommentId, cancellationToken);
 
             ValidateStorageApprovalComment(maybeApprovalComment, approvalCommentId);
+
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            await ValidateUserCanRemoveStorageApprovalCommentAsync(
+                storageApprovalComment: maybeApprovalComment,
+                securityContext: inboundEnvelope.SecurityContext);
 
             if (maybeApprovalComment.IsDeleted)
                 return maybeApprovalComment;
@@ -312,6 +440,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             EventEnvelope<ApprovalComment> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveApprovalComment(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveApprovalCommentById(approvalCommentId);
 
             ApprovalComment maybeApprovalComment =

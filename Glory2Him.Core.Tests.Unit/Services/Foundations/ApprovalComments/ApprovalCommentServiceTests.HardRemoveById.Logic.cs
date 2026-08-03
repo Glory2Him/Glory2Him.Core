@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
@@ -28,6 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldHardRemoveApprovalCommentByIdAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalComment randomApprovalComment = CreateRandomApprovalComment();
             ApprovalComment storageApprovalComment = randomApprovalComment;
             ApprovalComment expectedApprovalComment = storageApprovalComment.DeepClone();

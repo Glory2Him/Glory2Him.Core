@@ -237,6 +237,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                         .ReturnsAsync(someApprovalComment);
 
             this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(someApprovalComment.CreatedBy);
+
+            this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(someApprovalComment, It.IsAny<SecurityContext>()))
                     .ReturnsAsync(someApprovalComment);
 
@@ -264,6 +268,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.SelectApprovalCommentByIdAsync(
                     someApprovalCommentId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>

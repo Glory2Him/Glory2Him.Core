@@ -43,6 +43,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     Id = storageApprovalComment.Id,
                     DeletionReason = randomDeletionReason
                 },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -58,6 +59,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     storageApprovalComment.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageApprovalComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(storageApprovalComment.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(storageApprovalComment, It.IsAny<SecurityContext>()))
@@ -99,6 +104,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.SelectApprovalCommentByIdAsync(
                     storageApprovalComment.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -188,6 +197,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             var requestEnvelope = new EventEnvelope<ApprovalComment>
             {
                 Content = new ApprovalComment { Id = alreadyDeletedApprovalComment.Id },
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -203,6 +213,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     alreadyDeletedApprovalComment.Id,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(alreadyDeletedApprovalComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(alreadyDeletedApprovalComment.CreatedBy);
 
             // when
             EventEnvelope<ApprovalComment>? actualReplyEnvelope =
@@ -226,6 +240,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 broker.SelectApprovalCommentByIdAsync(
                     alreadyDeletedApprovalComment.Id,
                     It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();

@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalCommentService approvalCommentService;
+        private SecurityContext ambientSecurityContext;
 
         public ApprovalCommentServiceTests()
         {
@@ -55,6 +57,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
+            // the ambient caller the envelope broker captures on the direct path — tests
+            // override this field (before acting) to run as a different caller
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<ApprovalComment>()))
                     .Returns((ApprovalComment content) =>
@@ -62,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                             new EventEnvelope<ApprovalComment>
                             {
                                 Content = content,
+                                SecurityContext = this.ambientSecurityContext,
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
@@ -74,6 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                                 new EventEnvelope<ApprovalComment>
                                 {
                                     Content = content,
+                                    SecurityContext = sourceEnvelope.SecurityContext,
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
@@ -120,6 +128,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 randomTimeInPast
             };
         }
+
+        public static TheoryData<SecurityContext> UnauthenticatedSecurityContexts() =>
+            new TheoryData<SecurityContext>
+            {
+                null,
+                new SecurityContext { IsAuthenticated = false }
+            };
+
+        public static TheoryData<string[]> NonAdminRoleSets() =>
+            new TheoryData<string[]>
+            {
+                new string[0],
+                new[] { Roles.Reviewer }
+            };
+
+        // the review roles a workflow record honors: the global three, plus — by the §16.6
+        // suffix convention — any entity-scoped "{Entity}-Reviewer"/"{Entity}-Publisher"
+        public static TheoryData<string> ReviewRoles() =>
+            new TheoryData<string>
+            {
+                Roles.Reviewer,
+                Roles.Publisher,
+                Roles.Admin,
+                Roles.ContentItemReviewer,
+                Roles.ContentItemPublisher
+            };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
         {
@@ -199,11 +233,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         private static ApprovalComment CreateRandomApprovalComment() =>
             CreateApprovalCommentFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        private static EventEnvelope<ApprovalComment> CreateRandomApprovalCommentRequestEnvelope() =>
+        private static EventEnvelope<ApprovalComment> CreateRandomApprovalCommentRequestEnvelope(
+            SecurityContext? securityContext = null) =>
             new EventEnvelope<ApprovalComment>
             {
                 Content = new ApprovalComment { Id = Guid.NewGuid() },
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+        private static SecurityContext CreateAuthenticatedSecurityContext(params string[] roles) =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = roles
             };
 
         private static ApprovalComment CreateRandomModifyApprovalComment(
