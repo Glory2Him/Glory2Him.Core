@@ -68,6 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // given
             var invalidEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = new Comment { Id = Guid.NewGuid() },
                 Metadata = null!
             };
@@ -113,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // given
             var invalidEnvelope = new EventEnvelope<Comment>
             {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
                 Content = null!,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
