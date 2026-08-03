@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -10,9 +10,12 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.Exceptions;
 using Moq;
 
@@ -24,6 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             var invalidApprovalSettingReviewerRoleId = Guid.Empty;
 
             var invalidApprovalSettingReviewerRoleException = new InvalidApprovalSettingReviewerRoleException(
@@ -67,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfApprovalSettingReviewerRoleNotFoundAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
             ApprovalSettingReviewerRole noApprovalSettingReviewerRole = null;
 
@@ -115,5 +120,137 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
+
+            var unauthorizedApprovalSettingReviewerRoleException = new UnauthorizedApprovalSettingReviewerRoleException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingReviewerRoleException);
+
+            // when
+            ValueTask<ApprovalSettingReviewerRole> removeApprovalSettingReviewerRoleByIdTask =
+                this.approvalSettingReviewerRoleService.RemoveApprovalSettingReviewerRoleByIdAsync(
+                    someApprovalSettingReviewerRoleId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    removeApprovalSettingReviewerRoleByIdTask.AsTask);
+
+            // then
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            Guid someApprovalSettingReviewerRoleId = Guid.NewGuid();
+
+            var unauthorizedApprovalSettingReviewerRoleException = new UnauthorizedApprovalSettingReviewerRoleException(
+                message: "The current user is not allowed to administer approval setting reviewer roles.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingReviewerRoleException);
+
+            // when
+            ValueTask<ApprovalSettingReviewerRole> removeApprovalSettingReviewerRoleByIdTask =
+                this.approvalSettingReviewerRoleService.RemoveApprovalSettingReviewerRoleByIdAsync(
+                    someApprovalSettingReviewerRoleId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    removeApprovalSettingReviewerRoleByIdTask.AsTask);
+
+            // then
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAdminEvenWhenAlreadyDeletedAndLogItAsync()
+        {
+            // given: the gate runs before the idempotent short-circuit, so an
+            // unauthorized caller never learns the row's deletion state
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            ApprovalSettingReviewerRole alreadyDeletedApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
+            alreadyDeletedApprovalSettingReviewerRole.IsDeleted = true;
+            Guid someApprovalSettingReviewerRoleId = alreadyDeletedApprovalSettingReviewerRole.Id;
+
+            var unauthorizedApprovalSettingReviewerRoleException = new UnauthorizedApprovalSettingReviewerRoleException(
+                message: "The current user is not allowed to administer approval setting reviewer roles.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingReviewerRoleException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalSettingReviewerRoleByIdAsync(
+                    someApprovalSettingReviewerRoleId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(alreadyDeletedApprovalSettingReviewerRole);
+
+            // when
+            ValueTask<ApprovalSettingReviewerRole> removeApprovalSettingReviewerRoleByIdTask =
+                this.approvalSettingReviewerRoleService.RemoveApprovalSettingReviewerRoleByIdAsync(
+                    someApprovalSettingReviewerRoleId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    removeApprovalSettingReviewerRoleByIdTask.AsTask);
+
+            // then: storage is never even read
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

@@ -10,15 +10,50 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
 {
     internal partial class ApprovalSettingReviewerRoleService
     {
+        // the foundation enforces the same security rules as the orchestration (design
+        // §14.6): an exposer may bind to either service directly, so no layer may assume
+        // an upstream layer already gated the caller
+
+        // approval setting reviewer roles are approval policy configuration authored by
+        // administrators only — a single Admin gate covers Add, Modify and Remove
+        private static void ValidateUserIsAllowedToAdministerApprovalSettingReviewerRoles(
+            SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedApprovalSettingReviewerRoleException(
+                    message: "The current user is not authenticated.");
+            }
+
+            if (HasAdminRole(securityContext) is false)
+            {
+                throw new UnauthorizedApprovalSettingReviewerRoleException(
+                    message: "The current user is not allowed to administer approval setting reviewer roles.");
+            }
+        }
+
+        // a hard remove destroys the row and its audit trail — Admin only, same as
+        // every other approval setting reviewer role write
+        private static void ValidateUserCanHardRemoveApprovalSettingReviewerRole(SecurityContext securityContext) =>
+            ValidateUserIsAllowedToAdministerApprovalSettingReviewerRoles(securityContext);
+
+        // the only role that may write approval policy (§16.6) — reads need no role at
+        // all, only an authenticated caller, because the rules a submission is judged by
+        // are visible to everyone who may submit
+        private static bool HasAdminRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Admin);
+
         private async ValueTask ValidateOnAddApprovalSettingReviewerRoleAsync(
             ApprovalSettingReviewerRole approvalSettingReviewerRole,
             SecurityContext securityContext)

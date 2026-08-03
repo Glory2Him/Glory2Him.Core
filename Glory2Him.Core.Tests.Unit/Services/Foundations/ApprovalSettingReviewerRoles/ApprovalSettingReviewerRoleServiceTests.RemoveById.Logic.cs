@@ -18,6 +18,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
 
@@ -29,6 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldRemoveApprovalSettingReviewerRoleByIdAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole randomApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             randomApprovalSettingReviewerRole.IsDeleted = false;
             ApprovalSettingReviewerRole storageApprovalSettingReviewerRole = randomApprovalSettingReviewerRole;
@@ -112,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldRemoveApprovalSettingReviewerRoleByIdWithDeletionReasonAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string someDeletionReason = GetRandomString();
             ApprovalSettingReviewerRole randomApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             randomApprovalSettingReviewerRole.IsDeleted = false;
@@ -197,6 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldReturnEarlyOnRemoveByIdIfAlreadyDeletedAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole alreadyDeletedApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             alreadyDeletedApprovalSettingReviewerRole.IsDeleted = true;
             Guid someApprovalSettingReviewerRoleId = alreadyDeletedApprovalSettingReviewerRole.Id;

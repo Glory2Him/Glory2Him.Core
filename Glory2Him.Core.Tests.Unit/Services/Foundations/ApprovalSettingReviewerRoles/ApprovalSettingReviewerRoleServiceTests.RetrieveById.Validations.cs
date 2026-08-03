@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -12,7 +12,9 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.Exceptions;
 using Moq;
 
@@ -103,6 +105,131 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
                 broker.SelectApprovalSettingReviewerRoleByIdAsync(
                     someApprovalSettingReviewerRoleId,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfApprovalSettingReviewerRoleIsSoftDeletedAndLogItAsync()
+        {
+            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // deleted beats privilege
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            ApprovalSettingReviewerRole storageApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
+            storageApprovalSettingReviewerRole.IsDeleted = true;
+            Guid approvalSettingReviewerRoleId = storageApprovalSettingReviewerRole.Id;
+
+            var notFoundApprovalSettingReviewerRoleException = new NotFoundApprovalSettingReviewerRoleException(
+                message: $"Approval setting reviewer role not found with id: {approvalSettingReviewerRoleId}.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: notFoundApprovalSettingReviewerRoleException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalSettingReviewerRoleByIdAsync(
+                    approvalSettingReviewerRoleId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalSettingReviewerRole);
+
+            // when
+            ValueTask<ApprovalSettingReviewerRole> retrieveApprovalSettingReviewerRoleByIdTask =
+                this.approvalSettingReviewerRoleService.RetrieveApprovalSettingReviewerRoleByIdAsync(
+                    approvalSettingReviewerRoleId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    retrieveApprovalSettingReviewerRoleByIdTask.AsTask);
+
+            // then
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalSettingReviewerRoleByIdAsync(
+                    approvalSettingReviewerRoleId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(
+                    "Approval setting reviewer role read denied. Approval setting reviewer role " +
+                        $"{approvalSettingReviewerRoleId} is soft-deleted; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given: approval policy has no public face — an anonymous caller is told
+            // not-found, never unauthorized
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalSettingReviewerRole storageApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
+            storageApprovalSettingReviewerRole.IsDeleted = false;
+            Guid approvalSettingReviewerRoleId = storageApprovalSettingReviewerRole.Id;
+
+            var notFoundApprovalSettingReviewerRoleException = new NotFoundApprovalSettingReviewerRoleException(
+                message: $"Approval setting reviewer role not found with id: {approvalSettingReviewerRoleId}.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: notFoundApprovalSettingReviewerRoleException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalSettingReviewerRoleByIdAsync(
+                    approvalSettingReviewerRoleId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalSettingReviewerRole);
+
+            // when
+            ValueTask<ApprovalSettingReviewerRole> retrieveApprovalSettingReviewerRoleByIdTask =
+                this.approvalSettingReviewerRoleService.RetrieveApprovalSettingReviewerRoleByIdAsync(
+                    approvalSettingReviewerRoleId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    retrieveApprovalSettingReviewerRoleByIdTask.AsTask);
+
+            // then
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalSettingReviewerRoleByIdAsync(
+                    approvalSettingReviewerRoleId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    "Approval setting reviewer role read denied. Approval setting reviewer role " +
+                        $"{approvalSettingReviewerRoleId} is only readable by an authenticated caller and the " +
+                        "caller is not authenticated; reported to the caller as not found."),
                 Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>

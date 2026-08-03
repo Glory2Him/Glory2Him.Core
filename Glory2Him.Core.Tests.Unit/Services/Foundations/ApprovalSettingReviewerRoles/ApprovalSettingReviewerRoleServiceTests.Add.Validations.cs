@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.Exceptions;
 using Moq;
 
@@ -25,6 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnAddIfApprovalSettingReviewerRoleIsNullAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             ApprovalSettingReviewerRole nullApprovalSettingReviewerRole = null;
 
             var nullApprovalSettingReviewerRoleException =
@@ -69,6 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
             string invalidText)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             DateTimeOffset startDate = randomDateTimeOffset.AddSeconds(-90);
             DateTimeOffset endDate = randomDateTimeOffset;
@@ -181,6 +184,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnAddIfApprovalSettingReviewerRoleRoleNameExceedsMaxLengthAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -266,6 +270,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedWhenIsNotSameAsCreatedWhenAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSettingReviewerRole randomApprovalSettingReviewerRole = CreateApprovalSettingReviewerRoleFiller(randomDateTimeOffset, randomUserId).Create();
@@ -339,6 +344,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedByIsNotSameAsCurrentUserIdAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             string differentUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -414,6 +420,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedByIsNotSameAsCreatedByAndLogItAsync()
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSettingReviewerRole randomApprovalSettingReviewerRole = CreateApprovalSettingReviewerRoleFiller(randomDateTimeOffset, randomUserId).Create();
@@ -488,6 +495,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedWhenIsNotRecentAndLogItAsync(int minutes)
         {
             // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSettingReviewerRole randomApprovalSettingReviewerRole = CreateApprovalSettingReviewerRoleFiller(randomDateTimeOffset, randomUserId).Create();
@@ -549,6 +557,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
             this.dateTimeBrokerMock.Verify(broker =>
                 broker.GetCurrentDateTimeOffsetAsync(),
                 Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(UnauthenticatedSecurityContexts))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAuthenticatedAndLogItAsync(
+            SecurityContext invalidSecurityContext)
+        {
+            // given
+            this.ambientSecurityContext = invalidSecurityContext;
+            ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
+
+            var unauthorizedApprovalSettingReviewerRoleException = new UnauthorizedApprovalSettingReviewerRoleException(
+                message: "The current user is not authenticated.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingReviewerRoleException);
+
+            // when
+            ValueTask<ApprovalSettingReviewerRole> addApprovalSettingReviewerRoleTask =
+                this.approvalSettingReviewerRoleService.AddApprovalSettingReviewerRoleAsync(
+                    someApprovalSettingReviewerRole,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    addApprovalSettingReviewerRoleTask.AsTask);
+
+            // then
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(NonAdminRoleSets))]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIsNotAdminAndLogItAsync(
+            string[] nonAdminRoles)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(nonAdminRoles);
+            ApprovalSettingReviewerRole someApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
+
+            var unauthorizedApprovalSettingReviewerRoleException = new UnauthorizedApprovalSettingReviewerRoleException(
+                message: "The current user is not allowed to administer approval setting reviewer roles.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingReviewerRoleException);
+
+            // when
+            ValueTask<ApprovalSettingReviewerRole> addApprovalSettingReviewerRoleTask =
+                this.approvalSettingReviewerRoleService.AddApprovalSettingReviewerRoleAsync(
+                    someApprovalSettingReviewerRole,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    addApprovalSettingReviewerRoleTask.AsTask);
+
+            // then
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

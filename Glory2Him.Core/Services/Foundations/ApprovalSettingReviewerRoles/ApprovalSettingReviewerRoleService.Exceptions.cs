@@ -64,6 +64,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: invalidApprovalSettingReviewerRoleEventException);
             }
+            catch (UnauthorizedApprovalSettingReviewerRoleException unauthorizedApprovalSettingReviewerRoleException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalSettingReviewerRoleException);
+            }
             catch (NullApprovalSettingReviewerRoleException nullApprovalSettingReviewerRoleException)
             {
                 throw await CreateAndLogValidationExceptionAsync(exception: nullApprovalSettingReviewerRoleException);
@@ -171,6 +175,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (UnauthorizedApprovalSettingReviewerRoleException unauthorizedApprovalSettingReviewerRoleException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(exception: unauthorizedApprovalSettingReviewerRoleException);
             }
             catch (NullApprovalSettingReviewerRoleException nullApprovalSettingReviewerRoleException)
             {

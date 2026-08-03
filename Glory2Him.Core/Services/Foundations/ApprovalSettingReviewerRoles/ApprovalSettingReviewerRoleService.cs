@@ -24,6 +24,7 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
+using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles.Exceptions;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
 {
@@ -34,7 +35,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
     /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
-    /// causation chain.
+    /// causation chain. Per design §14.6 the foundation enforces security itself — approval
+    /// setting reviewer roles are approval policy configuration, so every write (including
+    /// hard removal) is Admin only, while the §14.1/§14.5 read posture answers not-found for
+    /// soft-deleted rows and for callers who are not authenticated — every signed-in caller
+    /// may read the policy they submit under — never assuming an upstream orchestration
+    /// already gated the caller.
     /// </summary>
     internal partial class ApprovalSettingReviewerRoleService : IApprovalSettingReviewerRoleService
     {
@@ -87,7 +93,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                return await this.storageBroker.SelectAllApprovalSettingReviewerRolesAsync(cancellationToken);
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<ApprovalSettingReviewerRole> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new ApprovalSettingReviewerRole());
+
+                IQueryable<ApprovalSettingReviewerRole> allApprovalSettingReviewerRoles =
+                    await this.storageBroker.SelectAllApprovalSettingReviewerRolesAsync(cancellationToken);
+
+                return ApplyCollectionReadVisibilityFilter(
+                    approvalSettingReviewerRoles: allApprovalSettingReviewerRoles,
+                    securityContext: envelope.SecurityContext);
             });
 
         public ValueTask<ApprovalSettingReviewerRole> RetrieveApprovalSettingReviewerRoleByIdAsync(
@@ -96,14 +112,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnRetrieveApprovalSettingReviewerRoleById(approvalSettingReviewerRoleId);
 
-                ApprovalSettingReviewerRole maybeApprovalSettingReviewerRole =
-                    await this.storageBroker.SelectApprovalSettingReviewerRoleByIdAsync(approvalSettingReviewerRoleId, cancellationToken);
+                var retrieveRequest = new ApprovalSettingReviewerRole
+                {
+                    Id = approvalSettingReviewerRoleId
+                };
 
-                ValidateStorageApprovalSettingReviewerRole(maybeApprovalSettingReviewerRole, approvalSettingReviewerRoleId);
+                EventEnvelope<ApprovalSettingReviewerRole> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
-                return maybeApprovalSettingReviewerRole;
+                return await DoRetrieveApprovalSettingReviewerRoleByIdAsync(
+                    approvalSettingReviewerRoleId: approvalSettingReviewerRoleId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<ApprovalSettingReviewerRole> ModifyApprovalSettingReviewerRoleAsync(
@@ -168,11 +189,76 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
                     cancellationToken: cancellationToken);
             });
 
+        // the shared read posture of design §14.1/§14.5/§14.6: approval policy has no
+        // public face — a soft-deleted row and an unauthenticated caller both answer
+        // not-found, never unauthorized, with the true denial reason logged server-side
+        // only; every authenticated caller may read the rules their submissions are
+        // judged by, so there is no role branch here
+        private async ValueTask<ApprovalSettingReviewerRole> DoRetrieveApprovalSettingReviewerRoleByIdAsync(
+            Guid approvalSettingReviewerRoleId,
+            EventEnvelope<ApprovalSettingReviewerRole> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveApprovalSettingReviewerRoleById(approvalSettingReviewerRoleId);
+
+            ApprovalSettingReviewerRole maybeApprovalSettingReviewerRole =
+                await this.storageBroker.SelectApprovalSettingReviewerRoleByIdAsync(approvalSettingReviewerRoleId, cancellationToken);
+
+            ValidateStorageApprovalSettingReviewerRole(maybeApprovalSettingReviewerRole, approvalSettingReviewerRoleId);
+
+            if (maybeApprovalSettingReviewerRole.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: "Approval setting reviewer role read denied. Approval setting reviewer role " +
+                        $"{approvalSettingReviewerRoleId} is soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundApprovalSettingReviewerRoleException(
+                    message: $"Approval setting reviewer role not found with id: {approvalSettingReviewerRoleId}.");
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: "Approval setting reviewer role read denied. Approval setting reviewer role " +
+                        $"{approvalSettingReviewerRoleId} is only readable by an authenticated caller and the " +
+                        "caller is not authenticated; reported to the caller as not found.");
+
+                throw new NotFoundApprovalSettingReviewerRoleException(
+                    message: $"Approval setting reviewer role not found with id: {approvalSettingReviewerRoleId}.");
+            }
+
+            return maybeApprovalSettingReviewerRole;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many rows exist — an anonymous caller reads an empty set. No broker work
+        // is needed to decide this, so the filter stays synchronous.
+        private static IQueryable<ApprovalSettingReviewerRole> ApplyCollectionReadVisibilityFilter(
+            IQueryable<ApprovalSettingReviewerRole> approvalSettingReviewerRoles,
+            SecurityContext? securityContext)
+        {
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated is false)
+            {
+                return Enumerable.Empty<ApprovalSettingReviewerRole>().AsQueryable();
+            }
+
+            return approvalSettingReviewerRoles.Where(approvalSettingReviewerRole =>
+                approvalSettingReviewerRole.IsDeleted == false);
+        }
+
         private async ValueTask<ApprovalSettingReviewerRole> DoAddApprovalSettingReviewerRoleAsync(
             ApprovalSettingReviewerRole approvalSettingReviewerRole,
             EventEnvelope<ApprovalSettingReviewerRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerApprovalSettingReviewerRoles(inboundEnvelope.SecurityContext);
+
             approvalSettingReviewerRole = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: approvalSettingReviewerRole, securityContext: inboundEnvelope.SecurityContext);
 
@@ -210,6 +296,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
             EventEnvelope<ApprovalSettingReviewerRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserIsAllowedToAdministerApprovalSettingReviewerRoles(inboundEnvelope.SecurityContext);
+
             approvalSettingReviewerRole = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: approvalSettingReviewerRole, securityContext: inboundEnvelope.SecurityContext);
 
@@ -263,6 +351,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
             EventEnvelope<ApprovalSettingReviewerRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            // the gate comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            ValidateUserIsAllowedToAdministerApprovalSettingReviewerRoles(inboundEnvelope.SecurityContext);
             ValidateOnRemoveApprovalSettingReviewerRoleById(approvalSettingReviewerRoleId);
 
             ApprovalSettingReviewerRole maybeApprovalSettingReviewerRole =
@@ -312,6 +403,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles
             EventEnvelope<ApprovalSettingReviewerRole> inboundEnvelope,
             CancellationToken cancellationToken)
         {
+            ValidateUserCanHardRemoveApprovalSettingReviewerRole(inboundEnvelope.SecurityContext);
             ValidateOnHardRemoveApprovalSettingReviewerRoleById(approvalSettingReviewerRoleId);
 
             ApprovalSettingReviewerRole maybeApprovalSettingReviewerRole =

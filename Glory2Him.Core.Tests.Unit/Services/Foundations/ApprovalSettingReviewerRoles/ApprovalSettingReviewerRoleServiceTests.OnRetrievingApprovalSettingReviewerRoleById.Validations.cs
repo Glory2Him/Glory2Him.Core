@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -66,7 +66,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
             // given
             var requestEnvelope = new EventEnvelope<ApprovalSettingReviewerRole>
             {
-                Content = new ApprovalSettingReviewerRole { Id = Guid.NewGuid() }
+                Content = new ApprovalSettingReviewerRole { Id = Guid.NewGuid() },
+                SecurityContext = CreateAuthenticatedSecurityContext()
             };
 
             this.storageBrokerMock.Setup(broker =>
@@ -91,6 +92,65 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
                 .Should().BeOfType<NotFoundApprovalSettingReviewerRoleException>();
 
             this.eventBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRetrievingApprovalSettingReviewerRoleByIdEventWhenCallerIsNotAuthenticatedAsync()
+        {
+            // given: the event path runs the same read posture against the REQUEST
+            // envelope's caller — an anonymous request is answered not-found
+            ApprovalSettingReviewerRole storageApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
+            storageApprovalSettingReviewerRole.IsDeleted = false;
+
+            var requestEnvelope = new EventEnvelope<ApprovalSettingReviewerRole>
+            {
+                Content = new ApprovalSettingReviewerRole { Id = storageApprovalSettingReviewerRole.Id },
+                SecurityContext = new SecurityContext { IsAuthenticated = false },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            var notFoundApprovalSettingReviewerRoleException = new NotFoundApprovalSettingReviewerRoleException(
+                message: $"Approval setting reviewer role not found with id: {storageApprovalSettingReviewerRole.Id}.");
+
+            var expectedApprovalSettingReviewerRoleValidationException = new ApprovalSettingReviewerRoleValidationException(
+                message: "Approval setting reviewer role validation error occurred, fix the errors and try again.",
+                innerException: notFoundApprovalSettingReviewerRoleException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalSettingReviewerRoleByIdAsync(
+                    storageApprovalSettingReviewerRole.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalSettingReviewerRole);
+
+            // when
+            ValueTask<EventEnvelope<ApprovalSettingReviewerRole>?> onRetrieveTask =
+                this.approvalSettingReviewerRoleService.OnRetrievingApprovalSettingReviewerRoleByIdAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingReviewerRoleValidationException actualApprovalSettingReviewerRoleValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingReviewerRoleValidationException>(
+                    onRetrieveTask.AsTask);
+
+            // then
+            actualApprovalSettingReviewerRoleValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingReviewerRoleValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogWarningAsync(
+                    "Approval setting reviewer role read denied. Approval setting reviewer role " +
+                        $"{storageApprovalSettingReviewerRole.Id} is only readable by an authenticated caller and the " +
+                        "caller is not authenticated; reported to the caller as not found."),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingReviewerRoleValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }
 }

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -22,14 +22,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettingReviewer
         [Fact]
         public async Task ShouldReplyWithApprovalSettingReviewerRoleOnRetrievingApprovalSettingReviewerRoleByIdEventAsync()
         {
-            // given
+            // given: the shared do-work runs the read posture against the request
+            // envelope's caller — an authenticated caller reads a non-deleted row
             ApprovalSettingReviewerRole randomApprovalSettingReviewerRole = CreateRandomApprovalSettingReviewerRole();
             ApprovalSettingReviewerRole storageApprovalSettingReviewerRole = randomApprovalSettingReviewerRole;
+            storageApprovalSettingReviewerRole.IsDeleted = false;
             ApprovalSettingReviewerRole expectedApprovalSettingReviewerRole = storageApprovalSettingReviewerRole;
 
             var requestEnvelope = new EventEnvelope<ApprovalSettingReviewerRole>
             {
-                Content = new ApprovalSettingReviewerRole { Id = randomApprovalSettingReviewerRole.Id }
+                Content = new ApprovalSettingReviewerRole { Id = randomApprovalSettingReviewerRole.Id },
+                SecurityContext = CreateAuthenticatedSecurityContext()
             };
 
             this.storageBrokerMock.Setup(broker =>
