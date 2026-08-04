@@ -15,7 +15,6 @@ using Glory2Him.WebApp.Brokers.Identities;
 using Glory2Him.WebApp.Brokers.Images;
 using Glory2Him.WebApp.Brokers.Loggings;
 using Glory2Him.WebApp.Brokers.Profiles;
-using Glory2Him.WebApp.Components.Account;
 using Glory2Him.WebApp.Data;
 using Glory2Him.WebApp.Models.Foundations.Roles;
 using Glory2Him.WebApp.Models.Foundations.Users;
@@ -25,7 +24,6 @@ using Glory2Him.WebApp.Services.Views.Products;
 using Glory2Him.WebApp.Services.Views.Profiles;
 using Glory2Him.WebApp.Services.Views.Registrations;
 using Glory2Him.WebApp.Services.Views.Users;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,12 +55,7 @@ namespace Glory2Him.WebApp.Infrastructure
                     ?? throw new InvalidOperationException(
                         "Missing connection string 'Glory2HimSecurityConnection'.");
 
-            services.AddCascadingAuthenticationState();
-            services.AddScoped<IdentityRedirectManager>();
-
-            services.AddScoped<
-                AuthenticationStateProvider,
-                IdentityRevalidatingAuthenticationStateProvider>();
+            services.AddAuthorization();
 
             services.AddAuthentication(options =>
             {
@@ -70,6 +63,40 @@ namespace Glory2Him.WebApp.Infrastructure
                 options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
             })
                 .AddIdentityCookies();
+
+            // The React SPA consumes /api/* with fetch: an expired or missing cookie must
+            // surface as 401/403 JSON-style status codes there, not as a 302 redirect to
+            // the login page (which axios would follow and hand the SPA an HTML document).
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    if (context.Request.Path.StartsWithSegments("/api"))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    }
+                    else
+                    {
+                        context.Response.Redirect(context.RedirectUri);
+                    }
+
+                    return Task.CompletedTask;
+                };
+
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    if (context.Request.Path.StartsWithSegments("/api"))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    }
+                    else
+                    {
+                        context.Response.Redirect(context.RedirectUri);
+                    }
+
+                    return Task.CompletedTask;
+                };
+            });
 
             void ConfigureSecurityDb(DbContextOptionsBuilder options) =>
                 options.UseSqlServer(

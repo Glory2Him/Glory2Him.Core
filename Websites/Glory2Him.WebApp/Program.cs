@@ -9,16 +9,13 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using Glory2Him.WebApp.Components;
 using Glory2Him.WebApp.Data;
 using Glory2Him.WebApp.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
-
+// Add services to the container. The UI is the React SPA (Glory2Him.WebApp.React):
+// this host serves its static build output plus the cookie-authenticated JSON APIs.
 builder.Services.AddPortalIdentity(builder.Configuration);
 builder.Services.AddPortalBrokers();
 builder.Services.AddPortalViewServices();
@@ -28,22 +25,38 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
+    // API errors surface as plain 500s (no HTML error page — the SPA owns the UI).
+    app.UseExceptionHandler(exceptionHandler =>
+        exceptionHandler.Run(httpContext =>
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            return Task.CompletedTask;
+        }));
+
     // The default HSTS value is 30 days. You may want to change this for production scenarios,
     // see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/Not-Found", createScopeForStatusCodePages: true);
+
 app.UseHttpsRedirection();
 
-app.UseAntiforgery();
+// Serve the React SPA build (published into wwwroot alongside the Blogzine assets) —
+// deep links fall back to index.html so client-side routing owns every non-API path.
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
-app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+app.UseAuthentication();
+app.UseAuthorization();
 
-// Add additional endpoints required by the Identity /Account Razor components.
-app.MapAdditionalIdentityEndpoints();
+// Cookie-authenticated JSON endpoints consumed by the React SPA (Glory2Him.WebApp.React).
+app.MapAccountApiEndpoints();
+app.MapRegistrationApiEndpoints();
+app.MapPasskeyApiEndpoints();
+app.MapPostApiEndpoints();
+app.MapProductApiEndpoints();
+app.MapUserAdminApiEndpoints();
+app.MapProfileApiEndpoints();
+app.MapManageAccountApiEndpoints();
 
 // Serves a user's stored profile avatar (or 404 → the UI falls back to an initials avatar).
 // The URL carries a content-hash version (?v=), so the image is safely long-cached and busts
@@ -66,6 +79,11 @@ app.MapGet("/Profile-Image/{userId:guid}", async (
 
     return Results.Bytes(image.Bytes, image.ContentType);
 });
+
+// Client-side routing owns every path no endpoint claimed — except /api, where an
+// unknown route must stay a 404 rather than serving the SPA document.
+app.MapFallback("/api/{**unmatchedApiPath}", () => Results.NotFound());
+app.MapFallbackToFile("index.html");
 
 // A seed failure (e.g. a transient LocalDB cold-start error) is retried a few times so it can
 // self-heal in-process; after the final attempt it is logged but must not stop the app from

@@ -4,11 +4,14 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <SpaRoot>..\Glory2Him.WebApp.React</SpaRoot>
+    <SpaProxyLaunchCommand>npm run dev</SpaProxyLaunchCommand>
+    <SpaProxyServerUrl>https://localhost:6080</SpaProxyServerUrl>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
+    <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.10">
       <PrivateAssets>all</PrivateAssets>
@@ -18,5 +21,20 @@
     <PackageReference Include="SkiaSharp" Version="4.150.1" />
     <PackageReference Include="Xeption" Version="2.9.0" />
   </ItemGroup>
+
+  <!-- Publish builds the React SPA and ships its dist output inside wwwroot, next to the
+       Blogzine assets, so UseStaticFiles + MapFallbackToFile serve the whole app. -->
+  <Target Name="BuildAndPublishSpa" AfterTargets="ComputeFilesToPublish">
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm install" />
+    <Exec WorkingDirectory="$(SpaRoot)" Command="npm run build" />
+    <ItemGroup>
+      <SpaDistFiles Include="$(SpaRoot)\dist\**" />
+      <ResolvedFileToPublish Include="@(SpaDistFiles)" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(FileName)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>
