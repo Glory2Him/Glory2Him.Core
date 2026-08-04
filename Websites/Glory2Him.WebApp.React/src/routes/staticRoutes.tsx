@@ -2,6 +2,7 @@ import { Navigate, RouteObject } from 'react-router-dom';
 import { About } from '../pages/about';
 import { BibleReference } from '../pages/bibleReference';
 import { BibleReader } from '../pages/bibleReader';
+import { BibleReferenceView } from '../pages/bibleReferenceView';
 import { Contact } from '../pages/contact';
 import { NotFound } from '../pages/notFound';
 import { Search } from '../pages/search';
@@ -16,6 +17,9 @@ export const staticRoutes: RouteObject[] = [
     { path: 'BibleReferences', element: <BibleReference /> },
     { path: 'BibleReferences/BibleReader', element: <BibleReader /> },
     // The full-chapter page used to live at Full-Chapter; keep old links working.
+    // bible.com-style deep links: BibleReferences/JHN.3.16.NIV (card) or
+    // BibleReferences/JHN.3.NIV (reader). Static siblings above win over the param route.
+    { path: 'BibleReferences/:reference', element: <BibleReferenceView /> },
     {
         path: 'BibleReferences/Full-Chapter',
         element: <Navigate to="/BibleReferences/BibleReader" replace />,

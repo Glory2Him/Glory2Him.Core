@@ -6,19 +6,33 @@ import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
 import { youVersionVersions } from '../models/youVersion/youVersionVersions';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
 
-// A single verse on its own — one narrow column, no sidebar, nothing between the reader and the
-// words. The full chapter is one link away.
+// A single verse (or verse range) on its own — one narrow column, no sidebar, nothing between
+// the reader and the words. The full chapter is one link away.
 //
-// The verse text now comes from the YouVersion Platform SDK's BibleCard (licensed scripture,
-// version picker included) instead of the placeholder sampleScripture text. The page chrome —
-// title, links, tags — stays exactly as it was. When no app key is configured, the card gives
-// way to an inline "unavailable" message rather than crashing.
-export function BibleReference() {
+// The verse text comes from the YouVersion Platform SDK's BibleCard (licensed scripture, with
+// its own title and version picker). Without props this is the /BibleReferences default
+// (John 14:6, NIV, sample tags); the /BibleReferences/:reference route supplies a parsed
+// bible.com-style reference instead (JHN.3.16, JHN.3.16-17, ...). When no app key is
+// configured, the card gives way to an inline "unavailable" message rather than crashing.
+type BibleReferenceParameters = {
+    reference?: string,
+    versionId?: number,
+    chapterHref?: string
+}
+
+export function BibleReference({
+    reference = 'JHN.14.6',
+    versionId = youVersionVersions.niv,
+    chapterHref = '/BibleReferences/BibleReader',
+}: BibleReferenceParameters) {
     const { isLoading, isAvailable } = useYouVersionAvailability();
+    const isDefaultReference = reference === 'JHN.14.6';
 
     useEffect(() => {
-        document.title = `${sampleScripture.reference} — Glory 2 Him`;
-    }, []);
+        document.title = isDefaultReference
+            ? `${sampleScripture.reference} — Glory 2 Him`
+            : `${reference} — Glory 2 Him`;
+    }, [reference, isDefaultReference]);
 
     return (
         <section className="py-5">
@@ -30,29 +44,36 @@ export function BibleReference() {
                         {!isLoading && (
                             isAvailable
                                 ? <BibleCard
-                                    reference="JHN.14.6"
-                                    defaultVersionId={youVersionVersions.niv}
+                                    key={`${reference}-${versionId}`}
+                                    reference={reference}
+                                    defaultVersionId={versionId}
                                     showVersionPicker />
                                 : <YouVersionUnavailableMessage />
                         )}
 
                         <div className="text-center my-4">
-                            <Link to="/BibleReferences/BibleReader" className="btn-link">
+                            <Link to={chapterHref} className="btn-link">
                                 Show Full Chapter
                             </Link>
                         </div>
 
-                        <hr className="my-4" />
+                        {/* The tag row belongs to the curated John 14:6 page; an arbitrary
+                            deep-linked reference has no editorial tags to show. */}
+                        {isDefaultReference && (
+                            <>
+                                <hr className="my-4" />
 
-                        <div className="d-flex flex-wrap align-items-center gap-2">
-                            <span className="fw-bold me-1">Tags:</span>
-                            {sampleScripture.tags.map((tag) => (
-                                <Link
-                                    key={tag}
-                                    to={`/Search?q=${encodeURIComponent(tag)}`}
-                                    className="btn btn-sm btn-outline-secondary mb-0">{tag}</Link>
-                            ))}
-                        </div>
+                                <div className="d-flex flex-wrap align-items-center gap-2">
+                                    <span className="fw-bold me-1">Tags:</span>
+                                    {sampleScripture.tags.map((tag) => (
+                                        <Link
+                                            key={tag}
+                                            to={`/Search?q=${encodeURIComponent(tag)}`}
+                                            className="btn btn-sm btn-outline-secondary mb-0">{tag}</Link>
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
