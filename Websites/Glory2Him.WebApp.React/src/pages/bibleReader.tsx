@@ -1,40 +1,45 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BibleCard } from '@youversion/platform-react-ui';
+import { BibleReader as YouVersionBibleReader } from '@youversion/platform-react-ui';
 import * as sampleScripture from '../data/sampleScripture';
 import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
 
-// A single verse on its own — one narrow column, no sidebar, nothing between the reader and the
-// words. The full chapter is one link away.
+// The whole chapter, read through the YouVersion Platform SDK's BibleReader: chapter and
+// version pickers plus font settings on the toolbar, licensed scripture in the body. This
+// replaces the old sample-text ScriptureReader; the page chrome (links, tags, column width)
+// stays as it was. Content display only — no YouVersion sign-in and no auth-gated features
+// (highlights, notes) are enabled.
 //
-// The verse text now comes from the YouVersion Platform SDK's BibleCard (licensed scripture,
-// version picker included) instead of the placeholder sampleScripture text. The page chrome —
-// title, links, tags — stays exactly as it was. When no app key is configured, the card gives
-// way to an inline "unavailable" message rather than crashing.
-export function BibleReference() {
+// Wider than the single-verse page (col-lg-10, not 7) so the reader has room to breathe.
+export function BibleReader() {
     const { isLoading, isAvailable } = useYouVersionAvailability();
 
     useEffect(() => {
-        document.title = `${sampleScripture.reference} — Glory 2 Him`;
+        document.title = `${sampleScripture.chapterReference} — Glory 2 Him`;
     }, []);
 
     return (
         <section className="py-5">
             <div className="container">
                 <div className="row justify-content-center">
-                    <div className="col-lg-7">
-                        <h1 className="h2 mb-3">{sampleScripture.reference}</h1>
-
+                    <div className="col-lg-10">
                         {!isLoading && (
                             isAvailable
-                                ? <BibleCard reference="JHN.14.6" />
+                                ? (
+                                    <YouVersionBibleReader.Root
+                                        defaultBook="JHN"
+                                        defaultChapter="14">
+                                        <YouVersionBibleReader.Toolbar />
+                                        <YouVersionBibleReader.Content />
+                                    </YouVersionBibleReader.Root>
+                                )
                                 : <YouVersionUnavailableMessage />
                         )}
 
                         <div className="text-center my-4">
-                            <Link to="/BibleReferences/BibleReader" className="btn-link">
-                                Show Full Chapter
+                            <Link to="/BibleReferences" className="btn-link">
+                                Show {sampleScripture.reference} on its own
                             </Link>
                         </div>
 
