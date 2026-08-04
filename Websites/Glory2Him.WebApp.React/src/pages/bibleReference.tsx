@@ -25,11 +25,14 @@ export function BibleReference() {
             <div className="container">
                 <div className="row justify-content-center">
                     <div className="col-lg-7">
-                        <h1 className="h2 mb-3">{sampleScripture.reference}</h1>
-
+                        {/* No page heading: the card carries its own "JOHN 14:6 NIV" title, and the
+                            version-picker button lets the reader switch translations. */}
                         {!isLoading && (
                             isAvailable
-                                ? <BibleCard reference="JHN.14.6" defaultVersionId={youVersionVersions.niv} />
+                                ? <BibleCard
+                                    reference="JHN.14.6"
+                                    defaultVersionId={youVersionVersions.niv}
+                                    showVersionPicker />
                                 : <YouVersionUnavailableMessage />
                         )}
 
