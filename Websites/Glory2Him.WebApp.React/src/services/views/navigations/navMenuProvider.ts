@@ -119,8 +119,7 @@ const getFullNavMenu = (): NavItem[] => [
             },
         ]
     },
-    // samplePagesSection returns here once the Blogzine template demo pages are
-    // converted; linking to them now would only hit the NotFound catch-all.
+    samplePagesSection,
     {
         title: "My Account",
         icon: "bi-person",
@@ -132,11 +131,29 @@ const getFullNavMenu = (): NavItem[] => [
                 title: "Profile", icon: "bi-person", href: "Account/Manage",
                 requiresAuth: true, exactMatch: true
             },
-            // Email, Two-factor Authentication, Passkeys and Personal Data return here
-            // once their flows are converted (they have no JSON endpoints yet).
+            {
+                title: "Email", icon: "bi-envelope",
+                href: "Account/Manage/Email", requiresAuth: true
+            },
             {
                 title: "Password", icon: "bi-lock",
                 href: "Account/Manage/ChangePassword", requiresAuth: true
+            },
+            {
+                title: "Two-factor Authentication", icon: "bi-shield-lock",
+                href: "Account/Manage/TwoFactorAuthentication", requiresAuth: true
+            },
+            {
+                title: "Passkeys", icon: "bi-key",
+                href: "Account/Manage/Passkeys", requiresAuth: true
+            },
+            {
+                title: "External logins", icon: "bi-box-arrow-in-right",
+                href: "Account/Manage/ExternalLogins", requiresAuth: true
+            },
+            {
+                title: "Personal Data", icon: "bi-file-earmark-person",
+                href: "Account/Manage/PersonalData", requiresAuth: true
             },
         ]
     }

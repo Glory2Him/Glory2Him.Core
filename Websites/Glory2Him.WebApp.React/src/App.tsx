@@ -13,6 +13,8 @@ import { staticRoutes } from './routes/staticRoutes';
 import { shopRoutes } from './routes/shopRoutes';
 import { adminRoutes } from './routes/adminRoutes';
 import { accountRoutes } from './routes/accountRoutes';
+import { passkeyRoutes } from './routes/passkeyRoutes';
+import { samplePagesRoutes } from './routes/samplePagesRoutes';
 
 // Route order matters only for the staticRoutes catch-all ("*" → NotFound), which must be
 // the very last child — staticRoutes exports it last, so staticRoutes stays last here.
@@ -27,6 +29,8 @@ function App() {
                 ...shopRoutes,
                 ...adminRoutes,
                 ...accountRoutes,
+                ...passkeyRoutes,
+                ...samplePagesRoutes,
                 ...staticRoutes,
             ]
         }

@@ -71,6 +71,40 @@ namespace Glory2Him.WebApp.Infrastructure
             })
                 .AddIdentityCookies();
 
+            // The React SPA consumes /api/* with fetch: an expired or missing cookie must
+            // surface as 401/403 JSON-style status codes there, not as a 302 redirect to
+            // the login page (which axios would follow and hand the SPA an HTML document).
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    if (context.Request.Path.StartsWithSegments("/api"))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    }
+                    else
+                    {
+                        context.Response.Redirect(context.RedirectUri);
+                    }
+
+                    return Task.CompletedTask;
+                };
+
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    if (context.Request.Path.StartsWithSegments("/api"))
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    }
+                    else
+                    {
+                        context.Response.Redirect(context.RedirectUri);
+                    }
+
+                    return Task.CompletedTask;
+                };
+            });
+
             void ConfigureSecurityDb(DbContextOptionsBuilder options) =>
                 options.UseSqlServer(
                     securityConnectionString,

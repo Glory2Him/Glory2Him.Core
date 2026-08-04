@@ -25,6 +25,11 @@ namespace Glory2Him.WebApp.Infrastructure
     {
         public sealed record LoginRequest(string UserName, string Password, bool RememberMe);
 
+        public sealed record LoginWith2faRequest(
+            string TwoFactorCode, bool RememberMachine, bool RememberMe);
+
+        public sealed record LoginWithRecoveryCodeRequest(string RecoveryCode);
+
         public sealed record ChangePasswordRequest(string OldPassword, string NewPassword);
 
         public sealed record ForgotPasswordRequest(string Email);
@@ -75,9 +80,90 @@ namespace Glory2Him.WebApp.Infrastructure
                     isPersistent: loginRequest.RememberMe,
                     lockoutOnFailure: true);
 
+                if (signInResult.RequiresTwoFactor)
+                {
+                    // Mirrors the Blazor Login page redirecting to LoginWith2fa: the
+                    // two-factor cookie is now set, so the SPA moves to its 2FA page.
+                    return Results.Ok(new { RequiresTwoFactor = true });
+                }
+
                 if (!signInResult.Succeeded)
                 {
                     return Results.Unauthorized();
+                }
+
+                return Results.Ok(await ToCurrentUserAsync(user, userManager));
+            });
+
+            // Mirrors the Blazor LoginWith2fa page: the user must have gone through
+            // the username & password screen first (two-factor cookie present).
+            accountsGroup.MapPost("/login-2fa", async (
+                LoginWith2faRequest loginWith2faRequest,
+                SignInManager<AppUser> signInManager,
+                UserManager<AppUser> userManager) =>
+            {
+                AppUser? user = await signInManager.GetTwoFactorAuthenticationUserAsync();
+
+                if (user is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                string authenticatorCode = loginWith2faRequest.TwoFactorCode
+                    .Replace(" ", string.Empty)
+                    .Replace("-", string.Empty);
+
+                SignInResult signInResult = await signInManager.TwoFactorAuthenticatorSignInAsync(
+                    authenticatorCode,
+                    loginWith2faRequest.RememberMe,
+                    loginWith2faRequest.RememberMachine);
+
+                if (signInResult.IsLockedOut)
+                {
+                    return Results.Ok(new { IsLockedOut = true });
+                }
+
+                if (!signInResult.Succeeded)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = "Error: Invalid authenticator code.",
+                    });
+                }
+
+                return Results.Ok(await ToCurrentUserAsync(user, userManager));
+            });
+
+            // Mirrors the Blazor LoginWithRecoveryCode page.
+            accountsGroup.MapPost("/login-recovery-code", async (
+                LoginWithRecoveryCodeRequest loginWithRecoveryCodeRequest,
+                SignInManager<AppUser> signInManager,
+                UserManager<AppUser> userManager) =>
+            {
+                AppUser? user = await signInManager.GetTwoFactorAuthenticationUserAsync();
+
+                if (user is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                string recoveryCode = loginWithRecoveryCodeRequest.RecoveryCode
+                    .Replace(" ", string.Empty);
+
+                SignInResult signInResult =
+                    await signInManager.TwoFactorRecoveryCodeSignInAsync(recoveryCode);
+
+                if (signInResult.IsLockedOut)
+                {
+                    return Results.Ok(new { IsLockedOut = true });
+                }
+
+                if (!signInResult.Succeeded)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = "Error: Invalid recovery code entered.",
+                    });
                 }
 
                 return Results.Ok(await ToCurrentUserAsync(user, userManager));

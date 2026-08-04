@@ -2,9 +2,11 @@ import { FormEvent, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { accountService } from '../../services/foundations/accountService';
 import { StatusMessage, extractApiErrorMessage } from './statusMessage';
+import { PasskeySignInButton } from './passkeySignInButton';
+import { ExternalLoginPicker } from './externalLoginPicker';
 
-// Ported from Blazor's Account/Pages/Login.razor. Passkey sign-in, external login providers
-// and "resend email confirmation" have no API endpoints yet, so those blocks are omitted.
+// Ported from Blazor's Account/Pages/Login.razor, including passkey sign-in and the
+// external-login picker.
 export function Login() {
     const [searchParams] = useSearchParams();
     const returnUrl = searchParams.get('returnUrl') ?? searchParams.get('ReturnUrl');
@@ -50,7 +52,21 @@ export function Login() {
         }
 
         login.mutate({ userName: email.trim(), password, rememberMe }, {
-            onSuccess: () => {
+            onSuccess: (loginResult) => {
+                if (loginResult.requiresTwoFactor) {
+                    // Mirrors Blazor redirecting to LoginWith2fa carrying ReturnUrl
+                    // and RememberMe in the query string.
+                    const query = new URLSearchParams();
+
+                    if (returnUrl != null) {
+                        query.set('ReturnUrl', returnUrl);
+                    }
+
+                    query.set('RememberMe', String(rememberMe));
+                    navigate(`/Account/LoginWith2fa?${query.toString()}`);
+                    return;
+                }
+
                 navigate(returnUrl != null && returnUrl.startsWith('/') ? returnUrl : '/');
             },
             onError: (error: unknown) => {
@@ -145,12 +161,20 @@ export function Login() {
                                         </span>
                                     </div>
                                 </div>
+
+                                <hr />
+                                <PasskeySignInButton
+                                    email={email}
+                                    returnUrl={returnUrl}
+                                    onError={setErrorMessage} />
                             </form>
 
                             <hr />
 
                             <div className="text-center">
                                 <p className="mb-2"><Link to="/Account/ForgotPassword">Forgot your password?</Link></p>
+                                <p className="mb-2"><Link to="/Account/ResendEmailConfirmation">Resend email confirmation</Link></p>
+                                <ExternalLoginPicker returnUrl={returnUrl} />
                             </div>
                         </div>
                     </div>
