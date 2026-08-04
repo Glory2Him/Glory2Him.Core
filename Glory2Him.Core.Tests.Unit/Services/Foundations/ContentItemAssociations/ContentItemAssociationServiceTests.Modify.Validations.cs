@@ -866,6 +866,159 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task
+            ShouldThrowValidationExceptionOnModifyIfAssociationConfidenceReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItemAssociation invalidContentItemAssociation =
+                CreateRandomModifyContentItemAssociation(randomDateTimeOffset, randomUserId);
+
+            invalidContentItemAssociation.AssociationConfidenceReason = GetRandomStringWithLengthOf(501);
+
+            var invalidContentItemAssociationException =
+                new InvalidContentItemAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidContentItemAssociationException.AddData(
+                key: nameof(ContentItemAssociation.AssociationConfidenceReason),
+
+                values: "Text exceed max length of " +
+                    $"{invalidContentItemAssociation.AssociationConfidenceReason.Length - 1} characters");
+
+            var expectedContentItemAssociationValidationException =
+                new ContentItemAssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItemAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidContentItemAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItemAssociation> modifyContentItemAssociationTask =
+                this.contentItemAssociationService.ModifyContentItemAssociationAsync(
+                    invalidContentItemAssociation,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemAssociationValidationException actualContentItemAssociationValidationException =
+                await Assert.ThrowsAsync<ContentItemAssociationValidationException>(
+                    modifyContentItemAssociationTask.AsTask);
+
+            // then
+            actualContentItemAssociationValidationException.Should().BeEquivalentTo(
+                expectedContentItemAssociationValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItemAssociation, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(OutOfRangeConfidenceScores))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfAssociationConfidenceScoreIsOutOfRangeAndLogItAsync(
+            int outOfRangeConfidenceScore)
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItemAssociation invalidContentItemAssociation =
+                CreateRandomModifyContentItemAssociation(randomDateTimeOffset, randomUserId);
+
+            invalidContentItemAssociation.AssociationConfidenceScore = outOfRangeConfidenceScore;
+
+            var invalidContentItemAssociationException =
+                new InvalidContentItemAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidContentItemAssociationException.AddData(
+                key: nameof(ContentItemAssociation.AssociationConfidenceScore),
+                values: "Value is not within range of 0 and 10");
+
+            var expectedContentItemAssociationValidationException =
+                new ContentItemAssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItemAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidContentItemAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItemAssociation> modifyContentItemAssociationTask =
+                this.contentItemAssociationService.ModifyContentItemAssociationAsync(
+                    invalidContentItemAssociation,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemAssociationValidationException actualContentItemAssociationValidationException =
+                await Assert.ThrowsAsync<ContentItemAssociationValidationException>(
+                    modifyContentItemAssociationTask.AsTask);
+
+            // then
+            actualContentItemAssociationValidationException.Should().BeEquivalentTo(
+                expectedContentItemAssociationValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItemAssociation, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemAssociationValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
         public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotAuthenticatedAndLogItAsync(

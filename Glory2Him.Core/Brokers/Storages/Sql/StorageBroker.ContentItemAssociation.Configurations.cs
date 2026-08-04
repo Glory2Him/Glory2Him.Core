@@ -35,6 +35,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                             $"N'{nameof(Scope.ThisVersionOnly)}' AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemId)} IS NOT NULL AND " +
                             $"{nameof(ContentItemAssociation.LinkedContentItemGroupId)} IS NULL))");
+
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ContentItemAssociation_AssociationConfidenceScoreRange",
+                        sql:
+                            $"({nameof(ContentItemAssociation.AssociationConfidenceScore)} IS NULL OR " +
+                            $"{nameof(ContentItemAssociation.AssociationConfidenceScore)} BETWEEN 0 AND 10)");
                 });
 
             model.HasKey(contentItemAssociation => contentItemAssociation.Id);
@@ -59,6 +65,13 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             model.Property(contentItemAssociation => contentItemAssociation.LinkedEntityId)
                  .IsRequired();
+
+            model.Property(contentItemAssociation => contentItemAssociation.AssociationConfidenceScore)
+                 .IsRequired(false);
+
+            model.Property(contentItemAssociation => contentItemAssociation.AssociationConfidenceReason)
+                 .HasMaxLength(500)
+                 .IsRequired(false);
 
             model.Property(contentItemAssociation => contentItemAssociation.CreatedBy)
                  .IsRequired()
