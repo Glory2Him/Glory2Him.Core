@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { BibleCard } from '@youversion/platform-react-ui';
 import * as sampleScripture from '../data/sampleScripture';
 import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
+import { youVersionVersions } from '../models/youVersion/youVersionVersions';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
 
 // A single verse on its own — one narrow column, no sidebar, nothing between the reader and the
@@ -28,7 +29,7 @@ export function BibleReference() {
 
                         {!isLoading && (
                             isAvailable
-                                ? <BibleCard reference="JHN.14.6" />
+                                ? <BibleCard reference="JHN.14.6" defaultVersionId={youVersionVersions.niv} />
                                 : <YouVersionUnavailableMessage />
                         )}
 

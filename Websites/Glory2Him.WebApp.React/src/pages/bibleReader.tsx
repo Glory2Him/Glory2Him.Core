@@ -4,6 +4,7 @@ import { BibleReader as YouVersionBibleReader } from '@youversion/platform-react
 import * as sampleScripture from '../data/sampleScripture';
 import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
+import { youVersionVersions } from '../models/youVersion/youVersionVersions';
 
 // The whole chapter, read through the YouVersion Platform SDK's BibleReader: chapter and
 // version pickers plus font settings on the toolbar, licensed scripture in the body. This
@@ -29,7 +30,8 @@ export function BibleReader() {
                                 ? (
                                     <YouVersionBibleReader.Root
                                         defaultBook="JHN"
-                                        defaultChapter="14">
+                                        defaultChapter="14"
+                                        defaultVersionId={youVersionVersions.niv}>
                                         <YouVersionBibleReader.Toolbar />
                                         <YouVersionBibleReader.Content />
                                     </YouVersionBibleReader.Root>
