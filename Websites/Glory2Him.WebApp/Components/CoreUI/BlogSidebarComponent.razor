@@ -1,0 +1,85 @@
+@namespace Glory2Him.WebApp.Components.CoreUI
+
+@* The Blogzine blog sidebar: an about-the-author card, a numbered "trending" list, a topic pill
+   cloud and the newsletter sign-up. Posts are supplied by the parent (ts-ui-001). *@
+
+<div class="row g-4">
+    @if (ShowAbout)
+    {
+        <div class="col-12">
+            <Card CssClass="border">
+                <HeaderContent>About</HeaderContent>
+                <ChildContent>
+                    <div class="text-center">
+                        <AvatarComponent Name="Glory 2 Him" SizePx="72" SizeCssClass="mx-auto mb-3" />
+                        <h6 class="mb-1">Glory 2 Him</h6>
+                        <p class="small text-body-secondary mb-0">
+                            Stories, reflections and encouragement — all glory to Him.
+                        </p>
+                    </div>
+                </ChildContent>
+            </Card>
+        </div>
+    }
+
+    @if (TrendingPosts.Any())
+    {
+        <div class="col-12">
+            <Card CssClass="border">
+                <HeaderContent>Trending</HeaderContent>
+                <ChildContent>
+                    @{
+                        int rank = 0;
+                    }
+                    @foreach (PostView post in TrendingPosts)
+                    {
+                        rank++;
+
+                        <div class="d-flex mb-3 position-relative">
+                            <span class="h4 text-body-secondary opacity-50 me-3 mb-0">
+                                @rank.ToString("00")
+                            </span>
+                            <div>
+                                <h6 class="mb-1">
+                                    <a href="Post-Single/@post.Slug"
+                                       class="btn-link text-reset stretched-link">@post.Title</a>
+                                </h6>
+                                <small class="text-body-secondary">
+                                    @post.PublishedDate.ToString("MMM dd, yyyy")
+                                </small>
+                            </div>
+                        </div>
+                    }
+                </ChildContent>
+            </Card>
+        </div>
+    }
+
+    @if (Topics.Any())
+    {
+        <div class="col-12">
+            <Card CssClass="border">
+                <HeaderContent>Topics</HeaderContent>
+                <ChildContent>
+                    <ul class="list-inline mb-0">
+                        @foreach (string topic in Topics)
+                        {
+                            <li class="list-inline-item mb-2">
+                                <a href="Tag?name=@Uri.EscapeDataString(topic)"
+                                   class="btn btn-sm btn-outline-secondary">@topic</a>
+                            </li>
+                        }
+                    </ul>
+                </ChildContent>
+            </Card>
+        </div>
+    }
+
+    @if (ShowNewsletter)
+    {
+        <div class="col-12">
+            <NewsletterComponent Heading="Weekly encouragement"
+                                 Subheading="A short note of hope in your inbox." />
+        </div>
+    }
+</div>

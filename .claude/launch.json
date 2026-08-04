@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Glory2Him.WebApp",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "Websites/Glory2Him.WebApp/Glory2Him.WebApp.csproj",
+        "--launch-profile",
+        "https"
+      ],
+      "port": 7059,
+      "url": "https://localhost:7059"
+    }
+  ]
+}

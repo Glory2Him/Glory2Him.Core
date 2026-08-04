@@ -70,7 +70,7 @@
                     <span class="d-block text-uppercase small text-body-secondary">Account</span>
                     <span class="fw-bold">@context.User.Identity?.Name</span>
                 </li>
-                <li><a class="dropdown-item d-flex align-items-center" href="dashboard"><i class="bi bi-bell fa-fw me-2"></i>Updates <span class="badge text-bg-primary ms-auto">8</span></a></li>
+                <li><a class="dropdown-item d-flex align-items-center" href="Dashboard"><i class="bi bi-bell fa-fw me-2"></i>Updates <span class="badge text-bg-primary ms-auto">8</span></a></li>
                 <li><a class="dropdown-item d-flex align-items-center" href="#"><i class="bi bi-envelope fa-fw me-2"></i>Messages <span class="badge text-bg-success ms-auto">42</span></a></li>
                 <li><a class="dropdown-item d-flex align-items-center" href="#"><i class="bi bi-check2-square fa-fw me-2"></i>Tasks</a></li>
                 <li><a class="dropdown-item d-flex align-items-center" href="#"><i class="bi bi-chat-left fa-fw me-2"></i>Comments</a></li>
@@ -81,7 +81,7 @@
                 <li><a class="dropdown-item d-flex align-items-center" href="Account/Manage/Email"><i class="bi bi-gear fa-fw me-2"></i>Settings</a></li>
                 <li><a class="dropdown-item d-flex align-items-center" href="Account/Manage/ChangePassword"><i class="bi bi-shield-lock fa-fw me-2"></i>Password</a></li>
                 <AuthorizeView Roles="Administrators" Context="adminContext">
-                    <li><a class="dropdown-item d-flex align-items-center" href="admin/posts"><i class="bi bi-files fa-fw me-2"></i>Projects</a></li>
+                    <li><a class="dropdown-item d-flex align-items-center" href="Admin/Posts"><i class="bi bi-files fa-fw me-2"></i>Projects</a></li>
                 </AuthorizeView>
 
                 <li><hr class="dropdown-divider" /></li>

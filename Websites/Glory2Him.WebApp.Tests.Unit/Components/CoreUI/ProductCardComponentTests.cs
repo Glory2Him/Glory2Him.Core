@@ -42,7 +42,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
         {
             // given
             ProductView product = CreateRandomProduct();
-            string expectedHref = $"shop-detail/{product.Slug}";
+            string expectedHref = $"Shop-Detail/{product.Slug}";
 
             // when
             IRenderedComponent<ProductCardComponent> renderedCard =

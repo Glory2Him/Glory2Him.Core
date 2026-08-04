@@ -1,0 +1,80 @@
+@page "/SamplePages/Pages/Contact"
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+
+@* Blogzine contact-us.html: contact detail cards beside the enquiry form. *@
+
+<PageTitle>Contact — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="Contact" SourceFile="contact-us.html">
+    <HeroBannerComponent Title="Contact us" Crumbs="Crumbs" />
+
+    <section class="py-5">
+        <div class="container">
+            <div class="row g-4 mb-5">
+                <div class="col-md-4">
+                    <Card CssClass="border text-center h-100">
+                        <ChildContent>
+                            <i class="bi bi-envelope fs-1 text-primary"></i>
+                            <h6 class="mt-3 mb-1">Email us</h6>
+                            <p class="mb-0 small text-body-secondary">hello@glory2him.org</p>
+                        </ChildContent>
+                    </Card>
+                </div>
+                <div class="col-md-4">
+                    <Card CssClass="border text-center h-100">
+                        <ChildContent>
+                            <i class="bi bi-chat-heart fs-1 text-primary"></i>
+                            <h6 class="mt-3 mb-1">Prayer requests</h6>
+                            <p class="mb-0 small text-body-secondary">We would love to pray with you.</p>
+                        </ChildContent>
+                    </Card>
+                </div>
+                <div class="col-md-4">
+                    <Card CssClass="border text-center h-100">
+                        <ChildContent>
+                            <i class="bi bi-people fs-1 text-primary"></i>
+                            <h6 class="mt-3 mb-1">Write with us</h6>
+                            <p class="mb-0 small text-body-secondary">Share the story God gave you.</p>
+                        </ChildContent>
+                    </Card>
+                </div>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <Card CssClass="border">
+                        <HeaderContent>Send us a message</HeaderContent>
+                        <ChildContent>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <FormText Label="Your name" Placeholder="Jane Doe" />
+                                </div>
+                                <div class="col-md-6">
+                                    <FormText Label="Email address" Placeholder="jane@example.com" />
+                                </div>
+                            </div>
+
+                            <FormText Label="Subject" Placeholder="How can we help?" />
+
+                            <div class="mb-3">
+                                <label class="form-label">Message</label>
+                                <textarea class="form-control" rows="5"
+                                          placeholder="Tell us a little more…"></textarea>
+                            </div>
+
+                            <Button Color="primary">Send message</Button>
+                        </ChildContent>
+                    </Card>
+                </div>
+            </div>
+        </div>
+    </section>
+</SampleShellComponent>
+
+@code {
+    private static readonly BreadcrumbItem[] Crumbs = new[]
+    {
+        new BreadcrumbItem("Contact", IsActive: true),
+    };
+}

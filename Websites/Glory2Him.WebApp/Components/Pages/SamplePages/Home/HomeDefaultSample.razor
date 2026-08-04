@@ -1,0 +1,158 @@
+@page "/SamplePages/Home/Default"
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+
+@* The Glory 2 Him home mockup (D:\Temp\G2H\samples\Home.html): verse-of-the-day strip, a featured
+   lead beside three smaller cards, then the latest posts with their tags and bible references
+   against a categories / tags / references sidebar. *@
+
+<PageTitle>Home Default — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="Home Default" SourceFile="Home.html">
+    <VerseOfTheDayComponent Verse="@SampleContent.VerseOfTheDay"
+                            Href="SamplePages/Post/Post-Single-Magazine" />
+
+    <section class="pt-4 pb-0 card-grid">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <PostHeroCardComponent Title="@Featured.Title"
+                                           Href="SamplePages/Post/Post-Single-Magazine"
+                                           Excerpt="@Featured.Excerpt"
+                                           Category="@Featured.Category"
+                                           CategoryBadgeCss="@Featured.CategoryBadgeCss"
+                                           ImageUrl="@Featured.ImageUrl"
+                                           AuthorName="@Featured.AuthorName"
+                                           AuthorImageUrl="@Featured.AuthorImageUrl"
+                                           ShowAuthorAvatar="true"
+                                           PublishedDate="Featured.PublishedDate"
+                                           IsFeatured="true"
+                                           SizeCssClass="card-grid-lg"
+                                           TitleCssClass="h1"
+                                           Reactions="Featured.Reactions"
+                                           Comments="Featured.Comments"
+                                           TagCount="Featured.Tags.Count"
+                                           ReferenceCount="Featured.BibleReferences.Count" />
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="row g-4">
+                        <div class="col-12">
+                            @RenderSmallHero(HeroTiles[0])
+                        </div>
+                        <div class="col-md-6">
+                            @RenderSmallHero(HeroTiles[1])
+                        </div>
+                        <div class="col-md-6">
+                            @RenderSmallHero(HeroTiles[2])
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="position-relative py-5">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-9">
+                    <div class="mb-4">
+                        <h2 class="m-0">
+                            <i class="bi bi-hourglass-top me-2"></i>Latest posts
+                        </h2>
+                        <p class="mb-0">
+                            Quotes, stories, devotionals and studies from the community
+                        </p>
+                    </div>
+
+                    <div class="row gy-4">
+                        @foreach (SamplePost post in Latest)
+                        {
+                            <div class="col-sm-6">
+                                <ArticleCardComponent Title="@post.Title"
+                                                      Href="SamplePages/Post/Post-Single-Magazine"
+                                                      Excerpt="@post.Excerpt"
+                                                      ImageUrl="@post.ImageUrl"
+                                                      Category="@post.Category"
+                                                      CategoryBadgeCss="@post.CategoryBadgeCss"
+                                                      AuthorName="@post.AuthorName"
+                                                      AuthorImageUrl="@post.AuthorImageUrl"
+                                                      PublishedDate="post.PublishedDate"
+                                                      Tags="post.Tags"
+                                                      BibleReferences="post.BibleReferences"
+                                                      Reactions="post.Reactions"
+                                                      Comments="post.Comments" />
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="col-lg-3">
+                    <h4 class="mb-3">Categories</h4>
+                    <div class="d-flex flex-wrap mb-4" style="gap: 8px;">
+                        @foreach ((string label, string buttonCss) in SampleContent.Categories)
+                        {
+                            <a href="Categories" class="btn btn-sm @buttonCss mb-0">
+                                <i class="fas fa-circle me-2 small"></i>@label
+                            </a>
+                        }
+                    </div>
+
+                    <h4 class="mb-3">Popular tags</h4>
+                    <div class="d-flex flex-wrap" style="gap: 8px;">
+                        @foreach ((string label, string buttonCss) in SampleContent.PopularTags)
+                        {
+                            <a href="Tag?name=@Uri.EscapeDataString(label)"
+                               class="btn btn-sm @buttonCss mb-0">@label</a>
+                        }
+                    </div>
+
+                    @* References flow across and wrap like the tags above them, rather than
+                       stacking as full-width rows. *@
+                    <h4 class="mt-4 mb-3">Popular references</h4>
+                    <div class="d-flex flex-wrap" style="gap: 8px;">
+                        @foreach (string reference in SampleContent.PopularReferences)
+                        {
+                            <a href="Search-Result?q=@Uri.EscapeDataString(reference)"
+                               class="btn btn-sm btn-primary-soft mb-0">
+                                <i class="bi bi-book me-2"></i>@reference
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</SampleShellComponent>
+
+@code {
+    private static SamplePost Featured =>
+        SampleContent.Featured;
+
+    private static IReadOnlyList<SamplePost> HeroTiles =>
+        SampleContent.HeroTiles;
+
+    private static IReadOnlyList<SamplePost> Latest =>
+        SampleContent.Latest;
+
+    // Every hero tile is an h4 with its counts on a second row — the tiles are too narrow to
+    // carry the byline and the counts on one line.
+    private RenderFragment RenderSmallHero(SamplePost post) => __builder =>
+    {
+        <PostHeroCardComponent Title="@post.Title"
+                               Href="SamplePages/Post/Post-Single-Magazine"
+                               Category="@post.Category"
+                               CategoryBadgeCss="@post.CategoryBadgeCss"
+                               ImageUrl="@post.ImageUrl"
+                               AuthorName="@post.AuthorName"
+                               PublishedDate="post.PublishedDate"
+                               ShowExcerpt="false"
+                               SizeCssClass="card-grid-sm"
+                               TitleCssClass="h4"
+                               SplitMeta="true"
+                               Reactions="post.Reactions"
+                               Comments="post.Comments"
+                               TagCount="post.Tags.Count"
+                               ReferenceCount="post.BibleReferences.Count" />
+    };
+}

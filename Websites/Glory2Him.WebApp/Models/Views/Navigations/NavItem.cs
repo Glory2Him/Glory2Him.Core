@@ -11,6 +11,8 @@
 
 namespace Glory2Him.WebApp.Models.Views.Navigations
 {
+    // Children nest to any depth: a top-level item renders as a sidebar section heading, and any
+    // deeper item that still has children renders as a collapsible group (see NavMenu).
     public sealed record NavItem(
         string Title,
         string Icon,
@@ -18,5 +20,10 @@ namespace Glory2Him.WebApp.Models.Views.Navigations
         string[]? Roles = null,
         bool RequiresAuth = false,
         NavItem[]? Children = null,
-        bool ExactMatch = false);
+        bool ExactMatch = false,
+        NavArea Area = NavArea.Admin)
+    {
+        public bool HasChildren =>
+            Children is { Length: > 0 };
+    }
 }

@@ -1,0 +1,40 @@
+@page "/BibleReferences"
+@using Glory2Him.WebApp.Components.Pages.SamplePages
+
+@* A single verse on its own — one narrow column, no sidebar, nothing between the reader and the
+   words. The full chapter is one link away.
+
+   The passage still comes from SampleScripture, so every reference on the site lands on the same
+   verse for now. When references carry their own text, this page takes the reference as a route
+   parameter and the markup stays as it is. *@
+
+<PageTitle>@SampleScripture.Reference — Glory 2 Him</PageTitle>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-7">
+                <h1 class="h2 mb-3">@SampleScripture.Reference</h1>
+
+                <p class="lead">@SampleScripture.SingleVerseText</p>
+
+                <div class="text-center my-4">
+                    <a href="/BibleReferences/Full-Chapter" class="btn-link">
+                        Show Full Chapter
+                    </a>
+                </div>
+
+                <hr class="my-4" />
+
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="fw-bold me-1">Tags:</span>
+                    @foreach (string tag in SampleScripture.Tags)
+                    {
+                        <a href="/Search?q=@Uri.EscapeDataString(tag)"
+                           class="btn btn-sm btn-outline-secondary mb-0">@tag</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</section>

@@ -10,94 +10,111 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
-using System.Threading.Tasks;
+using System.Linq;
+using AngleSharp.Dom;
 using Bunit;
 using FluentAssertions;
 using Glory2Him.WebApp.Components.Pages;
-using Glory2Him.WebApp.Models.Views.Posts;
-using Glory2Him.WebApp.Models.Views.Posts.Exceptions;
-using Moq;
-using Xeptions;
+using Glory2Him.WebApp.Components.Pages.SamplePages;
 
 namespace Glory2Him.WebApp.Tests.Unit.Components.Pages
 {
     public partial class HomePageComponentTests
     {
         [Fact]
-        public void ShouldShowSpinnerWhileLoading()
+        public void ShouldOpenWithTheVerseOfTheDay()
         {
-            // given
-            var pendingSource = new TaskCompletionSource<List<PostView>>();
-
-            this.postsViewServiceMock.Setup(service =>
-                service.RetrieveAllPostsAsync())
-                    .Returns(new ValueTask<List<PostView>>(pendingSource.Task));
-
             // when
             IRenderedComponent<Home> renderedPage = Render<Home>();
 
             // then
-            renderedPage.FindAll("div.spinner-border").Should().HaveCountGreaterThan(0);
+            renderedPage.Find("span.badge.bg-primary").TextContent.Trim()
+                .Should().Be("Verse of the day:");
+
+            renderedPage.Markup.Should().Contain(SampleContent.VerseOfTheDay);
         }
 
         [Fact]
-        public void ShouldRenderPostsWhenLoaded()
+        public void ShouldLeadWithTheFeaturedStoryBesideThreeSmallerCards()
         {
-            // given
-            List<PostView> posts = CreateRandomPosts(count: 3, featured: true);
+            // when
+            IRenderedComponent<Home> renderedPage = Render<Home>();
 
-            this.postsViewServiceMock.Setup(service =>
-                service.RetrieveAllPostsAsync())
-                    .ReturnsAsync(posts);
+            // then (the lead carries the star; the tiles beside it do not)
+            List<IElement> heroes =
+                renderedPage.FindAll("div.card-overlay-bottom").ToList();
 
+            heroes.Should().HaveCount(4);
+            heroes[0].ClassList.Should().Contain("card-grid-lg");
+            heroes[0].QuerySelector("span.card-featured").Should().NotBeNull();
+            heroes[0].TextContent.Should().Contain(SampleContent.Featured.Title);
+
+            heroes.Skip(1).Should().OnlyContain(hero =>
+                hero.ClassList.Contains("card-grid-sm"));
+        }
+
+        [Fact]
+        public void ShouldListTheLatestPostsUnderTheirOwnHeading()
+        {
             // when
             IRenderedComponent<Home> renderedPage = Render<Home>();
 
             // then
-            foreach (PostView post in posts)
+            renderedPage.Find("h2.m-0").TextContent.Trim().Should().Be("Latest posts");
+
+            renderedPage.FindAll("div.card.h-100").Should()
+                .HaveCount(SampleContent.Latest.Count);
+
+            foreach (SamplePost post in SampleContent.Latest)
             {
                 renderedPage.Markup.Should().Contain(post.Title);
             }
-
-            this.postsViewServiceMock.Verify(service =>
-                service.RetrieveAllPostsAsync(),
-                    Times.Once);
         }
 
         [Fact]
-        public void ShouldRenderErrorAlertWhenServiceThrows()
+        public void ShouldCarryTheCategoriesTagsAndReferencesSidebar()
         {
-            // given
-            var serviceException =
-                new PostsViewServiceException(
-                    message: "Service error",
-                    innerException: new Xeption());
-
-            this.postsViewServiceMock.Setup(service =>
-                service.RetrieveAllPostsAsync())
-                    .ThrowsAsync(serviceException);
-
             // when
             IRenderedComponent<Home> renderedPage = Render<Home>();
 
             // then
-            renderedPage.Find("div.alert-danger").Should().NotBeNull();
+            renderedPage.FindAll("div.col-lg-3 h4").Select(heading => heading.TextContent.Trim())
+                .Should().Equal("Categories", "Popular tags", "Popular references");
         }
 
         [Fact]
-        public void ShouldRenderEmptyStateWhenNoPosts()
+        public void ShouldSendCategoriesAndTagsToASearchAndReferencesToThePassage()
         {
-            // given
-            this.postsViewServiceMock.Setup(service =>
-                service.RetrieveAllPostsAsync())
-                    .ReturnsAsync(new List<PostView>());
-
             // when
             IRenderedComponent<Home> renderedPage = Render<Home>();
 
-            // then
-            renderedPage.Find("div.alert-info").TextContent
-                .Should().Contain("No posts");
+            // then (categories and tags are both "show me posts about this"; a reference is the
+            // passage itself)
+            List<string> sidebarLinks = renderedPage.FindAll("div.col-lg-3 a")
+                .Select(link => link.GetAttribute("href")!)
+                .ToList();
+
+            int references = SampleContent.PopularReferences.Count;
+
+            sidebarLinks.Take(sidebarLinks.Count - references)
+                .Should().OnlyContain(href => href.StartsWith("/Search?q="));
+
+            sidebarLinks.TakeLast(references)
+                .Should().OnlyContain(href => href == "/BibleReferences");
+        }
+
+        [Fact]
+        public void ShouldPointEveryPostAtThePublicPostRoute()
+        {
+            // when
+            IRenderedComponent<Home> renderedPage = Render<Home>();
+
+            // then (the sample this mirrors links to an Administrators-only page — the public
+            // home page must not send a visitor somewhere that bounces them to a login)
+            renderedPage.Markup.Should().NotContain("SamplePages");
+
+            renderedPage.FindAll("a[href='/Post-Single']").Should()
+                .HaveCountGreaterThan(SampleContent.Latest.Count);
         }
     }
 }

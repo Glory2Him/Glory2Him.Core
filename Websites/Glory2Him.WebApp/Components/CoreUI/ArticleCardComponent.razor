@@ -1,0 +1,42 @@
+@namespace Glory2Him.WebApp.Components.CoreUI
+
+@* Listing card: image with the category badge over it, then title, excerpt, the post's hashtags
+   and bible references, and the byline. Presentational only (ts-ui-001). *@
+
+<div class="card h-100">
+    <div class="position-relative">
+        <img class="card-img" src="@ImageUrl" alt="@Title" />
+
+        <div class="card-img-overlay d-flex align-items-start flex-column p-3">
+            <div class="w-100 mt-auto">
+                <a href="Categories" class="badge @CategoryBadgeCss mb-2">
+                    <i class="fas fa-circle me-2 small fw-bold"></i>@Category
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body px-0 pt-3 pb-0 d-flex flex-column">
+        <h4 class="card-title mt-0 mb-2">
+            <a href="@Href" class="btn-link text-reset fw-bold">@Title</a>
+        </h4>
+
+        @if (!string.IsNullOrWhiteSpace(Excerpt))
+        {
+            <p class="card-text mb-2">@Excerpt</p>
+        }
+
+        @if (Tags.Any() || BibleReferences.Any())
+        {
+            <TagPillListComponent Tags="Tags" BibleReferences="BibleReferences" />
+        }
+
+        <div class="mt-auto">
+            <EngagementMetaComponent AuthorName="@AuthorName"
+                                     AuthorImageUrl="@AuthorImageUrl"
+                                     PublishedDate="PublishedDate"
+                                     Reactions="Reactions"
+                                     Comments="Comments" />
+        </div>
+    </div>
+</div>

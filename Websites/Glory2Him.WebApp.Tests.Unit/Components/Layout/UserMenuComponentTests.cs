@@ -73,7 +73,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
             IRenderedComponent<UserMenuComponent> renderedMenu = Render<UserMenuComponent>();
 
             // then (non-admin: no admin Projects link)
-            renderedMenu.Markup.Should().NotContain("admin/posts");
+            renderedMenu.Markup.Should().NotContain("Admin/Posts");
         }
 
         [Fact]
@@ -88,7 +88,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
             IRenderedComponent<UserMenuComponent> renderedMenu = Render<UserMenuComponent>();
 
             // then
-            renderedMenu.Markup.Should().Contain("admin/posts");
+            renderedMenu.Markup.Should().Contain("Admin/Posts");
         }
     }
 }

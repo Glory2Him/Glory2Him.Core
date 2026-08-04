@@ -1,0 +1,47 @@
+@page "/SamplePages/BibleReferences/BibleReference-Full-Chapter"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+
+@* The whole chapter, read through the scripture reader: chapter and translation on a bar above the
+   text, a toggle for two translations side by side, and a step button either side for the
+   neighbouring chapters. InteractiveServer so those controls respond.
+
+   Wider than the single-verse sample (col-lg-10, not 7) because parallel mode puts two reading
+   columns between the step buttons. *@
+
+<PageTitle>@SampleScripture.ChapterReference — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="Bible Reference - Full Chapter" SourceFile="post-single-3.html">
+    <section class="py-5">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+                    <ScriptureReaderComponent Book="@SampleScripture.ChapterBook"
+                                              ChapterCount="SampleScripture.ChapterCount"
+                                              Chapter="SampleScripture.ChapterNumber"
+                                              Translations="SampleScripture.Translations"
+                                              SectionsFor="SampleScripture.ChapterFor" />
+
+                    <div class="text-center my-4">
+                        <a href="SamplePages/BibleReferences/BibleReference-Single-verse"
+                           class="btn-link">
+                            Show @SampleScripture.Reference on its own
+                        </a>
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="fw-bold me-1">Tags:</span>
+                        @foreach (string tag in SampleScripture.Tags)
+                        {
+                            <a href="Tag?name=@Uri.EscapeDataString(tag)"
+                               class="btn btn-sm btn-outline-secondary mb-0">@tag</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</SampleShellComponent>

@@ -1,5 +1,5 @@
-@page "/shop-detail"
-@page "/shop-detail/{Slug}"
+@page "/Shop-Detail"
+@page "/Shop-Detail/{Slug}"
 @rendermode InteractiveServer
 @inherits ShopDetailBase
 
@@ -26,7 +26,7 @@ else
             <nav aria-label="breadcrumb" class="mb-3">
                 <ol class="breadcrumb mb-0">
                     <li class="breadcrumb-item"><a href="/">Home</a></li>
-                    <li class="breadcrumb-item"><a href="shop-grid">Shop</a></li>
+                    <li class="breadcrumb-item"><a href="Shop-Grid">Shop</a></li>
                     <li class="breadcrumb-item active" aria-current="page">@Product.Name</li>
                 </ol>
             </nav>
@@ -54,7 +54,7 @@ else
                     @if (WasAdded)
                     {
                         <div class="alert alert-success py-2" role="alert">
-                            Added to your cart. <a href="my-cart" class="alert-link">View cart</a>.
+                            Added to your cart. <a href="My-Cart" class="alert-link">View cart</a>.
                         </div>
                     }
 

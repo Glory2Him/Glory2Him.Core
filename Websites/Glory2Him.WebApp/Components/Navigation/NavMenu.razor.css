@@ -1,0 +1,36 @@
+/* Collapsible nav groups, styled after CoreUI's sidebar. The chevron points down when the group is
+   open and rotates to point right when Bootstrap adds .collapsed to the toggle. */
+
+.nav-group-toggle {
+    cursor: pointer;
+}
+
+.nav-group-toggle:hover {
+    background: rgba(var(--bs-emphasis-color-rgb), 0.04);
+    border-radius: 0.375rem;
+}
+
+.g2h-nav-chevron {
+    font-size: 0.7rem;
+    transition: transform 0.2s ease-in-out;
+}
+
+.nav-group-toggle.collapsed .g2h-nav-chevron {
+    transform: rotate(-90deg);
+}
+
+/* Each nesting level steps further in, so depth reads at a glance without needing tree lines. */
+.nav-group-items {
+    padding-left: 0.75rem;
+}
+
+.nav-group-items .nav-link {
+    font-size: 0.9375rem;
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
+/* The leaf bullet mirrors CoreUI's nav-icon-bullet: a small dot standing in for a real icon. */
+.nav-group-items .nav-link .bi-dot {
+    opacity: 0.55;
+}

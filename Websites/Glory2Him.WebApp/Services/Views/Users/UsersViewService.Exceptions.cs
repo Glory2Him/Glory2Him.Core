@@ -25,6 +25,12 @@ namespace Glory2Him.WebApp.Services.Views.Users
             {
                 return await returningUsersFunction();
             }
+            catch (UsersViewValidationException usersViewValidationException)
+            {
+                await this.loggingBroker.LogWarningAsync(usersViewValidationException.Message);
+
+                throw;
+            }
             catch (Exception exception)
             {
                 var failedUsersViewServiceException =
@@ -41,6 +47,14 @@ namespace Glory2Him.WebApp.Services.Views.Users
             try
             {
                 await returningNothingFunction();
+            }
+            catch (UsersViewValidationException usersViewValidationException)
+            {
+                // The message is already written for the admin — log it and let it through so the
+                // page can show the real reason instead of a generic failure.
+                await this.loggingBroker.LogWarningAsync(usersViewValidationException.Message);
+
+                throw;
             }
             catch (Exception exception)
             {

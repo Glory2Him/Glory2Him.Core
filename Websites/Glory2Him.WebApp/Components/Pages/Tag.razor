@@ -1,4 +1,4 @@
-@page "/tag"
+@page "/Tag"
 @inherits TagBase
 
 @* Tag archive (Blogzine tag.html) — posts filtered by tag/category, with a tag cloud. *@
@@ -12,12 +12,12 @@
         <!-- Tag cloud -->
         <ul class="list-inline mb-4">
             <li class="list-inline-item">
-                <a href="tag" class="btn btn-sm @(string.IsNullOrWhiteSpace(TagName) ? "btn-primary" : "btn-primary-soft")">All</a>
+                <a href="Tag" class="btn btn-sm @(string.IsNullOrWhiteSpace(TagName) ? "btn-primary" : "btn-primary-soft")">All</a>
             </li>
             @foreach (string tag in Tags)
             {
                 <li class="list-inline-item">
-                    <a href="tag?name=@Uri.EscapeDataString(tag)"
+                    <a href="Tag?name=@Uri.EscapeDataString(tag)"
                        class="btn btn-sm @(string.Equals(tag, TagName, StringComparison.OrdinalIgnoreCase) ? "btn-primary" : "btn-primary-soft")">
                         @tag
                     </a>

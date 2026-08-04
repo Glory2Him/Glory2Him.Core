@@ -16,12 +16,36 @@ namespace Glory2Him.WebApp.Models.Views.Users
         public Guid Id { get; set; }
         public string UserName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string Surname { get; set; } = string.Empty;
+        public string? PreferredName { get; set; }
+        public DateOnly? DateOfBirth { get; set; }
+        public bool EmailConfirmed { get; set; }
+        public bool IsLockedOut { get; set; }
+        public int AccessFailedCount { get; set; }
+        public bool TwoFactorEnabled { get; set; }
         public bool IsDisabled { get; set; }
         public List<string> Roles { get; set; } = new List<string>();
         public bool HasProfileImage { get; set; }
         public string? ImageVersion { get; set; }
 
         public string? ImageUrl =>
-            HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
+            HasProfileImage ? $"Profile-Image/{Id}?v={ImageVersion}" : null;
+
+        public string DisplayName
+        {
+            get
+            {
+                if (!string.IsNullOrWhiteSpace(PreferredName))
+                {
+                    return PreferredName;
+                }
+
+                string fullName = $"{Name} {Surname}".Trim();
+
+                return string.IsNullOrWhiteSpace(fullName) ? UserName : fullName;
+            }
+        }
     }
 }

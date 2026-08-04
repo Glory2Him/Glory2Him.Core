@@ -17,10 +17,11 @@ namespace Glory2Him.WebApp.Components.Pages.Admin
 {
     public class UsersPageBase : ComponentBase
     {
-        public const string AdministratorsRole = "Administrators";
-
         [Inject]
         public IUsersViewService UsersViewService { get; set; } = default!;
+
+        [Inject]
+        public NavigationManager Navigation { get; set; } = default!;
 
         protected bool IsLoading { get; private set; } = true;
 
@@ -29,12 +30,6 @@ namespace Glory2Him.WebApp.Components.Pages.Admin
         protected string ErrorMessage { get; private set; } = string.Empty;
 
         protected List<UserView> Users { get; private set; } = new List<UserView>();
-
-        protected UserView? SelectedUser { get; private set; }
-
-        protected bool IsManageModalVisible { get; private set; }
-
-        protected bool IsDeleteDialogVisible { get; private set; }
 
         protected override async Task OnInitializedAsync() =>
             await LoadUsersAsync();
@@ -59,71 +54,9 @@ namespace Glory2Him.WebApp.Components.Pages.Admin
             }
         }
 
-        protected void OpenManageModal(UserView user)
-        {
-            SelectedUser = user;
-            IsManageModalVisible = true;
-        }
-
-        protected void CloseManageModal()
-        {
-            IsManageModalVisible = false;
-            SelectedUser = null;
-        }
-
-        protected void OpenDeleteDialog(UserView user)
-        {
-            SelectedUser = user;
-            IsDeleteDialogVisible = true;
-        }
-
-        protected void CloseDeleteDialog()
-        {
-            IsDeleteDialogVisible = false;
-            SelectedUser = null;
-        }
-
-        protected async Task ToggleDisabledAsync(UserView user)
-        {
-            await GuardAsync(() =>
-                UsersViewService.SetUserDisabledAsync(user.Id, !user.IsDisabled).AsTask());
-        }
-
-        protected async Task ToggleAdministratorAsync(UserView user)
-        {
-            bool isCurrentlyAdmin = user.Roles.Contains(AdministratorsRole);
-
-            await GuardAsync(() =>
-                UsersViewService.SetUserRoleAsync(
-                    user.Id, AdministratorsRole, !isCurrentlyAdmin).AsTask());
-        }
-
-        protected async Task ConfirmDeleteAsync()
-        {
-            if (SelectedUser is null)
-            {
-                return;
-            }
-
-            Guid userId = SelectedUser.Id;
-            IsDeleteDialogVisible = false;
-
-            await GuardAsync(() => UsersViewService.DeleteUserAsync(userId).AsTask());
-        }
-
-        private async Task GuardAsync(Func<Task> operation)
-        {
-            try
-            {
-                await operation();
-                await LoadUsersAsync();
-                CloseManageModal();
-            }
-            catch
-            {
-                HasError = true;
-                ErrorMessage = "The action could not be completed. Please try again.";
-            }
-        }
+        // Everything a user can be changed to now lives on its own addressable page, so the list
+        // only routes there.
+        protected void ViewUser(Guid userId) =>
+            Navigation.NavigateTo($"{UserDetailPageBase.UsersRoute}/{userId}");
     }
 }

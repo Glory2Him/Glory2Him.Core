@@ -12,12 +12,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Bunit;
 using FluentAssertions;
 using Glory2Him.WebApp.Components.Pages.Admin;
 using Glory2Him.WebApp.Models.Views.Posts;
 using Glory2Him.WebApp.Services.Views.Posts;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Tynamix.ObjectFiller;
@@ -69,7 +69,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
         }
 
         [Fact]
-        public void ShouldOpenCreateModalWhenNewPostClicked()
+        public void ShouldNavigateToTheNewPostPageWhenNewPostClicked()
         {
             // given
             this.postsViewServiceMock.Setup(service =>
@@ -77,6 +77,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
                     .ReturnsAsync(new List<PostView>());
 
             IRenderedComponent<PostsPage> renderedPage = Render<PostsPage>();
+            var navigationManager = Services.GetRequiredService<NavigationManager>();
 
             // when
             renderedPage.FindAll("button")
@@ -84,41 +85,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
                 .Click();
 
             // then
-            renderedPage.FindAll("div.modal").Should().NotBeEmpty();
-            renderedPage.Markup.Should().Contain("New post");
+            navigationManager.Uri.Should().EndWith("Admin/Posts/New");
         }
 
         [Fact]
-        public void ShouldCallAddPostWhenSavingNewPost()
-        {
-            // given
-            this.postsViewServiceMock.Setup(service =>
-                service.RetrieveAllPostsAsync())
-                    .ReturnsAsync(new List<PostView>());
-
-            this.postsViewServiceMock.Setup(service =>
-                service.AddPostAsync(It.IsAny<PostView>()))
-                    .ReturnsAsync(new PostView());
-
-            IRenderedComponent<PostsPage> renderedPage = Render<PostsPage>();
-
-            renderedPage.FindAll("button")
-                .First(button => button.TextContent.Contains("New post"))
-                .Click();
-
-            // when (Save post — button in the modal footer)
-            renderedPage.FindAll("div.modal-footer button")
-                .First(button => button.TextContent.Contains("Save post"))
-                .Click();
-
-            // then
-            this.postsViewServiceMock.Verify(service =>
-                service.AddPostAsync(It.IsAny<PostView>()),
-                    Times.Once);
-        }
-
-        [Fact]
-        public void ShouldCallRemovePostWhenDeletionConfirmed()
+        public void ShouldNavigateToThePostDetailPageWhenManageClicked()
         {
             // given
             List<PostView> posts = CreatePosts(count: 1);
@@ -127,23 +98,33 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
                 service.RetrieveAllPostsAsync())
                     .ReturnsAsync(posts);
 
-            this.postsViewServiceMock.Setup(service =>
-                service.RemovePostAsync(posts[0].Id))
-                    .Returns(ValueTask.CompletedTask);
-
             IRenderedComponent<PostsPage> renderedPage = Render<PostsPage>();
+            var navigationManager = Services.GetRequiredService<NavigationManager>();
 
+            // when
             renderedPage.FindAll("button")
-                .First(button => button.TextContent.Trim() == "Delete")
+                .First(button => button.TextContent.Trim() == "Manage")
                 .Click();
 
-            // when (confirm in the dialog)
-            renderedPage.Find("div.modal-footer button.btn-danger").Click();
-
             // then
-            this.postsViewServiceMock.Verify(service =>
-                service.RemovePostAsync(posts[0].Id),
-                    Times.Once);
+            navigationManager.Uri.Should().EndWith($"Admin/Posts/{posts[0].Id}");
+        }
+
+        [Fact]
+        public void ShouldNotEditPostsFromTheListItself()
+        {
+            // given
+            List<PostView> posts = CreatePosts(count: 1);
+
+            this.postsViewServiceMock.Setup(service =>
+                service.RetrieveAllPostsAsync())
+                    .ReturnsAsync(posts);
+
+            // when
+            IRenderedComponent<PostsPage> renderedPage = Render<PostsPage>();
+
+            // then (editing a post happens on its own page, never in a modal over the list)
+            renderedPage.FindAll("div.modal").Should().BeEmpty();
         }
     }
 }

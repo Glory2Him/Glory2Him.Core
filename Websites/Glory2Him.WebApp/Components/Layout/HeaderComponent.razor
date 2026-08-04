@@ -1,34 +1,65 @@
 @* ---
    Blogzine header chrome: top bar (accessibility + dark-mode + social), logo navbar with
    dropdown menus, and the right-hand search / subscribe / offcanvas controls.
-   Presentational only — no data access (ts-ui-001). --- *@
+   The textless Glory2Him sunset-over-mountains photo sits behind the whole header as a single
+   full-bleed background (see HeaderComponent.razor.css); navbar-dark switches every nav-link,
+   icon and the wordmark to white so they stay readable over it, and the accessibility buttons ride
+   a light pill for the same reason. Presentational only — no data access (ts-ui-001). --- *@
 
-<header class="navbar-light navbar-sticky header-static">
+<header class="navbar-dark navbar-sticky header-static g2h-header-photo">
     <div class="navbar-top d-none d-lg-block small">
         <div class="container">
             <div class="d-md-flex justify-content-between align-items-center my-2">
                 <!-- Top bar left -->
-                <ul class="nav">
+                <ul class="nav align-items-center">
                     <li class="nav-item">
-                        <a class="nav-link ps-0" href="about-us">About</a>
+                        <a class="nav-link ps-0" href="About-Us">About</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="contact-us">Contact</a>
+                        <a class="nav-link" href="Contact-Us">Contact</a>
                     </li>
                     <AuthorizeView>
                         <Authorized>
-                            <li class="nav-item">
-                                <a class="nav-link" href="Account/Manage">@context.User.Identity?.Name</a>
+                            @if (context.User.IsInRole("Administrators"))
+                            {
+                                <li class="nav-item">
+                                    <a class="nav-link" href="Admin/Users">Admin</a>
+                                </li>
+                            }
+                            @* Always shown (not just for administrators): it separates
+                               About/Contact from the signed-in user's own links, whether that's
+                               just the profile + logout, or the admin link too. *@
+                            <li class="nav-item d-flex align-items-center">
+                                <span class="text-white-50" aria-hidden="true">|</span>
                             </li>
                             <li class="nav-item">
+                                <a class="nav-link d-flex align-items-center" href="Account/Manage">
+                                    <i class="bi bi-person me-1"></i>
+                                    @ToDisplayName(context.User.Identity?.Name)
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                @* The button itself is a fully reset, invisible click target
+                                   (no border/background/padding of its own — .btn's padding and
+                                   line-height fought with .nav-link's, leaving the text baseline
+                                   slightly higher than the sibling <a> links). The actual nav-link
+                                   styling lives on the inner span instead, which renders with the
+                                   exact same box as "About"/"Contact"/"Admin". *@
                                 <form action="Account/Logout" method="post" class="d-inline">
                                     <AntiforgeryToken />
                                     <input type="hidden" name="ReturnUrl" value="" />
-                                    <button type="submit" class="nav-link btn btn-link px-2">Logout</button>
+                                    <button type="submit" class="p-0 border-0 bg-transparent">
+                                        <span class="nav-link d-flex align-items-center">
+                                            <i class="bi bi-box-arrow-right me-1"></i>Logout
+                                        </span>
+                                    </button>
                                 </form>
                             </li>
                         </Authorized>
                         <NotAuthorized>
+                            <li class="nav-item d-flex align-items-center">
+                                <span class="text-white-50" aria-hidden="true">|</span>
+                            </li>
                             <li class="nav-item">
                                 <a class="nav-link" href="Account/Login">Login / Join</a>
                             </li>
@@ -38,7 +69,7 @@
                 <!-- Top bar right -->
                 <div class="d-flex align-items-center">
                     <!-- Font size accessibility START -->
-                    <div class="btn-group me-3" role="group" aria-label="font size changer">
+                    <div class="btn-group me-3 g2h-header-pill" role="group" aria-label="font size changer">
                         <input type="radio" class="btn-check" name="fntradio" id="font-sm" />
                         <label class="btn btn-xs btn-outline-primary mb-0" for="font-sm">A-</label>
 
@@ -106,102 +137,61 @@
     </div>
 
     <!-- Logo Nav START -->
-    <nav class="navbar navbar-expand-lg">
+    @* navbar-dark repeats here (in addition to <header>): Bootstrap's .navbar rule resets the
+       brand/link color custom properties for its own subtree, so the header's navbar-dark alone
+       doesn't reach the brand text or the nav links nested inside .navbar. *@
+    <nav class="navbar navbar-dark navbar-expand-lg">
         <div class="container">
             <!-- Logo START -->
             <a class="navbar-brand" href="/">
-                <img class="navbar-brand-item light-mode-item" src="assets/images/logo.svg" alt="Glory 2 Him" />
-                <img class="navbar-brand-item dark-mode-item" src="assets/images/logo-light.svg" alt="Glory 2 Him" />
+                <BrandComponent Variant="BrandVariant.Text" AccentTwo="false" />
             </a>
             <!-- Logo END -->
 
-            <!-- Responsive navbar toggler -->
-            <button class="navbar-toggler ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="text-body h6 d-none d-sm-inline-block">Menu</span>
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <!-- Section nav START -->
+            @* The three sections of the site, centred between the wordmark and the search button.
+               mx-auto is what centres them: it takes the space either side, so the group sits in
+               the middle of what is left rather than butting up against the brand.
+               Hidden below lg — the wordmark, the Search button and the icons already fill a phone
+               width, and the offcanvas menu covers navigation there. *@
+            <ul class="navbar-nav flex-row flex-nowrap align-items-center mx-auto d-none d-lg-flex g2h-section-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="/">Posts</a>
+                </li>
 
-            <!-- Main navbar START -->
-            <div class="collapse navbar-collapse" id="navbarCollapse">
-                <ul class="navbar-nav navbar-nav-scroll mx-auto">
-                    <!-- Nav item 1 Home -->
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/">Home</a>
-                    </li>
+                <li class="nav-item" aria-hidden="true">
+                    <span class="nav-link px-2 opacity-50">|</span>
+                </li>
 
-                    <!-- Nav item 2 Pages -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="pagesMenu" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Pages</a>
-                        <ul class="dropdown-menu" aria-labelledby="pagesMenu">
-                            <li><a class="dropdown-item" href="about-us">About</a></li>
-                            <li><a class="dropdown-item" href="contact-us">Contact</a></li>
-                            <li><a class="dropdown-item" href="author">Author Page</a></li>
-                            <li><a class="dropdown-item" href="categories">Category page</a></li>
-                            <li><a class="dropdown-item" href="search-result">Search result</a></li>
-                            <li><a class="dropdown-item" href="not-found">Error 404</a></li>
-                            <li class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="Account/Login">Sign in</a></li>
-                            <li><a class="dropdown-item" href="Account/Register">Sign up</a></li>
-                        </ul>
-                    </li>
+                @* Spans, not links: these two sections have no route yet, and an anchor that goes
+                   nowhere is worse than plain text. Swap each for an <a href> when they do. *@
+                <li class="nav-item">
+                    <span class="nav-link g2h-section-pending" title="Coming soon">Series</span>
+                </li>
 
-                    <!-- Nav item 3 Post -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="postMenu" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Post</a>
-                        <ul class="dropdown-menu" aria-labelledby="postMenu">
-                            <li><a class="dropdown-item" href="post-grid">Post grid</a></li>
-                            <li><a class="dropdown-item" href="post-grid-masonry-filter">Masonry filter</a></li>
-                            <li><a class="dropdown-item" href="post-list">Post list</a></li>
-                            <li><a class="dropdown-item" href="categories">Journal</a></li>
-                            <li><a class="dropdown-item" href="tag">Tags</a></li>
-                            <li><a class="dropdown-item" href="post-single">Post single</a></li>
-                        </ul>
-                    </li>
+                <li class="nav-item" aria-hidden="true">
+                    <span class="nav-link px-2 opacity-50">|</span>
+                </li>
 
-                    <!-- Nav item Shop -->
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="shopMenu" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Shop</a>
-                        <ul class="dropdown-menu" aria-labelledby="shopMenu">
-                            <li><a class="dropdown-item" href="shop-grid">Shop</a></li>
-                            <li><a class="dropdown-item" href="my-cart">My cart</a></li>
-                            <li><a class="dropdown-item" href="checkout">Checkout</a></li>
-                        </ul>
-                    </li>
-
-                    <!-- Nav item 4 Contact -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="contact-us">Contact</a>
-                    </li>
-
-                    <!-- Nav item 5 Dashboard (authenticated only) -->
-                    <AuthorizeView>
-                        <Authorized>
-                            <li class="nav-item">
-                                <a class="nav-link" href="dashboard">Dashboard</a>
-                            </li>
-                        </Authorized>
-                    </AuthorizeView>
-                </ul>
-            </div>
-            <!-- Main navbar END -->
+                <li class="nav-item">
+                    <span class="nav-link g2h-section-pending" title="Coming soon">The Gospel</span>
+                </li>
+            </ul>
+            <!-- Section nav END -->
 
             <!-- Nav right START -->
+            @* The dropdowns and the Subscribe button that used to fill this bar are gone — search
+               is the way into the site now. The responsive toggler went with them: it existed only
+               to open #navbarCollapse, which no longer exists. *@
             <div class="nav flex-nowrap align-items-center">
-                <!-- Nav Button -->
-                <div class="nav-item d-none d-md-block">
-                    <a href="Account/Register" class="btn btn-sm btn-danger mb-0 mx-2">Subscribe!</a>
-                </div>
-                <!-- Nav Search -->
-                <div class="nav-item dropdown dropdown-toggle-icon-none nav-search">
-                    <a class="nav-link dropdown-toggle" role="button" href="#" id="navSearch" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-search fs-4"> </i>
+                <!-- Search -->
+                @* Replaces the magnifier that used to drop a small search form down here: that
+                   posted to Search-Result, and having two search entry points in one header meant
+                   two different result pages. This one just goes to /Search. *@
+                <div class="nav-item me-2">
+                    <a href="/Search" class="btn btn-success mb-0 d-flex align-items-center">
+                        <i class="bi bi-search me-2"></i>Search
                     </a>
-                    <div class="dropdown-menu dropdown-menu-end shadow rounded p-2" aria-labelledby="navSearch">
-                        <form class="input-group" action="search-result" method="get">
-                            <input class="form-control border-success" type="search" name="q" placeholder="Search" aria-label="Search" />
-                            <button class="btn btn-success m-0" type="submit">Search</button>
-                        </form>
-                    </div>
                 </div>
                 <!-- Notifications + profile menu (CoreUI-style) -->
                 <UserMenuComponent />
@@ -217,3 +207,12 @@
     </nav>
     <!-- Logo Nav END -->
 </header>
+
+@code {
+    // The identity name is the raw username ("admin"), which reads as a typo next to the other
+    // top-bar links — capitalize it for display only.
+    private static string ToDisplayName(string? userName) =>
+        string.IsNullOrWhiteSpace(userName)
+            ? string.Empty
+            : char.ToUpperInvariant(userName[0]) + userName[1..];
+}

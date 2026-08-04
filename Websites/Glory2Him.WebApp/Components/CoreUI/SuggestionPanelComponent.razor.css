@@ -1,0 +1,35 @@
+/* Pills read at the same size as the "Think a tag is missing?" prompt beside them — the theme's
+   .small is 0.875em, whereas .btn-xs would drop them to 0.6rem and look like a different family. */
+
+.g2h-suggest-pill {
+    font-size: 0.875em;
+    padding: 0.3rem 0.65rem;
+    line-height: 1.4;
+}
+
+/* A suggestion that has not been approved yet: same colour so it still reads as part of the set,
+   but outlined rather than filled and slightly faded, so approved and pending are never confused. */
+.g2h-suggest-pending {
+    border-style: dashed;
+    opacity: 0.75;
+    cursor: help;
+}
+
+/* A bare button rather than a .btn, so it adds no box of its own inside the pill — only the glyph.
+   cursor and colour both have to be stated: the pill sets cursor: help, and the pill's own text
+   colour would otherwise carry through to the cross. */
+.g2h-suggest-remove {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--bs-danger);
+    line-height: 1;
+    vertical-align: baseline;
+    cursor: pointer;
+}
+
+.g2h-suggest-remove:hover,
+.g2h-suggest-remove:focus-visible {
+    color: var(--bs-danger);
+    filter: brightness(0.85);
+}

@@ -1,11 +1,11 @@
-@page "/admin/posts"
+@page "/Admin/Posts"
 @rendermode InteractiveServer
 @layout Glory2Him.WebApp.Components.Layout.SidebarLayout
 @attribute [Authorize(Roles = "Administrators")]
 @using Glory2Him.WebApp.Models.Views.Navigations
 @inherits PostsPageBase
 
-@* InteractiveServer: the DataTable plus create/edit modal and delete dialog need a live circuit. *@
+@* InteractiveServer: the DataTable sorts, pages and searches on a live circuit. *@
 
 <PageTitle>Posts — Glory 2 Him</PageTitle>
 
@@ -16,7 +16,7 @@
 <hr />
 
 <div class="d-flex justify-content-end mb-3">
-    <Button Color="primary" OnClick="OpenCreateModal">
+    <Button Color="primary" OnClick="CreatePost">
         <i class="bi bi-plus-lg me-1"></i>New post
     </Button>
 </div>
@@ -40,92 +40,21 @@ else
     <Card>
         <DataTable TItem="PostView" Items="Posts" Columns="Columns" PageSize="10">
             <RowActions Context="post">
-                <a class="btn btn-sm btn-outline-secondary" href="post-single/@post.Slug">View</a>
-                <Button Color="outline-primary" CssClass="btn-sm" OnClick="() => OpenEditModal(post)">
-                    Edit
-                </Button>
-                <Button Color="outline-danger" CssClass="btn-sm" OnClick="() => OpenDeleteDialog(post)">
-                    Delete
+                <a class="btn btn-sm btn-outline-secondary" href="Post-Single/@post.Slug">View</a>
+                <Button Color="outline-primary" CssClass="btn-sm" OnClick="() => EditPost(post.Id)">
+                    Manage
                 </Button>
             </RowActions>
         </DataTable>
     </Card>
 }
 
-@* Create / edit modal *@
-<Modal Title="@EditTitle" Visible="IsEditModalVisible" OnClose="CloseEditModal" Size="lg">
-    <ChildContent>
-        <FormText Label="Title" Value="EditModel.Title"
-                  ValueChanged="@(value => EditModel.Title = value ?? string.Empty)" />
-
-        <div class="mb-3">
-            <label class="form-label">Excerpt</label>
-            <textarea class="form-control" rows="3"
-                      value="@EditModel.Excerpt"
-                      @oninput="@(args => EditModel.Excerpt = args.Value?.ToString() ?? string.Empty)"></textarea>
-        </div>
-
-        <div class="row">
-            <div class="col-md-6">
-                <FormText Label="Category" Value="EditModel.Category"
-                          ValueChanged="@(value => EditModel.Category = value ?? string.Empty)" />
-            </div>
-            <div class="col-md-6">
-                <FormSelect Label="Badge colour" Value="EditModel.CategoryBadgeCss"
-                            Options="BadgeOptions"
-                            ValueChanged="@(value => EditModel.CategoryBadgeCss = value ?? "text-bg-primary")" />
-            </div>
-        </div>
-
-        <FormText Label="Author" Value="EditModel.AuthorName"
-                  ValueChanged="@(value => EditModel.AuthorName = value ?? string.Empty)" />
-
-        <div class="row">
-            <div class="col-md-6">
-                <FormDate Label="Published date" Value="EditModel.PublishedDate"
-                          ValueChanged="@(value => EditModel.PublishedDate = value ?? EditModel.PublishedDate)" />
-            </div>
-            <div class="col-md-6">
-                <FormSwitch Label="Featured" Value="EditModel.IsFeatured"
-                            ValueChanged="@(value => EditModel.IsFeatured = value)" />
-            </div>
-        </div>
-    </ChildContent>
-    <FooterContent>
-        <Button Color="secondary" OnClick="CloseEditModal">Cancel</Button>
-        <Button Color="primary" OnClick="SavePostAsync">Save post</Button>
-    </FooterContent>
-</Modal>
-
-@* Delete confirmation *@
-<ConfirmDialog Visible="IsDeleteDialogVisible"
-               Title="Delete post"
-               Message="@DeleteMessage"
-               ConfirmText="Delete"
-               OnConfirm="ConfirmDeleteAsync"
-               OnCancel="CloseDeleteDialog" />
-
 @code {
     private static readonly BreadcrumbItem[] Crumbs = new[]
     {
         new BreadcrumbItem("Admin"),
-        new BreadcrumbItem("Posts", "admin/posts", IsActive: true),
+        new BreadcrumbItem("Posts", "Admin/Posts", IsActive: true),
     };
-
-    private string DeleteMessage =>
-        PostToDelete is null
-            ? "Are you sure?"
-            : $"Delete post \"{PostToDelete.Title}\"? This cannot be undone.";
-
-    private readonly IReadOnlyList<SelectOption> BadgeOptions =
-        new List<SelectOption>
-        {
-            new SelectOption { Value = "text-bg-primary", Text = "Primary" },
-            new SelectOption { Value = "text-bg-success", Text = "Success" },
-            new SelectOption { Value = "text-bg-warning", Text = "Warning" },
-            new SelectOption { Value = "text-bg-danger", Text = "Danger" },
-            new SelectOption { Value = "text-bg-info", Text = "Info" },
-        };
 
     private readonly IReadOnlyList<DataTableColumn<PostView>> Columns =
         new List<DataTableColumn<PostView>>

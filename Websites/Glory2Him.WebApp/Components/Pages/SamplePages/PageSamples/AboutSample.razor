@@ -1,0 +1,79 @@
+@page "/SamplePages/Pages/About"
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+@inherits SamplePageBase
+
+@* Blogzine about-us.html: hero, mission copy, a counter row and the team. *@
+
+<PageTitle>About — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="About" SourceFile="about-us.html">
+    <HeroBannerComponent Title="About us" Crumbs="Crumbs" />
+
+    <section class="py-5">
+        <div class="container">
+            <div class="row justify-content-center text-center mb-5">
+                <div class="col-lg-8">
+                    <h2 class="mb-3">Sharing the good news of Jesus Christ</h2>
+                    <p class="lead text-body-secondary mb-0">
+                        Glory 2 Him is a place to read, reflect, and be encouraged — stories that
+                        point all glory back to Him.
+                    </p>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-5">
+                <div class="col-sm-6 col-lg-3">
+                    <StatTile Variant="StatTileVariant.Green" Value="@Posts.Count.ToString()"
+                              Label="Stories" Icon="bi-file-earmark-text" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <StatTile Variant="StatTileVariant.Amber" Value="12" Label="Contributors"
+                              Icon="bi-people" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <StatTile Variant="StatTileVariant.Na" Value="48" Label="Countries reached"
+                              Icon="bi-globe" />
+                </div>
+                <div class="col-sm-6 col-lg-3">
+                    <StatTile Variant="StatTileVariant.Red" Value="7" Label="Years running"
+                              Icon="bi-calendar-heart" />
+                </div>
+            </div>
+
+            <h2 class="h4 mb-4">Our team</h2>
+
+            <div class="row g-4">
+                @foreach (string member in TeamMembers)
+                {
+                    <div class="col-sm-6 col-lg-3">
+                        <Card CssClass="border text-center h-100">
+                            <ChildContent>
+                                <AvatarComponent Name="@member" SizePx="80"
+                                                 SizeCssClass="mx-auto mb-3" />
+                                <h6 class="mb-1">@member</h6>
+                                <p class="small text-body-secondary mb-0">Contributor</p>
+                            </ChildContent>
+                        </Card>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+
+    <section class="pb-5">
+        <div class="container">
+            <NewsletterComponent />
+        </div>
+    </section>
+</SampleShellComponent>
+
+@code {
+    private static readonly BreadcrumbItem[] Crumbs = new[]
+    {
+        new BreadcrumbItem("About", IsActive: true),
+    };
+
+    private static readonly string[] TeamMembers =
+        new[] { "Joan Wallace", "Lori Stevens", "Dennis Barrett", "Carolyn Ortiz" };
+}

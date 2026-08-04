@@ -20,7 +20,7 @@ namespace Glory2Him.WebApp.Components.CoreUI
         [EditorRequired]
         public PostView Post { get; set; } = new PostView();
 
-        private string PostHref => $"post-single/{Post.Slug}";
+        private string PostHref => $"Post-Single/{Post.Slug}";
 
         private string PublishedDateText => Post.PublishedDate.ToString("MMM dd, yyyy");
     }

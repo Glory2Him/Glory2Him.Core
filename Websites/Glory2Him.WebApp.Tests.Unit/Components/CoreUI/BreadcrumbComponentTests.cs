@@ -38,7 +38,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
             var items = new List<BreadcrumbItem>
             {
                 new BreadcrumbItem("Admin"),
-                new BreadcrumbItem("Users", "admin/users", IsActive: true),
+                new BreadcrumbItem("Users", "Admin/Users", IsActive: true),
             };
 
             // when
@@ -58,7 +58,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
             // given
             var items = new List<BreadcrumbItem>
             {
-                new BreadcrumbItem("Journal", "categories"),
+                new BreadcrumbItem("Journal", "Categories"),
             };
 
             // when
@@ -68,7 +68,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
 
             // then
             renderedCrumbs.FindAll("li.breadcrumb-item a")[1]
-                .GetAttribute("href").Should().Be("categories");
+                .GetAttribute("href").Should().Be("Categories");
         }
     }
 }

@@ -1,75 +1,161 @@
 @page "/"
-@inherits HomeBase
+@using Glory2Him.WebApp.Components.Pages.SamplePages
+
+@* The public home page, laid out exactly as the Home Default sample: verse-of-the-day strip, a
+   featured lead beside three smaller cards, then the latest posts with their tags and bible
+   references against a categories / tags / references sidebar.
+
+   The copy still comes from SampleContent — real posts have not been wired in yet. When they are,
+   only the @code block below and the hrefs need to change; the markup stays as it is. HomeBase
+   still holds the IPostsViewService plumbing for that. *@
 
 <PageTitle>Glory 2 Him — Sharing the Gospel</PageTitle>
 
-@if (IsLoading)
-{
-    <section class="py-5">
-        <div class="container text-center">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+<VerseOfTheDayComponent Verse="@SampleContent.VerseOfTheDay" Href="/Post-Single" />
+
+<section class="pt-4 pb-0 card-grid">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <PostHeroCardComponent Title="@Featured.Title"
+                                       Href="/Post-Single"
+                                       Excerpt="@Featured.Excerpt"
+                                       Category="@Featured.Category"
+                                       CategoryBadgeCss="@Featured.CategoryBadgeCss"
+                                       ImageUrl="@Featured.ImageUrl"
+                                       AuthorName="@Featured.AuthorName"
+                                       AuthorImageUrl="@Featured.AuthorImageUrl"
+                                       ShowAuthorAvatar="true"
+                                       PublishedDate="Featured.PublishedDate"
+                                       IsFeatured="true"
+                                       SizeCssClass="card-grid-lg"
+                                       TitleCssClass="h1"
+                                       Reactions="Featured.Reactions"
+                                       Comments="Featured.Comments"
+                                       TagCount="Featured.Tags.Count"
+                                       ReferenceCount="Featured.BibleReferences.Count" />
             </div>
-        </div>
-    </section>
-}
-else if (HasError)
-{
-    <section class="py-5">
-        <div class="container">
-            <div class="alert alert-danger text-center mb-0" role="alert">@ErrorMessage</div>
-        </div>
-    </section>
-}
-else if (!Posts.Any())
-{
-    <section class="py-5">
-        <div class="container">
-            <div class="alert alert-info text-center mb-0" role="alert">No posts have been published yet.</div>
-        </div>
-    </section>
-}
-else
-{
-    <!-- Featured START -->
-    <section class="pt-4 pb-0">
-        <div class="container">
-            <div class="row g-4">
-                <div class="col-12">
-                    <h1 class="h2">Latest from the Journal</h1>
-                    <p class="text-muted">Stories, reflections and encouragement — all glory to Him.</p>
-                </div>
-                @foreach (PostView post in FeaturedPosts)
-                {
+
+            <div class="col-lg-6">
+                <div class="row g-4">
+                    <div class="col-12">
+                        @RenderSmallHero(HeroTiles[0])
+                    </div>
                     <div class="col-md-6">
-                        <PostCardComponent Post="post" ShowExcerpt="true" />
+                        @RenderSmallHero(HeroTiles[1])
                     </div>
-                }
+                    <div class="col-md-6">
+                        @RenderSmallHero(HeroTiles[2])
+                    </div>
+                </div>
             </div>
         </div>
-    </section>
-    <!-- Featured END -->
+    </div>
+</section>
 
-    <!-- Post grid START -->
-    <section class="pt-4">
-        <div class="container">
-            <div class="row g-4">
-                @foreach (PostView post in LatestPosts)
-                {
-                    <div class="col-sm-6 col-lg-4">
-                        <PostCardComponent Post="post" />
-                    </div>
-                }
+<section class="position-relative py-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-9">
+                <div class="mb-4">
+                    <h2 class="m-0">
+                        <i class="bi bi-hourglass-top me-2"></i>Latest posts
+                    </h2>
+                    <p class="mb-0">
+                        Quotes, stories, devotionals and studies from the community
+                    </p>
+                </div>
+
+                <div class="row gy-4">
+                    @foreach (SamplePost post in Latest)
+                    {
+                        <div class="col-sm-6">
+                            <ArticleCardComponent Title="@post.Title"
+                                                  Href="/Post-Single"
+                                                  Excerpt="@post.Excerpt"
+                                                  ImageUrl="@post.ImageUrl"
+                                                  Category="@post.Category"
+                                                  CategoryBadgeCss="@post.CategoryBadgeCss"
+                                                  AuthorName="@post.AuthorName"
+                                                  AuthorImageUrl="@post.AuthorImageUrl"
+                                                  PublishedDate="post.PublishedDate"
+                                                  Tags="post.Tags"
+                                                  BibleReferences="post.BibleReferences"
+                                                  Reactions="post.Reactions"
+                                                  Comments="post.Comments" />
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="col-lg-3">
+                @* Categories and tags are both ways of asking "show me posts about this", so both
+                   go to a search for the word. References go to the passage itself instead — that
+                   page shows one fixed verse for now, so its link carries no query. *@
+                <h4 class="mb-3">Categories</h4>
+                <div class="d-flex flex-wrap mb-4" style="gap: 8px;">
+                    @foreach ((string label, string buttonCss) in SampleContent.Categories)
+                    {
+                        <a href="/Search?q=@Uri.EscapeDataString(label)"
+                           class="btn btn-sm @buttonCss mb-0">
+                            <i class="fas fa-circle me-2 small"></i>@label
+                        </a>
+                    }
+                </div>
+
+                <h4 class="mb-3">Popular tags</h4>
+                <div class="d-flex flex-wrap" style="gap: 8px;">
+                    @foreach ((string label, string buttonCss) in SampleContent.PopularTags)
+                    {
+                        <a href="/Search?q=@Uri.EscapeDataString(label)"
+                           class="btn btn-sm @buttonCss mb-0">@label</a>
+                    }
+                </div>
+
+                @* References flow across and wrap like the tags above them, rather than
+                   stacking as full-width rows. *@
+                <h4 class="mt-4 mb-3">Popular references</h4>
+                <div class="d-flex flex-wrap" style="gap: 8px;">
+                    @foreach (string reference in SampleContent.PopularReferences)
+                    {
+                        <a href="/BibleReferences" class="btn btn-sm btn-primary-soft mb-0">
+                            <i class="bi bi-book me-2"></i>@reference
+                        </a>
+                    }
+                </div>
             </div>
         </div>
-    </section>
-    <!-- Post grid END -->
+    </div>
+</section>
 
-    <!-- Newsletter START -->
-    <section class="pt-4 pb-5">
-        <div class="container">
-            <NewsletterComponent />
-        </div>
-    </section>
-    <!-- Newsletter END -->
+@code {
+    private static SamplePost Featured =>
+        SampleContent.Featured;
+
+    private static IReadOnlyList<SamplePost> HeroTiles =>
+        SampleContent.HeroTiles;
+
+    private static IReadOnlyList<SamplePost> Latest =>
+        SampleContent.Latest;
+
+    // Every hero tile is an h4 with its counts on a second row — the tiles are too narrow to
+    // carry the byline and the counts on one line.
+    private RenderFragment RenderSmallHero(SamplePost post) => __builder =>
+    {
+        <PostHeroCardComponent Title="@post.Title"
+                               Href="/Post-Single"
+                               Category="@post.Category"
+                               CategoryBadgeCss="@post.CategoryBadgeCss"
+                               ImageUrl="@post.ImageUrl"
+                               AuthorName="@post.AuthorName"
+                               PublishedDate="post.PublishedDate"
+                               ShowExcerpt="false"
+                               SizeCssClass="card-grid-sm"
+                               TitleCssClass="h4"
+                               SplitMeta="true"
+                               Reactions="post.Reactions"
+                               Comments="post.Comments"
+                               TagCount="post.Tags.Count"
+                               ReferenceCount="post.BibleReferences.Count" />
+    };
 }

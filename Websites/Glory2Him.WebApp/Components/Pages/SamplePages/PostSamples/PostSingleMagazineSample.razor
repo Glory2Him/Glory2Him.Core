@@ -1,0 +1,217 @@
+@page "/SamplePages/Post/Post-Single-Magazine"
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+
+@* The Glory 2 Him post detail mockup (D:\Temp\G2H\samples\Post Detail.html): title block, then a
+   three-column body — author rail, the article with its reactions and comments, and the
+   suggestion / share sidebar. InteractiveServer so the reaction and suggestion controls respond. *@
+
+<PageTitle>@Post.Title — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="Post Single Magazine" SourceFile="Post Detail.html">
+    <div class="border-bottom border-primary border-1 opacity-1"></div>
+
+    @* Only a small gap under the header — the article's own paragraph spacing takes over from
+       here, so a full section break would read as a hole in the page. *@
+    <section class="pt-5 pb-3">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <a href="Categories" class="badge @Post.CategoryBadgeCss mb-2">
+                        <i class="fas fa-circle me-2 small fw-bold"></i>@Post.Category
+                    </a>
+
+                    <h1>@Post.Title</h1>
+
+                    @* The author and the article's figures read along one line here rather than
+                       down a rail, which frees the whole left column for the sidebar.
+                       The detail mockup states its own counts for this story, which differ from
+                       the numbers on its Home card — each page is kept faithful to its own
+                       mockup (see SampleContent.DetailReactions). *@
+                    <AuthorBylineComponent AuthorName="@SampleContent.DetailAuthorName"
+                                           AuthorRole="@Post.AuthorRole"
+                                           AuthorImageUrl="@Post.AuthorImageUrl"
+                                           PublishedDate="Post.PublishedDate"
+                                           ReadMinutes="Post.ReadMinutes"
+                                           Reactions="SampleContent.DetailReactions"
+                                           Comments="SampleContent.DetailComments"
+                                           Views="SampleContent.DetailViews"
+                                           CssClass="mt-3" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="pt-0 pb-5">
+        <div class="container position-relative">
+            <div class="row">
+                @* The rail's two columns went to the sidebar, so the bible references have room to
+                   sit side by side instead of stacking one per line. *@
+                <div class="col-lg-7 mb-5">
+                    @* The standfirst lives in the article column, not the full-width header, so it
+                       wraps inside the text measure instead of running on under the sidebar — and
+                       so it flows as an ordinary paragraph, without a section break's padding
+                       stacking on top of the dropcap's float clearance.
+                       No .lead here: the opening paragraph reads at the same size as the rest of
+                       the article, with only the dropcap setting it apart.
+                       The theme's .dropcap styles a wrapping span, not ::first-letter. *@
+                    <p>
+                        <span class="dropcap">F</span>or all the scientists out there, and for all
+                        the students who have a hard time convincing people of the truth of the
+                        Bible — here is something that shows God's awesome creation, and that He is
+                        still in control.
+                    </p>
+
+                    <p>
+                        Did you know that the space program is busy proving that what has been
+                        called "myth" in the Bible is true? Mr. Harold Hill, President of the
+                        Curtis Engine Company in Baltimore, Maryland, and a consultant in the space
+                        program, relates the following development.
+                    </p>
+
+                    <p>
+                        Our astronauts and space scientists at Green Belt, Maryland were checking
+                        the position of the sun, moon, and planets out in space — where they would
+                        be 100 years and 1,000 years from now. Orbits must be laid out in terms of
+                        the life of the satellite, so the whole thing does not bog down.
+                    </p>
+
+                    <p>
+                        They ran the computer measurement back and forth over the centuries and it
+                        came to a halt. The computer stopped and put up a red signal: something was
+                        wrong with either the information fed into it, or the results as compared
+                        to the standards. The service department found there is a day missing in
+                        space in elapsed time. There was no answer.
+                    </p>
+
+                    <figure class="figure mt-2 w-100">
+                        <img class="rounded w-100" src="assets/images/blog/16by9/big/02.jpg"
+                             alt="Illustration for the article" />
+                        <figcaption class="figure-caption text-center">
+                            (Image placeholder — drop in a fitting photo)
+                        </figcaption>
+                    </figure>
+
+                    <p>
+                        Finally, a Christian man on the team remembered Sunday School and the
+                        account of the sun standing still. They were skeptical, but they had no
+                        other answer — so they called for the book.
+                    </p>
+
+                    <figure class="my-4">
+                        <blockquote class="blockquote">
+                            <p>
+                                The sun stood still and the moon stayed — and hasted not to go down
+                                about a whole day.
+                            </p>
+                        </blockquote>
+                        <figcaption class="blockquote-footer">Joshua 10:13</figcaption>
+                    </figure>
+
+                    <p>
+                        There was the missing day! They checked the computers back to the time it
+                        was written and found it was close but not close enough. The elapsed time
+                        that was missing back in Joshua's day was 23 hours and 20 minutes — not a
+                        whole day.
+                    </p>
+
+                    <p>
+                        The Christian employee remembered the sun going backwards. In 2 Kings,
+                        Hezekiah, on his death bed, was visited by the prophet Isaiah who told him
+                        he was going to die. Hezekiah asked for a sign as proof, and Isaiah said
+                        "Do you want the sun to go ahead ten degrees?" Hezekiah said it was nothing
+                        for the sun to go ahead ten degrees — let it go backward ten degrees.
+                    </p>
+
+                    <p>
+                        Ten degrees is exactly 40 minutes. Twenty-three hours and 20 minutes in
+                        Joshua, plus 40 minutes in 2 Kings, make the missing day in the universe.
+                    </p>
+
+                    <ReactionBarComponent Reactions="Reactions" OnReact="OnReact" />
+
+                    @if (reactedTo is not null)
+                    {
+                        <p class="text-center small text-body-secondary mt-2 mb-0">
+                            You reacted with <strong>@reactedTo</strong>.
+                        </p>
+                    }
+                </div>
+
+                <div class="col-lg-5">
+                    <SuggestionPanelComponent Heading="Tags"
+                                              SuggestHeading="Suggest a tag"
+                                              Prompt="Think a tag is missing? Suggest one and help others find this post."
+                                              Placeholder="Start typing a tag…"
+                                              Items="Post.Tags"
+                                              ItemCssClass="btn-success-soft"
+                                              PrefixHash="true"
+                                              HrefFormat="Tag?name={0}" />
+
+                    <hr class="my-4" />
+
+                    @* Every pill goes to the single-verse sample rather than a search: that page
+                       exists and shows what a reference looks like when opened. It renders one
+                       fixed passage, so the href takes no {0} — the reference clicked is not
+                       carried through, and would be misleading in the URL if it were. *@
+                    <SuggestionPanelComponent Heading="Bible references"
+                                              SuggestHeading="Suggest a bible reference"
+                                              Prompt="Know a matching verse? Suggest it below."
+                                              Placeholder="e.g. Romans 3:23…"
+                                              Items="Post.BibleReferences"
+                                              ItemCssClass="btn-primary-soft"
+                                              ItemIconCssClass="bi-book"
+                                              HrefFormat="/SamplePages/BibleReferences/BibleReference-Single-verse" />
+
+                    @* No rule either side of this one — the panel's own border already separates
+                       it. Href points at a route that does not exist yet: the contribution page is
+                       still to be built, so this link 404s until it is. *@
+                    <ContributionPromptComponent Href="Contribute" CssClass="mt-4 mb-4" />
+
+                    <hr class="my-4" />
+
+                    <ShareLinksComponent />
+                </div>
+            </div>
+
+            @* Comments sit in their own row rather than at the foot of the article column, so that
+               when the columns stack on a phone the sidebar lands between the reactions and the
+               comments — reactions, then tags/references/contribute, then the conversation last. *@
+            <div class="row">
+                <div class="col-lg-7">
+                    <hr class="my-5" />
+
+                    <CommentThreadComponent Comments="Comments" />
+                </div>
+            </div>
+        </div>
+    </section>
+</SampleShellComponent>
+
+@code {
+    private static SamplePost Post =>
+        SampleContent.Featured;
+
+    private static IReadOnlyList<ReactionOption> Reactions =>
+        SampleContent.Reactions
+            .Select(reaction => new ReactionOption(
+                reaction.Label, reaction.IconCssClass, reaction.Color, reaction.Count))
+            .ToList();
+
+    private static IReadOnlyList<CommentEntry> Comments =>
+        SampleContent.Comments
+            .Select(comment => new CommentEntry(
+                comment.AuthorName,
+                comment.AuthorImageUrl,
+                comment.PostedAt,
+                comment.Body,
+                comment.Reactions,
+                comment.IsReply))
+            .ToList();
+
+    private string? reactedTo;
+
+    private void OnReact(ReactionOption reaction) =>
+        reactedTo = reaction.Label;
+}

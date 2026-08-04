@@ -10,9 +10,11 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.WebApp.Models.Foundations.Users;
+using Glory2Him.WebApp.Models.Views.Users.Exceptions;
 using Microsoft.AspNetCore.Identity;
 using Moq;
 
@@ -25,10 +27,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid(), UserName = "someone" };
-
-            this.identityBrokerMock.Setup(broker =>
-                broker.SelectUserByIdAsync(user.Id))
-                    .ReturnsAsync(user);
+            GivenUserExists(user, roles: new List<string> { "Users" });
 
             this.identityBrokerMock.Setup(broker =>
                 broker.UpdateUserAsync(It.IsAny<AppUser>()))
@@ -58,21 +57,19 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid() };
+            GivenUserExists(user, roles: new List<string>());
 
             this.identityBrokerMock.Setup(broker =>
-                broker.SelectUserByIdAsync(user.Id))
-                    .ReturnsAsync(user);
-
-            this.identityBrokerMock.Setup(broker =>
-                broker.InsertUserToRoleAsync(user, "Administrators"))
+                broker.InsertUserToRoleAsync(user, AdministratorsRole))
                     .ReturnsAsync(IdentityResult.Success);
 
             // when
-            await this.usersViewService.SetUserRoleAsync(user.Id, "Administrators", isInRole: true);
+            await this.usersViewService.SetUserRoleAsync(
+                user.Id, AdministratorsRole, isInRole: true);
 
             // then
             this.identityBrokerMock.Verify(broker =>
-                broker.InsertUserToRoleAsync(user, "Administrators"),
+                broker.InsertUserToRoleAsync(user, AdministratorsRole),
                     Times.Once);
         }
 
@@ -81,21 +78,20 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid() };
+            GivenUserExists(user, roles: new List<string> { AdministratorsRole });
+            GivenAdministratorCount(2);
 
             this.identityBrokerMock.Setup(broker =>
-                broker.SelectUserByIdAsync(user.Id))
-                    .ReturnsAsync(user);
-
-            this.identityBrokerMock.Setup(broker =>
-                broker.DeleteUserFromRoleAsync(user, "Administrators"))
+                broker.DeleteUserFromRoleAsync(user, AdministratorsRole))
                     .ReturnsAsync(IdentityResult.Success);
 
             // when
-            await this.usersViewService.SetUserRoleAsync(user.Id, "Administrators", isInRole: false);
+            await this.usersViewService.SetUserRoleAsync(
+                user.Id, AdministratorsRole, isInRole: false);
 
             // then
             this.identityBrokerMock.Verify(broker =>
-                broker.DeleteUserFromRoleAsync(user, "Administrators"),
+                broker.DeleteUserFromRoleAsync(user, AdministratorsRole),
                     Times.Once);
         }
 
@@ -104,10 +100,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid() };
-
-            this.identityBrokerMock.Setup(broker =>
-                broker.SelectUserByIdAsync(user.Id))
-                    .ReturnsAsync(user);
+            GivenUserExists(user, roles: new List<string> { "Users" });
 
             this.identityBrokerMock.Setup(broker =>
                 broker.DeleteUserAsync(user))
@@ -119,6 +112,111 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
             // then
             this.identityBrokerMock.Verify(broker =>
                 broker.DeleteUserAsync(user),
+                    Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseToDeleteTheLastAdministrator()
+        {
+            // given
+            var user = new AppUser { Id = Guid.NewGuid(), UserName = "onlyadmin" };
+            GivenUserExists(user, roles: new List<string> { AdministratorsRole });
+            GivenAdministratorCount(1);
+
+            // when
+            Func<Task> deletingUser = async () =>
+                await this.usersViewService.DeleteUserAsync(user.Id);
+
+            // then
+            await deletingUser.Should().ThrowAsync<UsersViewValidationException>()
+                .Where(exception => exception.Message.Contains("last administrator"));
+
+            this.identityBrokerMock.Verify(broker =>
+                broker.DeleteUserAsync(It.IsAny<AppUser>()),
+                    Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseToDisableTheLastAdministrator()
+        {
+            // given
+            var user = new AppUser { Id = Guid.NewGuid(), UserName = "onlyadmin" };
+            GivenUserExists(user, roles: new List<string> { AdministratorsRole });
+            GivenAdministratorCount(1);
+
+            // when
+            Func<Task> disablingUser = async () =>
+                await this.usersViewService.SetUserDisabledAsync(user.Id, isDisabled: true);
+
+            // then
+            await disablingUser.Should().ThrowAsync<UsersViewValidationException>();
+
+            user.IsDisabled.Should().BeFalse();
+
+            this.identityBrokerMock.Verify(broker =>
+                broker.UpdateUserAsync(It.IsAny<AppUser>()),
+                    Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseToRemoveTheLastAdministratorFromTheRole()
+        {
+            // given
+            var user = new AppUser { Id = Guid.NewGuid(), UserName = "onlyadmin" };
+            GivenUserExists(user, roles: new List<string> { AdministratorsRole });
+            GivenAdministratorCount(1);
+
+            // when
+            Func<Task> removingRole = async () =>
+                await this.usersViewService.SetUserRoleAsync(
+                    user.Id, AdministratorsRole, isInRole: false);
+
+            // then
+            await removingRole.Should().ThrowAsync<UsersViewValidationException>();
+
+            this.identityBrokerMock.Verify(broker =>
+                broker.DeleteUserFromRoleAsync(It.IsAny<AppUser>(), It.IsAny<string>()),
+                    Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseToLockOutTheLastAdministrator()
+        {
+            // given
+            var user = new AppUser { Id = Guid.NewGuid(), UserName = "onlyadmin" };
+            GivenUserExists(user, roles: new List<string> { AdministratorsRole });
+            GivenAdministratorCount(1);
+
+            // when
+            Func<Task> lockingUser = async () =>
+                await this.usersViewService.SetUserLockedOutAsync(user.Id, isLockedOut: true);
+
+            // then
+            await lockingUser.Should().ThrowAsync<UsersViewValidationException>();
+
+            this.identityBrokerMock.Verify(broker =>
+                broker.SetLockoutEndDateAsync(It.IsAny<AppUser>(), It.IsAny<DateTimeOffset?>()),
+                    Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldStillAllowRemovingANonAdministratorRoleFromTheLastAdministrator()
+        {
+            // given
+            var user = new AppUser { Id = Guid.NewGuid() };
+            GivenUserExists(user, roles: new List<string> { AdministratorsRole });
+            GivenAdministratorCount(1);
+
+            this.identityBrokerMock.Setup(broker =>
+                broker.DeleteUserFromRoleAsync(user, "Users"))
+                    .ReturnsAsync(IdentityResult.Success);
+
+            // when
+            await this.usersViewService.SetUserRoleAsync(user.Id, "Users", isInRole: false);
+
+            // then
+            this.identityBrokerMock.Verify(broker =>
+                broker.DeleteUserFromRoleAsync(user, "Users"),
                     Times.Once);
         }
     }

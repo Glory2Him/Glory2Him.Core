@@ -40,7 +40,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
         {
             // given
             PostView randomPost = CreateRandomPost();
-            string expectedHref = $"post-single/{randomPost.Slug}";
+            string expectedHref = $"Post-Single/{randomPost.Slug}";
 
             // when
             IRenderedComponent<PostCardComponent> renderedCard =

@@ -25,5 +25,9 @@ namespace Glory2Him.WebApp.Models.Views.Posts
         public DateTimeOffset PublishedDate { get; set; }
         public int ReadMinutes { get; set; }
         public bool IsFeatured { get; set; }
+
+        // Empty for posts that come from the store, which does not carry tags yet; the search
+        // demo fills it so tag filtering has something to work against.
+        public IReadOnlyList<string> Tags { get; set; } = new List<string>();
     }
 }

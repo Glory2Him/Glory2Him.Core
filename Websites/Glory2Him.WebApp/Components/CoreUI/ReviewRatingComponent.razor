@@ -1,0 +1,40 @@
+@namespace Glory2Him.WebApp.Components.CoreUI
+
+@* Review scorecard for the review post layout: an overall score, a star row, and a progress bar
+   per criterion. Presentational only (ts-ui-001). *@
+
+<div class="card border">
+    <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-4">
+            <div class="display-5 fw-bold text-primary lh-1">@OverallScore.ToString("0.0")</div>
+            <div>
+                <div class="mb-1" role="img" aria-label="@($"{OverallScore:0.0} out of {MaximumScore}")">
+                    @for (int star = 1; star <= MaximumScore; star++)
+                    {
+                        <i class="bi @(star <= Math.Round(OverallScore) ? "bi-star-fill" : "bi-star") text-warning"></i>
+                    }
+                </div>
+                <div class="small text-body-secondary">@Summary</div>
+            </div>
+        </div>
+
+        @foreach (ReviewCriterion criterion in Criteria)
+        {
+            <div class="mb-3">
+                <div class="d-flex justify-content-between small mb-1">
+                    <span>@criterion.Label</span>
+                    <span class="fw-semibold">@criterion.Score.ToString("0.0")</span>
+                </div>
+                <div class="progress" style="height:6px;"
+                     role="progressbar"
+                     aria-label="@criterion.Label"
+                     aria-valuenow="@criterion.Score"
+                     aria-valuemin="0"
+                     aria-valuemax="@MaximumScore">
+                    <div class="progress-bar bg-primary"
+                         style="width:@(ToPercentage(criterion.Score))%;"></div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
