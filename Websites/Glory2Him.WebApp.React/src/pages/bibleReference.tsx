@@ -15,11 +15,16 @@ import { YouVersionUnavailableMessage } from '../components/youVersion/youVersio
 //
 // The verse text comes from the YouVersion Platform SDK's BibleCard (licensed scripture, with
 // its own title and version picker). Without props this is the /BibleReferences default
-// (John 14:6, NIV, with its curated tags and related passages); the /BibleReferences/:reference
-// route supplies a parsed bible.com-style reference instead (JHN.3.16, JHN.3.16-17, ...), which
-// carries no curated material — so that page keeps the single centred column rather than
-// standing an empty sidebar beside the card. When no app key is configured, the card gives way
-// to an inline "unavailable" message rather than crashing.
+// (John 14:6, NIV); the /BibleReferences/:reference route supplies a parsed bible.com-style
+// reference instead (JHN.3.16, JHN.3.16-17, ...).
+//
+// Every passage gets the same page. Only the editorial material differs: John 14:6 is the one
+// curated passage so far, so any other reference shows the same panels with nothing in them
+// yet — the suggest boxes still work, and the reaction counts start at zero rather than
+// borrowing another passage's. Curation moves to the server when there is a store behind it.
+//
+// When no app key is configured, the card gives way to an inline "unavailable" message rather
+// than crashing.
 type BibleReferenceParameters = {
     reference?: string,
     versionId?: number,
@@ -34,22 +39,31 @@ export function BibleReference({
     const { isLoading, isAvailable } = useYouVersionAvailability();
     const [reactedTo, setReactedTo] = useState<string | null>(null);
 
-    // The curated John 14:6 page carries editorial material; an arbitrary deep-linked
-    // reference has none, and inventing reaction counts for it would be dishonest.
-    const isDefaultReference = reference === 'JHN.14.6';
+    // John 14:6 is the one curated passage so far. Any other reference gets the same page
+    // with empty panels rather than another passage's tags, references and reaction counts.
+    const isCuratedReference = reference === 'JHN.14.6';
+
+    const tags = isCuratedReference ? sampleScripture.tags : [];
+
+    const relatedReferences = isCuratedReference
+        ? sampleScripture.relatedReferences
+        : [];
+
+    const passageReactions = isCuratedReference
+        ? reactions
+        : reactions.map((reaction) => ({ ...reaction, count: 0 }));
 
     useEffect(() => {
-        document.title = isDefaultReference
+        document.title = isCuratedReference
             ? `${sampleScripture.reference} — Glory 2 Him`
             : `${reference} — Glory 2 Him`;
-    }, [reference, isDefaultReference]);
+    }, [reference, isCuratedReference]);
 
     const onReact = (reaction: ReactionOption) =>
         setReactedTo(reaction.label);
 
     const usfmFor = (display: string) =>
-        sampleScripture.relatedReferences
-            .find((related) => related.display === display)?.usfm;
+        relatedReferences.find((related) => related.display === display)?.usfm;
 
     const passage = !isLoading && (
         isAvailable
@@ -69,21 +83,6 @@ export function BibleReference({
         </div>
     );
 
-    if (!isDefaultReference) {
-        return (
-            <section className="py-5">
-                <div className="container">
-                    <div className="row justify-content-center">
-                        <div className="col-lg-7">
-                            {passage}
-                            {fullChapterLink}
-                        </div>
-                    </div>
-                </div>
-            </section>
-        );
-    }
-
     return (
         <section className="py-5">
             <div className="container position-relative">
@@ -94,7 +93,7 @@ export function BibleReference({
 
                         <ReactionBar
                             prompt="How did this passage speak to you?"
-                            reactions={reactions}
+                            reactions={passageReactions}
                             onReact={onReact} />
 
                         {reactedTo != null && (
@@ -110,7 +109,7 @@ export function BibleReference({
                             suggestHeading="Suggest a tag"
                             prompt="Think a tag is missing? Suggest one and help others find this passage."
                             placeholder="Start typing a tag…"
-                            items={sampleScripture.tags}
+                            items={tags}
                             itemCssClass="btn-success-soft"
                             prefixHash={true}
                             hrefFormat="/Search?q={0}" />
@@ -124,7 +123,7 @@ export function BibleReference({
                             suggestHeading="Suggest a bible reference"
                             prompt="Know a matching verse? Suggest it below."
                             placeholder="e.g. Romans 3:23…"
-                            items={sampleScripture.relatedReferences.map((related) => related.display)}
+                            items={relatedReferences.map((related) => related.display)}
                             itemCssClass="btn-primary-soft"
                             itemIconCssClass="bi-book"
                             hrefFor={(display) => {
