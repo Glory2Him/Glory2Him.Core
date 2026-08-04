@@ -419,3 +419,4 @@ FodyWeavers.xsd
 *.bkp
 *.dtmp
 .claude/worktrees/
+/Websites/Glory2Him.WebApp/appsettings.Development.json

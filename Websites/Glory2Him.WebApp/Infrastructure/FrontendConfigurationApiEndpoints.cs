@@ -27,7 +27,17 @@ namespace Glory2Him.WebApp.Infrastructure
             frontendConfigurationsGroup.MapGet("/", (IConfiguration configuration) =>
             {
                 string youVersionAppKey =
-                    configuration["FrontendConfiguration:YouVersionAppKey"] ?? string.Empty;
+                    configuration["FrontendConfiguration:YouVersion:AppKey"] ?? string.Empty;
+
+                // The committed appsettings.json carries a placeholder so the setting's
+                // shape is documented; the real key lives in appsettings.Development.json
+                // (gitignored) or an environment override. The placeholder is treated as
+                // "not configured" so the SPA degrades gracefully instead of mounting the
+                // SDK with a key that cannot work.
+                if (youVersionAppKey == "your-real-key-here")
+                {
+                    youVersionAppKey = string.Empty;
+                }
 
                 return Results.Ok(new
                 {
