@@ -13,6 +13,18 @@
       ],
       "port": 7059,
       "url": "https://localhost:7059"
+    },
+    {
+      "name": "Glory2Him.WebApp.React",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "Websites/Glory2Him.WebApp.React"
+      ],
+      "port": 6080,
+      "url": "https://localhost:6080"
     }
   ]
 }

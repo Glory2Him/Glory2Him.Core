@@ -45,6 +45,9 @@ app.MapRazorComponents<App>()
 // Add additional endpoints required by the Identity /Account Razor components.
 app.MapAdditionalIdentityEndpoints();
 
+// Cookie-authenticated JSON endpoints consumed by the React SPA (Glory2Him.WebApp.React).
+app.MapAccountApiEndpoints();
+
 // Serves a user's stored profile avatar (or 404 → the UI falls back to an initials avatar).
 // The URL carries a content-hash version (?v=), so the image is safely long-cached and busts
 // automatically when it changes.
