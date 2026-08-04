@@ -6,28 +6,78 @@ import { PostListItem } from '../components/coreUI/postListItem';
 import SearchBarComponent from '../components/coreUI/searchBar';
 import { TagInput } from '../components/coreUI/tagInput';
 import { PostView } from '../models/coreUI/postView';
-import { postService } from '../services/foundations/postService';
+import { SamplePost, latest } from './sampleContent';
 
 // The post-list layout without its hero banner: a search box stands where the banner was, and the
 // list below it only appears once something has been searched for.
 //
-// Ported from Search.razor + SearchBase.cs, with the demo's in-memory post set replaced by
-// postService.useGetPosts. The query lives in the URL (?q=) so the header's /Search link and
-// deep links land with the results already showing, exactly as the Blazor page did with
-// [SupplyParameterFromQuery].
+// Ported from Search.razor + SearchBase.cs. This is a demo: whatever is typed, the same posts come
+// back — the ones the home page lists. The text is not matched against anything, so the flow can
+// be shown without a search index behind it. The advanced options do narrow that set, so nothing
+// on screen is a control that does nothing. The query lives in the URL (?q=) so the header's
+// /Search link and deep links land with the results already showing, exactly as the Blazor page
+// did with [SupplyParameterFromQuery].
 export const resultsPerPage = 5;
 
-// The API returns publishedDate as an ISO string; PostListItem formats it as a Date.
-const toPostView = (post: PostView): PostView => ({
-    ...post,
-    publishedDate: new Date(post.publishedDate as unknown as string),
+const toPostView = (post: SamplePost): PostView => ({
+    id: post.slug,
+    title: post.title,
+    slug: post.slug,
+    excerpt: post.excerpt,
+    imageUrl: post.imageUrl,
+    category: post.category,
+    categoryBadgeCss: post.categoryBadgeCss,
+    authorName: post.authorName,
+    authorImageUrl: post.authorImageUrl,
+    publishedDate: post.publishedDate,
+    readMinutes: post.readMinutes,
+    isFeatured: post.isFeatured,
+    tags: post.tags,
 });
+
+const demoPosts: ReadonlyArray<PostView> = latest.map(toPostView);
 
 interface CommittedFilters {
     category: string;
     author: string;
-    tag?: string;
+    tags: ReadonlyArray<string>;
+    matchAllTags: boolean;
 }
+
+// Query deliberately absent: the demo always returns the set, whatever was typed.
+const matches = (post: PostView, filters: CommittedFilters): boolean => {
+    const matchesCategory =
+        filters.category.trim().length === 0
+            || post.category.toLowerCase() === filters.category.toLowerCase();
+
+    // Contains, not equals: the author box is free text, so a surname or a first name has
+    // to be enough to find someone.
+    const matchesAuthor =
+        filters.author.trim().length === 0
+            || post.authorName.toLowerCase().includes(filters.author.trim().toLowerCase());
+
+    return matchesCategory && matchesAuthor && matchesTags(post, filters);
+};
+
+const matchesTags = (post: PostView, filters: CommittedFilters): boolean => {
+    if (filters.tags.length === 0) {
+        return true;
+    }
+
+    const carries = (tag: string) =>
+        post.tags.some((posted) => posted.toLowerCase() === tag.toLowerCase());
+
+    return filters.matchAllTags
+        ? filters.tags.every(carries)
+        : filters.tags.some(carries);
+};
+
+const categories = [...new Map(
+    demoPosts.map((post) => [post.category.toLowerCase(), post.category]))
+    .values()]
+    .sort((left, right) => left.localeCompare(right));
+
+const trending = demoPosts.slice(0, 4);
 
 export function Search() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -52,6 +102,8 @@ export function Search() {
     const [committedFilters, setCommittedFilters] = useState<CommittedFilters>({
         category: '',
         author: '',
+        tags: [],
+        matchAllTags: false,
     });
 
     // The box follows the URL when something else navigates here (the header's search link,
@@ -64,39 +116,16 @@ export function Search() {
         document.title = 'Search — Glory 2 Him';
     }, []);
 
-    // A small always-on fetch stands in for the Blazor page's DemoPosts: it feeds the category
-    // dropdown and the trending sidebar, as the demo set did.
-    const basePosts = postService.useGetPosts({ pageSize: resultsPerPage * 4 });
+    const results = useMemo(
+        () => demoPosts.filter((post) => matches(post, committedFilters)),
+        [committedFilters]);
 
-    const results = postService.useGetPosts({
-        q: committedQuery || undefined,
-        category: committedFilters.category || undefined,
-        author: committedFilters.author || undefined,
-        tag: committedFilters.tag,
-        page: currentPage,
-        pageSize: resultsPerPage,
-    });
+    const totalCount = results.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / resultsPerPage));
 
-    const categories = useMemo(() => {
-        const distinct = new Map<string, string>();
-
-        for (const post of basePosts.data?.items ?? []) {
-            distinct.set(post.category.toLowerCase(), post.category);
-        }
-
-        return [...distinct.values()].sort((left, right) => left.localeCompare(right));
-    }, [basePosts.data]);
-
-    const trending = useMemo(
-        () => (basePosts.data?.items ?? []).slice(0, 4).map(toPostView),
-        [basePosts.data]);
-
-    const pageOfResults = useMemo(
-        () => (results.data?.items ?? []).map(toPostView),
-        [results.data]);
-
-    const totalCount = results.data?.totalCount ?? 0;
-    const totalPages = Math.max(1, results.data?.totalPages ?? 1);
+    const pageOfResults = results.slice(
+        (currentPage - 1) * resultsPerPage,
+        currentPage * resultsPerPage);
 
     const search = () => {
         setCurrentPage(1);
@@ -104,9 +133,8 @@ export function Search() {
         setCommittedFilters({
             category: selectedCategory,
             author: selectedAuthor,
-
-            // The posts API filters on a single tag; only the first one can be applied here.
-            tag: tags.length > 0 ? tags[0] : undefined,
+            tags,
+            matchAllTags,
         });
 
         setSearchParams(query.length > 0 ? { q: query } : { q: '' });
@@ -202,17 +230,7 @@ export function Search() {
             {hasSearched && (
                 <section className="pb-5">
                     <div className="container">
-                        {results.isLoading ? (
-                            <div className="text-center py-5">
-                                <div className="spinner-border text-primary" role="status">
-                                    <span className="visually-hidden">Loading...</span>
-                                </div>
-                            </div>
-                        ) : results.isError ? (
-                            <div className="alert alert-danger text-center mb-0" role="alert">
-                                We could not run your search right now. Please try again later.
-                            </div>
-                        ) : totalCount === 0 ? (
+                        {totalCount === 0 ? (
                             <div className="alert alert-info text-center mb-0" role="alert">
                                 Nothing matched that search. Try clearing the advanced options.
                             </div>
