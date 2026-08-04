@@ -144,6 +144,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 (Rule: IsGreaterThan(contentItemAssociation.UpdatedBy, 255),
                     Parameter: nameof(ContentItemAssociation.UpdatedBy)),
 
+                (Rule: IsGreaterThan(contentItemAssociation.AssociationConfidenceReason, 500),
+                    Parameter: nameof(ContentItemAssociation.AssociationConfidenceReason)),
+
+                (Rule: IsNotWithinRange(contentItemAssociation.AssociationConfidenceScore, 0, 10),
+                    Parameter: nameof(ContentItemAssociation.AssociationConfidenceScore)),
+
                 (Rule: IsNotSame(
                         firstDate: contentItemAssociation.UpdatedWhen,
                         secondDate: contentItemAssociation.CreatedWhen,
@@ -198,6 +204,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
 
                 (Rule: IsGreaterThan(contentItemAssociation.UpdatedBy, 255),
                     Parameter: nameof(ContentItemAssociation.UpdatedBy)),
+
+                (Rule: IsGreaterThan(contentItemAssociation.AssociationConfidenceReason, 500),
+                    Parameter: nameof(ContentItemAssociation.AssociationConfidenceReason)),
+
+                (Rule: IsNotWithinRange(contentItemAssociation.AssociationConfidenceScore, 0, 10),
+                    Parameter: nameof(ContentItemAssociation.AssociationConfidenceScore)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -327,10 +339,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemAssociations
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
+        };
+
+        // the score is optional — only a supplied value is range checked
+        private static dynamic IsNotWithinRange(int? value, int minimum, int maximum) => new
+        {
+            Condition = value.HasValue && (value < minimum || value > maximum),
+            Message = $"Value is not within range of {minimum} and {maximum}"
         };
 
         private static dynamic IsSame(

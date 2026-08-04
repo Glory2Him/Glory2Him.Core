@@ -53,6 +53,18 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemAssociations
         public Guid LinkedEntityId { get; set; }
 
         /// <summary>
+        /// The confidence score of the association, indicating the strength or reliability
+        /// of the link between the content item and the associated entity.
+        /// A higher score suggests a stronger association. [0-10]
+        /// </summary>
+        public int? AssociationConfidenceScore { get; set; }
+
+        /// <summary>
+        /// Reason for the confidence level assigned to the association.
+        /// </summary>
+        public string? AssociationConfidenceReason { get; set; }
+
+        /// <summary>
         /// User identifier for who created the content item.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;

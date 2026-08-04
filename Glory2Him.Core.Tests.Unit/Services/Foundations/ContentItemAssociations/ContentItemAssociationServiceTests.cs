@@ -119,6 +119,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
         private static int GetRandomNegativeNumber() =>
             -1 * new IntRange(min: 2, max: 10).GetValue();
 
+        private static int GetRandomConfidenceScore() =>
+            new IntRange(min: 0, max: 10).GetValue();
+
+        public static TheoryData<int> OutOfRangeConfidenceScores() =>
+            new TheoryData<int>
+            {
+                -1,
+                11
+            };
+
         public static TheoryData<int> MinutesBeforeOrAfter()
         {
             int randomTimeInFuture = GetRandomNumber();
@@ -290,7 +300,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemAssociations
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(contentItemAssociation => contentItemAssociation.IsDeleted).Use(false)
                 .OnProperty(contentItemAssociation => contentItemAssociation.CreatedBy).Use(userId)
-                .OnProperty(contentItemAssociation => contentItemAssociation.UpdatedBy).Use(userId);
+                .OnProperty(contentItemAssociation => contentItemAssociation.UpdatedBy).Use(userId)
+                // the score is range checked on write, so it is pinned to a valid draw here
+                // rather than left to the filler's unbounded integer
+                .OnProperty(contentItemAssociation => contentItemAssociation.AssociationConfidenceScore)
+                    .Use(GetRandomConfidenceScore());
 
             return filler;
         }
