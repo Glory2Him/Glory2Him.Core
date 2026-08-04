@@ -23,7 +23,7 @@ type BibleReferenceParameters = {
 export function BibleReference({
     reference = 'JHN.14.6',
     versionId = youVersionVersions.niv,
-    chapterHref = '/BibleReferences/BibleReader',
+    chapterHref = '/BibleReferences/JHN.14.NIV',
 }: BibleReferenceParameters) {
     const { isLoading, isAvailable } = useYouVersionAvailability();
     const isDefaultReference = reference === 'JHN.14.6';
