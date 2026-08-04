@@ -26,3 +26,13 @@ export const resolveVersionId = (abbreviation: string | undefined): number => {
 
     return versionIdsByAbbreviation[abbreviation.toUpperCase()] ?? youVersionVersions.niv;
 };
+
+// The reverse lookup, for writing version-qualified URLs (/BibleReferences/JHN.3.NIV)
+// when the reader's version changes. Versions outside the known map get no suffix —
+// the URL still works, it just opens in the NIV default on a fresh load.
+export const resolveVersionAbbreviation = (versionId: number): string | null => {
+    const match = Object.entries(versionIdsByAbbreviation)
+        .find(([, id]) => id === versionId);
+
+    return match ? match[0] : null;
+};

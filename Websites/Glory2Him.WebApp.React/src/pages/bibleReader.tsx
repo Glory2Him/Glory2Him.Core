@@ -1,19 +1,24 @@
-import { useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { BibleReader as YouVersionBibleReader } from '@youversion/platform-react-ui';
 import * as sampleScripture from '../data/sampleScripture';
 import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
-import { youVersionVersions } from '../models/youVersion/youVersionVersions';
+import {
+    resolveVersionAbbreviation,
+    youVersionVersions,
+} from '../models/youVersion/youVersionVersions';
 
 // The whole chapter, read through the YouVersion Platform SDK's BibleReader: chapter and
 // version pickers plus font settings on the toolbar, licensed scripture in the body.
 // Content display only — no YouVersion sign-in and no auth-gated features (highlights,
 // notes) are enabled.
 //
-// Without props this is the /BibleReferences/BibleReader default (John 14, NIV, sample
-// tags); the /BibleReferences/:reference route supplies a parsed bible.com-style chapter
-// reference instead (JHN.3, GEN.1.NIV, ...).
+// The reader is URL-driven: the route (/BibleReferences/JHN.14.NIV) is the source of truth,
+// and every in-reader navigation — chapter arrows, book/chapter picker, version picker —
+// pushes the matching URL, so refresh keeps the reader where it was and every position is a
+// shareable link. Book selection alone doesn't navigate (the picker is mid-flow until a
+// chapter is chosen); it is tracked in a ref and committed when the chapter lands.
 //
 // Wider than the single-verse page (col-lg-10, not 7) so the reader has room to breathe.
 type BibleReaderParameters = {
@@ -22,19 +27,43 @@ type BibleReaderParameters = {
     versionId?: number
 }
 
+const referenceUrl = (book: string, chapter: string, versionId: number): string => {
+    const abbreviation = resolveVersionAbbreviation(versionId);
+    const versionSuffix = abbreviation ? `.${abbreviation}` : '';
+
+    return `/BibleReferences/${book}.${chapter}${versionSuffix}`;
+};
+
 export function BibleReader({
     book = 'JHN',
     chapter = '14',
     versionId = youVersionVersions.niv,
 }: BibleReaderParameters) {
     const { isLoading, isAvailable } = useYouVersionAvailability();
+    const navigate = useNavigate();
     const isDefaultChapter = book === 'JHN' && chapter === '14';
+
+    // The book the picker has selected but not yet committed with a chapter.
+    const pendingBookRef = useRef(book);
+    pendingBookRef.current = book;
 
     useEffect(() => {
         document.title = isDefaultChapter
             ? `${sampleScripture.chapterReference} — Glory 2 Him`
             : `${book}.${chapter} — Glory 2 Him`;
     }, [book, chapter, isDefaultChapter]);
+
+    const onBookChange = (newBook: string) => {
+        pendingBookRef.current = newBook;
+    };
+
+    const onChapterChange = (newChapter: string) => {
+        navigate(referenceUrl(pendingBookRef.current, newChapter, versionId));
+    };
+
+    const onVersionChange = (newVersionId: number) => {
+        navigate(referenceUrl(book, chapter, newVersionId));
+    };
 
     return (
         <section className="py-5">
@@ -45,10 +74,12 @@ export function BibleReader({
                             isAvailable
                                 ? (
                                     <YouVersionBibleReader.Root
-                                        key={`${book}.${chapter}-${versionId}`}
-                                        defaultBook={book}
-                                        defaultChapter={chapter}
-                                        defaultVersionId={versionId}>
+                                        book={book}
+                                        chapter={chapter}
+                                        versionId={versionId}
+                                        onBookChange={onBookChange}
+                                        onChapterChange={onChapterChange}
+                                        onVersionChange={onVersionChange}>
                                         <YouVersionBibleReader.Toolbar />
                                         <YouVersionBibleReader.Content />
                                     </YouVersionBibleReader.Root>
