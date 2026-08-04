@@ -1,41 +1,50 @@
-import { ReactElement } from 'react';
+import { ComponentType, ReactElement, Suspense, lazy } from 'react';
 import { RouteObject } from 'react-router-dom';
 import SidebarLayout from '../components/layouts/sidebarLayout';
 import { SecuredRoute } from '../components/securitys/securedRoutes';
+import { Spinner } from '../components/coreUI/spinner';
 import securityPoints from '../securityMatrix';
-import { BibleReferenceFullChapterSample } from '../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample';
-import { BibleReferencePartialSample } from '../pages/samplePages/bibleReferences/bibleReferencePartialSample';
-import { DashboardSample } from '../pages/samplePages/dashboardSample';
-import { HomeBlogClassicSample } from '../pages/samplePages/home/homeBlogClassicSample';
-import { HomeBlogPodcastSample } from '../pages/samplePages/home/homeBlogPodcastSample';
-import { HomeBlogTechSample } from '../pages/samplePages/home/homeBlogTechSample';
-import { HomeDefaultSample } from '../pages/samplePages/home/homeDefaultSample';
-import { HomeMagazineSample } from '../pages/samplePages/home/homeMagazineSample';
-import { LifestyleSample } from '../pages/samplePages/lifestyleSample';
-import { AboutSample } from '../pages/samplePages/pages/aboutSample';
-import { ContactSample } from '../pages/samplePages/pages/contactSample';
-import { Error404Sample } from '../pages/samplePages/pages/error404Sample';
-import { OfflineSample } from '../pages/samplePages/pages/offlineSample';
-import { SigninSample } from '../pages/samplePages/pages/signinSample';
-import { SignupSample } from '../pages/samplePages/pages/signupSample';
-import { PaginationStylesSample } from '../pages/samplePages/post/paginationStylesSample';
-import { PodcastSingleSample } from '../pages/samplePages/post/podcastSingleSample';
-import { PostCardSample } from '../pages/samplePages/post/postCardSample';
-import { PostGrid4ColSample } from '../pages/samplePages/post/postGrid4ColSample';
-import { PostGridMasonryFilterSample } from '../pages/samplePages/post/postGridMasonryFilterSample';
-import { PostGridMasonrySample } from '../pages/samplePages/post/postGridMasonrySample';
-import { PostGridSample } from '../pages/samplePages/post/postGridSample';
-import { PostListSample } from '../pages/samplePages/post/postListSample';
-import { PostMixedLargeThenGridSample } from '../pages/samplePages/post/postMixedLargeThenGridSample';
-import { PostOverlaySample } from '../pages/samplePages/post/postOverlaySample';
-import { PostSingleCardSample } from '../pages/samplePages/post/postSingleCardSample';
-import { PostSingleClassicSample } from '../pages/samplePages/post/postSingleClassicSample';
-import { PostSingleMagazineSample } from '../pages/samplePages/post/postSingleMagazineSample';
-import { PostSingleMinimalSample } from '../pages/samplePages/post/postSingleMinimalSample';
-import { PostSingleReviewSample } from '../pages/samplePages/post/postSingleReviewSample';
-import { PostSingleVideoSample } from '../pages/samplePages/post/postSingleVideoSample';
-import { PostTypesSample } from '../pages/samplePages/post/postTypesSample';
-import { SamplePagesIndex } from '../pages/samplePages/samplePagesIndex';
+
+// The demos are admin-only reference pages, so they are code-split out of the main
+// bundle: each page loads on first visit (React.lazy), keeping the public bundle lean.
+const lazyNamed = <T extends Record<string, ComponentType>, K extends keyof T & string>(
+    loader: () => Promise<T>,
+    exportName: K) =>
+    lazy(async () => ({ default: (await loader())[exportName] }));
+
+const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
+const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
+const DashboardSample = lazyNamed(() => import('../pages/samplePages/dashboardSample'), 'DashboardSample');
+const HomeBlogClassicSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogClassicSample'), 'HomeBlogClassicSample');
+const HomeBlogPodcastSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogPodcastSample'), 'HomeBlogPodcastSample');
+const HomeBlogTechSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogTechSample'), 'HomeBlogTechSample');
+const HomeDefaultSample = lazyNamed(() => import('../pages/samplePages/home/homeDefaultSample'), 'HomeDefaultSample');
+const HomeMagazineSample = lazyNamed(() => import('../pages/samplePages/home/homeMagazineSample'), 'HomeMagazineSample');
+const LifestyleSample = lazyNamed(() => import('../pages/samplePages/lifestyleSample'), 'LifestyleSample');
+const AboutSample = lazyNamed(() => import('../pages/samplePages/pages/aboutSample'), 'AboutSample');
+const ContactSample = lazyNamed(() => import('../pages/samplePages/pages/contactSample'), 'ContactSample');
+const Error404Sample = lazyNamed(() => import('../pages/samplePages/pages/error404Sample'), 'Error404Sample');
+const OfflineSample = lazyNamed(() => import('../pages/samplePages/pages/offlineSample'), 'OfflineSample');
+const SigninSample = lazyNamed(() => import('../pages/samplePages/pages/signinSample'), 'SigninSample');
+const SignupSample = lazyNamed(() => import('../pages/samplePages/pages/signupSample'), 'SignupSample');
+const PaginationStylesSample = lazyNamed(() => import('../pages/samplePages/post/paginationStylesSample'), 'PaginationStylesSample');
+const PodcastSingleSample = lazyNamed(() => import('../pages/samplePages/post/podcastSingleSample'), 'PodcastSingleSample');
+const PostCardSample = lazyNamed(() => import('../pages/samplePages/post/postCardSample'), 'PostCardSample');
+const PostGrid4ColSample = lazyNamed(() => import('../pages/samplePages/post/postGrid4ColSample'), 'PostGrid4ColSample');
+const PostGridMasonryFilterSample = lazyNamed(() => import('../pages/samplePages/post/postGridMasonryFilterSample'), 'PostGridMasonryFilterSample');
+const PostGridMasonrySample = lazyNamed(() => import('../pages/samplePages/post/postGridMasonrySample'), 'PostGridMasonrySample');
+const PostGridSample = lazyNamed(() => import('../pages/samplePages/post/postGridSample'), 'PostGridSample');
+const PostListSample = lazyNamed(() => import('../pages/samplePages/post/postListSample'), 'PostListSample');
+const PostMixedLargeThenGridSample = lazyNamed(() => import('../pages/samplePages/post/postMixedLargeThenGridSample'), 'PostMixedLargeThenGridSample');
+const PostOverlaySample = lazyNamed(() => import('../pages/samplePages/post/postOverlaySample'), 'PostOverlaySample');
+const PostSingleCardSample = lazyNamed(() => import('../pages/samplePages/post/postSingleCardSample'), 'PostSingleCardSample');
+const PostSingleClassicSample = lazyNamed(() => import('../pages/samplePages/post/postSingleClassicSample'), 'PostSingleClassicSample');
+const PostSingleMagazineSample = lazyNamed(() => import('../pages/samplePages/post/postSingleMagazineSample'), 'PostSingleMagazineSample');
+const PostSingleMinimalSample = lazyNamed(() => import('../pages/samplePages/post/postSingleMinimalSample'), 'PostSingleMinimalSample');
+const PostSingleReviewSample = lazyNamed(() => import('../pages/samplePages/post/postSingleReviewSample'), 'PostSingleReviewSample');
+const PostSingleVideoSample = lazyNamed(() => import('../pages/samplePages/post/postSingleVideoSample'), 'PostSingleVideoSample');
+const PostTypesSample = lazyNamed(() => import('../pages/samplePages/post/postTypesSample'), 'PostTypesSample');
+const SamplePagesIndex = lazyNamed(() => import('../pages/samplePages/samplePagesIndex'), 'SamplePagesIndex');
 
 // The Blogzine layout demos, mirroring the Blazor SamplePages routes exactly. Every page is
 // Administrators-only ([Authorize(Roles = "Administrators")] in Blazor). The index sits in
@@ -44,7 +53,9 @@ import { SamplePagesIndex } from '../pages/samplePages/samplePagesIndex';
 // chrome, exactly as their Blazor counterparts did with the default layout.
 const secured = (element: ReactElement): ReactElement => (
     <SecuredRoute allowedRoles={securityPoints.admin.view}>
-        {element}
+        <Suspense fallback={<div className="text-center py-5"><Spinner /></div>}>
+            {element}
+        </Suspense>
     </SecuredRoute>
 );
 

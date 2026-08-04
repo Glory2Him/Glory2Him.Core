@@ -15,7 +15,6 @@ using Glory2Him.WebApp.Brokers.Identities;
 using Glory2Him.WebApp.Brokers.Images;
 using Glory2Him.WebApp.Brokers.Loggings;
 using Glory2Him.WebApp.Brokers.Profiles;
-using Glory2Him.WebApp.Components.Account;
 using Glory2Him.WebApp.Data;
 using Glory2Him.WebApp.Models.Foundations.Roles;
 using Glory2Him.WebApp.Models.Foundations.Users;
@@ -25,7 +24,6 @@ using Glory2Him.WebApp.Services.Views.Products;
 using Glory2Him.WebApp.Services.Views.Profiles;
 using Glory2Him.WebApp.Services.Views.Registrations;
 using Glory2Him.WebApp.Services.Views.Users;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -57,12 +55,7 @@ namespace Glory2Him.WebApp.Infrastructure
                     ?? throw new InvalidOperationException(
                         "Missing connection string 'Glory2HimSecurityConnection'.");
 
-            services.AddCascadingAuthenticationState();
-            services.AddScoped<IdentityRedirectManager>();
-
-            services.AddScoped<
-                AuthenticationStateProvider,
-                IdentityRevalidatingAuthenticationStateProvider>();
+            services.AddAuthorization();
 
             services.AddAuthentication(options =>
             {

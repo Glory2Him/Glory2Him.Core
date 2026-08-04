@@ -39,6 +39,17 @@ const target = env.ASPNETCORE_HTTPS_PORT ? `https://localhost:${env.ASPNETCORE_H
 
 export default defineConfig({
     plugins: [plugin()],
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    react: ['react', 'react-dom', 'react-router-dom'],
+                    query: ['@tanstack/react-query', '@tanstack/react-query-devtools'],
+                    bootstrap: ['react-bootstrap', 'react-toastify'],
+                }
+            }
+        }
+    },
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url))

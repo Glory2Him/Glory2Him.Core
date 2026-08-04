@@ -13,10 +13,11 @@ using Glory2Him.WebApp.Models.Foundations.Users;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 
-namespace Glory2Him.WebApp.Components.Account;
+namespace Glory2Him.WebApp.Infrastructure;
 
-// Remove the "else if (EmailSender is IdentityNoOpEmailSender)" block from RegisterConfirmation.razor after
-// updating with a real implementation.
+// Demo email sender: emails go nowhere. The account endpoints detect this type and surface
+// confirmation links directly in their responses instead. Replace with a real IEmailSender
+// implementation when outgoing mail exists.
 internal sealed class IdentityNoOpEmailSender : IEmailSender<AppUser>
 {
     private readonly IEmailSender emailSender = new NoOpEmailSender();
