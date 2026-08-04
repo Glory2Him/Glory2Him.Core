@@ -202,7 +202,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Profiles
             // then
             profile.HasProfileImage.Should().BeTrue();
             profile.ImageVersion.Should().NotBeNullOrEmpty();
-            profile.ImageUrl.Should().Be($"profile-image/{user.Id}?v={profile.ImageVersion}");
+            profile.ImageUrl.Should().Be($"Profile-Image/{user.Id}?v={profile.ImageVersion}");
         }
     }
 }

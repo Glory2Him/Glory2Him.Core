@@ -1,0 +1,26 @@
+/* The only class in these layouts the Blogzine theme does not already ship. A pill-shaped button
+   holding an icon, a label and its running count. */
+
+.reaction-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid rgba(var(--bs-emphasis-color-rgb), 0.12);
+    border-radius: 999px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    font-size: 0.9375rem;
+    line-height: 1.2;
+    transition: border-color 0.15s ease-in-out, transform 0.15s ease-in-out;
+}
+
+.reaction-btn:hover {
+    border-color: var(--bs-primary);
+    transform: translateY(-1px);
+}
+
+.reaction-btn:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+}

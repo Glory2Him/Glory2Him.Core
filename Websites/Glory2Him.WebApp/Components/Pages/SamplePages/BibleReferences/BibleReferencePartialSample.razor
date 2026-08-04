@@ -1,0 +1,40 @@
+@page "/SamplePages/BibleReferences/BibleReference-Single-verse"
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+
+@* A single verse on its own, laid out like Post Single Minimal — one narrow column, no sidebar,
+   nothing between the reader and the words. The full chapter is one link away. *@
+
+<PageTitle>@SampleScripture.Reference — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="Bible Reference - Partial" SourceFile="post-single-3.html">
+    <section class="py-5">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-7">
+                    <h1 class="h2 mb-3">@SampleScripture.Reference</h1>
+
+                    <p class="lead">@SampleScripture.SingleVerseText</p>
+
+                    <div class="text-center my-4">
+                        <a href="SamplePages/BibleReferences/BibleReference-Full-Chapter"
+                           class="btn-link">
+                            Show Full Chapter
+                        </a>
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="fw-bold me-1">Tags:</span>
+                        @foreach (string tag in SampleScripture.Tags)
+                        {
+                            <a href="Tag?name=@Uri.EscapeDataString(tag)"
+                               class="btn btn-sm btn-outline-secondary mb-0">@tag</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</SampleShellComponent>

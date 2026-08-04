@@ -1,0 +1,273 @@
+@page "/Admin/Users/{UserId:guid}"
+@rendermode InteractiveServer
+@layout Glory2Him.WebApp.Components.Layout.SidebarLayout
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Models.Views.Navigations
+@using Glory2Him.WebApp.Models.Views.Users
+@inherits UserDetailPageBase
+
+@* InteractiveServer: every card on this page acts on the user and re-renders in place. *@
+
+<PageTitle>@PageTitleText</PageTitle>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">User</h1>
+    <BreadcrumbComponent Items="Crumbs" />
+</div>
+<hr />
+
+@if (IsLoading)
+{
+    <div class="text-center py-5">
+        <Spinner />
+    </div>
+}
+else if (HasError)
+{
+    <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+    <Button Color="secondary" OnClick="GoBack">Back to Users</Button>
+}
+else if (User is not null)
+{
+    <div class="d-flex justify-content-end mb-3">
+        <Button Color="secondary" OnClick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i>Back to Users
+        </Button>
+    </div>
+
+    @if (ActionError is not null)
+    {
+        <div class="alert alert-danger" role="alert">@ActionError</div>
+    }
+    @if (ActionMessage is not null)
+    {
+        <div class="alert alert-success" role="alert">@ActionMessage</div>
+    }
+    @if (GeneratedLink is not null)
+    {
+        <div class="alert alert-info" role="alert">
+            <div class="fw-semibold mb-2">@GeneratedLinkLabel</div>
+            <textarea class="form-control font-monospace small" rows="3" readonly>@GeneratedLink</textarea>
+        </div>
+    }
+
+    <Card CssClass="mb-4">
+        <HeaderContent>User details</HeaderContent>
+        <ChildContent>
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <AvatarComponent Name="@User.DisplayName" ImageUrl="@User.ImageUrl" SizePx="64" />
+                <div>
+                    <div class="h5 mb-1">@User.DisplayName</div>
+                    <div class="text-body-secondary small font-monospace">@User.Id</div>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mb-4">
+                <span class="badge @(User.EmailConfirmed ? "text-bg-success" : "text-bg-secondary")">
+                    Email @(User.EmailConfirmed ? "confirmed" : "unconfirmed")
+                </span>
+                <span class="badge @(User.IsLockedOut ? "text-bg-danger" : "text-bg-success")">
+                    @(User.IsLockedOut ? "Locked out" : "Not locked")
+                </span>
+                <span class="badge @(User.TwoFactorEnabled ? "text-bg-info" : "text-bg-secondary")">
+                    2FA @(User.TwoFactorEnabled ? "on" : "off")
+                </span>
+                <span class="badge @(User.IsDisabled ? "text-bg-danger" : "text-bg-success")">
+                    @(User.IsDisabled ? "Disabled" : "Active")
+                </span>
+                <span class="badge text-bg-light text-dark border">
+                    Failed logins: @User.AccessFailedCount
+                </span>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <FormText Label="Username" Value="@EditModel.UserName"
+                              ValueChanged="@(value => EditModel.UserName = value ?? string.Empty)" />
+                </div>
+                <div class="col-md-6">
+                    <FormText Label="Email" Value="@EditModel.Email"
+                              ValueChanged="@(value => EditModel.Email = value ?? string.Empty)" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <FormText Label="First name" Value="@EditModel.Name"
+                              ValueChanged="@(value => EditModel.Name = value ?? string.Empty)" />
+                </div>
+                <div class="col-md-6">
+                    <FormText Label="Surname" Value="@EditModel.Surname"
+                              ValueChanged="@(value => EditModel.Surname = value ?? string.Empty)" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <FormText Label="Preferred name" Value="@EditModel.PreferredName"
+                              ValueChanged="@(value => EditModel.PreferredName = value)" />
+                </div>
+                <div class="col-md-6">
+                    <FormText Label="Phone number" Value="@EditModel.PhoneNumber"
+                              ValueChanged="@(value => EditModel.PhoneNumber = value ?? string.Empty)" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <FormDate Label="Date of birth" Value="DateOfBirthValue"
+                              ValueChanged="OnDateOfBirthChanged" />
+                </div>
+            </div>
+
+            <Button Color="primary" OnClick="SaveProfileAsync">Save profile</Button>
+        </ChildContent>
+    </Card>
+
+    <Card CssClass="mb-4">
+        <HeaderContent>Roles</HeaderContent>
+        <ChildContent>
+            @if (User.Roles.Any())
+            {
+                <ul class="list-group mb-3">
+                    @foreach (string role in User.Roles)
+                    {
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="badge text-bg-primary">@role</span>
+                            <Button Color="outline-danger" CssClass="btn-sm"
+                                    OnClick="@(() => RemoveRoleAsync(role))">
+                                Remove
+                            </Button>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <p class="text-body-secondary">This user has no roles assigned.</p>
+            }
+
+            @if (AvailableRoleOptions.Any())
+            {
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-6">
+                        <FormSelect Label="Add role" Options="AvailableRoleOptions"
+                                    Value="@SelectedRoleToAdd"
+                                    ValueChanged="@(value => SelectedRoleToAdd = value)" />
+                    </div>
+                    <div class="col-sm-auto mb-3">
+                        <Button Color="primary" OnClick="AddRoleAsync">Add</Button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <p class="text-body-secondary mb-0">This user already holds every role.</p>
+            }
+        </ChildContent>
+    </Card>
+
+    <Card CssClass="mb-4">
+        <HeaderContent>Account actions</HeaderContent>
+        <ChildContent>
+            <div class="d-flex flex-wrap gap-2">
+                @if (!User.EmailConfirmed)
+                {
+                    <Button Color="success" CssClass="btn-sm" OnClick="ConfirmEmailAsync">
+                        Confirm email
+                    </Button>
+                }
+                <Button Color="outline-secondary" CssClass="btn-sm"
+                        OnClick="GenerateConfirmationLinkAsync">
+                    Email confirmation link
+                </Button>
+                <Button Color="outline-secondary" CssClass="btn-sm" OnClick="GenerateResetLinkAsync">
+                    Password reset link
+                </Button>
+
+                @if (User.IsLockedOut)
+                {
+                    <Button Color="warning" CssClass="btn-sm"
+                            OnClick="@(() => SetLockedOutAsync(false))">
+                        Unlock
+                    </Button>
+                }
+                else
+                {
+                    <Button Color="warning" CssClass="btn-sm"
+                            OnClick="@(() => SetLockedOutAsync(true))">
+                        Lock
+                    </Button>
+                }
+
+                <Button Color="outline-secondary" CssClass="btn-sm" OnClick="ResetFailedCountAsync">
+                    Reset failed count
+                </Button>
+
+                @if (User.TwoFactorEnabled)
+                {
+                    <Button Color="outline-secondary" CssClass="btn-sm"
+                            OnClick="@(() => SetTwoFactorAsync(false))">
+                        Disable 2FA
+                    </Button>
+                }
+                else
+                {
+                    <Button Color="outline-secondary" CssClass="btn-sm"
+                            OnClick="@(() => SetTwoFactorAsync(true))">
+                        Enable 2FA
+                    </Button>
+                }
+
+                @if (User.IsDisabled)
+                {
+                    <Button Color="success" CssClass="btn-sm"
+                            OnClick="@(() => SetDisabledAsync(false))">
+                        Enable user
+                    </Button>
+                }
+                else
+                {
+                    <Button Color="danger" CssClass="btn-sm"
+                            OnClick="@(() => SetDisabledAsync(true))">
+                        Disable user
+                    </Button>
+                }
+
+                <Button Color="danger" CssClass="btn-sm" OnClick="OpenDeleteDialog">
+                    Delete user
+                </Button>
+            </div>
+        </ChildContent>
+    </Card>
+
+    <ConfirmDialog Visible="IsDeleteDialogVisible"
+                   Title="Delete user"
+                   Message="@DeleteMessage"
+                   ConfirmText="Delete"
+                   OnConfirm="ConfirmDeleteAsync"
+                   OnCancel="CloseDeleteDialog" />
+}
+
+@code {
+    private string PageTitleText =>
+        User is null ? "User — Glory 2 Him" : $"{User.UserName} — Glory 2 Him";
+
+    private BreadcrumbItem[] Crumbs =>
+        new[]
+        {
+            new BreadcrumbItem("Admin"),
+            new BreadcrumbItem("Users", UsersRoute),
+            new BreadcrumbItem(User?.UserName ?? "User", IsActive: true),
+        };
+
+    // FormDate speaks DateTimeOffset; the stored date of birth is a plain calendar date.
+    private DateTimeOffset? DateOfBirthValue =>
+        EditModel.DateOfBirth is null
+            ? null
+            : new DateTimeOffset(EditModel.DateOfBirth.Value.ToDateTime(TimeOnly.MinValue),
+                TimeSpan.Zero);
+
+    private void OnDateOfBirthChanged(DateTimeOffset? value) =>
+        EditModel.DateOfBirth = value is null ? null : DateOnly.FromDateTime(value.Value.Date);
+}

@@ -23,6 +23,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
 {
     public partial class UsersViewServiceTests
     {
+        private const string AdministratorsRole = "Administrators";
+
         private readonly Mock<IIdentityBroker> identityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IUsersViewService usersViewService;
@@ -48,5 +50,24 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
                 Email = $"{GetRandomString()}@glory2him.local",
                 IsDisabled = false,
             }).ToList();
+
+        // Every by-id path starts by reading the user and its roles, so the two go together.
+        private void GivenUserExists(AppUser user, List<string> roles)
+        {
+            this.identityBrokerMock.Setup(broker =>
+                broker.SelectUserByIdAsync(user.Id))
+                    .ReturnsAsync(user);
+
+            this.identityBrokerMock.Setup(broker =>
+                broker.SelectUserRolesAsync(user))
+                    .ReturnsAsync(roles);
+        }
+
+        private void GivenAdministratorCount(int count)
+        {
+            this.identityBrokerMock.Setup(broker =>
+                broker.SelectUsersInRoleAsync(AdministratorsRole))
+                    .ReturnsAsync(CreateRandomAppUsers(count));
+        }
     }
 }

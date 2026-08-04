@@ -17,6 +17,8 @@ using FluentAssertions;
 using Glory2Him.WebApp.Components.Pages.Admin;
 using Glory2Him.WebApp.Models.Views.Users;
 using Glory2Him.WebApp.Models.Views.Users.Exceptions;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Xeptions;
 
@@ -122,7 +124,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
         }
 
         [Fact]
-        public void ShouldOpenManageModalWhenManageClicked()
+        public void ShouldNavigateToUserDetailPageWhenViewClicked()
         {
             // given
             List<UserView> users = CreateRandomUsers(count: 1);
@@ -132,19 +134,19 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
                     .ReturnsAsync(users);
 
             IRenderedComponent<UsersPage> renderedPage = Render<UsersPage>();
+            var navigationManager = Services.GetRequiredService<NavigationManager>();
 
             // when
             renderedPage.FindAll("button")
-                .First(button => button.TextContent.Trim() == "Manage")
+                .First(button => button.TextContent.Trim() == "View")
                 .Click();
 
             // then
-            renderedPage.FindAll("div.modal").Should().NotBeEmpty();
-            renderedPage.Markup.Should().Contain($"Manage {users[0].UserName}");
+            navigationManager.Uri.Should().EndWith($"Admin/Users/{users[0].Id}");
         }
 
         [Fact]
-        public void ShouldDeleteUserWhenDeletionConfirmed()
+        public void ShouldNotManageUsersFromTheListItself()
         {
             // given
             List<UserView> users = CreateRandomUsers(count: 1);
@@ -153,54 +155,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages.Admin
                 service.RetrieveAllUsersAsync())
                     .ReturnsAsync(users);
 
-            this.usersViewServiceMock.Setup(service =>
-                service.DeleteUserAsync(users[0].Id))
-                    .Returns(ValueTask.CompletedTask);
-
+            // when
             IRenderedComponent<UsersPage> renderedPage = Render<UsersPage>();
 
-            // open the delete dialog
-            renderedPage.FindAll("button")
-                .First(button => button.TextContent.Trim() == "Delete")
-                .Click();
-
-            // when (confirm)
-            renderedPage.Find("div.modal-footer button.btn-danger").Click();
-
-            // then
-            this.usersViewServiceMock.Verify(service =>
-                service.DeleteUserAsync(users[0].Id),
-                    Times.Once);
-        }
-
-        [Fact]
-        public void ShouldToggleAdministratorRoleFromManageModal()
-        {
-            // given
-            List<UserView> users = CreateRandomUsers(count: 1);
-            users[0].Roles = new List<string> { "Users" };
-
-            this.usersViewServiceMock.Setup(service =>
-                service.RetrieveAllUsersAsync())
-                    .ReturnsAsync(users);
-
-            this.usersViewServiceMock.Setup(service =>
-                service.SetUserRoleAsync(users[0].Id, "Administrators", true))
-                    .Returns(ValueTask.CompletedTask);
-
-            IRenderedComponent<UsersPage> renderedPage = Render<UsersPage>();
+            // then (managing a user happens on its own page, never in a modal over the list)
+            renderedPage.FindAll("div.modal").Should().BeEmpty();
 
             renderedPage.FindAll("button")
-                .First(button => button.TextContent.Trim() == "Manage")
-                .Click();
-
-            // when (flip the Administrator switch — the first switch in the modal)
-            renderedPage.FindAll("div.modal input.form-check-input")[0].Change(true);
-
-            // then
-            this.usersViewServiceMock.Verify(service =>
-                service.SetUserRoleAsync(users[0].Id, "Administrators", true),
-                    Times.Once);
+                .Should().NotContain(button => button.TextContent.Trim() == "Delete");
         }
     }
 }

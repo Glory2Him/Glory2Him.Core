@@ -1,0 +1,16 @@
+/* Verse numbers sit small, raised and tinted so they mark the text without interrupting the read.
+   The chapter body itself keeps a generous line height because it is read in long stretches. */
+
+.g2h-chapter-text {
+    line-height: 1.9;
+    text-align: justify;
+}
+
+.g2h-verse-number {
+    font-size: 0.7em;
+    font-weight: 600;
+    color: var(--bs-primary);
+    margin-right: 0.15rem;
+    vertical-align: super;
+    line-height: 0;
+}

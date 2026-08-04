@@ -1,0 +1,47 @@
+@namespace Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+
+@* Placeholder article prose shared by the six post-single demos, so each of those pages carries
+   only the chrome that actually distinguishes it. Presentational only (ts-ui-001). *@
+
+<p class="lead">@Post.Excerpt</p>
+
+<p>
+    Traveling light is a discipline of trust. Every extra thing we carry is one more thing to
+    guard, and the road has a way of showing us how little we truly need. The same is true of the
+    heart — what we hold onto shapes how freely we can move.
+</p>
+
+<blockquote class="blockquote border-start border-3 border-primary ps-4 my-4">
+    <p class="mb-2">
+        "Cast all your anxiety on him because he cares for you."
+    </p>
+    <footer class="blockquote-footer mb-0">1 Peter 5:7</footer>
+</blockquote>
+
+<h3 class="h5 mt-4">What we learned along the way</h3>
+
+<p>
+    The best moments were rarely the ones we planned. They arrived in the gaps — a shared meal, an
+    unhurried conversation, a morning where nothing was scheduled and everything mattered.
+</p>
+
+<ul>
+    <li>Leave room in the day for the unplanned.</li>
+    <li>Ask more questions than you answer.</li>
+    <li>Write down the small things; they become the big ones.</li>
+</ul>
+
+@if (ShowTags)
+{
+    <hr class="my-4" />
+
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="fw-semibold me-1">Tags:</span>
+        @foreach (string tag in Tags)
+        {
+            <a href="Tag?name=@Uri.EscapeDataString(tag)" class="btn btn-sm btn-outline-secondary">
+                @tag
+            </a>
+        }
+    </div>
+}

@@ -1,0 +1,84 @@
+@page "/SamplePages/Post/Post-Types"
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+@inherits SamplePageBase
+
+@* Blogzine post-types.html: the same card marked up as each kind of post — standard, video,
+   audio, gallery and quote. *@
+
+<PageTitle>Post Types — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="Post Types" SourceFile="post-types.html">
+    <HeroBannerComponent Title="Post types" Crumbs="Crumbs" />
+
+    <section class="py-5">
+        <div class="container">
+            @if (IsLoading)
+            {
+                <div class="text-center py-5"><Spinner /></div>
+            }
+            else if (HasError)
+            {
+                <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+            }
+            else if (!Posts.Any())
+            {
+                <div class="alert alert-info" role="alert">No posts have been published yet.</div>
+            }
+            else
+            {
+                <div class="row g-4">
+                    @foreach ((PostView post, PostType type) in TypedPosts)
+                    {
+                        <div class="col-sm-6 col-lg-4">
+                            <div class="position-relative h-100">
+                                <span class="position-absolute top-0 end-0 m-3" style="z-index:2;">
+                                    <PostTypeBadgeComponent Type="type" />
+                                </span>
+
+                                @if (type is PostType.Quote)
+                                {
+                                    <Card CssClass="border h-100 bg-primary-soft">
+                                        <ChildContent>
+                                            <blockquote class="mb-3">
+                                                <i class="bi bi-quote fs-1 text-primary"></i>
+                                                <p class="h5 fst-italic">@post.Excerpt</p>
+                                            </blockquote>
+                                            <footer class="small text-body-secondary">
+                                                — @post.AuthorName
+                                            </footer>
+                                        </ChildContent>
+                                    </Card>
+                                }
+                                else
+                                {
+                                    <PostCardComponent Post="post" ShowExcerpt="true" />
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</SampleShellComponent>
+
+@code {
+    private static readonly BreadcrumbItem[] Crumbs = new[]
+    {
+        new BreadcrumbItem("Post types", IsActive: true),
+    };
+
+    private static readonly PostType[] TypeCycle = new[]
+    {
+        PostType.Standard,
+        PostType.Video,
+        PostType.Audio,
+        PostType.Gallery,
+        PostType.Quote,
+        PostType.Standard,
+    };
+
+    private IEnumerable<(PostView Post, PostType Type)> TypedPosts =>
+        Posts.Select((post, index) => (post, TypeCycle[index % TypeCycle.Length]));
+}

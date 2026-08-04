@@ -1,0 +1,21 @@
+/* Bare "like this comment" affordance — a count with a heart, no button chrome, so it sits quietly
+   under the comment body. */
+
+.cmt-react {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    color: var(--bs-secondary-color);
+    font-size: 0.875rem;
+    line-height: 1.2;
+}
+
+.cmt-react:hover {
+    color: var(--bs-danger);
+}
+
+.cmt-react:focus-visible {
+    outline: 2px solid var(--bs-primary);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+}

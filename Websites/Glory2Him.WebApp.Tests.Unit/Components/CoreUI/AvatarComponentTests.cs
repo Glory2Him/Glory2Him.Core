@@ -39,7 +39,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.CoreUI
         public void ShouldRenderImageWhenImageUrlProvided()
         {
             // given
-            const string imageUrl = "profile-image/abc?v=1234";
+            const string imageUrl = "Profile-Image/abc?v=1234";
 
             // when
             IRenderedComponent<AvatarComponent> renderedAvatar =

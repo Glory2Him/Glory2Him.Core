@@ -1,0 +1,130 @@
+@page "/Search"
+@rendermode InteractiveServer
+@inherits SearchBase
+
+@* The post-list layout without its hero banner: a search box stands where the banner was, and the
+   list below it only appears once something has been searched for. *@
+
+<PageTitle>Search — Glory 2 Him</PageTitle>
+
+@* Centred and given room to breathe while the box is on its own; once results are underneath, the
+   bottom padding hands over to the list's own section. *@
+<section class="@(HasSearched ? "pt-5 pb-4" : "py-5 my-lg-5")">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                @if (!HasSearched)
+                {
+                    <div class="text-center mb-4">
+                        <h1 class="mb-2">Search</h1>
+                        <p class="mb-0">
+                            Find a post by its title, its author, or the topic it covers.
+                        </p>
+                    </div>
+                }
+
+                <SearchBarComponent Query="@Query"
+                                    QueryChanged="OnQueryChanged"
+                                    OnSearch="Search"
+                                    Placeholder="Search posts, authors and topics">
+                    <Advanced>
+                        <div class="row g-3">
+                            <div class="col-sm-6">
+                                <label class="form-label" for="searchCategory">Category</label>
+                                <select class="form-select" id="searchCategory"
+                                        value="@SelectedCategory" @onchange="OnCategoryChanged">
+                                    <option value="">Any category</option>
+                                    @foreach (string category in Categories)
+                                    {
+                                        <option value="@category">@category</option>
+                                    }
+                                </select>
+                            </div>
+
+                            @* Free text rather than a list: there is no useful upper bound on the
+                               number of authors, and a select would grow past being usable. *@
+                            <div class="col-sm-6">
+                                <label class="form-label" for="searchAuthor">Author</label>
+                                <input class="form-control" type="text" id="searchAuthor"
+                                       placeholder="Any author"
+                                       value="@SelectedAuthor" @oninput="OnAuthorChanged" />
+                            </div>
+
+                            <div class="col-12">
+                                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                                    @* A span, not a label: the tag box carries its own aria-label,
+                                       and a <label for> pointing at nothing helps no one. *@
+                                    <span class="form-label mb-0">Tags</span>
+
+                                    <div class="btn-group btn-group-sm" role="group"
+                                         aria-label="Match any or all of the tags">
+                                        <input type="radio" class="btn-check" name="tagMatch"
+                                               id="tagMatchAny" autocomplete="off"
+                                               checked="@(!MatchAllTags)"
+                                               @onchange="@(() => OnTagMatchChanged(false))" />
+                                        <label class="btn btn-outline-primary mb-0"
+                                               for="tagMatchAny">Any</label>
+
+                                        <input type="radio" class="btn-check" name="tagMatch"
+                                               id="tagMatchAll" autocomplete="off"
+                                               checked="@MatchAllTags"
+                                               @onchange="@(() => OnTagMatchChanged(true))" />
+                                        <label class="btn btn-outline-primary mb-0"
+                                               for="tagMatchAll">All</label>
+                                    </div>
+                                </div>
+
+                                <TagInputComponent Tags="Tags"
+                                                   TagsChanged="OnTagsChanged"
+                                                   AriaLabel="Add a tag to search for"
+                                                   Placeholder="Type a tag and press Enter" />
+                            </div>
+                        </div>
+                    </Advanced>
+                </SearchBarComponent>
+            </div>
+        </div>
+    </div>
+</section>
+
+@if (HasSearched)
+{
+    <section class="pb-5">
+        <div class="container">
+            @if (Results.Count == 0)
+            {
+                <div class="alert alert-info text-center mb-0" role="alert">
+                    Nothing matched that search. Try clearing the advanced options.
+                </div>
+            }
+            else
+            {
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <p class="text-muted">@Results.Count result(s) found.</p>
+
+                        @foreach (PostView post in PageOfResults)
+                        {
+                            <PostListItemComponent Post="post" />
+                        }
+
+                        @* Only when there is a second page to go to — a strip of page numbers over
+                           a single page of results would be decoration pretending to be a control. *@
+                        @if (TotalPages > 1)
+                        {
+                            <div class="mt-4">
+                                <PaginationComponent CurrentPage="CurrentPage"
+                                                     CurrentPageChanged="OnPageChanged"
+                                                     TotalPages="TotalPages" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="col-lg-4">
+                        <BlogSidebarComponent TrendingPosts="Trending" />
+                    </div>
+                </div>
+            }
+        </div>
+    </section>
+}

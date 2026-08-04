@@ -9,18 +9,17 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using Bunit;
-using Glory2Him.WebApp.Models.Views.Posts;
 using Glory2Him.WebApp.Services.Views.Posts;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
-using Tynamix.ObjectFiller;
 
 namespace Glory2Him.WebApp.Tests.Unit.Components.Pages
 {
     public partial class PostSinglePageComponentTests : BunitContext
     {
+        // The page lays out SampleContent for now and injects nothing, but the posts service stays
+        // registered: PostSingleBase still carries the plumbing for when real posts are wired in.
         private readonly Mock<IPostsViewService> postsViewServiceMock;
 
         public PostSinglePageComponentTests()
@@ -29,25 +28,5 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Pages
             Services.AddSingleton(this.postsViewServiceMock.Object);
             JSInterop.Mode = JSRuntimeMode.Loose;
         }
-
-        private static string GetRandomString() =>
-            new MnemonicString().GetValue();
-
-        private static PostView CreateRandomPost() =>
-            new PostView
-            {
-                Id = GetRandomString(),
-                Title = GetRandomString(),
-                Slug = GetRandomString(),
-                Excerpt = GetRandomString(),
-                ImageUrl = "assets/images/blog/16by9/big/03.jpg",
-                Category = GetRandomString(),
-                CategoryBadgeCss = "text-bg-success",
-                AuthorName = GetRandomString(),
-                AuthorImageUrl = "assets/images/avatar/03.jpg",
-                PublishedDate = new DateTimeOffset(2022, 9, 7, 0, 0, 0, TimeSpan.Zero),
-                ReadMinutes = 6,
-                IsFeatured = false,
-            };
     }
 }

@@ -23,6 +23,6 @@ namespace Glory2Him.WebApp.Models.Views.Profiles
 
         // Resolves to the serving endpoint when an image is set, otherwise null (initials fallback).
         public string? ImageUrl =>
-            HasProfileImage ? $"profile-image/{Id}?v={ImageVersion}" : null;
+            HasProfileImage ? $"Profile-Image/{Id}?v={ImageVersion}" : null;
     }
 }

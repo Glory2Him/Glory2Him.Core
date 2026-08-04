@@ -1,0 +1,24 @@
+@namespace Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+
+@* Shared chrome for every sample page: a slim strip naming the demo and linking back to the
+   sample index, then the demo itself. The strip is deliberately plain so it never competes with
+   the layout being demonstrated. Presentational only (ts-ui-001). *@
+
+<div class="bg-body-tertiary border-bottom py-2">
+    <div class="container d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <a class="btn btn-sm btn-outline-secondary" href="SamplePages">
+            <i class="bi bi-arrow-left me-1"></i>Back to Sample Pages
+        </a>
+
+        <div class="d-flex align-items-center gap-2 small text-body-secondary">
+            <span class="badge text-bg-secondary">Sample</span>
+            <span class="fw-semibold text-body">@Title</span>
+            @if (!string.IsNullOrWhiteSpace(SourceFile))
+            {
+                <span class="d-none d-sm-inline">— Blogzine <code>@SourceFile</code></span>
+            }
+        </div>
+    </div>
+</div>
+
+@ChildContent

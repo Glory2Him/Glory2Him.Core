@@ -33,7 +33,7 @@ if (!app.Environment.IsDevelopment())
     // see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseStatusCodePagesWithReExecute("/Not-Found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
@@ -48,7 +48,7 @@ app.MapAdditionalIdentityEndpoints();
 // Serves a user's stored profile avatar (or 404 → the UI falls back to an initials avatar).
 // The URL carries a content-hash version (?v=), so the image is safely long-cached and busts
 // automatically when it changes.
-app.MapGet("/profile-image/{userId:guid}", async (
+app.MapGet("/Profile-Image/{userId:guid}", async (
     Guid userId,
     HttpContext httpContext,
     Glory2Him.WebApp.Services.Views.Profiles.IProfileViewService profileViewService) =>

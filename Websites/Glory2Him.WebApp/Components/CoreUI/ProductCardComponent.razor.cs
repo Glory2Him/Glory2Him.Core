@@ -23,7 +23,7 @@ namespace Glory2Him.WebApp.Components.CoreUI
         [Parameter]
         public EventCallback<ProductView> OnAddToCart { get; set; }
 
-        private string ProductHref => $"shop-detail/{Product.Slug}";
+        private string ProductHref => $"Shop-Detail/{Product.Slug}";
 
         private string StarIcon(int position)
         {

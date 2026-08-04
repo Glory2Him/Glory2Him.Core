@@ -1,4 +1,4 @@
-@page "/dashboard"
+@page "/Dashboard"
 @rendermode InteractiveServer
 @layout Glory2Him.WebApp.Components.Layout.SidebarLayout
 @attribute [Authorize]
@@ -88,7 +88,7 @@ else
                     <div class="list-group-item d-flex align-items-center px-0">
                         <img class="w-60 rounded" src="@post.ImageUrl" alt="@post.Title" style="max-width:60px" />
                         <div class="ms-3">
-                            <a href="post-single/@post.Slug" class="h6 mb-0 d-block">@post.Title</a>
+                            <a href="Post-Single/@post.Slug" class="h6 mb-0 d-block">@post.Title</a>
                             <p class="small mb-0 text-body-secondary">
                                 @post.PublishedDate.ToString("MMM dd, yyyy") · @post.Category
                             </p>
@@ -103,6 +103,6 @@ else
 @code {
     private static readonly BreadcrumbItem[] Crumbs = new[]
     {
-        new BreadcrumbItem("Dashboard", "dashboard", IsActive: true),
+        new BreadcrumbItem("Dashboard", "Dashboard", IsActive: true),
     };
 }

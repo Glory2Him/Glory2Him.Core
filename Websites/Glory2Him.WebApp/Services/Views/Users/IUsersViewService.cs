@@ -17,8 +17,17 @@ namespace Glory2Him.WebApp.Services.Views.Users
     {
         ValueTask<List<UserView>> RetrieveAllUsersAsync();
         ValueTask<UserView> RetrieveUserByIdAsync(Guid userId);
+        ValueTask<List<string>> RetrieveAllRoleNamesAsync();
+        ValueTask ModifyUserAsync(UserView user);
         ValueTask SetUserDisabledAsync(Guid userId, bool isDisabled);
         ValueTask SetUserRoleAsync(Guid userId, string roleName, bool isInRole);
         ValueTask DeleteUserAsync(Guid userId);
+
+        ValueTask ConfirmUserEmailAsync(Guid userId);
+        ValueTask<string> GenerateEmailConfirmationTokenAsync(Guid userId);
+        ValueTask<string> GeneratePasswordResetTokenAsync(Guid userId);
+        ValueTask SetUserLockedOutAsync(Guid userId, bool isLockedOut);
+        ValueTask ResetAccessFailedCountAsync(Guid userId);
+        ValueTask SetTwoFactorEnabledAsync(Guid userId, bool isEnabled);
     }
 }

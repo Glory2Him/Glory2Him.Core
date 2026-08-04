@@ -36,8 +36,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
                 Render<OffcanvasMenuComponent>();
 
             // then
-            renderedMenu.Markup.Should().Contain("about-us");
-            renderedMenu.Markup.Should().Contain("contact-us");
+            renderedMenu.Markup.Should().Contain("About-Us");
+            renderedMenu.Markup.Should().Contain("Contact-Us");
             renderedMenu.Markup.Should().Contain("Go and share the Gospel");
         }
     }

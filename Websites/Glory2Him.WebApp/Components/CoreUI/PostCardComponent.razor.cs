@@ -23,7 +23,7 @@ namespace Glory2Him.WebApp.Components.CoreUI
         [Parameter]
         public bool ShowExcerpt { get; set; }
 
-        private string PostHref => $"post-single/{Post.Slug}";
+        private string PostHref => $"Post-Single/{Post.Slug}";
 
         private string PublishedDateText => Post.PublishedDate.ToString("MMM dd, yyyy");
     }

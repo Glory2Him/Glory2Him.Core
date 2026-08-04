@@ -39,7 +39,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Layout
             IRenderedComponent<FooterComponent> renderedFooter = Render<FooterComponent>();
 
             // then
-            renderedFooter.Markup.Should().Contain("about-us");
+            renderedFooter.Markup.Should().Contain("About-Us");
             renderedFooter.Markup.Should().Contain("Account/Login");
             renderedFooter.Markup.Should().Contain("John 14:6");
         }

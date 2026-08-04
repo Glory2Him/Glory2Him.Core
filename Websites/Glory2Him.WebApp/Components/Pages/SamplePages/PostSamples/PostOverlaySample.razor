@@ -1,0 +1,56 @@
+@page "/SamplePages/Post/Post-Overlay"
+@attribute [Authorize(Roles = "Administrators")]
+@using Glory2Him.WebApp.Components.Pages.SamplePages.Shared
+@inherits SamplePageBase
+
+@* Blogzine post-overlay.html: every card carries its title over the image. *@
+
+<PageTitle>Post Overlay — Sample — Glory 2 Him</PageTitle>
+
+<SampleShellComponent Title="Post Overlay" SourceFile="post-overlay.html">
+    <HeroBannerComponent Title="Post overlay" Crumbs="Crumbs" />
+
+    <section class="py-5">
+        <div class="container">
+            @if (IsLoading)
+            {
+                <div class="text-center py-5"><Spinner /></div>
+            }
+            else if (HasError)
+            {
+                <div class="alert alert-danger" role="alert">@ErrorMessage</div>
+            }
+            else if (Lead is null)
+            {
+                <div class="alert alert-info" role="alert">No posts have been published yet.</div>
+            }
+            else
+            {
+                <div class="row g-4 mb-4">
+                    @foreach (PostView post in Take(2))
+                    {
+                        <div class="col-md-6">
+                            <PostOverlayCardComponent Post="post" TitleCssClass="h4" />
+                        </div>
+                    }
+                </div>
+
+                <div class="row g-4">
+                    @foreach (PostView post in Fill(8))
+                    {
+                        <div class="col-sm-6 col-lg-3">
+                            <PostOverlayCardComponent Post="post" TitleCssClass="h6" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+</SampleShellComponent>
+
+@code {
+    private static readonly BreadcrumbItem[] Crumbs = new[]
+    {
+        new BreadcrumbItem("All posts", IsActive: true),
+    };
+}

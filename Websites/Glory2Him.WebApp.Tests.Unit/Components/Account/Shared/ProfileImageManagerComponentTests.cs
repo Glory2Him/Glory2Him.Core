@@ -74,7 +74,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Components.Account.Shared
             // then
             renderedManager.Markup.Should().Contain("Remove");
             renderedManager.Find("img.avatar-img").GetAttribute("src")
-                .Should().Contain($"profile-image/{this.userId}");
+                .Should().Contain($"Profile-Image/{this.userId}");
         }
 
         [Fact]

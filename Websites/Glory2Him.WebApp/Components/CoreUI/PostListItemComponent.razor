@@ -1,6 +1,6 @@
 @namespace Glory2Him.WebApp.Components.CoreUI
 
-@* Reusable horizontal post row (Blogzine "post-list" item). Renders a single PostView.
+@* Reusable horizontal post row (Blogzine "Post-List" item). Renders a single PostView.
    Data supplied by the parent via [Parameter] — no service access here (ts-ui-001). *@
 
 <div class="card mb-4">
@@ -10,7 +10,7 @@
         </div>
         <div class="col-md-8">
             <div class="card-body h-100 d-flex flex-column">
-                <a href="categories" class="badge @Post.CategoryBadgeCss mb-2 align-self-start">@Post.Category</a>
+                <a href="Categories" class="badge @Post.CategoryBadgeCss mb-2 align-self-start">@Post.Category</a>
                 <h3 class="card-title">
                     <a href="@PostHref" class="btn-link text-reset stretched-link fw-bold">@Post.Title</a>
                 </h3>

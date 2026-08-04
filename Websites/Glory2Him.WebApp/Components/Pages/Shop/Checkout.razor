@@ -1,4 +1,4 @@
-@page "/checkout"
+@page "/Checkout"
 @rendermode InteractiveServer
 @implements IDisposable
 @inject ICartService CartService
@@ -8,7 +8,7 @@
 
 <PageTitle>Checkout — Glory 2 Him</PageTitle>
 
-<PageHeaderComponent Title="Checkout" ParentTitle="Shop" ParentHref="shop-grid" />
+<PageHeaderComponent Title="Checkout" ParentTitle="Shop" ParentHref="Shop-Grid" />
 
 <section class="pt-4 pb-5">
     <div class="container">
@@ -21,13 +21,13 @@
                     This is a demo checkout — no payment was taken. In a real store your order
                     would be confirmed here.
                 </p>
-                <a href="shop-grid" class="btn btn-primary">Continue shopping</a>
+                <a href="Shop-Grid" class="btn btn-primary">Continue shopping</a>
             </div>
         }
         else if (CartService.IsEmpty)
         {
             <div class="alert alert-info" role="alert">
-                Your cart is empty. <a href="shop-grid" class="alert-link">Browse the shop</a> first.
+                Your cart is empty. <a href="Shop-Grid" class="alert-link">Browse the shop</a> first.
             </div>
         }
         else
