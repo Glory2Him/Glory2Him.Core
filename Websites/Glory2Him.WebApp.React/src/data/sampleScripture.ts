@@ -28,6 +28,16 @@ export const singleVerseText =
 
 export const tags: ReadonlyArray<string> = ['Jesus', 'Salvation'];
 
+// Passages that speak to the same truth as John 14:6, keyed by how they read to a person
+// and valued by how they address in a URL (the bible.com-style USFM the
+// /BibleReferences/:reference route parses).
+export const relatedReferences: ReadonlyArray<{ display: string, usfm: string }> = [
+    { display: 'John 3:16', usfm: 'JHN.3.16' },
+    { display: 'John 10:9', usfm: 'JHN.10.9' },
+    { display: 'Acts 4:12', usfm: 'ACT.4.12' },
+    { display: '1 Timothy 2:5', usfm: '1TI.2.5' },
+];
+
 // One entry, because one body of text exists — and it is the unverified placeholder the
 // note at the top of this file describes, so it is not claimed as any published
 // translation. Add an entry per translation once real text is loaded and both dropdowns in
