@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BibleCard } from '@youversion/platform-react-ui';
 import { ReactionBar } from '../components/coreUI/reactionBar';
 import { SuggestionPanel } from '../components/coreUI/suggestionPanel';
@@ -7,6 +7,8 @@ import { ReactionOption } from '../models/coreUI/reactionOption';
 import * as sampleScripture from '../data/sampleScripture';
 import { reactions } from './sampleContent';
 import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
+import { useVersionAbbreviations } from '../hooks/useVersionAbbreviations';
+import { bibleReferenceHref } from '../services/views/bibleReferences/toUsfmReference';
 import { youVersionVersions } from '../models/youVersion/youVersionVersions';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
 
@@ -37,6 +39,8 @@ export function BibleReference({
     chapterHref = '/BibleReferences/JHN.14.NIV',
 }: BibleReferenceParameters) {
     const { isLoading, isAvailable } = useYouVersionAvailability();
+    const { abbreviationFor } = useVersionAbbreviations();
+    const navigate = useNavigate();
     const [reactedTo, setReactedTo] = useState<string | null>(null);
 
     // John 14:6 is the one curated passage so far. Any other reference gets the same page
@@ -62,15 +66,21 @@ export function BibleReference({
     const onReact = (reaction: ReactionOption) =>
         setReactedTo(reaction.label);
 
-    const usfmFor = (display: string) =>
-        relatedReferences.find((related) => related.display === display)?.usfm;
+    // The URL owns the passage and its version, so switching translation is a navigation:
+    // refresh keeps the translation, and the address bar is always shareable.
+    const onVersionChange = (newVersionId: number) => {
+        const abbreviation = abbreviationFor(newVersionId);
+        const versionSuffix = abbreviation != null ? `.${abbreviation}` : '';
+
+        navigate(`/BibleReferences/${reference}${versionSuffix}`);
+    };
 
     const passage = !isLoading && (
         isAvailable
             ? <BibleCard
-                key={`${reference}-${versionId}`}
                 reference={reference}
-                defaultVersionId={versionId}
+                versionId={versionId}
+                onVersionChange={onVersionChange}
                 showVersionPicker />
             : <YouVersionUnavailableMessage />
     );
@@ -123,16 +133,10 @@ export function BibleReference({
                             suggestHeading="Suggest a bible reference"
                             prompt="Know a matching verse? Suggest it below."
                             placeholder="e.g. Romans 3:23…"
-                            items={relatedReferences.map((related) => related.display)}
+                            items={relatedReferences}
                             itemCssClass="btn-primary-soft"
                             itemIconCssClass="bi-book"
-                            hrefFor={(display) => {
-                                const usfm = usfmFor(display);
-
-                                return usfm != null
-                                    ? `/BibleReferences/${usfm}.NIV`
-                                    : `/Search?q=${encodeURIComponent(display)}`;
-                            }} />
+                            hrefFor={bibleReferenceHref} />
                     </div>
                 </div>
             </div>

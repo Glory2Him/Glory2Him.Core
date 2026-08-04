@@ -3,11 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BibleReader as YouVersionBibleReader } from '@youversion/platform-react-ui';
 import * as sampleScripture from '../data/sampleScripture';
 import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
+import { useVersionAbbreviations } from '../hooks/useVersionAbbreviations';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
-import {
-    resolveVersionAbbreviation,
-    youVersionVersions,
-} from '../models/youVersion/youVersionVersions';
+import { youVersionVersions } from '../models/youVersion/youVersionVersions';
 
 // The whole chapter, read through the YouVersion Platform SDK's BibleReader: chapter and
 // version pickers plus font settings on the toolbar, licensed scripture in the body.
@@ -27,21 +25,22 @@ type BibleReaderParameters = {
     versionId?: number
 }
 
-const referenceUrl = (book: string, chapter: string, versionId: number): string => {
-    const abbreviation = resolveVersionAbbreviation(versionId);
-    const versionSuffix = abbreviation ? `.${abbreviation}` : '';
-
-    return `/BibleReferences/${book}.${chapter}${versionSuffix}`;
-};
-
 export function BibleReader({
     book = 'JHN',
     chapter = '14',
     versionId = youVersionVersions.niv,
 }: BibleReaderParameters) {
     const { isLoading, isAvailable } = useYouVersionAvailability();
+    const { abbreviationFor } = useVersionAbbreviations();
     const navigate = useNavigate();
     const isDefaultChapter = book === 'JHN' && chapter === '14';
+
+    const referenceUrl = (newBook: string, newChapter: string, newVersionId: number) => {
+        const abbreviation = abbreviationFor(newVersionId);
+        const versionSuffix = abbreviation != null ? `.${abbreviation}` : '';
+
+        return `/BibleReferences/${newBook}.${newChapter}${versionSuffix}`;
+    };
 
     // The book the picker has selected but not yet committed with a chapter.
     const pendingBookRef = useRef(book);
