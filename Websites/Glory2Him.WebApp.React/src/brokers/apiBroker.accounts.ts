@@ -22,6 +22,21 @@ class AccountBroker {
         const url = `${this.relativeAccountsUrl}/logout`;
         await this.apiBroker.PostAsync(url, {});
     }
+
+    async ChangePasswordAsync(oldPassword: string, newPassword: string): Promise<void> {
+        const url = `${this.relativeAccountsUrl}/change-password`;
+        await this.apiBroker.PostAsync(url, { oldPassword, newPassword });
+    }
+
+    async ForgotPasswordAsync(email: string): Promise<void> {
+        const url = `${this.relativeAccountsUrl}/forgot-password`;
+        await this.apiBroker.PostAsync(url, { email });
+    }
+
+    async ResetPasswordAsync(email: string, code: string, password: string): Promise<void> {
+        const url = `${this.relativeAccountsUrl}/reset-password`;
+        await this.apiBroker.PostAsync(url, { email, code, password });
+    }
 }
 
 export default AccountBroker;

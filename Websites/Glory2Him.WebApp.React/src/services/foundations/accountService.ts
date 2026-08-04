@@ -27,6 +27,32 @@ export const accountService = {
         });
     },
 
+    useChangePassword: () => {
+        const accountBroker = new AccountBroker();
+
+        return useMutation({
+            mutationFn: async (input: { oldPassword: string, newPassword: string }) =>
+                await accountBroker.ChangePasswordAsync(input.oldPassword, input.newPassword)
+        });
+    },
+
+    useForgotPassword: () => {
+        const accountBroker = new AccountBroker();
+
+        return useMutation({
+            mutationFn: async (email: string) => await accountBroker.ForgotPasswordAsync(email)
+        });
+    },
+
+    useResetPassword: () => {
+        const accountBroker = new AccountBroker();
+
+        return useMutation({
+            mutationFn: async (input: { email: string, code: string, password: string }) =>
+                await accountBroker.ResetPasswordAsync(input.email, input.code, input.password)
+        });
+    },
+
     useLogout: () => {
         const accountBroker = new AccountBroker();
         const queryClient = useQueryClient();

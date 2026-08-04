@@ -5,14 +5,17 @@ import "react-toastify/dist/ReactToastify.css";
 import { queryClientGlobalOptions } from './brokers/apiBroker.globals';
 import ToastBroker from './brokers/toastBroker';
 import { AuthProvider } from './components/securitys/authProvider';
-import { SecuredRoute } from './components/securitys/securedRoutes';
-import securityPoints from './securityMatrix';
+import { CartProvider } from './services/views/cart/cartContext';
 import Root from './components/root';
 import ErrorPage from './errors/error';
-import { Home } from './pages/home';
-import { Login } from './pages/login';
-import { Dashboard } from './pages/dashboard';
+import { publicPostRoutes } from './routes/publicPostRoutes';
+import { staticRoutes } from './routes/staticRoutes';
+import { shopRoutes } from './routes/shopRoutes';
+import { adminRoutes } from './routes/adminRoutes';
+import { accountRoutes } from './routes/accountRoutes';
 
+// Route order matters only for the staticRoutes catch-all ("*" → NotFound), which must be
+// the very last child — staticRoutes exports it last, so staticRoutes stays last here.
 function App() {
     const router = createBrowserRouter([
         {
@@ -20,22 +23,11 @@ function App() {
             element: <Root />,
             errorElement: <ErrorPage />,
             children: [
-                { index: true, element: <Home /> },
-                { path: "Account/Login", element: <Login /> },
-                {
-                    path: "Dashboard",
-                    element:
-                        <SecuredRoute>
-                            <Dashboard />
-                        </SecuredRoute>
-                },
-                {
-                    path: "Admin/Dashboard",
-                    element:
-                        <SecuredRoute allowedRoles={securityPoints.admin.view}>
-                            <Dashboard />
-                        </SecuredRoute>
-                },
+                ...publicPostRoutes,
+                ...shopRoutes,
+                ...adminRoutes,
+                ...accountRoutes,
+                ...staticRoutes,
             ]
         }
     ]);
@@ -44,7 +36,9 @@ function App() {
         <>
             <QueryClientProvider client={queryClientGlobalOptions}>
                 <AuthProvider>
-                    <RouterProvider router={router} />
+                    <CartProvider>
+                        <RouterProvider router={router} />
+                    </CartProvider>
                 </AuthProvider>
                 <ReactQueryDevtools initialIsOpen={false} />
             </QueryClientProvider>

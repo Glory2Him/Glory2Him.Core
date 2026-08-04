@@ -9,8 +9,10 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Text;
 using Glory2Him.WebApp.Models.Foundations.Users;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
@@ -22,6 +24,12 @@ namespace Glory2Him.WebApp.Infrastructure
     public static class AccountApiEndpoints
     {
         public sealed record LoginRequest(string UserName, string Password, bool RememberMe);
+
+        public sealed record ChangePasswordRequest(string OldPassword, string NewPassword);
+
+        public sealed record ForgotPasswordRequest(string Email);
+
+        public sealed record ResetPasswordRequest(string Email, string Code, string Password);
 
         public static IEndpointRouteBuilder MapAccountApiEndpoints(this IEndpointRouteBuilder endpoints)
         {
@@ -78,6 +86,122 @@ namespace Glory2Him.WebApp.Infrastructure
             accountsGroup.MapPost("/logout", async (SignInManager<AppUser> signInManager) =>
             {
                 await signInManager.SignOutAsync();
+
+                return Results.Ok();
+            });
+
+            // Mirrors the Blazor Account/Manage ChangePassword page: verify the old
+            // password, set the new one and refresh the sign-in cookie.
+            accountsGroup.MapPost("/change-password", async (
+                ChangePasswordRequest changePasswordRequest,
+                HttpContext httpContext,
+                UserManager<AppUser> userManager,
+                SignInManager<AppUser> signInManager) =>
+            {
+                AppUser? user = await userManager.GetUserAsync(httpContext.User);
+
+                if (user is null)
+                {
+                    return Results.Unauthorized();
+                }
+
+                IdentityResult changePasswordResult = await userManager.ChangePasswordAsync(
+                    user,
+                    changePasswordRequest.OldPassword,
+                    changePasswordRequest.NewPassword);
+
+                if (!changePasswordResult.Succeeded)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = string.Join(
+                            ",",
+                            changePasswordResult.Errors.Select(error => error.Description)),
+
+                        Errors = changePasswordResult.Errors.Select(error => error.Description),
+                    });
+                }
+
+                await signInManager.RefreshSignInAsync(user);
+
+                return Results.Ok();
+            })
+            .RequireAuthorization();
+
+            // Mirrors the Blazor ForgotPassword page: always 200 so an unknown or
+            // unconfirmed email is never revealed; the reset link goes through
+            // IEmailSender, which is a no-op in this demo.
+            accountsGroup.MapPost("/forgot-password", async (
+                ForgotPasswordRequest forgotPasswordRequest,
+                HttpContext httpContext,
+                UserManager<AppUser> userManager,
+                IEmailSender<AppUser> emailSender) =>
+            {
+                AppUser? user = await userManager.FindByEmailAsync(forgotPasswordRequest.Email);
+
+                if (user is null || !await userManager.IsEmailConfirmedAsync(user))
+                {
+                    return Results.Ok();
+                }
+
+                string token = await userManager.GeneratePasswordResetTokenAsync(user);
+                string code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+                string callbackUrl = QueryHelpers.AddQueryString(
+                    $"{httpContext.Request.Scheme}://{httpContext.Request.Host}/Account/ResetPassword",
+                    "code",
+                    code);
+
+                await emailSender.SendPasswordResetLinkAsync(
+                    user, forgotPasswordRequest.Email, callbackUrl);
+
+                return Results.Ok();
+            });
+
+            // Mirrors the Blazor ResetPassword page: the code is the Base64Url-encoded
+            // token from the reset link; an unknown email still returns 200 so
+            // account existence is never revealed.
+            accountsGroup.MapPost("/reset-password", async (
+                ResetPasswordRequest resetPasswordRequest,
+                UserManager<AppUser> userManager) =>
+            {
+                AppUser? user = await userManager.FindByEmailAsync(resetPasswordRequest.Email);
+
+                if (user is null)
+                {
+                    return Results.Ok();
+                }
+
+                string token;
+
+                try
+                {
+                    token = Encoding.UTF8.GetString(
+                        WebEncoders.Base64UrlDecode(resetPasswordRequest.Code));
+                }
+                catch (FormatException)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = "The password reset code is invalid.",
+                        Errors = new[] { "The password reset code is invalid." },
+                    });
+                }
+
+                IdentityResult resetResult = await userManager.ResetPasswordAsync(
+                    user, token, resetPasswordRequest.Password);
+
+                if (!resetResult.Succeeded)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = string.Join(
+                            " ",
+                            resetResult.Errors.Select(error => error.Description)),
+
+                        Errors = resetResult.Errors.Select(error => error.Description),
+                    });
+                }
 
                 return Results.Ok();
             });

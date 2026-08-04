@@ -48,8 +48,7 @@ export default defineConfig({
         proxy: {
             '^/api/*': { target, secure: false },
             '^/assets/*': { target, secure: false },
-            '^/Profile-Image/*': { target, secure: false },
-            '^/Account/*': { target, secure: false }
+            '^/Profile-Image/*': { target, secure: false }
         },
         port: 6080,
         https: {

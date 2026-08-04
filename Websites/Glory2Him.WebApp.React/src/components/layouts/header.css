@@ -1,0 +1,74 @@
+/* Ported from the Blazor HeaderComponent.razor.css (Blazor CSS isolation → a plain stylesheet
+   imported by header.tsx; the g2h-* class names are unique to the header so no scoping is lost).
+
+   The textless Glory2Him sunset-over-mountains photo behind the whole header, stretched to fill
+   the header's actual width and height exactly (background-size: 100% 100%) rather than cropped
+   with `cover` — the photo is wider (≈6:1) than the header is tall relative to a full-bleed
+   viewport width, so a crop would cut off either the sun or the mountains; stretching keeps the
+   whole scene visible at the cost of a mild horizontal stretch. A dark overlay sits between the
+   photo and the nav content so every link, icon and the wordmark (all switched to white via
+   navbar-dark) stay readable regardless of where the photo is bright. */
+
+.g2h-header-photo {
+    position: relative;
+    /* Page content routinely wraps images in their own `position: relative` box (PostCardComponent
+       does this for its category-badge overlay, ProductCardComponent likewise) — a z-index:auto
+       positioned box sits in the very same paint layer as a z-index:0 header, so whichever one is
+       later in the DOM wins regardless of which is visually "the header". Content always comes
+       after <header>, so without a real z-index the header loses to any such card underneath the
+       collapsed mobile menu. 1020 matches this template's own .navbar-sticky-on z-index, so there
+       is no visible jump when the header becomes sticky. */
+    z-index: 1020;
+    /* Establishes a new block-formatting context so the top-bar's inner `.my-2` row (a Bootstrap
+       margin utility) is contained inside the header instead of collapsing straight through
+       <header>/<body>/<html> — margin-top collapsing with nothing above it to stop it, which
+       otherwise pushes the whole header 8px down the page (invisible on a white body background,
+       but a visible gap above the photo in dark mode). flow-root contains margins the way
+       overflow:hidden would, without also clipping the dropdown menus that need to overflow below
+       the header's own bottom edge. */
+    display: flow-root;
+    background-image: url('/assets/images/glory2him-header-bg.jpg');
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+}
+
+/* z-index: -1 (not a positive index on the children) so the overlay sits behind the header's own
+   normal-flow content without promoting every child into its own stacking context — that
+   promotion previously trapped dropdown menus (dark-mode switch, nav "Pages"/"Post"/"Shop") behind
+   whichever later sibling also got promoted, since equal-z-index stacking contexts paint in DOM
+   order regardless of a dropdown's own much higher z-index. */
+.g2h-header-photo::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 12, 20, 0.45);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* The accessibility font-size buttons are plain bordered Bootstrap buttons, not nav-links, so
+   navbar-dark's white-text rule does not reach them — give them a light backing so they stay
+   legible over the photo without changing how they look on any other page that reuses this
+   markup. A small radius matches the group's own default squared-off corners instead of turning
+   the whole group into a pill. */
+.g2h-header-pill {
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 0.375rem;
+    padding: 2px;
+}
+
+/* Sized between the two things either side of it: the wordmark is 34px and the Search button 15px.
+   20px is not the arithmetic midpoint (that would be ~25px) on purpose — at 25px these would read
+   as a second wordmark and compete with the brand, whereas 20px is unmistakably larger than the
+   button while still reading as navigation. */
+.g2h-section-nav .nav-link {
+    font-size: 1.25rem;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* The two sections without a route yet. They match their neighbour exactly — the difference is
+   only that there is nothing to click, so the pointer must not promise otherwise. */
+.g2h-section-pending {
+    cursor: default;
+}
