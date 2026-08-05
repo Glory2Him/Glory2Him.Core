@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { queryClientGlobalOptions } from './brokers/apiBroker.globals';
 import ToastBroker from './brokers/toastBroker';
 import { AuthProvider } from './components/securitys/authProvider';
+import { YouVersionAppProvider } from './components/youVersion/youVersionAppProvider';
 import { CartProvider } from './services/views/cart/cartContext';
 import Root from './components/root';
 import ErrorPage from './errors/error';
@@ -40,9 +41,11 @@ function App() {
         <>
             <QueryClientProvider client={queryClientGlobalOptions}>
                 <AuthProvider>
-                    <CartProvider>
-                        <RouterProvider router={router} />
-                    </CartProvider>
+                    <YouVersionAppProvider>
+                        <CartProvider>
+                            <RouterProvider router={router} />
+                        </CartProvider>
+                    </YouVersionAppProvider>
                 </AuthProvider>
                 <ReactQueryDevtools initialIsOpen={false} />
             </QueryClientProvider>

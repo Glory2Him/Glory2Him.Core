@@ -28,6 +28,15 @@ export const singleVerseText =
 
 export const tags: ReadonlyArray<string> = ['Jesus', 'Salvation'];
 
+// Passages that speak to the same truth as John 14:6, written as a person would say them —
+// toUsfmReference turns each into the reference the deep-link route addresses.
+export const relatedReferences: ReadonlyArray<string> = [
+    'John 3:16',
+    'John 10:9',
+    'Acts 4:12',
+    '1 Timothy 2:5',
+];
+
 // One entry, because one body of text exists — and it is the unverified placeholder the
 // note at the top of this file describes, so it is not claimed as any published
 // translation. Add an entry per translation once real text is loaded and both dropdowns in

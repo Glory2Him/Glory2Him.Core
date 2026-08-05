@@ -7,6 +7,7 @@ import { ReactionBar } from '../components/coreUI/reactionBar';
 import { ShareLinks } from '../components/coreUI/shareLinks';
 import { SuggestionPanel } from '../components/coreUI/suggestionPanel';
 import { ReactionOption } from '../models/coreUI/reactionOption';
+import { bibleReferenceHref } from '../services/views/bibleReferences/toUsfmReference';
 import {
     comments,
     detailAuthorName,
@@ -182,8 +183,8 @@ export const PostSingle = () => {
 
                             <hr className="my-4" />
 
-                            {/* No {0}: the reference page shows one fixed verse for now, and a
-                                reference in the URL that the page ignored would be misleading. */}
+                            {/* Each pill reads as the post cites it and addresses as the
+                                deep-link route parses it, so the passage is one click away. */}
                             <SuggestionPanel
                                 heading="Bible references"
                                 suggestHeading="Suggest a bible reference"
@@ -192,7 +193,7 @@ export const PostSingle = () => {
                                 items={post.bibleReferences}
                                 itemCssClass="btn-primary-soft"
                                 itemIconCssClass="bi-book"
-                                hrefFormat="/BibleReferences" />
+                                hrefFor={bibleReferenceHref} />
 
                             {/* No rule either side of this one — the panel's own border already
                                 separates it. Href points at a route that does not exist yet: the

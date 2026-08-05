@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
+import { bibleReferenceHref } from '../../services/views/bibleReferences/toUsfmReference';
 
 // Row of hashtag pills, optionally followed by bible-reference pills carrying a book icon. Both
 // read as small soft buttons so a card can show its topics without competing with the title.
 //
-// A tag goes to a search for it; a reference goes to the passage itself. The reference page shows
-// one fixed verse for now, so its link carries no query — a reference in the URL that the page
-// ignored would be misleading.
+// A tag goes to a search for it; a reference goes to the passage itself — the pill reads as it
+// was written ("Joshua 10:8, 12–13") and addresses as the deep-link route parses it.
 export interface TagPillListProps {
     tags?: ReadonlyArray<string>;
     bibleReferences?: ReadonlyArray<string>;
@@ -35,7 +35,7 @@ export function TagPillList({
             {bibleReferences.map((reference) => (
                 <Link
                     key={reference}
-                    to="/BibleReferences"
+                    to={bibleReferenceHref(reference)}
                     className={`btn ${sizeCssClass} btn-primary-soft mb-0`}>
                     <i className="bi bi-book me-1"></i>{reference}
                 </Link>

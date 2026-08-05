@@ -22,6 +22,10 @@ export interface SuggestionPanelProps {
 
     // Where an approved pill links to; {0} is the item, URL-escaped.
     hrefFormat?: string;
+
+    // Takes precedence over hrefFormat, for pills whose link differs from their label —
+    // a bible reference reads "John 3:16" but addresses as /BibleReferences/JHN.3.16.
+    hrefFor?: (item: string) => string;
     onSuggested?: (suggestion: string) => void;
 }
 
@@ -35,6 +39,7 @@ export function SuggestionPanel({
     itemIconCssClass,
     prefixHash = false,
     hrefFormat = 'Tag?name={0}',
+    hrefFor,
     onSuggested,
 }: SuggestionPanelProps) {
     const [pendingItems, setPendingItems] = useState<ReadonlyArray<string>>([]);
@@ -43,7 +48,9 @@ export function SuggestionPanel({
     const displayName = (item: string) => (prefixHash ? `#${item}` : item);
 
     const buildHref = (item: string) =>
-        '/' + hrefFormat.replace('{0}', encodeURIComponent(item)).replace(/^\//, '');
+        hrefFor != null
+            ? hrefFor(item)
+            : '/' + hrefFormat.replace('{0}', encodeURIComponent(item)).replace(/^\//, '');
 
     const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
         if (event.key !== 'Enter') {
