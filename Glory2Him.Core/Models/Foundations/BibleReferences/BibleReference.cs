@@ -18,7 +18,7 @@ namespace Glory2Him.Core.Models.Foundations.BibleReferences
     /// <summary>
     /// Represents a scripture reference associated with content through <see cref="ContentItemAssociation"/>.
     /// </summary>
-    public class BibleReference : IKey, IAudit, IVersion, IApproval
+    public class BibleReference : IKey, IAudit, IApproval
     {
         /// <summary>
         /// Primary key identifier for the Bible reference.
@@ -26,7 +26,13 @@ namespace Glory2Him.Core.Models.Foundations.BibleReferences
         public Guid Id { get; set; }
 
         /// <summary>
-        /// The scripture reference, such as John 3:16.
+        /// USFM stands for Unified Standard Format Markers — it's the reference notation Bible publishing tools 
+        /// use to identify a book, chapter, and verse unambiguously in code e.g. JHN.3.16.NIV
+        /// </summary>
+        public string USFM { get; set; }
+
+        /// <summary>
+        /// The human readable scripture reference, such as John 3:16.
         /// </summary>
         public string Reference { get; set; } = string.Empty;
 
@@ -79,22 +85,6 @@ namespace Glory2Him.Core.Models.Foundations.BibleReferences
         /// Reason for deletion, if applicable.
         /// </summary>
         public string? DeletionReason { get; set; }
-
-        /// <summary>
-        /// Content item group identifier that groups all versions of this Bible reference together.
-        /// Populated on creation and shared across all versions.
-        /// </summary>
-        public Guid ContentItemGroupId { get; set; }
-
-        /// <summary>
-        /// Version number of this Bible reference record, defaults to 1.
-        /// </summary>
-        public int Version { get; set; } = 1;
-
-        /// <summary>
-        /// Gets or sets a value indicating whether this is the latest version of the Bible reference.
-        /// </summary>
-        public bool IsLatestVersion { get; set; } = false;
 
         /// <summary>
         /// Optional date and time from which the Bible reference becomes visible.
