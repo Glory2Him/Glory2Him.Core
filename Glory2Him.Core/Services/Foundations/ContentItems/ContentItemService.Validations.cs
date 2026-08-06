@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -120,7 +121,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
-                (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
                 (Rule: IsInvalid(contentItem.ContentItemGroupId), Parameter: nameof(ContentItem.ContentItemGroupId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)),
                 (Rule: IsInvalid(contentItem.CreatedBy), Parameter: nameof(ContentItem.CreatedBy)),
@@ -165,7 +166,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
-                (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
                 (Rule: IsInvalid(contentItem.ContentItemGroupId), Parameter: nameof(ContentItem.ContentItemGroupId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)),
                 (Rule: IsInvalid(contentItem.CreatedBy), Parameter: nameof(ContentItem.CreatedBy)),
@@ -195,11 +196,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         }
 
         private static void ValidateOnCheckContentItemContentExists(
-            Guid contentTypeId,
+            ContentType contentType,
             string contentHash) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentType), Parameter: nameof(ContentItem.ContentType)),
                 (Rule: IsInvalid(contentHash), Parameter: nameof(ContentItem.ContentHash)));
 
         private static void ValidateOnRetrieveContentItemById(Guid contentItemId) =>
@@ -276,6 +277,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         {
             Condition = date == default,
             Message = "Date is required"
+        };
+
+        // structural validation for an enum crossing a boundary — rejects an out-of-range
+        // value (e.g. a stale client sending a since-removed member); it cannot detect
+        // "caller forgot to set it", since ContentType has no unset sentinel
+        private static dynamic IsInvalid(ContentType contentType) => new
+        {
+            Condition = Enum.IsDefined(contentType) == false,
+            Message = "Value is not a supported content type"
         };
 
         private static dynamic IsGreaterThan(string text, int maxLength) => new

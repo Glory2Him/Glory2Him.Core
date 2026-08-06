@@ -239,7 +239,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             string contentHash = await ComputeContentHashAsync(contentItem.Content);
 
             bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
-                contentTypeId: contentItem.ContentTypeId,
+                contentType: contentItem.ContentType,
                 contentHash: contentHash,
                 cancellationToken: cancellationToken);
 
@@ -252,7 +252,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             ContentItem newContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
-                ContentTypeId = contentItem.ContentTypeId,
+                ContentType = contentItem.ContentType,
                 Title = contentItem.Title,
                 Author = contentItem.Author,
                 Content = contentItem.Content,
@@ -300,7 +300,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             string contentHash = await ComputeContentHashAsync(contentItem.Content);
 
             bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
-                contentTypeId: contentItem.ContentTypeId,
+                contentType: contentItem.ContentType,
                 contentHash: contentHash,
                 excludedContentItemGroupId: currentContentItem.ContentItemGroupId,
                 cancellationToken: cancellationToken);
@@ -639,7 +639,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             var newVersionContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
-                ContentTypeId = contentItem.ContentTypeId,
+                ContentType = contentItem.ContentType,
                 Title = contentItem.Title,
                 Author = contentItem.Author,
                 Content = contentItem.Content,
@@ -674,7 +674,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             ContentItem sourceContentItem,
             string contentHash)
         {
-            targetContentItem.ContentTypeId = sourceContentItem.ContentTypeId;
+            targetContentItem.ContentType = sourceContentItem.ContentType;
             targetContentItem.Title = sourceContentItem.Title;
             targetContentItem.Author = sourceContentItem.Author;
             targetContentItem.Content = sourceContentItem.Content;
@@ -683,11 +683,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         }
 
         private ValueTask<bool> CheckDuplicateContentExistsAsync(
-            Guid contentTypeId,
+            ContentType contentType,
             string contentHash,
             CancellationToken cancellationToken) =>
             CheckDuplicateContentExistsAsync(
-                contentTypeId: contentTypeId,
+                contentType: contentType,
                 contentHash: contentHash,
                 excludedContentItemGroupId: null,
                 cancellationToken: cancellationToken);
@@ -696,12 +696,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         // the duplicate rule stays global even though the entity-returning reads are
         // visibility-filtered per caller
         private async ValueTask<bool> CheckDuplicateContentExistsAsync(
-            Guid contentTypeId,
+            ContentType contentType,
             string contentHash,
             Guid? excludedContentItemGroupId,
             CancellationToken cancellationToken) =>
             await this.contentItemService.CheckContentItemContentExistsAsync(
-                contentTypeId: contentTypeId,
+                contentType: contentType,
                 contentHash: contentHash,
                 excludedContentItemGroupId: excludedContentItemGroupId,
                 cancellationToken: cancellationToken);

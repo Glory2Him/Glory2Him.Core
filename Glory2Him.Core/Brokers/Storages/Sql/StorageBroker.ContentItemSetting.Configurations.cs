@@ -25,7 +25,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // Primary key
             model.HasKey(contentItemSetting => contentItemSetting.Id);
 
-            model.Property(contentItemSetting => contentItemSetting.ContentTypeId)
+            model.Property(contentItemSetting => contentItemSetting.ContentType)
+                 .HasConversion<string>()
+                 .HasMaxLength(32)
+                 .IsUnicode(true)
                  .IsRequired();
 
             model.Property(contentItemSetting => contentItemSetting.ContentItemId)
@@ -35,10 +38,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            model.Property(contentItemSetting => contentItemSetting.TagAssociationsRequireApproval)
-                .IsRequired()
-                .HasDefaultValue(true);
-
             model.Property(contentItemSetting => contentItemSetting.ShowTags)
                 .IsRequired()
                 .HasDefaultValue(true);
@@ -46,10 +45,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItemSetting => contentItemSetting.ReactionsAllowed)
                 .IsRequired()
                 .HasDefaultValue(false);
-
-            model.Property(contentItemSetting => contentItemSetting.ReactionAssociationsRequireApproval)
-                .IsRequired()
-                .HasDefaultValue(true);
 
             model.Property(contentItemSetting => contentItemSetting.ShowReactions)
                 .IsRequired()
@@ -59,10 +54,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            model.Property(contentItemSetting => contentItemSetting.LinkAssociationsRequireApproval)
-                .IsRequired()
-                .HasDefaultValue(true);
-
             model.Property(contentItemSetting => contentItemSetting.ShowLinks)
                 .IsRequired()
                 .HasDefaultValue(true);
@@ -70,10 +61,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItemSetting => contentItemSetting.AttachmentsAllowed)
                 .IsRequired()
                 .HasDefaultValue(false);
-
-            model.Property(contentItemSetting => contentItemSetting.AttachmentAssociationsRequireApproval)
-                .IsRequired()
-                .HasDefaultValue(true);
 
             model.Property(contentItemSetting => contentItemSetting.ShowAttachments)
                 .IsRequired()
@@ -83,10 +70,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired()
                 .HasDefaultValue(false);
 
-            model.Property(contentItemSetting => contentItemSetting.CommentAssociationsRequireApproval)
-                .IsRequired()
-                .HasDefaultValue(true);
-
             model.Property(contentItemSetting => contentItemSetting.ShowComments)
                 .IsRequired()
                 .HasDefaultValue(true);
@@ -94,10 +77,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItemSetting => contentItemSetting.BibleReferenceAllowed)
                 .IsRequired()
                 .HasDefaultValue(false);
-
-            model.Property(contentItemSetting => contentItemSetting.BibleReferenceAssociationsRequireApproval)
-                .IsRequired()
-                .HasDefaultValue(true);
 
             model.Property(contentItemSetting => contentItemSetting.ShowBibleReferences)
                 .IsRequired()
@@ -146,12 +125,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // ------------------------------------------------------------------------
             // Filtered unique indexes (SQL Server) to enforce your business rules:
             // 1) At most one default per type:
-            //      UNIQUE(ContentTypeId) WHERE ContentItemId IS NULL
+            //      UNIQUE(ContentType) WHERE ContentItemId IS NULL
             // 2) At most one override per entity/post:
             //      UNIQUE(ContentItemId) WHERE ContentItemId IS NOT NULL
             // ------------------------------------------------------------------------
 
-            model.HasIndex(contentItemSetting => contentItemSetting.ContentTypeId)
+            model.HasIndex(contentItemSetting => contentItemSetting.ContentType)
                  .IsUnique()
                  .HasFilter($"[{nameof(ContentItemSetting.ContentItemId)}] IS NULL")
                  .HasDatabaseName("UX_ContentItemSettings_DefaultPerType");

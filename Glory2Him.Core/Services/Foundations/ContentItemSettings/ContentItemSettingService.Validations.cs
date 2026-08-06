@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
@@ -62,8 +63,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             Validate(
                 message: "Content item setting is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemSetting.Id), Parameter: nameof(ContentItemSetting.Id)),
-                (Rule: IsInvalid(contentItemSetting.ContentTypeId),
-                    Parameter: nameof(ContentItemSetting.ContentTypeId)),
+                (Rule: IsInvalid(contentItemSetting.ContentType),
+                    Parameter: nameof(ContentItemSetting.ContentType)),
                 (Rule: IsInvalid(contentItemSetting.CreatedBy), Parameter: nameof(ContentItemSetting.CreatedBy)),
                 (Rule: IsInvalid(contentItemSetting.UpdatedBy), Parameter: nameof(ContentItemSetting.UpdatedBy)),
                 (Rule: IsInvalid(contentItemSetting.CreatedWhen), Parameter: nameof(ContentItemSetting.CreatedWhen)),
@@ -106,8 +107,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             Validate(
                 message: "Content item setting is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemSetting.Id), Parameter: nameof(ContentItemSetting.Id)),
-                (Rule: IsInvalid(contentItemSetting.ContentTypeId),
-                    Parameter: nameof(ContentItemSetting.ContentTypeId)),
+                (Rule: IsInvalid(contentItemSetting.ContentType),
+                    Parameter: nameof(ContentItemSetting.ContentType)),
                 (Rule: IsInvalid(contentItemSetting.CreatedBy), Parameter: nameof(ContentItemSetting.CreatedBy)),
                 (Rule: IsInvalid(contentItemSetting.UpdatedBy), Parameter: nameof(ContentItemSetting.UpdatedBy)),
                 (Rule: IsInvalid(contentItemSetting.CreatedWhen), Parameter: nameof(ContentItemSetting.CreatedWhen)),
@@ -217,6 +218,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         {
             Condition = date == default,
             Message = "Date is required"
+        };
+
+        private static dynamic IsInvalid(ContentType contentType) => new
+        {
+            Condition = Enum.IsDefined(contentType) == false,
+            Message = "Value is not a supported content type"
         };
 
         private static dynamic IsNotSame(

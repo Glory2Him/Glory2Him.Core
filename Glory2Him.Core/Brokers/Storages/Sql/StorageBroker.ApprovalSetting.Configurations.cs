@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -19,7 +20,17 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
     {
         private static void AddApprovalSettingConfigurations(EntityTypeBuilder<ApprovalSetting> model)
         {
-            model.ToTable("ApprovalSettings");
+            model.ToTable(
+                "ApprovalSettings",
+                tableBuilder =>
+                {
+                    // design §8.4: ContentType may be populated only when EntityType = ContentItem
+                    tableBuilder.HasCheckConstraint(
+                        name: "CK_ApprovalSetting_ContentTypeRequiresContentItem",
+                        sql:
+                            $"({nameof(ApprovalSetting.ContentType)} IS NULL OR " +
+                            $"{nameof(ApprovalSetting.EntityType)} = N'{nameof(EntityType.ContentItem)}')");
+                });
 
             model.HasKey(approvalSetting => approvalSetting.Id);
 
@@ -30,6 +41,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasConversion<string>()
                  .HasMaxLength(64)
                  .IsRequired();
+
+            model.Property(approvalSetting => approvalSetting.ContentType)
+                 .HasConversion<string>()
+                 .HasMaxLength(32)
+                 .IsUnicode(true)
+                 .IsRequired(false);
 
             model.Property(approvalSetting => approvalSetting.RequireApprovals)
                  .IsRequired()
@@ -98,10 +115,22 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(approvalSetting => approvalSetting.DeletionReason)
                  .IsRequired(false);
 
-            // One approval setting per entity type
+            // design §8.4 resolution tiers — a single UNIQUE(EntityType) would prevent any
+            // entity type from ever having more than one row, incompatible with the
+            // per-content-type tier. NULL/NULL is not distinct in SQL Server's default
+            // unique-index semantics, so this needs two filtered indexes rather than one:
+
+            // 1) at most one entity-type-level default (ContentType IS NULL)
             model.HasIndex(approvalSetting => approvalSetting.EntityType)
                  .IsUnique()
-                 .HasDatabaseName("UX_ApprovalSettings_EntityType");
+                 .HasFilter($"[{nameof(ApprovalSetting.ContentType)}] IS NULL")
+                 .HasDatabaseName("UX_ApprovalSettings_EntityTypeDefault");
+
+            // 2) at most one row per (EntityType, ContentType) when ContentType is populated
+            model.HasIndex(approvalSetting => new { approvalSetting.EntityType, approvalSetting.ContentType })
+                 .IsUnique()
+                 .HasFilter($"[{nameof(ApprovalSetting.ContentType)}] IS NOT NULL")
+                 .HasDatabaseName("UX_ApprovalSettings_EntityTypeContentType");
 
             // Relationship: one ApprovalSetting to many ApprovalSettingReviewerRoles
             model.HasMany(approvalSetting => approvalSetting.ApprovalSettingReviewerRoles)

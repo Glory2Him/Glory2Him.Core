@@ -12,7 +12,6 @@
 using System;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Foundations.ContentTypes;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItems
 {
@@ -27,9 +26,12 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         public Guid Id { get; set; }
 
         /// <summary>
-        /// Type identifier for the content item (e.g., quote, story, testimony).
+        /// The classification of the content item. Set on creation; never accepted from
+        /// a caller on modify (design §12.4.1 rule 7a) — different content types carry
+        /// different validation rules, so an item cannot be relabelled into a type its
+        /// content was never checked against.
         /// </summary>
-        public Guid ContentTypeId { get; set; }
+        public ContentType ContentType { get; set; }
 
         /// <summary>
         /// Title of the content item (optional).
@@ -125,10 +127,5 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         /// Reason for deletion, if applicable.
         /// </summary>
         public string? DeletionReason { get; set; }
-
-        /// <summary>
-        /// Navigation to the content type this item belongs to.
-        /// </summary>
-        public ContentType? ContentType { get; set; }
     }
 }
