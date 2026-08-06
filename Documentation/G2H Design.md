@@ -780,6 +780,7 @@ Recommended properties:
 | `RequireReapprovalOnChange` | Whether edits reset approval status. |
 | `AutoApproveIfAllApprovalRequirementsMet` | Whether the entity is automatically approved when all approval requirements are met. |
 | `RequireApprovalCommentResolutionBeforeApproval` | Whether all approval comments must be resolved before approval can be granted. |
+| `BlockOnZeroConfidenceScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a `Publisher`/`Admin` may still bypass it (§12.4.4 business rule 11) or correct the score first (§9.7.1 rule 5). |
 | `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Admin`. |
 | `RestrictWhoCanReview` | Whether reviewing is restricted to roles configured in `ApprovalSettingReviewerRoles`. |
 | `RestrictWhoCanApprove` | Whether approve/reject/bypass is restricted to roles configured in `ApprovalSettingPublisherRoles`. |
@@ -846,6 +847,9 @@ conditionsMet =
             AND NOT (BlockOnReject AND any active rejected review)))
     AND (RequireApprovalCommentResolutionBeforeApproval == false
         OR all approval comments are resolved)
+    AND (BlockOnZeroConfidenceScore == false
+        OR entity does not implement IConfidence
+        OR ConfidenceScore != 0)
 ```
 
 1. If `RequireApprovals = false`, no reviews are required — the conditions are trivially met.
@@ -855,6 +859,8 @@ conditionsMet =
 5. Meeting the conditions enables the manual approve action for `Publisher`/`Admin` (the UI approve button).
 6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
 7. When `RequireApprovalCommentResolutionBeforeApproval = true`, all approval comments must be resolved (`ApprovalComment.IsResolved = true`) before the conditions are met.
+8. When `BlockOnZeroConfidenceScore = true`, an entity whose `ConfidenceScore` is `0` cannot meet the conditions. **A `null` score does not block** — it means the confidence process has not run yet, not that the association was judged worthless. Treating `null` as blocking would deadlock every approval until §13.4 ships, and would strand anything the process failed on. If a scored gate is wanted before that point, the setting to reach for is `RequireApprovals`, not this one.
+9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.4.4 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
 
 ### 8.6 Self-Approval Rules
 
@@ -969,7 +975,7 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 
    | Group | Owned by | Examples |
    | --- | --- | --- |
-   | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder` | the identifier broker, the security-audit broker, the version fork, the approve operation, and the sort operation respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `ContentItemGroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `SortOrder` |
+   | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `ContentItemGroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
    | Derived content | computed by the orchestration from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentTypeSlug` / `EntityBContentTypeSlug` (from the resolved endpoint) and `UserId` (from the security context) |
    | Caller-supplied, create-only | the caller, once | `ContentItem.ContentTypeId` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a) |
    | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content`; an association's confidence fields |
@@ -1022,7 +1028,41 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
    **Ordering values are sparse, so a move rewrites one row.** `SortOrder` is assigned in steps (100, 200, 300 …) rather than as a dense 1, 2, 3 sequence. Placing an item between two others sets it to the midpoint of their values, so the surrounding rows are untouched, the operation stays single-entity as a foundation method must be, and one move produces one `-Sorted` fact rather than a cascade of them. When the gap between two neighbours closes, that list is rebalanced by rewriting its values back to even steps — a maintenance action, not part of the move.
 
    `SortOrder` is not unique within a list. Ties are legal and resolved by the tie-break chain in §11.7; a unique index would turn every move into a two-step dance to vacate the target value first.
-5. **Remove.** Removal is a takedown, not a moderation step. The owner or an `Admin` may remove an entity in **any** approval state, including `Approved` (§14.6 rule 3, §14.7 posture A.3). `Reviewer` and `Publisher` moderate through the approval workflow and never remove. Hard removal is `Admin` only. Approval state never gates removal — see §10.5: deletion is not an approval state.
+5. **Set confidence.** `IConfidence` declares the score, its reason, and the provenance of both:
+
+   ```csharp
+   public interface IConfidence
+   {
+       decimal? ConfidenceScore { get; set; }    // 0.00 – 10.00
+       string?  ConfidenceReason { get; set; }   // max 500
+       Guid?    SourceBatchId { get; set; }      // the producer run
+       string?  ModelVersion { get; set; }       // e.g. "Mistral_7B_Instruct_Q8_0_v0.3"
+   }
+   ```
+
+   The score runs **0.00 to 10.00** — `.HasPrecision(4, 2)`, so an automated process may estimate to two decimal places and fractional thresholds such as 7.5 are expressible (§13.5). The existing `BETWEEN 0 AND 10` check constraint holds unchanged, but without an explicit precision EF defaults a `decimal?` to `decimal(18,2)` on SQL Server — wasteful, and silent about intent.
+
+   **All four fields are written together, as one unit.** A human correcting a machine score must clear `SourceBatchId` and `ModelVersion` in the same write, or the row will claim a model produced a score a publisher actually typed. Both are therefore nullable — null means a human set it — and neither is ever accepted from a caller: someone who could set `ModelVersion` could disguise their own score as machine output, or set a value that evades a retraction sweep.
+
+   `ModelVersion` is written from a constant held by the producer, never hand-typed. An inconsistently-spelled value silently drops rows out of the retraction query that exists to catch them.
+
+   Every foundation service whose entity implements it exposes a narrow operation owning exactly those two fields:
+
+   ```csharp
+   ValueTask<Association> SetAssociationConfidenceAsync(
+       Association association,
+       CancellationToken cancellationToken = default);
+   ```
+
+   It publishes `<Entity>-ConfidenceSet`, never `<Entity>-Modified` — so a re-score does not re-enter the approval workflow, and the confidence process writing back cannot re-trigger itself (§10.17 rule 4 applies identically).
+
+   Callable by the confidence process (§13.4) and by `Publisher` / `Admin`. **Not by the entity's owner** — a contributor who could set their own score to 10 would defeat the purpose of scoring. This is also the path a publisher uses to correct a score before approving; it is not a general modify.
+
+6. **Set scope.** For an association, toggling an endpoint between `AllVersions` and `ThisVersionOnly` is the one endpoint-related change permitted after creation (§12.4.1 business rule 7a applies to the rest). It is its own operation, restricted to `Publisher` / `Admin`, and publishes `<Entity>-Scoped`.
+
+   It does **not** re-enter approval. Narrowing or widening reach does not change what is asserted, and only a publisher or administrator can do it — the same people who would be re-approving it.
+
+7. **Remove.** Removal is a takedown, not a moderation step. The owner or an `Admin` may remove an entity in **any** approval state, including `Approved` (§14.6 rule 3, §14.7 posture A.3). `Reviewer` and `Publisher` moderate through the approval workflow and never remove. Hard removal is `Admin` only. Approval state never gates removal — see §10.5: deletion is not an approval state.
 
 #### 9.7.2 Approval resolution
 
@@ -2344,6 +2384,52 @@ Recommended outputs:
 5. Suggested content type.
 6. Quality score.
 7. Recommended reviewer notes.
+
+### 13.4 Association Confidence Scoring
+
+**Status: designed, not built.** No AI broker or content-analysis service exists in code today.
+
+A confidence process subscribes to association `-Added` and `-Modified` facts, resolves both endpoints, and judges how well they actually relate — does this tag describe this content item; does this Bible reference genuinely support this passage. It then writes a score and a human-readable reason through the set-confidence operation (§9.7.1 rule 5), which reviewers see alongside the item in their queue.
+
+Rules:
+
+1. The process writes only through `Set<Entity>ConfidenceAsync`, which publishes `<Entity>-ConfidenceSet`. It must never write through the general modify, or its own write would re-enter the flow that triggered it and would reset the association's approval.
+2. Scoring is **advisory**. It informs a reviewer and can gate approval through `BlockOnZeroConfidenceScore`, but never approves anything itself — §13.2 holds.
+3. The process runs asynchronously off the fact. It must not block the write that produced it: a suggestion flow that waited on a model call would make the "Suggest a tag" box feel broken.
+4. A re-score of an already-approved association does not disturb its approval (rule 1), so the process is safe to re-run over historical rows.
+5. A machine-written score is distinguishable from a human-written one: `SourceBatchId` and `ModelVersion` are populated by a producer and null when a publisher set the score by hand (§9.7.1 rule 5). The process must write all four `IConfidence` fields as one unit so the two never disagree.
+
+### 13.5 Automated Association Suggestions
+
+**Status: designed, not built.** This is a work item, not a description of existing behaviour.
+
+When a content item is created, a suggestion process analyses its content and proposes associations for a reviewer to accept or reject:
+
+1. Match the content against **already-approved** tags, and create associations for the best matches. The process never invents a new tag — it only proposes links to vocabulary that has already passed review.
+2. Do the same for Bible references.
+3. Take **at most** *N* matches (initially 5 of each) scoring above a threshold (initially 7.5 of 10). The cap is a ceiling, not a quota — if one tag clears the threshold, one association is created; if none do, none are.
+4. Each suggestion is created as a normal association through the orchestration, so retrieve-or-add (§9.7.2) applies — a suggestion duplicating an existing association returns that one rather than creating a second.
+5. Suggestions enter at `Submitted` so they reach the reviewer queue, each with its own `Approval` record. **Every association is approved individually**; a batch of five suggested tags is five independent approval decisions, not one.
+6. The suggester **may** write a score and reason at creation. Where it does, that value is a first-glance note explaining why the row was proposed — context for the process that comes next, and nothing more. The resulting `-Added` fact reaches the confidence process (§13.4), which is the component actually responsible for scoring: it re-evaluates the pair independently and its score and reason **replace** whatever was there.
+
+   The original is **not** preserved. There is no score history and no second column pair. The scoring process is authoritative by definition, so a divergence between the two carries no meaning worth storing — and a reviewer seeing two scores would have to be told which one counts.
+
+Open points to settle before building:
+
+7. **Bulk retraction** is served by the two provenance fields on `IConfidence` (§9.7.1 rule 5), at two granularities:
+
+   | Question | Predicate |
+   | --- | --- |
+   | "retract everything this model version produced" | `WHERE ModelVersion = @version` |
+   | "retract this one run" | `WHERE SourceBatchId = @run` |
+
+   They are not redundant. `ModelVersion` catches a badly-calibrated model across every run it ever made; `SourceBatchId` catches a single run that went wrong for a reason unrelated to the model — a bad prompt, the wrong input set, a bug in the batching code.
+
+   **No tracking table is needed.** Carrying the model identity on the row is what removes it: the common query is a direct match with no join, nothing has to be kept in sync, and a row is self-describing without a lookup. If run telemetry is ever wanted — start and end time, row counts, prompt configuration — that is operational logging, not domain data, and should not become a third bookkeeping table alongside `Approvals` and `ProcessedEvents`.
+
+   The one thing that cannot be deferred is the columns themselves: rows written before they exist carry null forever and stay unretractable as a group.
+8. **Ordering and ties.** "Top 5" needs a defined sort and a tie-break, or the set differs between runs over identical input.
+9. **Volume.** Up to five tags plus five Bible references per content item is up to ten reviewer decisions per creation, each with its own approval record (rule 5). Worth confirming that is the intended default workload before it becomes one.
 
 ## 14. Visibility Rules
 
