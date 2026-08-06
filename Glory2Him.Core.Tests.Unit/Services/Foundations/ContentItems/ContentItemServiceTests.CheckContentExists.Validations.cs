@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -29,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext = invalidSecurityContext;
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType someContentType = ContentType.Quote;
             string someContentHash = GetRandomString();
 
             var unauthorizedContentItemException = new UnauthorizedContentItemException(
@@ -42,7 +43,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    someContentTypeId,
+                    someContentType,
                     someContentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
@@ -75,7 +76,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(blockedRole);
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType someContentType = ContentType.Quote;
             string someContentHash = GetRandomString();
 
             var unauthorizedContentItemException = new UnauthorizedContentItemException(
@@ -88,7 +89,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    someContentTypeId,
+                    someContentType,
                     someContentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
@@ -117,15 +118,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnCheckContentExistsIfInputsAreInvalidAndLogItAsync()
         {
             // given
-            var invalidContentTypeId = Guid.Empty;
+            var invalidContentType = (ContentType)int.MaxValue;
             string invalidContentHash = null;
 
             var invalidContentItemException = new InvalidContentItemException(
                 message: "Content item is invalid, fix the errors and try again.");
 
             invalidContentItemException.AddData(
-                key: nameof(ContentItem.ContentTypeId),
-                values: "Id is required");
+                key: nameof(ContentItem.ContentType),
+                values: "Value is not a supported content type");
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.ContentHash),
@@ -138,7 +139,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    invalidContentTypeId,
+                    invalidContentType,
                     invalidContentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
@@ -171,7 +172,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             string invalidContentHash)
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType someContentType = ContentType.Quote;
 
             var invalidContentItemException = new InvalidContentItemException(
                 message: "Content item is invalid, fix the errors and try again.");
@@ -187,8 +188,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    someContentTypeId,
+                    someContentType,
                     invalidContentHash,
+                    excludedContentItemGroupId: null,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    checkContentExistsTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnCheckContentExistsIfContentTypeIsInvalidAndLogItAsync()
+        {
+            // given
+            var invalidContentType = (ContentType)int.MaxValue;
+            string someContentHash = GetRandomString();
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ContentType),
+                values: "Value is not a supported content type");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemException);
+
+            // when
+            ValueTask<bool> checkContentExistsTask =
+                this.contentItemService.CheckContentItemContentExistsAsync(
+                    invalidContentType,
+                    someContentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
 

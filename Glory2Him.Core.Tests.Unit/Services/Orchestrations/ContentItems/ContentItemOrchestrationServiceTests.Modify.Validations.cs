@@ -187,7 +187,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             var invalidContentItem = new ContentItem
             {
                 Id = Guid.Empty,
-                ContentTypeId = Guid.Empty,
+                ContentType = (ContentType)int.MaxValue,
                 Content = invalidText!
             };
 
@@ -204,8 +204,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 values: "Id is required");
 
             invalidContentItemOrchestrationException.AddData(
-                key: nameof(ContentItem.ContentTypeId),
-                values: "Id is required");
+                key: nameof(ContentItem.ContentType),
+                values: "Value is not a supported content type");
 
             invalidContentItemOrchestrationException.AddData(
                 key: nameof(ContentItem.Content),
@@ -537,7 +537,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()))
@@ -559,7 +559,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()),

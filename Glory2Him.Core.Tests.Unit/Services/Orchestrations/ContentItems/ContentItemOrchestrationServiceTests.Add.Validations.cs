@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
@@ -187,7 +188,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given
             var invalidContentItem = new ContentItem
             {
-                ContentTypeId = Guid.Empty,
+                ContentType = (ContentType)int.MaxValue,
                 Content = invalidText!
             };
 
@@ -200,8 +201,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item is invalid, fix the errors and try again.");
 
             invalidContentItemOrchestrationException.AddData(
-                key: nameof(ContentItem.ContentTypeId),
-                values: "Id is required");
+                key: nameof(ContentItem.ContentType),
+                values: "Value is not a supported content type");
 
             invalidContentItemOrchestrationException.AddData(
                 key: nameof(ContentItem.Content),
@@ -273,7 +274,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     null,
                     It.IsAny<CancellationToken>()))
@@ -303,7 +304,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     null,
                     It.IsAny<CancellationToken>()),

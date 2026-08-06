@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
@@ -83,7 +84,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    It.IsAny<Guid>(),
+                    It.IsAny<ContentType>(),
                     It.IsAny<string>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<CancellationToken>()))
@@ -135,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    It.IsAny<Guid>(),
+                    It.IsAny<ContentType>(),
                     It.IsAny<string>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<CancellationToken>()))
@@ -187,7 +188,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    It.IsAny<Guid>(),
+                    It.IsAny<ContentType>(),
                     It.IsAny<string>(),
                     It.IsAny<Guid?>(),
                     It.IsAny<CancellationToken>()))

@@ -18,11 +18,9 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ContentItems;
-using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ContentItems;
-using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Moq;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
@@ -56,7 +54,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
     public partial class EventSubscriptionRegistrationTests
     {
         private readonly Mock<IEventBroker> eventBrokerMock;
-        private readonly Mock<IContentTypeService> contentTypeServiceMock;
         private readonly Mock<IContentItemService> contentItemServiceMock;
         private readonly Mock<IApprovalService> approvalServiceMock;
         private readonly Mock<IBibleReferenceService> bibleReferenceServiceMock;
@@ -77,7 +74,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         public EventSubscriptionRegistrationTests()
         {
             this.eventBrokerMock = new Mock<IEventBroker>();
-            this.contentTypeServiceMock = new Mock<IContentTypeService>();
             this.contentItemServiceMock = new Mock<IContentItemService>();
             this.approvalServiceMock = new Mock<IApprovalService>();
             this.bibleReferenceServiceMock = new Mock<IBibleReferenceService>();
@@ -96,7 +92,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
-                contentTypeService: this.contentTypeServiceMock.Object,
                 contentItemService: this.contentItemServiceMock.Object,
                 approvalService: this.approvalServiceMock.Object,
                 bibleReferenceService: this.bibleReferenceServiceMock.Object,
@@ -129,26 +124,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     expectedOperation,
                     It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
                         ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-        }
-
-        private void VerifyContentTypeSubscription(
-            Guid expectedSubscriptionId,
-            string expectedSubscriptionName,
-            ContentTypeEventOperation expectedOperation,
-            Func<EventEnvelope<ContentType>, CancellationToken,
-                ValueTask<EventEnvelope<ContentType>?>> expectedHandler)
-        {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToContentTypeEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<ContentType>, CancellationToken,
-                        ValueTask<EventEnvelope<ContentType>?>>>(handler =>
                             handler.Equals(expectedHandler)),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -449,40 +424,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.eventBrokerMock.Verify(broker =>
                 broker.RegisterEventAddressesAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
-
-            VerifyContentTypeSubscription(
-                expectedSubscriptionId: EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionId,
-                expectedSubscriptionName: EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
-                expectedOperation: ContentTypeEventOperation.Adding,
-                expectedHandler: this.contentTypeServiceMock.Object.OnAddingContentTypeAsync);
-
-            VerifyContentTypeSubscription(
-                expectedSubscriptionId: EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionId,
-                expectedSubscriptionName: EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
-                expectedOperation: ContentTypeEventOperation.Modifying,
-                expectedHandler: this.contentTypeServiceMock.Object.OnModifyingContentTypeAsync);
-
-            VerifyContentTypeSubscription(
-                expectedSubscriptionId: EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionId,
-                expectedSubscriptionName: EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
-                expectedOperation: ContentTypeEventOperation.RemovingById,
-                expectedHandler: this.contentTypeServiceMock.Object.OnRemovingContentTypeByIdAsync);
-
-            VerifyContentTypeSubscription(
-                expectedSubscriptionId:
-                    EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionId,
-                expectedSubscriptionName:
-                    EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
-                expectedOperation: ContentTypeEventOperation.HardRemovingById,
-                expectedHandler: this.contentTypeServiceMock.Object.OnHardRemovingContentTypeByIdAsync);
-
-            VerifyContentTypeSubscription(
-                expectedSubscriptionId:
-                    EventBrokerIdentifiers.ContentTypeOnRetrievingContentTypeByIdSubscriptionId,
-                expectedSubscriptionName:
-                    EventBrokerIdentifiers.ContentTypeOnRetrievingContentTypeByIdSubscriptionName,
-                expectedOperation: ContentTypeEventOperation.RetrievingById,
-                expectedHandler: this.contentTypeServiceMock.Object.OnRetrievingContentTypeByIdAsync);
 
             VerifyContentItemSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionId,
@@ -1093,7 +1034,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     this.contentItemOrchestrationServiceMock.Object.OnRetrievingContentItemByIdAsync);
 
             this.eventBrokerMock.VerifyNoOtherCalls();
-            this.contentTypeServiceMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();
             this.contentItemOrchestrationServiceMock.VerifyNoOtherCalls();
