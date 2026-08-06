@@ -216,6 +216,32 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         }
 
         /// <summary>
+        /// Attempts an insert and returns the exception the database raised, or <c>null</c>
+        /// when the row was accepted.
+        ///
+        /// <para>Detaching on failure is not tidiness. A rejected <c>SaveChanges</c> leaves the
+        /// entity tracked in the <c>Added</c> state, and this fixture shares one context across
+        /// the whole collection — the next save would retry the rejected row and fail a test
+        /// that has nothing to do with it.</para>
+        /// </summary>
+        public async ValueTask<Exception> TryInsertAsync(Association association)
+        {
+            try
+            {
+                await this.storageBroker.InsertAssociationAsync(
+                    association, CancellationToken.None);
+
+                return null;
+            }
+            catch (Exception exception)
+            {
+                this.storageBroker.Entry(association).State = EntityState.Detached;
+
+                return exception;
+            }
+        }
+
+        /// <summary>
         /// Removes every row this fixture inserted. Each test seeds and clears its own rows so
         /// the database can be reused without cross-test interference.
         /// </summary>

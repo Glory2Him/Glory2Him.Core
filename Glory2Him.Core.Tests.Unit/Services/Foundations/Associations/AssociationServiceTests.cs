@@ -197,6 +197,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             string someMessage = GetRandomString();
             var duplicateKeyException = new DuplicateKeyException(someMessage);
+
+            // UX_Associations_Pair reports through this type, not DuplicateKeyException, and
+            // the two are siblings rather than parent and child — both derive straight from
+            // Exception. It therefore needs its own catch and its own row here; without them a
+            // duplicate pairing surfaces as a service exception instead of this one.
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(someMessage);
+
             var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
 
             return new TheoryData<Exception, Xeption>
@@ -207,6 +215,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         message: "Content item association already exists with the same Id.",
                         innerException: duplicateKeyException,
                         data: duplicateKeyException.Data)
+                },
+                {
+                    duplicateKeyWithUniqueIndexException,
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists with the same Id.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data)
                 },
                 {
                     foreignKeyConstraintConflictException,
@@ -224,6 +239,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
             var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
 
+            // modify can collide with the pair index too: repointing an endpoint moves the row
+            // onto an effective id another row may already occupy
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(someMessage);
+
             return new TheoryData<Exception, Xeption>
             {
                 {
@@ -232,6 +252,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         message: "Locked content item association record, please try again later.",
                         innerException: dbUpdateConcurrencyException,
                         data: dbUpdateConcurrencyException.Data)
+                },
+                {
+                    duplicateKeyWithUniqueIndexException,
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists with the same Id.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data)
                 },
                 {
                     foreignKeyConstraintConflictException,
