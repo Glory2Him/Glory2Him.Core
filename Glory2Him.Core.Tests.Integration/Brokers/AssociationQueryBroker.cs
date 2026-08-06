@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.DateTimes;
@@ -112,15 +113,16 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 .Build();
         }
 
-        // The schema is built from the CURRENT model rather than by running migrations.
+        // The schema is built from the CURRENT model rather than by running migrations,
+        // because these tests are about whether the mapping AS IT STANDS behaves — whether EF
+        // can translate a predicate against it, and whether the constraints it declares are
+        // really created. Running migrations would test the migration history instead, which
+        // is a different question and has its own coverage: the history is replayed onto an
+        // empty database as part of the schema work rather than here.
         //
-        // That is deliberate on two counts. First, these tests are about whether EF can
-        // translate a predicate against the mapping as it stands, so the model is the right
-        // source of truth — running migrations would test the migration history instead.
-        // Second, `Database.Migrate()` cannot run here at all: `ApprovalSetting` carries a
-        // property with no migration behind it, so EF raises PendingModelChangesWarning and
-        // refuses. That drift is pre-existing, unrelated to associations, and has its own
-        // follow-up; this is not the place to paper over it silently, hence the note.
+        // (An earlier version of this comment said Database.Migrate() could not run at all,
+        // because ApprovalSetting carried a property with no migration behind it. That drift
+        // is now closed, so the reason no longer applies — but the first reason still does.)
         //
         // This runs once because xUnit builds a collection fixture once — no static flag and
         // no ProcessExit hook. An earlier version used both; the hook did not fire under the
@@ -239,6 +241,28 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
                 return exception;
             }
+        }
+
+        /// <summary>
+        /// Asks SQL Server to compare two strings under the collation the canonical-order
+        /// check constraint uses, returning the same -1 / 0 / 1 shape as
+        /// <see cref="string.CompareOrdinal"/> so the two can be compared directly.
+        /// </summary>
+        public async ValueTask<int> CompareUnderConstraintCollationAsync(
+            string first,
+            string second)
+        {
+            List<int> comparison = await this.storageBroker.Database
+                .SqlQuery<int>($@"
+                    SELECT CASE
+                        WHEN {first} COLLATE Latin1_General_BIN2
+                           < {second} COLLATE Latin1_General_BIN2 THEN -1
+                        WHEN {first} COLLATE Latin1_General_BIN2
+                           > {second} COLLATE Latin1_General_BIN2 THEN 1
+                        ELSE 0 END AS [Value]")
+                .ToListAsync();
+
+            return comparison[0];
         }
 
         /// <summary>

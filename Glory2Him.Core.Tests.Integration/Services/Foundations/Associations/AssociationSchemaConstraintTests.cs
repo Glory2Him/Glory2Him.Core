@@ -187,6 +187,44 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 because: "AllVersions resolves both to the group id, so they collapse to one key");
         }
 
+        [Fact]
+        public async Task ShouldOrderEveryEntityTypePairTheSameWayTheServiceDoesAsync()
+        {
+            // given: CompareEndpoints orders endpoints with string.CompareOrdinal; the check
+            // constraint orders them with COLLATE Latin1_General_BIN2. Those have to agree, or
+            // the database rejects rows the service considers canonical.
+            //
+            // Today they agree for every pair — no two EntityType names currently distinguish
+            // an ordinal comparison from the database's default case-insensitive one, which is
+            // why removing the COLLATE from the constraint breaks no other test. That makes
+            // the clause look decorative, and it is not: it is what holds the two in agreement
+            // as names are ADDED. Two names differing only by case at the same position, or by
+            // an upper/lower boundary, would order one way in C# and the other in SQL. This
+            // test fails the moment such a name lands.
+            string[] entityTypeNames = Enum.GetNames<EntityType>();
+
+            entityTypeNames.Should().HaveCountGreaterThan(1);
+
+            // when / then
+            foreach (string firstName in entityTypeNames)
+            {
+                foreach (string secondName in entityTypeNames)
+                {
+                    int databaseComparison =
+                        await this.broker.CompareUnderConstraintCollationAsync(
+                            firstName, secondName);
+
+                    int serviceComparison =
+                        Math.Sign(string.CompareOrdinal(firstName, secondName));
+
+                    databaseComparison.Should().Be(
+                        serviceComparison,
+                        because: $"'{firstName}' vs '{secondName}' must order identically in "
+                            + "CompareEndpoints and in CK_Association_CanonicalOrder");
+                }
+            }
+        }
+
         private async ValueTask<Exception> SeedAsync(Association association)
         {
             Exception outcome = await this.broker.TryInsertAsync(association);
