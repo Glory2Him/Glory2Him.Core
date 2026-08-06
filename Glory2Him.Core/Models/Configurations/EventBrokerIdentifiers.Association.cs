@@ -47,14 +47,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationEventOperation.Adding, AssociationAddingEventAddressId },
                 { AssociationEventOperation.Modifying, AssociationModifyingEventAddressId },
                 { AssociationEventOperation.RemovingById, AssociationRemovingByIdEventAddressId },
-                {
-                    AssociationEventOperation.HardRemovingById,
-                    AssociationHardRemovingByIdEventAddressId
-                },
-                {
-                    AssociationEventOperation.RetrievingById,
-                    AssociationRetrievingByIdEventAddressId
-                },
+                { AssociationEventOperation.HardRemovingById, AssociationHardRemovingByIdEventAddressId },
+                { AssociationEventOperation.RetrievingById, AssociationRetrievingByIdEventAddressId },
                 { AssociationEventOperation.Added, AssociationAddedEventAddressId },
                 { AssociationEventOperation.Modified, AssociationModifiedEventAddressId },
 
@@ -72,10 +66,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationAddingEventAddressId, "Association-Adding" },
                 { AssociationModifyingEventAddressId, "Association-Modifying" },
                 { AssociationRemovingByIdEventAddressId, "Association-RemovingById" },
-                {
-                    AssociationHardRemovingByIdEventAddressId,
-                    "Association-HardRemovingById"
-                },
+                { AssociationHardRemovingByIdEventAddressId, "Association-HardRemovingById" },
                 { AssociationRetrievingByIdEventAddressId, "Association-RetrievingById" },
                 { AssociationAddedEventAddressId, "Association-Added" },
                 { AssociationModifiedEventAddressId, "Association-Modified" },
