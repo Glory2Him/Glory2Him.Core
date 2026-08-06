@@ -120,16 +120,16 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             Validate(
                 message: "Bible reference is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(bibleReference.Id), Parameter: nameof(BibleReference.Id)),
+                (Rule: IsInvalid(bibleReference.USFM), Parameter: nameof(BibleReference.USFM)),
                 (Rule: IsInvalid(bibleReference.Reference), Parameter: nameof(BibleReference.Reference)),
                 (Rule: IsInvalid(bibleReference.Translation), Parameter: nameof(BibleReference.Translation)),
-
-                (Rule: IsInvalid(bibleReference.ContentItemGroupId),
-                    Parameter: nameof(BibleReference.ContentItemGroupId)),
-
                 (Rule: IsInvalid(bibleReference.CreatedBy), Parameter: nameof(BibleReference.CreatedBy)),
                 (Rule: IsInvalid(bibleReference.UpdatedBy), Parameter: nameof(BibleReference.UpdatedBy)),
                 (Rule: IsInvalid(bibleReference.CreatedWhen), Parameter: nameof(BibleReference.CreatedWhen)),
                 (Rule: IsInvalid(bibleReference.UpdatedWhen), Parameter: nameof(BibleReference.UpdatedWhen)),
+
+                (Rule: IsGreaterThan(bibleReference.USFM, 50),
+                    Parameter: nameof(BibleReference.USFM)),
 
                 (Rule: IsGreaterThan(bibleReference.Reference, 255),
                     Parameter: nameof(BibleReference.Reference)),
@@ -174,16 +174,16 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             Validate(
                 message: "Bible reference is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(bibleReference.Id), Parameter: nameof(BibleReference.Id)),
+                (Rule: IsInvalid(bibleReference.USFM), Parameter: nameof(BibleReference.USFM)),
                 (Rule: IsInvalid(bibleReference.Reference), Parameter: nameof(BibleReference.Reference)),
                 (Rule: IsInvalid(bibleReference.Translation), Parameter: nameof(BibleReference.Translation)),
-
-                (Rule: IsInvalid(bibleReference.ContentItemGroupId),
-                    Parameter: nameof(BibleReference.ContentItemGroupId)),
-
                 (Rule: IsInvalid(bibleReference.CreatedBy), Parameter: nameof(BibleReference.CreatedBy)),
                 (Rule: IsInvalid(bibleReference.UpdatedBy), Parameter: nameof(BibleReference.UpdatedBy)),
                 (Rule: IsInvalid(bibleReference.CreatedWhen), Parameter: nameof(BibleReference.CreatedWhen)),
                 (Rule: IsInvalid(bibleReference.UpdatedWhen), Parameter: nameof(BibleReference.UpdatedWhen)),
+
+                (Rule: IsGreaterThan(bibleReference.USFM, 50),
+                    Parameter: nameof(BibleReference.USFM)),
 
                 (Rule: IsGreaterThan(bibleReference.Reference, 255),
                     Parameter: nameof(BibleReference.Reference)),
@@ -238,6 +238,15 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                         second: storageBibleReference.CreatedBy,
                         secondName: nameof(BibleReference.CreatedBy)),
                     Parameter: nameof(BibleReference.CreatedBy)),
+
+                // USFM is the canonical passage key and is immutable after creation —
+                // editing it would silently re-point every association attached to this row's id
+                (Rule: IsNotSame(
+                        first: inputBibleReference.USFM,
+                        second: storageBibleReference.USFM,
+                        secondName: nameof(BibleReference.USFM)),
+                    Parameter: nameof(BibleReference.USFM)),
+
                 (Rule: IsSame(
                         firstDate: inputBibleReference.UpdatedWhen,
                         secondDate: storageBibleReference.UpdatedWhen,
