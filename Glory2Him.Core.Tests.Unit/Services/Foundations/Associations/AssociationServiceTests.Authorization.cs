@@ -579,14 +579,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: a CANONICAL row with the ContentItem on the A side.
             //
-            // Every other authorization test writes EntityAType = Tag, EntityBType =
-            // ContentItem — which is NOT the order the add path would produce, because
-            // "ContentItem" sorts BELOW "Tag" ordinally and canonical ordering would put the
-            // ContentItem on A. Reads do not normalise, so those rows stay as written and the
-            // A-side content-type clause is never reached by them.
+            // The narrow tier only ever applies to a ContentItem endpoint, so the A-side
+            // content-type clause is reachable only by a row whose ContentItem is on A. The
+            // content-type-carrying tests in these files put the ContentItem on B — and
+            // because "ContentItem" sorts BELOW both "Tag" and "Reaction" ordinally, that is
+            // also not the order the add path would produce. Reads do not normalise, so those
+            // rows stay as written and never reach the A-side clause.
             //
-            // Reaction also sorts above ContentItem, so pairing the two here yields a row
-            // that is genuinely canonical — the shape production would actually store.
+            // Pairing ContentItem with Reaction and putting the ContentItem on A yields a row
+            // that is both canonical and reaches that clause. (Other rows in these files pair
+            // types where ContentItem is absent or already on A — this comment is about the
+            // content-type-carrying ones, not every row.)
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(narrowRole);
             string randomActorUserId = GetRandomString();
 

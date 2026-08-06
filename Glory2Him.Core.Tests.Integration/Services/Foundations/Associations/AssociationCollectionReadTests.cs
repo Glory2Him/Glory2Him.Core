@@ -34,15 +34,17 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
     /// instead of the converted strings the query returns nothing at all. Both failures are
     /// invisible until a real provider is involved.</para>
     /// </summary>
-    [Collection(nameof(AssociationCollectionReadTests))]
+    [Collection(AssociationIntegrationCollection.Name)]
     public sealed class AssociationCollectionReadTests : IDisposable
     {
         private readonly AssociationQueryBroker broker;
         private readonly List<Association> seededAssociations;
 
-        public AssociationCollectionReadTests()
+        // the fixture is built once for the whole collection and injected — the database is
+        // created once, and disposed (and dropped) once, by xUnit rather than by a static
+        public AssociationCollectionReadTests(AssociationQueryBroker broker)
         {
-            this.broker = new AssociationQueryBroker();
+            this.broker = broker;
             this.seededAssociations = new List<Association>();
         }
 
@@ -69,15 +71,33 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             sql.Should().NotBeNullOrWhiteSpace();
             sql.Should().Contain("SELECT");
 
-            // the enum columns are mapped HasConversion<string>(), so the parameters SQL sees
+            // The enum columns are mapped HasConversion<string>(), so the parameters SQL sees
             // must be the member NAMES. If EF parameterised the underlying numbers the
             // predicate would silently match nothing.
-            sql.Should().Contain("Tag", because: "the reviewable entity type is sent as its name");
-            sql.Should().Contain("Testimony", because: "the reviewable content type is sent as its name");
+            //
+            // Asserting on the bare words "Tag" and "Testimony" would not show that: both
+            // appear in the SELECT projection as part of column names. The assertion has to
+            // name the parameter DECLARATION, which only exists if the value was passed as a
+            // string.
+            sql.Should().Contain("nvarchar(32) = N'Tag'",
+                because: "the reviewable entity type is parameterised as its name, not its number");
 
-            // and the whole thing must be server-side: a client-evaluated Where would not
-            // appear in the generated SQL at all
-            sql.Should().Contain("IsDeleted");
+            sql.Should().Contain("nvarchar(32) = N'Testimony'",
+                because: "the reviewable content type is parameterised as its name, not its number");
+
+            // The role predicate itself must be server-side. Asserting on a projected column
+            // proves nothing — every column is in the SELECT list regardless — so this looks
+            // for the role clauses in the WHERE.
+            sql.Should().Contain("[a].[EntityAType] =",
+                because: "the endpoint-A role clause is evaluated by the server");
+
+            sql.Should().Contain("[a].[EntityBType] =",
+                because: "the endpoint-B role clause is evaluated by the server");
+
+            // EF must emit its own null guard around the nullable enum rather than relying on
+            // C# short-circuit ordering, which SQL does not guarantee
+            sql.Should().Contain("[a].[EntityAContentType] IS NOT NULL");
+            sql.Should().Contain("[a].[EntityBContentType] IS NOT NULL");
         }
 
         [Fact]
@@ -226,10 +246,9 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             };
         }
 
-        public void Dispose()
-        {
+        // each test clears only the rows it seeded; the fixture itself outlives the test and
+        // is disposed by xUnit at the end of the collection
+        public void Dispose() =>
             this.broker.ClearAsync(this.seededAssociations).AsTask().GetAwaiter().GetResult();
-            this.broker.Dispose();
-        }
     }
 }

@@ -23,6 +23,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Services.Foundations.Associations;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Moq;
@@ -47,12 +48,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
         public AssociationQueryBroker()
         {
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddJsonFile("appsettings.json")
-                .AddEnvironmentVariables()
-                .Build();
-
-            this.storageBroker = new StorageBroker(configuration);
+            this.storageBroker = new StorageBroker(BuildTestConfiguration());
             EnsureSchema(this.storageBroker);
 
             DateTimeBrokerMock = new Mock<IDateTimeBroker>();
@@ -69,6 +65,53 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 loggingBroker: new Mock<ILoggingBroker>().Object);
         }
 
+        // Every database this fixture is willing to create or drop starts with this. The
+        // guard below refuses to touch anything else, because a drop here is unrecoverable.
+        private const string TestDatabasePrefix = "Glory2HimCoreIntegration_";
+
+        // The connection string comes from a TEST-ONLY key.
+        //
+        // It would be natural to read `Glory2HimConnectionString` — that is what StorageBroker
+        // itself reads — and to layer environment variables over the JSON so the server is
+        // overridable. That combination is a database-destroying trap: `Glory2HimConnectionString`
+        // is the production key, so any host, container or CI job that configures Glory2Him.Core
+        // through the environment sets exactly the variable this fixture would then resolve, and
+        // `EnsureDeleted` would drop whatever it points at. The test key cannot collide with it.
+        private const string TestConnectionStringKey = "Glory2HimIntegrationConnectionString";
+
+        private static IConfiguration BuildTestConfiguration()
+        {
+            IConfiguration fileConfiguration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json")
+                .AddEnvironmentVariables()
+                .Build();
+
+            string template =
+                fileConfiguration.GetConnectionString(TestConnectionStringKey)
+                    ?? throw new InvalidOperationException(
+                        $"appsettings.json must define ConnectionStrings:{TestConnectionStringKey}.");
+
+            // A fixed database name means two concurrent runs — a CLI run alongside the IDE
+            // test runner, or two agent worktrees — drop the database out from under each
+            // other, since EF's drop kills live connections. One database per process removes
+            // the shared resource rather than trying to synchronise access to it.
+            var connectionStringBuilder = new SqlConnectionStringBuilder(template)
+            {
+                InitialCatalog = TestDatabasePrefix + Environment.ProcessId
+            };
+
+            // StorageBroker reads the production key, so the resolved value is handed over
+            // under that name — but only from this in-memory layer, never from the ambient
+            // environment.
+            return new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string>
+                {
+                    ["ConnectionStrings:Glory2HimConnectionString"] =
+                        connectionStringBuilder.ConnectionString
+                })
+                .Build();
+        }
+
         // The schema is built from the CURRENT model rather than by running migrations.
         //
         // That is deliberate on two counts. First, these tests are about whether EF can
@@ -79,23 +122,48 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         // refuses. That drift is pre-existing, unrelated to associations, and has its own
         // follow-up; this is not the place to paper over it silently, hence the note.
         //
-        // Dropped and recreated once per test run so a stale shape from an earlier run
-        // cannot make a passing test meaningless.
-        private static readonly object SchemaLock = new object();
-        private static bool schemaCreated;
-
+        // This runs once because xUnit builds a collection fixture once — no static flag and
+        // no ProcessExit hook. An earlier version used both; the hook did not fire under the
+        // test host and left one orphaned database per run behind.
         private static void EnsureSchema(StorageBroker storageBroker)
         {
-            lock (SchemaLock)
-            {
-                if (schemaCreated)
-                {
-                    return;
-                }
+            GuardAgainstDroppingANonTestDatabase(storageBroker);
 
-                storageBroker.Database.EnsureDeleted();
-                storageBroker.Database.EnsureCreated();
-                schemaCreated = true;
+            // drops a stale catalogue from a previous run that reused this process id
+            storageBroker.Database.EnsureDeleted();
+            storageBroker.Database.EnsureCreated();
+        }
+
+        // Belt and braces. BuildTestConfiguration already makes it impossible to resolve
+        // anything but a per-process test catalogue, but a drop is irreversible and silent, so
+        // the name is checked immediately before the call rather than trusted from a distance.
+        private static void GuardAgainstDroppingANonTestDatabase(StorageBroker storageBroker)
+        {
+            string databaseName = storageBroker.Database.GetDbConnection().Database;
+
+            bool isTestDatabase = databaseName.StartsWith(
+                TestDatabasePrefix, StringComparison.Ordinal);
+
+            if (isTestDatabase is false)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to drop '{databaseName}': integration tests only ever create and " +
+                    $"drop databases named '{TestDatabasePrefix}<process id>'.");
+            }
+        }
+
+        private void DropTestDatabase()
+        {
+            try
+            {
+                GuardAgainstDroppingANonTestDatabase(this.storageBroker);
+                this.storageBroker.Database.EnsureDeleted();
+            }
+            catch
+            {
+                // best effort on the way out — an orphaned per-process catalogue is a
+                // nuisance, and the next run with the same process id clears it, but
+                // throwing from teardown would mask the run's real result
             }
         }
 
@@ -166,7 +234,27 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
-        public void Dispose() =>
+        // xUnit disposes a collection fixture once, after the last test in the collection —
+        // deterministic teardown, unlike the ProcessExit hook this replaced.
+        public void Dispose()
+        {
+            DropTestDatabase();
             this.storageBroker.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Binds <see cref="AssociationQueryBroker"/> to a collection so xUnit builds it once,
+    /// shares it across every test in the collection, and disposes it once at the end.
+    ///
+    /// <para>This also serialises those tests. They all query every row in the table, so
+    /// running them concurrently would let one test's seeded rows appear in another's
+    /// results.</para>
+    /// </summary>
+    [CollectionDefinition(AssociationIntegrationCollection.Name)]
+    public sealed class AssociationIntegrationCollection
+        : ICollectionFixture<AssociationQueryBroker>
+    {
+        public const string Name = "Association integration";
     }
 }
