@@ -691,6 +691,74 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 .Which.Should().BeEquivalentTo(reachableAssociation);
         }
 
+        [Fact]
+        public async Task ShouldNotMatchTheNarrowTierOnANonContentItemEndpointAsync()
+        {
+            // given: two MALFORMED rows — a content type sitting on an endpoint that is not a
+            // ContentItem. IsContentTypeNotApplicable refuses these on add and on modify, so
+            // the service itself cannot produce one; a migration, a backfill or direct SQL
+            // can, and no check constraint stops them.
+            //
+            // This matters because the two read paths would otherwise disagree. The single
+            // read composes the role from BOTH halves of the endpoint — for a Tag endpoint it
+            // asks for "Tag-Testimony-Reviewer", which is never granted, and denies. If the
+            // collection filter matched on the content type alone it would hand the same row
+            // to a ContentItem-Testimony-Reviewer. The bulk path must not be the more
+            // permissive of the two, so the filter tests the endpoint type as well.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewer");
+
+            string randomActorUserId = GetRandomString();
+
+            Association contentTypeOnANonContentItemAEndpoint = CreateRandomAssociation();
+            contentTypeOnANonContentItemAEndpoint.EntityAType = EntityType.Tag;
+            contentTypeOnANonContentItemAEndpoint.EntityAContentType = ContentType.Testimony;
+            contentTypeOnANonContentItemAEndpoint.EntityBType = EntityType.Reaction;
+            contentTypeOnANonContentItemAEndpoint.EntityBScope = Scope.ThisVersionOnly;
+            contentTypeOnANonContentItemAEndpoint.EntityBContentType = null;
+            contentTypeOnANonContentItemAEndpoint.IsDeleted = false;
+            contentTypeOnANonContentItemAEndpoint.ApprovalStatus = ApprovalStatus.Draft;
+            contentTypeOnANonContentItemAEndpoint.IsPublished = false;
+            contentTypeOnANonContentItemAEndpoint.CreatedBy = GetRandomString();
+
+            Association contentTypeOnANonContentItemBEndpoint = CreateRandomAssociation();
+            contentTypeOnANonContentItemBEndpoint.EntityAType = EntityType.Reaction;
+            contentTypeOnANonContentItemBEndpoint.EntityAContentType = null;
+            contentTypeOnANonContentItemBEndpoint.EntityBType = EntityType.Tag;
+            contentTypeOnANonContentItemBEndpoint.EntityBScope = Scope.ThisVersionOnly;
+            contentTypeOnANonContentItemBEndpoint.EntityBContentType = ContentType.Testimony;
+            contentTypeOnANonContentItemBEndpoint.IsDeleted = false;
+            contentTypeOnANonContentItemBEndpoint.ApprovalStatus = ApprovalStatus.Draft;
+            contentTypeOnANonContentItemBEndpoint.IsPublished = false;
+            contentTypeOnANonContentItemBEndpoint.CreatedBy = GetRandomString();
+
+            IQueryable<Association> storageAssociations = new[]
+            {
+                contentTypeOnANonContentItemAEndpoint,
+                contentTypeOnANonContentItemBEndpoint
+            }.AsQueryable();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageAssociations);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            IQueryable<Association> actualAssociations =
+                await this.associationService.RetrieveAllAssociationsAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().BeEmpty();
+        }
+
         // a non-public row owned by somebody else, so only a review role can reach it. The
         // ContentItem endpoint carries the content type, because that is the only entity
         // type with a narrow tier.

@@ -325,9 +325,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             return visibleAssociations.Where(association =>
                 reviewableEntityTypes.Contains(association.EntityAType)
                 || reviewableEntityTypes.Contains(association.EntityBType)
-                || (association.EntityAContentType != null
+                || (association.EntityAType == EntityType.ContentItem
+                    && association.EntityAContentType != null
                     && reviewableContentTypes.Contains(association.EntityAContentType.Value))
-                || (association.EntityBContentType != null
+                || (association.EntityBType == EntityType.ContentItem
+                    && association.EntityBContentType != null
                     && reviewableContentTypes.Contains(association.EntityBContentType.Value))
                 || (association.ApprovalStatus == ApprovalStatus.Approved
                     && association.IsPublished
@@ -365,10 +367,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             return reviewableEntityTypes;
         }
 
-        // the narrow tier. Only ContentItem carries a content type (design §18.6 rule 5),
-        // so only ContentItem-scoped role names are composed — and because the column is
-        // null on every other endpoint type, matching on the content type alone cannot
-        // reach a row of a different entity type.
+        // the narrow tier. Only ContentItem carries a content type (design §18.6 rule 5), so
+        // only ContentItem-scoped role names are composed.
+        //
+        // The caller of this set must still test the endpoint TYPE alongside the content
+        // type. It is tempting not to: `IsContentTypeNotApplicable` already refuses a content
+        // type on any other endpoint, so the column "cannot" be populated on a Tag. But that
+        // invariant lives in this service, not in the schema — there is no check constraint
+        // tying the column to an EntityType of ContentItem — so a row arriving by migration,
+        // backfill or direct SQL is not bound by it. Matching on the content type alone would
+        // then hand a "ContentItem-Testimony-Reviewer" a Tag endpoint carrying Testimony,
+        // while the single read denies the same row (it composes "Tag-Testimony-Reviewer",
+        // which is never granted). The bulk path must not be the more permissive of the two.
         private static HashSet<ContentType> ResolveReviewableContentTypes(
             SecurityContext? securityContext)
         {
