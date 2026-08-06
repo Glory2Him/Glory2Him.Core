@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -154,9 +155,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         association.EntityAContentType),
                     Parameter: nameof(Association.EntityAContentType)),
 
+                (Rule: IsInvalid(association.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+
                 (Rule: IsContentTypeNotApplicable(
                         association.EntityBType,
                         association.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)),
+
+                (Rule: IsInvalid(association.EntityBContentType),
                     Parameter: nameof(Association.EntityBContentType)),
 
                 (Rule: IsInvalid(association.CreatedBy),
@@ -176,6 +183,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsGreaterThan(association.UpdatedBy, 255),
                     Parameter: nameof(Association.UpdatedBy)),
+
+                (Rule: IsGreaterThan(association.UserId, 255),
+                    Parameter: nameof(Association.UserId)),
 
                 (Rule: IsGreaterThan(association.ConfidenceReason, 500),
                     Parameter: nameof(Association.ConfidenceReason)),
@@ -248,9 +258,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         association.EntityAContentType),
                     Parameter: nameof(Association.EntityAContentType)),
 
+                (Rule: IsInvalid(association.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+
                 (Rule: IsContentTypeNotApplicable(
                         association.EntityBType,
                         association.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)),
+
+                (Rule: IsInvalid(association.EntityBContentType),
                     Parameter: nameof(Association.EntityBContentType)),
 
                 (Rule: IsInvalid(association.CreatedBy),
@@ -271,6 +287,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsGreaterThan(association.UpdatedBy, 255),
                     Parameter: nameof(Association.UpdatedBy)),
 
+                (Rule: IsGreaterThan(association.UserId, 255),
+                    Parameter: nameof(Association.UserId)),
+
                 (Rule: IsGreaterThan(association.ConfidenceReason, 500),
                     Parameter: nameof(Association.ConfidenceReason)),
 
@@ -279,6 +298,27 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsNotWithinRange(association.ConfidenceScore, 0, 10),
                     Parameter: nameof(Association.ConfidenceScore)),
+
+                // scope is the one endpoint field a modify may move, so unlike add it is
+                // validated rather than derived — re-deriving here would overwrite a
+                // legitimate narrowing and pre-empt the set-scope operation (design §9.7.1
+                // rule 6). The endpoint type is pinned against storage, so checking the
+                // scope against the input's own type is sound.
+                (Rule: IsInvalid(association.EntityAScope),
+                    Parameter: nameof(Association.EntityAScope)),
+
+                (Rule: IsScopeNotApplicable(
+                        association.EntityAType,
+                        association.EntityAScope),
+                    Parameter: nameof(Association.EntityAScope)),
+
+                (Rule: IsInvalid(association.EntityBScope),
+                    Parameter: nameof(Association.EntityBScope)),
+
+                (Rule: IsScopeNotApplicable(
+                        association.EntityBType,
+                        association.EntityBScope),
+                    Parameter: nameof(Association.EntityBScope)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -366,6 +406,23 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         secondName: nameof(Association.EntityBGroupId)),
                     Parameter: nameof(Association.EntityBGroupId)),
 
+                // the content type is pinned alongside the identity fields, not left with
+                // scope. It is an authorization input (design §18.6) derived from the
+                // resolved endpoint, and the endpoint cannot change — so neither can it.
+                // Leaving it writable would let an approved association be re-labelled into
+                // a content type whose reviewers never saw it.
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityAContentType,
+                        second: storageAssociation.EntityAContentType,
+                        secondName: nameof(Association.EntityAContentType)),
+                    Parameter: nameof(Association.EntityAContentType)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityBContentType,
+                        second: storageAssociation.EntityBContentType,
+                        secondName: nameof(Association.EntityBContentType)),
+                    Parameter: nameof(Association.EntityBContentType)),
+
                 (Rule: IsSame(
                         firstDate: inputAssociation.UpdatedWhen,
                         secondDate: storageAssociation.UpdatedWhen,
@@ -435,6 +492,36 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Message = "Value is not a supported entity type"
         };
 
+        private static dynamic IsInvalid(Scope scope) => new
+        {
+            Condition = Enum.IsDefined(scope) == false,
+            Message = "Value is not a supported scope"
+        };
+
+        // only a supplied content type is range checked — null is the ordinary state for
+        // every endpoint that is not a ContentItem, and for a ContentItem whose type the
+        // orchestration has not resolved yet
+        private static dynamic IsInvalid(ContentType? contentType) => new
+        {
+            Condition = contentType.HasValue && Enum.IsDefined(contentType.Value) == false,
+            Message = "Value is not a supported content type"
+        };
+
+        // a non-versioned entity type has exactly one row, so AllVersions cannot mean
+        // anything for it. On add this is unreachable because the scope is derived; on
+        // modify the caller supplies it, and the derived invariant has to be defended
+        // rather than silently re-imposed (design §9.7.1 rule 6).
+        private static dynamic IsScopeNotApplicable(
+            EntityType entityType,
+            Scope scope) => new
+            {
+                Condition = Enum.IsDefined(entityType)
+                    && EntityTypeVersioning.IsVersioned(entityType) is false
+                    && scope == Scope.AllVersions,
+
+                Message = "Value is only applicable to a versioned endpoint"
+            };
+
         // one rule covers three mistakes at once: associating an entity with itself, with
         // another version of itself, and — since a non-versioned endpoint's group id is its
         // key id — a tag with itself
@@ -497,6 +584,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private static dynamic IsNotSame(
             EntityType first,
             EntityType second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            ContentType? first,
+            ContentType? second,
             string secondName) => new
             {
                 Condition = first != second,

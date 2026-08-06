@@ -43,7 +43,7 @@ namespace Glory2Him.Core.Models.Foundations.Associations
 
         /// <summary>
         /// Type of the endpoint. Create-only: reclassifying an association is forbidden
-        /// (design §4.6), so this is pinned against storage on every modify.
+        /// (design §4.5 rule 4), so this is pinned against storage on every modify.
         /// </summary>
         public EntityType EntityAType { get; set; }
 

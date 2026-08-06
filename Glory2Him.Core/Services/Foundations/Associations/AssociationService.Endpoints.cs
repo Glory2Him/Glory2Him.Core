@@ -33,9 +33,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EntityType secondType,
             Guid secondGroupId)
         {
-            // ordinal on the enum NAME, not the numeric value: the name is what SQL stores
-            // and what the design §4.4 check constraint compares, so a rename breaks loudly
-            // at the constraint while a renumber would silently reorder existing rows
+            // ordinal on the enum NAME, not the numeric value: the name is what SQL stores,
+            // so a rename shows up as a data change while a renumber would silently reorder
+            // existing rows. The canonical-order check constraint that will enforce this
+            // ordering in the database does not exist yet — it arrives with the schema work,
+            // and must apply COLLATE Latin1_General_BIN2 to match this ordinal comparison.
             int typeComparison = string.CompareOrdinal(
                 firstType.ToString(),
                 secondType.ToString());
