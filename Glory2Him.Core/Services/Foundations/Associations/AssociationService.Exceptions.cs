@@ -127,6 +127,24 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsAssociationException);
             }
+            // A violation of UX_Associations_Pair arrives as its own type, and that type does
+            // NOT derive from DuplicateKeyException — EFxceptions derives both directly from
+            // Exception. Without this catch the clause above misses it and a duplicate pairing
+            // falls through to the general handler, surfacing as a service exception ("our
+            // code is broken") rather than the dependency-validation exception a caller can
+            // act on. The pair index is what makes this reachable at all.
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsAssociationException =
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists, "
+                            + "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsAssociationException);
+            }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
                 var invalidAssociationReferenceException =
@@ -236,6 +254,24 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         message: "Content item association already exists with the same Id.",
                         innerException: duplicateKeyException,
                         data: duplicateKeyException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsAssociationException);
+            }
+            // A violation of UX_Associations_Pair arrives as its own type, and that type does
+            // NOT derive from DuplicateKeyException — EFxceptions derives both directly from
+            // Exception. Without this catch the clause above misses it and a duplicate pairing
+            // falls through to the general handler, surfacing as a service exception ("our
+            // code is broken") rather than the dependency-validation exception a caller can
+            // act on. The pair index is what makes this reachable at all.
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsAssociationException =
+                    new AlreadyExistsAssociationException(
+                        message: "Content item association already exists, "
+                            + "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data);
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(
                     alreadyExistsAssociationException);

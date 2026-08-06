@@ -4,6 +4,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    partial class StorageBrokerModelSnapshot : ModelSnapshot
+    [Migration("20260806225328_CloseApprovalSettingModelDrift")]
+    partial class CloseApprovalSettingModelDrift
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -576,18 +579,9 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("EntityBType", "EntityBEffectiveId")
                         .HasDatabaseName("IX_Associations_EndpointB");
 
-                    b.HasIndex("EntityAType", "EntityAEffectiveId", "EntityBType", "EntityBEffectiveId", "UserId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Associations_Pair")
-                        .HasFilter("[IsDeleted] = 0");
-
                     b.ToTable("Associations", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Association_CanonicalOrder", "[EntityAType] COLLATE Latin1_General_BIN2 < [EntityBType] COLLATE Latin1_General_BIN2 OR ([EntityAType] COLLATE Latin1_General_BIN2 = [EntityBType] COLLATE Latin1_General_BIN2 AND [EntityAGroupId] < [EntityBGroupId])");
-
                             t.HasCheckConstraint("CK_Association_ConfidenceScoreRange", "(ConfidenceScore IS NULL OR ConfidenceScore BETWEEN 0 AND 10)");
-
-                            t.HasCheckConstraint("CK_Association_NotSameGroup", "[EntityAGroupId] <> [EntityBGroupId]");
                         });
                 });
 
