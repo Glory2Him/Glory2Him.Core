@@ -244,25 +244,35 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         }
 
         /// <summary>
-        /// Asks SQL Server to compare two strings under the collation the canonical-order
-        /// check constraint uses, returning the same -1 / 0 / 1 shape as
-        /// <see cref="string.CompareOrdinal"/> so the two can be compared directly.
+        /// Marks a row deleted the way a soft remove does, leaving it in the table. The
+        /// pair index is filtered on <c>IsDeleted = 0</c>, so this is what frees the key.
         /// </summary>
-        public async ValueTask<int> CompareUnderConstraintCollationAsync(
-            string first,
-            string second)
+        public async ValueTask SoftDeleteAsync(Association association)
         {
-            List<int> comparison = await this.storageBroker.Database
-                .SqlQuery<int>($@"
-                    SELECT CASE
-                        WHEN {first} COLLATE Latin1_General_BIN2
-                           < {second} COLLATE Latin1_General_BIN2 THEN -1
-                        WHEN {first} COLLATE Latin1_General_BIN2
-                           > {second} COLLATE Latin1_General_BIN2 THEN 1
-                        ELSE 0 END AS [Value]")
+            association.IsDeleted = true;
+
+            await this.storageBroker.UpdateAssociationAsync(
+                association, CancellationToken.None);
+        }
+
+        /// <summary>
+        /// Returns the definition SQL Server actually stored for a check constraint, or
+        /// <c>null</c> when no constraint of that name exists.
+        ///
+        /// <para>This reads the DEPLOYED object rather than the configuration that produced
+        /// it, which is the only way to assert that what the model declares is what the
+        /// database ended up with.</para>
+        /// </summary>
+        public async ValueTask<string> GetCheckConstraintDefinitionAsync(string constraintName)
+        {
+            List<string> definitions = await this.storageBroker.Database
+                .SqlQuery<string>(
+                    $@"SELECT definition AS [Value]
+                       FROM sys.check_constraints
+                       WHERE name = {constraintName}")
                 .ToListAsync();
 
-            return comparison[0];
+            return definitions.Count == 0 ? null : definitions[0];
         }
 
         /// <summary>

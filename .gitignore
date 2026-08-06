@@ -420,3 +420,12 @@ FodyWeavers.xsd
 *.dtmp
 .claude/worktrees/
 /Websites/Glory2Him.WebApp/appsettings.Development.json
+
+# Third-party licensing agreements kept locally for reference. These are large
+# binaries (one is 44 MB) and are not ours to redistribute, so they stay out of
+# the history. If they are ever meant to be tracked, do it deliberately and via
+# Git LFS - once a blob is on main, removing it needs a coordinated rewrite.
+Documentation/api.bible/
+
+# Deployment artefact produced by Tools/new-database-script.sh
+Glory2Him.Core.Database.sql

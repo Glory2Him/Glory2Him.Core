@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -16,6 +16,7 @@ using EFxceptions.Models.Exceptions;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Tests.Integration.Brokers;
 
 namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
@@ -188,39 +189,116 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         }
 
         [Fact]
-        public async Task ShouldOrderEveryEntityTypePairTheSameWayTheServiceDoesAsync()
+        public async Task ShouldAllowThePairAgainOnceTheOriginalIsSoftDeletedAsync()
         {
-            // given: CompareEndpoints orders endpoints with string.CompareOrdinal; the check
-            // constraint orders them with COLLATE Latin1_General_BIN2. Those have to agree, or
-            // the database rejects rows the service considers canonical.
-            //
-            // Today they agree for every pair — no two EntityType names currently distinguish
-            // an ordinal comparison from the database's default case-insensitive one, which is
-            // why removing the COLLATE from the constraint breaks no other test. That makes
-            // the clause look decorative, and it is not: it is what holds the two in agreement
-            // as names are ADDED. Two names differing only by case at the same position, or by
-            // an upper/lower boundary, would order one way in C# and the other in SQL. This
-            // test fails the moment such a name lands.
-            string[] entityTypeNames = Enum.GetNames<EntityType>();
+            // given: the index is filtered on IsDeleted = 0, and that filter is the whole
+            // reason "remove a tag, then add it back" works. Without it, every pair a user
+            // ever removed would be permanently unrepeatable — the soft-deleted row would go
+            // on occupying the key forever.
+            Guid contentItemGroupId = Guid.NewGuid();
+            Guid tagGroupId = Guid.NewGuid();
 
-            entityTypeNames.Should().HaveCountGreaterThan(1);
+            Association originalAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Exception originalOutcome = await SeedAsync(originalAssociation);
+
+            // the pair is taken while the row is live
+            Association blockedAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Exception blockedOutcome = await this.broker.TryInsertAsync(blockedAssociation);
+
+            // when: the original is soft-removed, which is what Remove does — the row stays
+            await this.broker.SoftDeleteAsync(originalAssociation);
+
+            Association readdedAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Exception readdedOutcome = await SeedAsync(readdedAssociation);
+
+            // then
+            originalOutcome.Should().BeNull();
+
+            blockedOutcome.Should().BeOfType<DuplicateKeyWithUniqueIndexException>(
+                because: "while the original is live the pair is taken");
+
+            readdedOutcome.Should().BeNull(
+                because: "the filter excludes the soft-deleted row, so the pair is free again");
+        }
+
+        [Fact]
+        public async Task ShouldDeployTheCanonicalOrderConstraintWithAnOrdinalCollationAsync()
+        {
+            // given: CompareEndpoints orders endpoints with string.CompareOrdinal. The
+            // constraint has to match, which is why it applies COLLATE Latin1_General_BIN2 to
+            // the expression; the database default here is case-insensitive and non-ordinal.
+            //
+            // No behavioural test can prove this today. The two collations order all eight
+            // current EntityType names identically — I checked every pair — so a row that one
+            // accepts and the other rejects does not exist to write. The clause only starts
+            // mattering when a name is ADDED that distinguishes them, and by then the mistake
+            // would already be shipped.
+            //
+            // So this asserts structurally, against the DEPLOYED object rather than the
+            // configuration that produced it: whatever else changes, the constraint that
+            // actually exists in the database must still compare ordinally.
+
+            // when
+            string constraintDefinition =
+                await this.broker.GetCheckConstraintDefinitionAsync(
+                    "CK_Association_CanonicalOrder");
+
+            // then
+            constraintDefinition.Should().NotBeNull(
+                because: "the canonical-order constraint must exist in the deployed schema");
+
+            constraintDefinition.Should().Contain(
+                "Latin1_General_BIN2",
+                because: "an ordinal collation is what keeps the constraint in agreement with "
+                    + "CompareEndpoints; the database default is case-insensitive");
+        }
+
+        [Fact]
+        public async Task ShouldAcceptExactlyTheEndpointOrderingsTheServiceCallsCanonicalAsync()
+        {
+            // given: the invariant that actually matters — for EVERY combination of endpoint
+            // types, the database must accept a row if and only if the production comparator
+            // considers it canonical. If the two ever disagree, either the service writes rows
+            // the database rejects, or the database accepts rows the service would have
+            // swapped, and the pairing stops being unique.
+            //
+            // This calls the real CompareEndpoints rather than restating its logic, so it
+            // compares the shipped comparator against the shipped constraint.
+            EntityType[] entityTypes = Enum.GetValues<EntityType>();
+
+            entityTypes.Should().HaveCountGreaterThan(1);
 
             // when / then
-            foreach (string firstName in entityTypeNames)
+            foreach (EntityType firstType in entityTypes)
             {
-                foreach (string secondName in entityTypeNames)
+                foreach (EntityType secondType in entityTypes)
                 {
-                    int databaseComparison =
-                        await this.broker.CompareUnderConstraintCollationAsync(
-                            firstName, secondName);
+                    // two distinct groups, ordered so the same-type case exercises the
+                    // group-id tiebreak rather than tripping CK_Association_NotSameGroup
+                    Guid firstGroupId = Guid.NewGuid();
+                    Guid secondGroupId = Guid.NewGuid();
 
-                    int serviceComparison =
-                        Math.Sign(string.CompareOrdinal(firstName, secondName));
+                    Association candidate = CreateAssociation(
+                        entityAType: firstType,
+                        entityAGroupId: firstGroupId,
+                        entityBType: secondType,
+                        entityBGroupId: secondGroupId);
 
-                    databaseComparison.Should().Be(
-                        serviceComparison,
-                        because: $"'{firstName}' vs '{secondName}' must order identically in "
-                            + "CompareEndpoints and in CK_Association_CanonicalOrder");
+                    bool serviceCallsItCanonical =
+                        AssociationService.CompareEndpoints(
+                            firstType: firstType,
+                            firstGroupId: firstGroupId,
+                            secondType: secondType,
+                            secondGroupId: secondGroupId) < 0;
+
+                    Exception outcome = await SeedAsync(candidate);
+
+                    (outcome is null).Should().Be(
+                        serviceCallsItCanonical,
+                        because: $"{firstType} -> {secondType} is "
+                            + (serviceCallsItCanonical ? "canonical" : "NOT canonical")
+                            + " according to CompareEndpoints, so the database must "
+                            + (serviceCallsItCanonical ? "accept" : "reject") + " it");
                 }
             }
         }

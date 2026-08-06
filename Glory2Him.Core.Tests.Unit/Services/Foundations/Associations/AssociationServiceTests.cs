@@ -219,7 +219,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 {
                     duplicateKeyWithUniqueIndexException,
                     new AlreadyExistsAssociationException(
-                        message: "Content item association already exists with the same Id.",
+                        message: "Content item association already exists, "
+                            + "a uniqueness rule rejected the write.",
                         innerException: duplicateKeyWithUniqueIndexException,
                         data: duplicateKeyWithUniqueIndexException.Data)
                 },
@@ -256,7 +257,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 {
                     duplicateKeyWithUniqueIndexException,
                     new AlreadyExistsAssociationException(
-                        message: "Content item association already exists with the same Id.",
+                        message: "Content item association already exists, "
+                            + "a uniqueness rule rejected the write.",
                         innerException: duplicateKeyWithUniqueIndexException,
                         data: duplicateKeyWithUniqueIndexException.Data)
                 },
