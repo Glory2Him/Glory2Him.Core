@@ -27,16 +27,33 @@ namespace Glory2Him.Core.Models.Enums
         /// <summary>A short, standalone scripture-anchored quote.</summary>
         Quote = 0,
 
-        /// <summary>A long-form narrative or testimony-adjacent piece.</summary>
+        /// <summary>A long-form narrative or illustration piece.</summary>
         Story = 1,
 
         /// <summary>A first-person account of a life experience.</summary>
         Testimony = 2,
 
-        /// <summary>A grouping content item — excluded from feed projections (design §3.8).</summary>
-        Topic = 3,
+        /// <summary>A short, standalone devotional.</summary>
+        Devotional = 3,
 
-        /// <summary>An ordered collection of related content items.</summary>
-        Series = 4
+        /// <summary>A long-form study on something specific in the Bible.</summary>
+        BibleStudy = 4,
+
+        /// <summary>A blog post.</summary>
+        BlogPost = 5,
+
+        /// <summary>
+        /// An ordered collection of related content items — excluded from feed projections
+        /// (design §3.8). Numbered apart from the standalone content types above pending
+        /// design §3.9, which revisits whether this is distinct from <see cref="Topic"/>.
+        /// </summary>
+        Series = 999,
+
+        /// <summary>
+        /// A grouping content item — excluded from feed projections (design §3.8). Numbered
+        /// apart from the standalone content types above pending design §3.9, which revisits
+        /// whether this is distinct from <see cref="Series"/>.
+        /// </summary>
+        Topic = 1000
     }
 }
