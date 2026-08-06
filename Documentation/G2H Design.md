@@ -220,10 +220,15 @@ public enum ContentType
     Quote = 0,
     Story = 1,
     Testimony = 2,
-    Topic = 3,
-    Series = 4
+    Devotional = 3,
+    BibleStudy = 4,
+    BlogPost = 5,
+    Series = 999,
+    Topic = 1000
 }
 ```
+
+`Series` and `Topic` are numbered apart from the standalone content types above — see §3.9.
 
 ### 3.7 ContentType Properties
 
@@ -233,11 +238,19 @@ Not applicable. `ContentType` has no properties of its own — it is persisted a
 
 The following rules apply:
 
-1. `Topic` is a `ContentType` member, not a separate root entity.
-2. The feed must exclude `Topic` content items.
-3. Any publishable content type except `Topic` can appear in the feed.
+1. `Topic` and `Series` are `ContentType` members, not separate root entities.
+2. The feed must exclude `Topic` and `Series` content items.
+3. Any publishable content type except `Topic` and `Series` can appear in the feed.
 4. `ContentItem.ContentType` is set on creation and never accepted from a caller on modify (§12.4.1 business rule 7a) — different content types carry different validation rules, so an item cannot be relabelled into a type its content was never checked against.
 5. Adding a new `ContentType` member requires a code change; it can never be introduced by an end user or admin at runtime.
+
+### 3.9 Series vs. Topic — to revisit
+
+`Series` and `Topic` currently have identical documented behaviour: both are grouping content items excluded from the feed (§3.8 rules 1–3), and neither carries a rule that distinguishes one from the other. §11 ("Topic and Feed Design") describes the grouping mechanism only in terms of `Topic`; `Series` was added to the enum without an equivalent section or without checking whether it duplicates `Topic`.
+
+**Open question:** are `Series` and `Topic` the same concept under two names, or do they represent genuinely different groupings (e.g. an ordered, authored sequence vs. an unordered subject tag)? This needs a design decision — either give `Series` its own rules distinct from §11, fold it into `Topic` and remove the member, or document the distinction explicitly (e.g. `Series` implies `Association.SortOrder`-based ordering per §9.6/§9.7.1 rule 4, `Topic` does not).
+
+Until this is resolved, `Series` and `Topic` are numbered apart from the standalone content types (§3.6) as a placeholder, not as a statement that the design question is settled.
 
 ## 4. Association Design
 
