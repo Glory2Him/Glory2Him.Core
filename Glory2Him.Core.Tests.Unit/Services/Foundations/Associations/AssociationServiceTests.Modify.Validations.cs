@@ -79,7 +79,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             var invalidAssociation = new Association
             {
                 Id = Guid.Empty,
-                LinkedEntityId = Guid.Empty,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -95,7 +94,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 values: "Id is required");
 
             invalidAssociationException.AddData(
-                key: nameof(Association.LinkedEntityId),
+                key: nameof(Association.EntityAKeyId),
+                values: "Id is required");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.EntityAGroupId),
+                values: "Id is required");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.EntityBKeyId),
+                values: "Id is required");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.EntityBGroupId),
                 values: "Id is required");
 
             invalidAssociationException.AddData(
@@ -868,7 +879,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         [Fact]
         public async Task
-            ShouldThrowValidationExceptionOnModifyIfAssociationConfidenceReasonExceedsMaxLengthAndLogItAsync()
+            ShouldThrowValidationExceptionOnModifyIfConfidenceReasonExceedsMaxLengthAndLogItAsync()
         {
             // given
             string randomUserId = GetRandomString();
@@ -876,17 +887,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association invalidAssociation =
                 CreateRandomModifyAssociation(randomDateTimeOffset, randomUserId);
 
-            invalidAssociation.AssociationConfidenceReason = GetRandomStringWithLengthOf(501);
+            invalidAssociation.ConfidenceReason = GetRandomStringWithLengthOf(501);
 
             var invalidAssociationException =
                 new InvalidAssociationException(
                     message: "Content item association is invalid, fix the errors and try again.");
 
             invalidAssociationException.AddData(
-                key: nameof(Association.AssociationConfidenceReason),
+                key: nameof(Association.ConfidenceReason),
 
                 values: "Text exceed max length of " +
-                    $"{invalidAssociation.AssociationConfidenceReason.Length - 1} characters");
+                    $"{invalidAssociation.ConfidenceReason.Length - 1} characters");
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(
@@ -945,8 +956,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         [Theory]
         [MemberData(nameof(OutOfRangeConfidenceScores))]
-        public async Task ShouldThrowValidationExceptionOnModifyIfAssociationConfidenceScoreIsOutOfRangeAndLogItAsync(
-            int outOfRangeConfidenceScore)
+        public async Task ShouldThrowValidationExceptionOnModifyIfConfidenceScoreIsOutOfRangeAndLogItAsync(
+            decimal outOfRangeConfidenceScore)
         {
             // given
             string randomUserId = GetRandomString();
@@ -954,14 +965,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association invalidAssociation =
                 CreateRandomModifyAssociation(randomDateTimeOffset, randomUserId);
 
-            invalidAssociation.AssociationConfidenceScore = outOfRangeConfidenceScore;
+            invalidAssociation.ConfidenceScore = outOfRangeConfidenceScore;
 
             var invalidAssociationException =
                 new InvalidAssociationException(
                     message: "Content item association is invalid, fix the errors and try again.");
 
             invalidAssociationException.AddData(
-                key: nameof(Association.AssociationConfidenceScore),
+                key: nameof(Association.ConfidenceScore),
                 values: "Value is not within range of 0 and 10");
 
             var expectedAssociationValidationException =

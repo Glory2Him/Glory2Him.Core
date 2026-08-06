@@ -22,6 +22,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
@@ -119,14 +120,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         private static int GetRandomNegativeNumber() =>
             -1 * new IntRange(min: 2, max: 10).GetValue();
 
-        private static int GetRandomConfidenceScore() =>
-            new IntRange(min: 0, max: 10).GetValue();
+        // the score is decimal(4,2), so the draw exercises the fractional precision rather
+        // than only the whole numbers the old int column could hold
+        private static decimal GetRandomConfidenceScore() =>
+            new IntRange(min: 0, max: 1000).GetValue() / 100.0m;
 
-        public static TheoryData<int> OutOfRangeConfidenceScores() =>
-            new TheoryData<int>
+        public static TheoryData<decimal> OutOfRangeConfidenceScores() =>
+            new TheoryData<decimal>
             {
-                -1,
-                11
+                -0.01m,
+                10.01m
             };
 
         public static TheoryData<int> MinutesBeforeOrAfter()
@@ -301,9 +304,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 .OnProperty(association => association.IsDeleted).Use(false)
                 .OnProperty(association => association.CreatedBy).Use(userId)
                 .OnProperty(association => association.UpdatedBy).Use(userId)
+
+                // The endpoint pair is pinned so the add path's derivation and canonical
+                // ordering are both no-ops on a drawn association, and a test that is about
+                // something else cannot fail on the draw.
+                //
+                // Attachment before ContentItem is already canonical — string.CompareOrdinal
+                // puts 'A' before 'C' — so the ordering never swaps and a DeepClone taken
+                // before the call still matches after it. Both types are versioned (design
+                // §7.5.1), so neither group id is rewritten to its key id and both scopes
+                // derive to AllVersions, which is what is pinned here. Tests that exercise
+                // ordering, derivation or a non-versioned endpoint set the endpoints
+                // explicitly.
+                .OnProperty(association => association.EntityAType).Use(EntityType.Attachment)
+                .OnProperty(association => association.EntityBType).Use(EntityType.ContentItem)
+                .OnProperty(association => association.EntityAScope).Use(Scope.AllVersions)
+                .OnProperty(association => association.EntityBScope).Use(Scope.AllVersions)
+
+                // only a ContentItem endpoint may carry a content type, and resolving it is
+                // the orchestration's read — a drawn value would trip the structural rule
+                .OnProperty(association => association.EntityAContentType).Use((ContentType?)null)
+                .OnProperty(association => association.EntityBContentType).Use((ContentType?)null)
+
                 // the score is range checked on write, so it is pinned to a valid draw here
-                // rather than left to the filler's unbounded integer
-                .OnProperty(association => association.AssociationConfidenceScore)
+                // rather than left to the filler's unbounded decimal
+                .OnProperty(association => association.ConfidenceScore)
                     .Use(GetRandomConfidenceScore());
 
             return filler;

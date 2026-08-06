@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
@@ -125,8 +126,38 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.Id),
                     Parameter: nameof(Association.Id)),
 
-                (Rule: IsInvalid(association.LinkedEntityId),
-                    Parameter: nameof(Association.LinkedEntityId)),
+                (Rule: IsInvalid(association.EntityAType),
+                    Parameter: nameof(Association.EntityAType)),
+
+                (Rule: IsInvalid(association.EntityAKeyId),
+                    Parameter: nameof(Association.EntityAKeyId)),
+
+                (Rule: IsInvalid(association.EntityAGroupId),
+                    Parameter: nameof(Association.EntityAGroupId)),
+
+                (Rule: IsInvalid(association.EntityBType),
+                    Parameter: nameof(Association.EntityBType)),
+
+                (Rule: IsInvalid(association.EntityBKeyId),
+                    Parameter: nameof(Association.EntityBKeyId)),
+
+                (Rule: IsInvalid(association.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)),
+
+                (Rule: IsSameEndpoint(
+                        association.EntityAGroupId,
+                        association.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)),
+
+                (Rule: IsContentTypeNotApplicable(
+                        association.EntityAType,
+                        association.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+
+                (Rule: IsContentTypeNotApplicable(
+                        association.EntityBType,
+                        association.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)),
 
                 (Rule: IsInvalid(association.CreatedBy),
                     Parameter: nameof(Association.CreatedBy)),
@@ -146,11 +177,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsGreaterThan(association.UpdatedBy, 255),
                     Parameter: nameof(Association.UpdatedBy)),
 
-                (Rule: IsGreaterThan(association.AssociationConfidenceReason, 500),
-                    Parameter: nameof(Association.AssociationConfidenceReason)),
+                (Rule: IsGreaterThan(association.ConfidenceReason, 500),
+                    Parameter: nameof(Association.ConfidenceReason)),
 
-                (Rule: IsNotWithinRange(association.AssociationConfidenceScore, 0, 10),
-                    Parameter: nameof(Association.AssociationConfidenceScore)),
+                (Rule: IsGreaterThan(association.ModelVersion, 128),
+                    Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsNotWithinRange(association.ConfidenceScore, 0, 10),
+                    Parameter: nameof(Association.ConfidenceScore)),
 
                 (Rule: IsNotSame(
                         firstDate: association.UpdatedWhen,
@@ -186,8 +220,38 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsInvalid(association.Id),
                     Parameter: nameof(Association.Id)),
 
-                (Rule: IsInvalid(association.LinkedEntityId),
-                    Parameter: nameof(Association.LinkedEntityId)),
+                (Rule: IsInvalid(association.EntityAType),
+                    Parameter: nameof(Association.EntityAType)),
+
+                (Rule: IsInvalid(association.EntityAKeyId),
+                    Parameter: nameof(Association.EntityAKeyId)),
+
+                (Rule: IsInvalid(association.EntityAGroupId),
+                    Parameter: nameof(Association.EntityAGroupId)),
+
+                (Rule: IsInvalid(association.EntityBType),
+                    Parameter: nameof(Association.EntityBType)),
+
+                (Rule: IsInvalid(association.EntityBKeyId),
+                    Parameter: nameof(Association.EntityBKeyId)),
+
+                (Rule: IsInvalid(association.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)),
+
+                (Rule: IsSameEndpoint(
+                        association.EntityAGroupId,
+                        association.EntityBGroupId),
+                    Parameter: nameof(Association.EntityBGroupId)),
+
+                (Rule: IsContentTypeNotApplicable(
+                        association.EntityAType,
+                        association.EntityAContentType),
+                    Parameter: nameof(Association.EntityAContentType)),
+
+                (Rule: IsContentTypeNotApplicable(
+                        association.EntityBType,
+                        association.EntityBContentType),
+                    Parameter: nameof(Association.EntityBContentType)),
 
                 (Rule: IsInvalid(association.CreatedBy),
                     Parameter: nameof(Association.CreatedBy)),
@@ -207,11 +271,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsGreaterThan(association.UpdatedBy, 255),
                     Parameter: nameof(Association.UpdatedBy)),
 
-                (Rule: IsGreaterThan(association.AssociationConfidenceReason, 500),
-                    Parameter: nameof(Association.AssociationConfidenceReason)),
+                (Rule: IsGreaterThan(association.ConfidenceReason, 500),
+                    Parameter: nameof(Association.ConfidenceReason)),
 
-                (Rule: IsNotWithinRange(association.AssociationConfidenceScore, 0, 10),
-                    Parameter: nameof(Association.AssociationConfidenceScore)),
+                (Rule: IsGreaterThan(association.ModelVersion, 128),
+                    Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsNotWithinRange(association.ConfidenceScore, 0, 10),
+                    Parameter: nameof(Association.ConfidenceScore)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -239,6 +306,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
+        // reclassification is forbidden: an association is a link between two specific
+        // entities, and repointing it is indistinguishable from deleting one link and
+        // creating another — except that it carries the original's approval state and
+        // review history across to a pair nobody reviewed. Type, KeyId and GroupId are
+        // therefore pinned against storage on both endpoints; Scope is the one endpoint
+        // field that may change, and only through the set-scope operation (design §9.7.1
+        // rule 6).
         private static void ValidateAgainstStorageAssociationOnModify(
             Association inputAssociation,
             Association storageAssociation)
@@ -255,6 +329,43 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         second: storageAssociation.CreatedBy,
                         secondName: nameof(Association.CreatedBy)),
                     Parameter: nameof(Association.CreatedBy)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityAType,
+                        second: storageAssociation.EntityAType,
+                        secondName: nameof(Association.EntityAType)),
+                    Parameter: nameof(Association.EntityAType)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityAKeyId,
+                        second: storageAssociation.EntityAKeyId,
+                        secondName: nameof(Association.EntityAKeyId)),
+                    Parameter: nameof(Association.EntityAKeyId)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityAGroupId,
+                        second: storageAssociation.EntityAGroupId,
+                        secondName: nameof(Association.EntityAGroupId)),
+                    Parameter: nameof(Association.EntityAGroupId)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityBType,
+                        second: storageAssociation.EntityBType,
+                        secondName: nameof(Association.EntityBType)),
+                    Parameter: nameof(Association.EntityBType)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityBKeyId,
+                        second: storageAssociation.EntityBKeyId,
+                        secondName: nameof(Association.EntityBKeyId)),
+                    Parameter: nameof(Association.EntityBKeyId)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityBGroupId,
+                        second: storageAssociation.EntityBGroupId,
+                        secondName: nameof(Association.EntityBGroupId)),
+                    Parameter: nameof(Association.EntityBGroupId)),
+
                 (Rule: IsSame(
                         firstDate: inputAssociation.UpdatedWhen,
                         secondDate: storageAssociation.UpdatedWhen,
@@ -315,6 +426,39 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Message = "Date is required"
         };
 
+        // structural validation for an enum crossing a boundary — rejects an out-of-range
+        // value (a stale client sending a since-removed member); it cannot detect "caller
+        // forgot to set it", since EntityType has no unset sentinel
+        private static dynamic IsInvalid(EntityType entityType) => new
+        {
+            Condition = Enum.IsDefined(entityType) == false,
+            Message = "Value is not a supported entity type"
+        };
+
+        // one rule covers three mistakes at once: associating an entity with itself, with
+        // another version of itself, and — since a non-versioned endpoint's group id is its
+        // key id — a tag with itself
+        private static dynamic IsSameEndpoint(
+            Guid firstGroupId,
+            Guid secondGroupId) => new
+            {
+                Condition = firstGroupId != Guid.Empty && firstGroupId == secondGroupId,
+                Message = $"Value is the same as {nameof(Association.EntityAGroupId)}"
+            };
+
+        // only a ContentItem endpoint has a content type (design §18.6): no other entity
+        // type has a sub-classification, so a value here on any other type is a caller
+        // fabricating an authorization input. A ContentItem endpoint may still be null —
+        // resolving it needs the endpoint row, which is the orchestration's read to make,
+        // and a null simply costs the caller the narrow role tier.
+        private static dynamic IsContentTypeNotApplicable(
+            EntityType entityType,
+            ContentType? contentType) => new
+            {
+                Condition = contentType is not null && entityType != EntityType.ContentItem,
+                Message = $"Value is only applicable to a {nameof(EntityType.ContentItem)} endpoint"
+            };
+
         private static dynamic IsNotSame(
             string first,
             string second) => new
@@ -341,14 +485,33 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 Message = $"Date is not the same as {secondDateName}"
             };
 
+        private static dynamic IsNotSame(
+            Guid first,
+            Guid second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Id is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            EntityType first,
+            EntityType second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
         private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
         };
 
-        // the score is optional — only a supplied value is range checked
-        private static dynamic IsNotWithinRange(int? value, int minimum, int maximum) => new
+        // the score is optional — only a supplied value is range checked. Null means not yet
+        // scored, which is not the same as a zero and must not be treated as one.
+        private static dynamic IsNotWithinRange(decimal? value, decimal minimum, decimal maximum) => new
         {
             Condition = value.HasValue && (value < minimum || value > maximum),
             Message = $"Value is not within range of {minimum} and {maximum}"

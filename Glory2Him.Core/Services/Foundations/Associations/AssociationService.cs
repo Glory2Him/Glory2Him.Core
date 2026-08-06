@@ -311,9 +311,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     entity: association,
                     securityContext: inboundEnvelope.SecurityContext);
 
+            // scope and the non-versioned group id are the service's to derive, never the
+            // caller's to supply — so they are settled before validation reports on them
+            association = ApplyDerivedEndpointFields(association);
+
             await ValidateOnAddAssociationAsync(
                 association: association,
                 securityContext: inboundEnvelope.SecurityContext);
+
+            // canonical ordering lands here rather than in the public method or an
+            // orchestration: `Association-Adding` is a public event address whose substrate
+            // handler enters DoAdd directly, so anything layered above it is bypassed.
+            // Validation runs first so its messages name the endpoints the caller sent.
+            association = NormalizeEndpointOrder(association);
 
             Association addedAssociation =
                 await this.storageBroker.InsertAssociationAsync(
