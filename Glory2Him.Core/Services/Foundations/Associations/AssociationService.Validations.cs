@@ -28,11 +28,37 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // an upstream layer already gated the caller
         //
         // Association has no scoped roles of its own (design §14.7, §18.6) — authorization
-        // is derived from the two endpoint entity types instead. That derivation is an
-        // orchestration-level concern (needs both endpoints resolved) and lands in a
-        // follow-up change; until then this foundation enforces only the global roles.
+        // derives from its two endpoints. Both tiers compose from the row alone, which is
+        // what the denormalised endpoint content type is for: no endpoint is resolved, and
+        // no read is issued, to answer an authorization question.
 
-        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        // The contribution gate. Takes the association because the answer depends on the
+        // endpoints, and blocks on EITHER of them.
+        //
+        // The OR is load-bearing. Under AND, a user holding Tag-ReadOnly alongside
+        // BibleReference-Reviewer could pair a tag with an entity type they are not banned
+        // from and land it on a public scripture page — precisely what Tag-ReadOnly exists
+        // to prevent. A block on one end blocks the association.
+        private static void ValidateUserIsAllowedToContribute(
+            SecurityContext securityContext,
+            Association association)
+        {
+            ValidateUserIsNotGloballyBlockedFromContributing(securityContext);
+            ValidateAssociationIsNotNull(association);
+
+            ValidateUserIsNotBlockedFromEndpoints(
+                securityContext: securityContext,
+                firstEntityType: association.EntityAType,
+                secondEntityType: association.EntityBType);
+        }
+
+        // The half of the gate that needs no endpoints: authentication and the global block
+        // role. Split out so the remove path — which is handed an id, not an association —
+        // can still reject an anonymous or globally-blocked caller before it reads storage.
+        // Folding the whole gate below the load would let an anonymous caller probe which
+        // ids exist, and would cost a query per rejected request.
+        private static void ValidateUserIsNotGloballyBlockedFromContributing(
+            SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
@@ -40,7 +66,24 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     message: "The current user is not authenticated.");
             }
 
-            bool isBlocked = securityContext.Roles.Contains(Roles.ReadOnly);
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is blocked from contributing content item associations.");
+            }
+        }
+
+        // The endpoint-scoped half, which needs both entity types. Runs against a
+        // caller-supplied association on add and modify, and against the storage row on
+        // remove — the same rule either way.
+        private static void ValidateUserIsNotBlockedFromEndpoints(
+            SecurityContext securityContext,
+            EntityType firstEntityType,
+            EntityType secondEntityType)
+        {
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnlyFor(firstEntityType))
+                    || securityContext.Roles.Contains(Roles.ReadOnlyFor(secondEntityType));
 
             if (isBlocked)
             {
@@ -49,13 +92,57 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // the moderation roles that may act on and read non-public versions for review and
-        // audit (Reviewer, Publisher, Admin — global only until endpoint-derived
-        // authorization lands, §16.6)
-        private static bool HasReviewRole(SecurityContext securityContext) =>
+        // the global moderation roles, which grant review over every entity type
+        private static bool HasGlobalReviewRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Reviewer)
                 || securityContext.Roles.Contains(Roles.Publisher)
                 || securityContext.Roles.Contains(Roles.Admin);
+
+        // Both tiers for one endpoint: the coarse ContentItem-Reviewer from the entity type,
+        // and the narrow ContentItem-Testimony-Reviewer from the denormalised content type.
+        // The narrow tier only exists for ContentItem, so a null content type simply costs
+        // the caller that tier rather than widening anything (design §18.6 rule 4).
+        private static bool HasEndpointReviewRole(
+            SecurityContext securityContext,
+            EntityType entityType,
+            ContentType? contentType)
+        {
+            if (securityContext.Roles.Contains(Roles.ReviewerFor(entityType))
+                || securityContext.Roles.Contains(Roles.PublisherFor(entityType)))
+            {
+                return true;
+            }
+
+            if (contentType.HasValue is false)
+            {
+                return false;
+            }
+
+            return securityContext.Roles.Contains(
+                    Roles.ReviewerFor(entityType, contentType.Value))
+                || securityContext.Roles.Contains(
+                    Roles.PublisherFor(entityType, contentType.Value));
+        }
+
+        // the moderation roles that may act on and read non-public rows for review and
+        // audit: a global elevated role, or a scoped role matching AT LEAST ONE endpoint.
+        //
+        // One endpoint is enough because a reviewer trusted with tags is trusted to judge
+        // whether a tag belongs on something — the pairing is the thing under review, and
+        // they can see both ends of it. Requiring both would leave every cross-type
+        // association unreviewable by anyone short of a global role.
+        private static bool HasReviewRoleForAssociation(
+            SecurityContext securityContext,
+            Association association) =>
+            HasGlobalReviewRole(securityContext)
+                || HasEndpointReviewRole(
+                    securityContext,
+                    association.EntityAType,
+                    association.EntityAContentType)
+                || HasEndpointReviewRole(
+                    securityContext,
+                    association.EntityBType,
+                    association.EntityBContentType);
 
         // row-level write permission: the owner or a review role may write the row — the
         // narrower workflow rules stay in the orchestration, which needs owner writes for
@@ -70,7 +157,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageAssociation.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            if (isOwner is false
+                && HasReviewRoleForAssociation(securityContext, storageAssociation) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to modify this content item association.");
@@ -97,13 +185,20 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Admin only, and additionally
+        // subject to the endpoint veto once the row is known (applied by the caller)
         private static void ValidateUserCanHardRemoveAssociation(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is blocked from contributing content item associations.");
             }
 
             if (securityContext.Roles.Contains(Roles.Admin) is false)
@@ -195,6 +290,20 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsNotWithinRange(association.ConfidenceScore, 0, 10),
                     Parameter: nameof(Association.ConfidenceScore)),
+
+                // A row is contributed unpublished, and publication is the approve
+                // operation's to grant (design §9.7.1 rules 1 and 3). Without these three
+                // rules any authenticated caller can insert a row that is already Approved
+                // and IsPublished, which is public the moment it lands — the approval
+                // workflow is simply skipped rather than bypassed.
+                (Rule: IsSetOnAdd(association.IsPublished),
+                    Parameter: nameof(Association.IsPublished)),
+
+                (Rule: IsSetOnAdd(association.PublishDate),
+                    Parameter: nameof(Association.PublishDate)),
+
+                (Rule: IsNotContributableStatus(association.ApprovalStatus),
+                    Parameter: nameof(Association.ApprovalStatus)),
 
                 (Rule: IsNotSame(
                         firstDate: association.UpdatedWhen,
@@ -423,6 +532,33 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         secondName: nameof(Association.EntityBContentType)),
                     Parameter: nameof(Association.EntityBContentType)),
 
+                // The general modify is for content only. Every IApproval member belongs to
+                // the approve operation (design §9.7.1 rules 2 and 3), so all three are
+                // pinned here rather than carried.
+                //
+                // This matters more since authorization became endpoint-derived: the write
+                // gate now admits any scoped reviewer for EITHER endpoint, so without these
+                // pins a Tag-Reviewer could take someone else's pending association and
+                // publish it through the general modify — approving content nobody with
+                // authority over it ever looked at.
+                (Rule: IsNotSame(
+                        first: inputAssociation.ApprovalStatus,
+                        second: storageAssociation.ApprovalStatus,
+                        secondName: nameof(Association.ApprovalStatus)),
+                    Parameter: nameof(Association.ApprovalStatus)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.IsPublished,
+                        second: storageAssociation.IsPublished,
+                        secondName: nameof(Association.IsPublished)),
+                    Parameter: nameof(Association.IsPublished)),
+
+                (Rule: IsNotSame(
+                        firstDate: inputAssociation.PublishDate,
+                        secondDate: storageAssociation.PublishDate,
+                        secondDateName: nameof(Association.PublishDate)),
+                    Parameter: nameof(Association.PublishDate)),
+
                 (Rule: IsSame(
                         firstDate: inputAssociation.UpdatedWhen,
                         secondDate: storageAssociation.UpdatedWhen,
@@ -598,6 +734,59 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 Condition = first != second,
                 Message = $"Value is not the same as {secondName}"
             };
+
+        private static dynamic IsNotSame(
+            ApprovalStatus first,
+            ApprovalStatus second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            bool first,
+            bool second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            DateTimeOffset? firstDate,
+            DateTimeOffset? secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate != secondDate,
+                Message = $"Date is not the same as {secondDateName}"
+            };
+
+        // a contribution is unpublished by definition — publication is granted by the
+        // approve operation, never asserted by the contributor
+        private static dynamic IsSetOnAdd(bool value) => new
+        {
+            Condition = value,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(DateTimeOffset? date) => new
+        {
+            Condition = date is not null,
+            Message = "Date is not allowed on add"
+        };
+
+        // a caller may save work in progress or submit it for review; the remaining states
+        // are verdicts, and a verdict is the approval workflow's to record (design §9.7.1
+        // rule 1)
+        private static dynamic IsNotContributableStatus(ApprovalStatus approvalStatus) => new
+        {
+            Condition = approvalStatus != ApprovalStatus.Draft
+                && approvalStatus != ApprovalStatus.Submitted,
+
+            Message = $"Value must be {nameof(ApprovalStatus.Draft)} " +
+                $"or {nameof(ApprovalStatus.Submitted)} on add"
+        };
 
         private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {

@@ -23,8 +23,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
     {
         // the §16.6 scoped-role suffixes, built from the global role names so the
         // convention has a single source of truth
-        private const string ScopedReviewerRoleSuffix = "-" + Roles.Reviewer;
-        private const string ScopedPublisherRoleSuffix = "-" + Roles.Publisher;
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
 
         // the foundation enforces the same security rules as the orchestration (design
         // §14.6): an exposer may bind to either service directly, so no layer may assume

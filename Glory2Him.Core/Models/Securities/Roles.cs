@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
+
 namespace Glory2Him.Core.Models.Securities
 {
     /// <summary>
@@ -49,7 +51,63 @@ namespace Glory2Him.Core.Models.Securities
         public const string LinkReviewer = "Link-Reviewer";
         public const string LinkPublisher = "Link-Publisher";
 
+        public const string AttachmentReadOnly = "Attachment-ReadOnly";
+        public const string AttachmentReviewer = "Attachment-Reviewer";
+        public const string AttachmentPublisher = "Attachment-Publisher";
+
         // Association has no scoped roles of its own (design §14.7, §18.6) —
         // authorization is derived from its two endpoint entity types instead.
+
+        // The capability segment of a granular role name. Singular, and always LAST:
+        // `ContentItem-Story-Reviewer`, never `ContentItem-Reviewer-Story`. Three approval
+        // services identify a reviewer by suffix match, so a name ending in anything else
+        // would not be recognised as a review role at all (design §18.6).
+        public const string ReadOnlySuffix = "-ReadOnly";
+        public const string ReviewerSuffix = "-Reviewer";
+        public const string PublisherSuffix = "-Publisher";
+
+        /// <summary>
+        /// The entity-type-scoped block role, for example <c>Tag-ReadOnly</c>.
+        ///
+        /// <para>The constants above remain the canonical spelling and are not replaced by
+        /// these helpers: a constant can appear in an xUnit <c>[InlineData]</c> attribute
+        /// and a method call cannot, and roughly thirty test files depend on that. A
+        /// parameterised test over every <c>EntityType</c> member asserts the two agree.</para>
+        /// </summary>
+        public static string ReadOnlyFor(EntityType entityType) =>
+            $"{entityType}{ReadOnlySuffix}";
+
+        /// <summary>
+        /// The entity-type-scoped review role, for example <c>Tag-Reviewer</c> — the coarse
+        /// tier, granting review over every instance of the type.
+        /// </summary>
+        public static string ReviewerFor(EntityType entityType) =>
+            $"{entityType}{ReviewerSuffix}";
+
+        /// <summary>
+        /// The entity-type-scoped publish role, for example <c>Tag-Publisher</c>.
+        /// </summary>
+        public static string PublisherFor(EntityType entityType) =>
+            $"{entityType}{PublisherSuffix}";
+
+        /// <summary>
+        /// The content-type-scoped review role, for example
+        /// <c>ContentItem-Testimony-Reviewer</c> — the narrow tier, so a reviewer can be
+        /// trusted with stories but not testimonies. Only <c>ContentItem</c> has this
+        /// granularity; no other entity type carries a content type (design §18.6 rule 5).
+        /// </summary>
+        public static string ReviewerFor(EntityType entityType, ContentType contentType) =>
+            $"{entityType}-{contentType}{ReviewerSuffix}";
+
+        /// <summary>
+        /// The content-type-scoped publish role, for example
+        /// <c>ContentItem-Testimony-Publisher</c>.
+        /// </summary>
+        public static string PublisherFor(EntityType entityType, ContentType contentType) =>
+            $"{entityType}-{contentType}{PublisherSuffix}";
+
+        // There is deliberately no ReadOnlyFor(EntityType, ContentType): the block role has
+        // no content-type tier (design §18.6 lists only -Reviewer and -Publisher there), and
+        // offering the composition would invent a role nothing issues or checks.
     }
 }

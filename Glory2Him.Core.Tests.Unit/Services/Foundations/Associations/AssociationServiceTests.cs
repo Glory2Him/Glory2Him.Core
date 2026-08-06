@@ -329,7 +329,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 // the score is range checked on write, so it is pinned to a valid draw here
                 // rather than left to the filler's unbounded decimal
                 .OnProperty(association => association.ConfidenceScore)
-                    .Use(GetRandomConfidenceScore());
+                    .Use(GetRandomConfidenceScore())
+
+                // A contribution is unpublished and unapproved: add rejects a caller-supplied
+                // IsPublished, PublishDate or verdict status, and modify pins all three
+                // against storage. Drawing them would make every write test fail on the draw
+                // rather than on what it is testing. Tests about read visibility set them
+                // explicitly on the storage row.
+                .OnProperty(association => association.ApprovalStatus).Use(ApprovalStatus.Draft)
+                .OnProperty(association => association.IsPublished).Use(false)
+                .OnProperty(association => association.PublishDate).IgnoreIt();
 
             return filler;
         }

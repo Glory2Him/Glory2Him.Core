@@ -23,8 +23,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
     {
         // the §16.6 scoped-role suffixes; the entity prefix in front of them varies per
         // entity type, so only the suffix is a fixed part of the convention
-        private const string ScopedReviewerRoleSuffix = "-Reviewer";
-        private const string ScopedPublisherRoleSuffix = "-Publisher";
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
 
         // the foundation enforces the same security rules as the orchestration (design
         // §14.6): an exposer may bind to either service directly, so no layer may assume
