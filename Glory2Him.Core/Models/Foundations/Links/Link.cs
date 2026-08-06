@@ -16,7 +16,7 @@ using Glory2Him.Core.Models.Enums;
 namespace Glory2Him.Core.Models.Foundations.Links
 {
     /// <summary>
-    /// Represents an external or internal link associated with content through <see cref="ContentItemAssociation"/>.
+    /// Represents an external or internal link associated with content through <see cref="Association"/>.
     /// </summary>
     public class Link : IKey, IAudit, IVersion, IApproval
     {

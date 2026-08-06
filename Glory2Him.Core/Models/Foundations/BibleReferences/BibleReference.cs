@@ -16,7 +16,7 @@ using Glory2Him.Core.Models.Enums;
 namespace Glory2Him.Core.Models.Foundations.BibleReferences
 {
     /// <summary>
-    /// Represents a scripture reference associated with content through <see cref="ContentItemAssociation"/>.
+    /// Represents a scripture reference associated with content through <see cref="Association"/>.
     /// </summary>
     public class BibleReference : IKey, IAudit, IApproval
     {

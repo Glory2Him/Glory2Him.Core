@@ -1,0 +1,520 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Glory2Him.Core.Brokers.DateTimes;
+using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
+using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
+
+namespace Glory2Him.Core.Services.Foundations.Associations
+{
+    /// <summary>
+    /// Foundation service for content item associations. Every operation is both callable
+    /// directly (the non-event path: object in → request envelope → shared do-work) and
+    /// reachable through the event substrate (the event path in the <c>.Substrate</c> partial:
+    /// request envelope in → shared do-work). The private <c>DoXAsync</c> methods own auditing,
+    /// validation, storage, and publishing the past-tense fact, so the two paths cannot
+    /// diverge; the inbound envelope carries the original caller's <c>SecurityContext</c> and
+    /// anchors the causation chain. Per design §14.6 the foundation enforces security itself
+    /// — the contribution gate on writes, owner-or-moderation-role write permission (removal
+    /// by owner or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility
+    /// posture — never assuming an upstream orchestration already gated the caller.
+    /// </summary>
+    internal partial class AssociationService : IAssociationService
+    {
+        private readonly IStorageBroker storageBroker;
+        private readonly IDateTimeBroker dateTimeBroker;
+        private readonly IIdentifierBroker identifierBroker;
+        private readonly IEventBroker eventBroker;
+        private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly ILoggingBroker loggingBroker;
+
+        public AssociationService(
+            IStorageBroker storageBroker,
+            IDateTimeBroker dateTimeBroker,
+            IIdentifierBroker identifierBroker,
+            IEventBroker eventBroker,
+            IEventEnvelopeBroker eventEnvelopeBroker,
+            ISecurityAuditBroker securityAuditBroker,
+            ILoggingBroker loggingBroker)
+        {
+            this.storageBroker = storageBroker;
+            this.dateTimeBroker = dateTimeBroker;
+            this.identifierBroker = identifierBroker;
+            this.eventBroker = eventBroker;
+            this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.securityAuditBroker = securityAuditBroker;
+            this.loggingBroker = loggingBroker;
+        }
+
+        public ValueTask<Association> AddAssociationAsync(
+            Association association,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationIsNotNull(association);
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: association);
+
+                return await DoAddAssociationAsync(
+                    association: association,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<IQueryable<Association>> RetrieveAllAssociationsAsync(
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // the envelope exists to capture the ambient security context the
+                // visibility filter runs against — the request payload is empty
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: new Association());
+
+                IQueryable<Association> allAssociations =
+                    await this.storageBroker.SelectAllAssociationsAsync(cancellationToken);
+
+                return await ApplyCollectionReadVisibilityFilterAsync(
+                    associations: allAssociations,
+                    securityContext: envelope.SecurityContext);
+            });
+
+        public ValueTask<Association> RetrieveAssociationByIdAsync(
+            Guid associationId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var retrieveRequest = new Association
+                {
+                    Id = associationId
+                };
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
+
+                return await DoRetrieveAssociationByIdAsync(
+                    associationId: associationId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<Association> ModifyAssociationAsync(
+            Association association,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationIsNotNull(association);
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: association);
+
+                return await DoModifyAssociationAsync(
+                    association: association,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<Association> RemoveAssociationByIdAsync(
+            Guid associationId,
+            string? deletionReason = null,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var removeRequest = new Association
+                {
+                    Id = associationId,
+                    DeletionReason = deletionReason
+                };
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
+
+                return await DoRemoveAssociationByIdAsync(
+                    associationId: associationId,
+                    deletionReason: deletionReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<Association> HardRemoveAssociationByIdAsync(
+            Guid associationId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var hardRemoveRequest = new Association
+                {
+                    Id = associationId
+                };
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: hardRemoveRequest);
+
+                return await DoHardRemoveAssociationByIdAsync(
+                    associationId: associationId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        // the shared read posture of design §14.1/§14.5/§14.6: a publicly visible version
+        // is readable by anyone; a non-public version answers not-found — never
+        // unauthorized — to everyone but the owner and the review roles, with the true
+        // denial reason logged server-side only
+        private async ValueTask<Association> DoRetrieveAssociationByIdAsync(
+            Guid associationId,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnRetrieveAssociationById(associationId);
+
+            Association maybeAssociation =
+                await this.storageBroker.SelectAssociationByIdAsync(
+                    associationId: associationId,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageAssociation(maybeAssociation, associationId);
+
+            if (maybeAssociation.IsDeleted)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    message: $"Content item association read denied. Content item association " +
+                        $"{associationId} is soft-deleted; reported to the caller as not found.");
+
+                throw new NotFoundAssociationException(
+                    message: $"Content item association not found with id: {associationId}.");
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            bool isPubliclyVisible =
+                maybeAssociation.ApprovalStatus == ApprovalStatus.Approved
+                    && maybeAssociation.IsPublished
+                    && (maybeAssociation.PublishDate is null
+                        || maybeAssociation.PublishDate <= currentDateTime);
+
+            if (isPubliclyVisible)
+            {
+                return maybeAssociation;
+            }
+
+            SecurityContext? securityContext = inboundEnvelope.SecurityContext;
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item association read denied. Content item association " +
+                        $"{associationId} is not publicly visible and the caller is not " +
+                        "authenticated; reported to the caller as not found.");
+
+                throw new NotFoundAssociationException(
+                    message: $"Content item association not found with id: {associationId}.");
+            }
+
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
+                securityContext: securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && maybeAssociation.CreatedBy == actorUserId;
+
+            if (isOwner is false && HasReviewRole(securityContext) is false)
+            {
+                await this.loggingBroker.LogWarningAsync(
+                    message: $"Content item association read denied. Content item association " +
+                        $"{associationId} is not publicly visible and user \"{actorUserId}\" " +
+                        "is neither the owner nor in a review role; reported to the caller as not found.");
+
+                throw new NotFoundAssociationException(
+                    message: $"Content item association not found with id: {associationId}.");
+            }
+
+            return maybeAssociation;
+        }
+
+        // the collection twin of the single-row posture: a row the caller may not see
+        // drops out of the set instead of erroring, so a collection read never reveals
+        // how many non-public rows exist
+        private async ValueTask<IQueryable<Association>> ApplyCollectionReadVisibilityFilterAsync(
+            IQueryable<Association> associations,
+            SecurityContext? securityContext)
+        {
+            IQueryable<Association> visibleAssociations =
+                associations.Where(association =>
+                    association.IsDeleted == false);
+
+            bool isAuthenticated =
+                securityContext is not null && securityContext.IsAuthenticated;
+
+            if (isAuthenticated && HasReviewRole(securityContext!))
+            {
+                return visibleAssociations;
+            }
+
+            DateTimeOffset currentDateTime = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync();
+
+            string? actorUserId = isAuthenticated
+                ? await this.securityAuditBroker.GetUserIdAsync(securityContext: securityContext!)
+                : null;
+
+            bool includeOwnAssociations = string.IsNullOrWhiteSpace(actorUserId) is false;
+
+            return visibleAssociations.Where(association =>
+                (association.ApprovalStatus == ApprovalStatus.Approved
+                    && association.IsPublished
+                    && (association.PublishDate == null
+                        || association.PublishDate <= currentDateTime))
+                || (includeOwnAssociations
+                    && association.CreatedBy == actorUserId));
+        }
+
+        private async ValueTask<Association> DoAddAssociationAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
+            association = await this.securityAuditBroker
+                .ApplyAddAuditValuesAsync(
+                    entity: association,
+                    securityContext: inboundEnvelope.SecurityContext);
+
+            await ValidateOnAddAssociationAsync(
+                association: association,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            Association addedAssociation =
+                await this.storageBroker.InsertAssociationAsync(
+                    association,
+                    cancellationToken);
+
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnAddingAssociationSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            EventEnvelope<Association> outboundEnvelope =
+                await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: addedAssociation);
+
+            await this.eventBroker.PublishAssociationAsync(
+                envelope: outboundEnvelope,
+                operation: AssociationEventOperation.Added);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnAddingAssociationSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            return addedAssociation;
+        }
+
+        private async ValueTask<Association> DoModifyAssociationAsync(
+            Association association,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+
+            association = await this.securityAuditBroker
+                .ApplyModifyAuditValuesAsync(
+                    entity: association,
+                    securityContext: inboundEnvelope.SecurityContext);
+
+            await ValidateOnModifyAssociationAsync(
+                association: association,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            Association maybeAssociation =
+                await this.storageBroker.SelectAssociationByIdAsync(
+                    associationId: association.Id,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageAssociation(
+                maybeAssociation,
+                associationId: association.Id);
+
+            await ValidateUserCanModifyStorageAssociationAsync(
+                storageAssociation: maybeAssociation,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            association = await this.securityAuditBroker
+                .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    entity: association,
+                    storageEntity: maybeAssociation);
+
+            ValidateAgainstStorageAssociationOnModify(
+                inputAssociation: association,
+                storageAssociation: maybeAssociation);
+
+            Association updatedAssociation =
+                await this.storageBroker.UpdateAssociationAsync(
+                    association,
+                    cancellationToken);
+
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnModifyingAssociationSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            EventEnvelope<Association> outboundEnvelope =
+                await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: updatedAssociation);
+
+            await this.eventBroker.PublishAssociationAsync(
+                envelope: outboundEnvelope,
+                operation: AssociationEventOperation.Modified);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnModifyingAssociationSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            return updatedAssociation;
+        }
+
+        private async ValueTask<Association> DoRemoveAssociationByIdAsync(
+            Guid associationId,
+            string? deletionReason,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateOnRemoveAssociationById(associationId);
+
+            Association maybeAssociation =
+                await this.storageBroker.SelectAssociationByIdAsync(
+                    associationId: associationId,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageAssociation(maybeAssociation, associationId);
+
+            // permission comes before the idempotent short-circuit, so an unauthorized
+            // caller learns nothing about the row's deletion state
+            await ValidateUserCanRemoveStorageAssociationAsync(
+                storageAssociation: maybeAssociation,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            if (maybeAssociation.IsDeleted)
+                return maybeAssociation;
+
+            if (deletionReason is not null)
+                maybeAssociation.DeletionReason = deletionReason;
+
+            Association auditedAssociation =
+                await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
+                    entity: maybeAssociation,
+                    securityContext: inboundEnvelope.SecurityContext);
+
+            Association removedAssociation =
+                await this.storageBroker.UpdateAssociationAsync(
+                    association: auditedAssociation,
+                    cancellationToken: cancellationToken);
+
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnRemovingAssociationByIdSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            EventEnvelope<Association> outboundEnvelope =
+                await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: removedAssociation);
+
+            await this.eventBroker.PublishAssociationAsync(
+                envelope: outboundEnvelope,
+                operation: AssociationEventOperation.Removed);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnRemovingAssociationByIdSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            return removedAssociation;
+        }
+
+        private async ValueTask<Association> DoHardRemoveAssociationByIdAsync(
+            Guid associationId,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserCanHardRemoveAssociation(inboundEnvelope.SecurityContext);
+            ValidateOnHardRemoveAssociationById(associationId);
+
+            Association maybeAssociation =
+                await this.storageBroker.SelectAssociationByIdAsync(
+                    associationId: associationId,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageAssociation(maybeAssociation, associationId);
+
+            Association deletedAssociation =
+                await this.storageBroker.DeleteAssociationAsync(
+                    maybeAssociation,
+                    cancellationToken);
+
+            await RecordEventProcessedAsync(
+                envelope: inboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnHardRemovingAssociationByIdSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            EventEnvelope<Association> outboundEnvelope =
+                await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: inboundEnvelope,
+                    content: deletedAssociation);
+
+            await this.eventBroker.PublishAssociationAsync(
+                envelope: outboundEnvelope,
+                operation: AssociationEventOperation.HardRemoved);
+
+            await RecordEventProcessedAsync(
+                envelope: outboundEnvelope,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnHardRemovingAssociationByIdSubscriptionName,
+                cancellationToken: cancellationToken);
+
+            return deletedAssociation;
+        }
+    }
+}

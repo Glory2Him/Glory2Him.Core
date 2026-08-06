@@ -16,7 +16,7 @@ using Glory2Him.Core.Models.Enums;
 namespace Glory2Him.Core.Models.Foundations.Comments
 {
     /// <summary>
-    /// Represents a user comment associated with a content item through <see cref="ContentItemAssociation"/>.
+    /// Represents a user comment associated with a content item through <see cref="Association"/>.
     /// </summary>
     public class Comment : IKey, IAudit, IApproval
     {

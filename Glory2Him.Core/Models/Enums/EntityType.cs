@@ -13,7 +13,7 @@ namespace Glory2Him.Core.Models.Enums
 {
     /// <summary>
     /// Defines the distinct entity types that can be associated
-    /// with a <see cref="ContentItem"/> through <see cref="ContentItemAssociation"/>.
+    /// with a <see cref="ContentItem"/> through <see cref="Association"/>.
     /// </summary>
     public enum EntityType
     {
@@ -53,8 +53,8 @@ namespace Glory2Him.Core.Models.Enums
         Attachment = 6,
 
         /// <summary>
-        /// A content item association record that itself participates in the approval workflow.
+        /// An association record that itself participates in the approval workflow.
         /// </summary>
-        ContentItemAssociation = 7
+        Association = 7
     }
 }

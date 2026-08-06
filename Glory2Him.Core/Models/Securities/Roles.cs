@@ -49,8 +49,7 @@ namespace Glory2Him.Core.Models.Securities
         public const string LinkReviewer = "Link-Reviewer";
         public const string LinkPublisher = "Link-Publisher";
 
-        public const string ContentItemAssociationReadOnly = "ContentItemAssociation-ReadOnly";
-        public const string ContentItemAssociationReviewer = "ContentItemAssociation-Reviewer";
-        public const string ContentItemAssociationPublisher = "ContentItemAssociation-Publisher";
+        // Association has no scoped roles of its own (design §14.7, §18.6) —
+        // authorization is derived from its two endpoint entity types instead.
     }
 }
