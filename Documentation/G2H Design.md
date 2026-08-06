@@ -223,15 +223,15 @@ Standard content type examples:
 
 ### 3.7 ContentType Properties
 
+A content type is **immutable once created** — the only operations are Add and Remove (§12.4.2 business rule 1). It is therefore not versioned and carries none of the `IVersion` members.
+
 | Property | Purpose |
 | --- | --- |
 | `Id` | Unique content type identifier. |
-| `Name` | Name of the content type. |
-| `ContentItemGroupId` | Groups all versions of this content type record together. Populated on creation and shared across all versions. |
-| `Version` | Version number of the content type record, defaults to 1. |
-| `IsLatestVersion` | Identifies the latest version of this content type record. |
+| `Name` | Display name of the content type. Fixed at creation. |
+| `Slug` | PascalCase, delimiter-safe identifier used to compose content-type-scoped role names (§18.6) and denormalised onto association rows. Unique across non-deleted content types. Derived on creation and fixed thereafter. |
 | `PublishDate` | Optional date/time from which this content type becomes visible. |
-| `IsPublished` | Identifies the currently published version of this content type record. |
+| `IsPublished` | Whether this content type is published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
 | `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
 | `CreatedBy` | User who created the type. |
@@ -345,8 +345,14 @@ Example:
 
 1. A tag named `Faith` may already be approved.
 2. A user associates `Faith` with a story.
-3. The association can require approval based on `ContentItemSetting.TagAssociationsRequireApproval`.
+3. The association can require approval based on the effective `ApprovalSetting` for `(Association, Tagged)` — see §8.4. This is **not** a `ContentItemSetting` concern (§6.1).
 4. The tag becomes visible on the story only when both the tag and association are visible.
+
+**Associations hosted on something other than a content item.** Once associations become symmetric, either endpoint may be any entity type, so a `BibleReference` ↔ `Tag` or `BibleReference` ↔ `BibleReference` association has no `ContentItem` to resolve settings from.
+
+`ContentItemSetting` is not generalised to cover that. It stays scoped to content items (§6.1), and each host entity type gets its own settings entity instead — `BibleReferenceSetting` (§6.9) for the reference page. An association resolves the allowed/show switches per endpoint, from that endpoint's own settings entity, and is permitted only when both ends allow it (§6.10).
+
+Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, ContentTypeId)` (§8.4) and needs no host at all.
 
 ## 5. Supporting Content Entities
 
@@ -471,9 +477,18 @@ Example:
 
 ### 6.1 Purpose
 
-`ContentItemSetting` defines policy settings for content interaction behaviour.
+`ContentItemSetting` exists primarily to **drive UI component visibility**, with a matching server-side gate so the UI cannot be bypassed.
 
-It controls whether related entities can be created, whether associations require approval, and whether associated entities should be displayed.
+Each facet has exactly two switches:
+
+| Switch | Governs |
+| --- | --- |
+| `<Facet>Allowed` | Whether the *contribute* component is shown (e.g. the "Suggest a tag" box), **and** whether the association submit process will persist the record. When `false` the submit is rejected server-side, not merely hidden. |
+| `Show<Facet>` | Whether the *display* component is shown (e.g. the tag panel). |
+
+**`<Facet>AssociationsRequireApproval` is removed.** Whether an association requires approval is answered by `ApprovalSetting` and the approval workflow (§8.4), keyed on `(EntityType, ContentTypeId)`. Keeping a second copy here would create two sources of truth for one question and two places to look when an approval fails to fire. Six columns are dropped: the `RequireApproval` switch for each of Tags, Reactions, Links, Attachments, Comments and Bible References.
+
+**Scope.** `ContentItemSetting` governs associations hosted on a `ContentItem` and nothing else. It is keyed on `ContentTypeId` (required) with an optional `ContentItemId` override, both `ContentItem` concepts, and it is not generalised to other hosts. A host of another type gets its own settings entity following the same shape — see §6.9 for `BibleReferenceSetting` and §6.10 for how an association resolves the two.
 
 ### 6.2 Default and Override Behaviour
 
@@ -500,12 +515,12 @@ If `ContentItemId` is supplied, the setting applies only to that specific conten
 
 | Area | Settings |
 | --- | --- |
-| Tags | `TagsAllowed`, `TagAssociationsRequireApproval`, `ShowTags` |
-| Reactions | `ReactionsAllowed`, `ReactionAssociationsRequireApproval`, `ShowReactions` |
-| Links | `LinksAllowed`, `LinkAssociationsRequireApproval`, `ShowLinks` |
-| Attachments | `AttachmentsAllowed`, `AttachmentAssociationsRequireApproval`, `ShowAttachments` |
-| Comments | `CommentsAllowed`, `CommentAssociationsRequireApproval`, `ShowComments` |
-| Bible References | `BibleReferenceAllowed`, `BibleReferenceAssociationsRequireApproval`, `ShowBibleReferences` |
+| Tags | `TagsAllowed`, `ShowTags` |
+| Reactions | `ReactionsAllowed`, `ShowReactions` |
+| Links | `LinksAllowed`, `ShowLinks` |
+| Attachments | `AttachmentsAllowed`, `ShowAttachments` |
+| Comments | `CommentsAllowed`, `ShowComments` |
+| Bible References | `BibleReferenceAllowed`, `ShowBibleReferences` |
 
 ### 6.6 ContentItemSetting Properties
 
@@ -542,6 +557,51 @@ Recommended change:
 ```csharp
 public Guid ContentTypeId { get; set; }
 ```
+
+### 6.9 BibleReferenceSetting
+
+`ContentItemSetting` is scoped to content items and nothing else. A Bible reference page hosts its own associations — suggested tags, related passages — and needs the equivalent switches, so it gets its own settings entity following the same shape.
+
+| Property | Purpose |
+| --- | --- |
+| `Id` | Unique Bible reference setting identifier. |
+| `BibleReferenceId` | Optional specific Bible reference override. Null means this row is the system-wide default. |
+| `TagsAllowed` | Whether the "Suggest a tag" component renders, and whether the association submit persists. |
+| `ShowTags` | Whether the tag panel renders. |
+| `RelatedBibleReferencesAllowed` | Whether the "Suggest a Bible reference" component renders, and whether the association submit persists. |
+| `ShowRelatedBibleReferences` | Whether the related-references panel renders. |
+| `ReactionsAllowed` | Whether the reaction bar accepts a reaction, and whether the association submit persists. |
+| `ShowReactions` | Whether the reaction bar renders. |
+| `LimitReactionsToLoveOnly` | Restricts the passage to a single love reaction, as §6.7 does for content items. |
+| `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from active policy resolution. |
+| audit fields | As `ContentItemSetting`. |
+
+Rules:
+
+1. There is no type dimension. `BibleReference` has no equivalent of `ContentType`, so the default tier is a single system-wide row rather than one per type.
+2. At most one default may exist: `UNIQUE(Id) WHERE BibleReferenceId IS NULL` semantics — one row with a null `BibleReferenceId`.
+3. At most one override per reference: `UNIQUE(BibleReferenceId) WHERE BibleReferenceId IS NOT NULL`.
+4. An override takes full precedence over the default; the tiers are not merged, matching §6.4.
+5. `BibleReference` is a Single-Row entity (§7.5.1), so the override keys on the row identifier directly with no version or group ambiguity.
+6. As with `ContentItemSetting`, these switches never answer *whether approval is required* — that is `ApprovalSetting` (§8.4).
+
+7. The reaction switches mirror `ContentItemSetting` exactly, so the reaction bar on a passage is configurable the same way it is on a story.
+
+### 6.10 Resolving Settings for an Association
+
+An association has two endpoints, so the settings entity that governs it is resolved from the **host** entity type of each end:
+
+| Host endpoint type | Settings entity |
+| --- | --- |
+| `ContentItem` | `ContentItemSetting` |
+| `BibleReference` | `BibleReferenceSetting` |
+
+Rules:
+
+1. The allowed/show switches are resolved per endpoint, from that endpoint's own settings entity.
+2. Where both endpoints resolve a switch — a `BibleReference` ↔ `BibleReference` related-passage link resolves `RelatedBibleReferencesAllowed` on each end — the association is permitted only when **both** allow it. Denials union restrictively, matching the read-only role veto in §16.6.
+3. An endpoint type with no settings entity imposes no restriction. It cannot silently deny, and it cannot silently grant on another endpoint's behalf.
+4. Each new entity type that becomes a *host* for associations needs its own settings entity under this pattern. Entity types that only ever appear as the far end of an association — `Tag`, `Reaction` — do not.
 
 ## 7. Approval Design
 
@@ -616,6 +676,33 @@ The following entities are subject to approval:
 8. `Attachment`
 9. `ContentType`, if end-user or admin-defined content types should be reviewed.
 10. `ContentItemSetting`, if policy changes require approval.
+11. `BibleReferenceSetting` (§6.9), on the same condition.
+
+### 7.5.1 Publication Model per Approvable Entity
+
+Every approvable `EntityType` declares exactly one publication model. This table is the single source of truth for the approval workflow's versioned/single-row branch (§9.7.4).
+
+| EntityType | Publication model |
+| --- | --- |
+| `ContentItem` | Versioned |
+| `Link` | Versioned |
+| `Attachment` | Versioned |
+| `BibleReference` | Single-Row |
+| `Tag` | Single-Row |
+| `Reaction` | Single-Row |
+| `Comment` | Single-Row |
+| `Association` | Single-Row |
+| `ContentType` | Single-Row |
+| `ContentItemSetting` | Single-Row |
+| `BibleReferenceSetting` | Single-Row |
+
+Rules:
+
+1. The approval orchestration must resolve the publication model from this table, mirrored in code as one lookup keyed on `EntityType`. It must **not** infer it by probing the entity for the `IVersion` interface, by reflecting over property names, or by inspecting EF configuration.
+
+   Runtime shape is not a stable discriminator, and the repository proves it twice. §5.1 and §5.2 describe `Tag` and `Reaction` as carrying `ContentItemGroupId`/`Version`/`IsLatestVersion`, but neither implements the properties or the interface. More sharply, `BibleReference` dropped `IVersion` and its versioning properties while its storage configuration and validations kept referencing them — a probe would have silently changed the approval branch, where the compiler at least reports the mismatch.
+2. Adding an entity type to §7.5 without adding it here is an incomplete change. A missing row is a hard error, never a default.
+3. `Versioned` means an amendment to an approved row produces a **new row** (§3.4 rule 8) and the previously published row stays live until the new one is approved. `Single-Row` means the row that is edited **is** the published row.
 
 ### 7.6 ApprovalReview
 
@@ -718,7 +805,7 @@ Properties (identical shape for both):
 | --- | --- |
 | `Id` | Unique approval setting role identifier. |
 | `ApprovalSettingId` | Parent approval setting. |
-| `RoleName` | Role name compared against the user's roles via `ISecurityBroker.IsInRoleAsync`. May be a global role or a granular `%EntityType%-` role (§16.6). |
+| `RoleName` | Role name compared against the user's roles via `ISecurityBroker.IsInRoleAsync`. May be a global role or a granular `%EntityType%-` role (§18.6). |
 | `IsDeleted` | Soft-delete flag. When `true` the role is excluded from eligibility checks. |
 | `CreatedBy` | User who created the role rule. |
 | `CreatedWhen` | Creation timestamp. |
@@ -732,13 +819,21 @@ Properties (identical shape for both):
 
 When an approval record is created or evaluated, the approval service must resolve the effective approval setting by entity type.
 
-Recommended resolution order:
+An `ApprovalSetting` row is identified by `(EntityType, ContentTypeId)`. `ContentTypeId` is nullable, where `NULL` means "every content type of this entity type". It may be populated only when `EntityType = ContentItem`, and must be `NULL` for every other entity type. The unique index moves from `(EntityType)` to `(EntityType, ContentTypeId)` accordingly.
 
-1. Entity-specific approval setting, if future design supports `EntityId` overrides.
-2. Entity-type approval setting.
-3. System default approval setting.
+Resolution order — the first matching row supplies **every** policy field. Fields are never merged across tiers, and rows with `IsDeleted = true` are skipped at every tier:
 
-Approval settings are not snapshotted by default. If approval settings change, subsequent approval evaluation should use the latest effective settings.
+1. Entity-instance override — `(EntityType, EntityId)`. Reserved for a future design; no such store exists today.
+2. `(EntityType, ContentTypeId)` — the content-type policy. Applies only when `EntityType = ContentItem`.
+3. `(EntityType, ContentTypeId = NULL)` — the entity-type default.
+4. The system default, when no row matches at all.
+
+Rules:
+
+1. The `ContentTypeId` tier exists because one policy row cannot sensibly govern every content item. A `Testimony` may warrant two reviewers where a `Blog` needs one, yet both are `EntityType.ContentItem`. This mirrors the content-type-scoped roles in §18.6, so policy and permission are keyed the same way.
+2. **The system default is fail-closed.** When no row resolves, the effective policy is `RequireApprovals = true`, `RequiredNumberOfApprovals = 1`, `AutoApproveIfAllApprovalRequirementsMet = false`, `AllowSelfApproval = false`, `BlockOnReject = true`, `RequireReapprovalOnChange = true`, `DoNotAllowBypassingSettings = false`. A missing configuration row must never mean "no approval needed" — an unseeded environment would silently publish everything.
+3. Approval settings are not snapshotted. If approval settings change, subsequent approval evaluation uses the latest effective settings.
+4. Whether an association *may be created at all*, and whether it is *displayed*, are separate questions from whether it requires approval, and are not answered here — see §6 and the note in §4.7.
 
 ### 8.5 Approval Threshold Rules
 
@@ -777,13 +872,13 @@ Regardless of `AllowSelfApproval`:
 
 If `BlockOnReject = true`:
 
-1. A single rejection changes the approval status to `Rejected`.
+1. A single rejection changes the approval status to `Rejected` **immediately and independently of `RequiredNumberOfApprovals`** — the first rejection ends the round even when the threshold is higher and even when approvals have already been recorded.
 2. No further approvals should move the item to `Approved` unless the item is resubmitted or rejection is cleared by an allowed process.
 
 If `BlockOnReject = false`:
 
-1. Rejections are recorded.
-2. Approval can still proceed if the required approval threshold is met.
+1. Rejections are recorded and reviewing continues. The approval stays `Submitted`.
+2. Approval can still proceed if the required approval threshold is met. A rejection never counts toward that threshold and never blocks it — with `RequiredNumberOfApprovals = 2`, one rejection alongside two approvals still satisfies the conditions.
 
 ### 8.8 Reapproval Rules
 
@@ -806,7 +901,7 @@ Regardless of this setting:
 
 If `RestrictWhoCanReview = true`:
 
-1. A reviewer must belong to at least one role configured in `ApprovalSettingReviewerRoles`. Role names may be global roles or granular `%EntityType%-` roles (see §16.6); they are compared against the user's roles via `ISecurityBroker.IsInRoleAsync`.
+1. A reviewer must belong to at least one role configured in `ApprovalSettingReviewerRoles`. Role names may be global roles or granular `%EntityType%-` roles (see §18.6); they are compared against the user's roles via `ISecurityBroker.IsInRoleAsync`.
 2. Users outside the configured roles cannot submit reviews.
 
 If `RestrictWhoCanApprove = true`:
@@ -824,7 +919,14 @@ An entity starts in `Draft` when it is created but not yet ready for review.
 
 ### 9.2 Submitted
 
-An entity moves to `Submitted` when a user submits it for review.
+**The caller supplies the entry state; the persisted default is `Draft`.** The column default stays `Draft` so a value is never invented, but in practice the UI decides, and for most contributions it submits directly. `ContentItem` is expected to be the only entity where saving work-in-progress is routine — suggesting a tag, reacting, or citing a passage is a finished act with no draft stage.
+
+1. A create at `Submitted` creates the `Approval` at `Submitted` and the entity enters the review queue immediately. This is the common path.
+2. A create at `Draft` creates the `Approval` record at `Draft`. Nothing is reviewable, no reviewer queue shows it, and the approval flow stops there (§9.7.3).
+3. Beyond creation, an entity moves from `Draft` to `Submitted` only through an explicit submit action — a distinct operation with its own narrow field scope, registered under its own `<Subject>-Submitting` / `<Subject>-Submitted` address pair per §10.2 rule 7. It is not a general modify.
+4. Submission is available to the entity's owner (`CreatedBy`) and to `Publisher` / `Admin`. It is rejected when the approval is already `Submitted` or `Approved` (§12.4.4 business rule 3).
+5. A submit sets `Approval.ApprovalStatus = Submitted` **and** the owning entity's denormalized `ApprovalStatus = Submitted` in the same orchestration branch (§9.8). A submit never changes `IsLatestVersion` (§3.4 rule 18) and never changes `IsPublished` (§3.4.1).
+6. A version fork produces a new row at `Draft` with its own `Approval` at `Draft`. **The fork does not submit** — the owner must submit the new version explicitly. The previously published row stays `Approved` and `IsPublished = true` until the new version is approved.
 
 ### 9.3 Approved
 
@@ -853,6 +955,165 @@ stateDiagram-v2
     Approved --> Draft: Owner edits approved item (new version row starts at Draft)
     Approved --> Submitted: Admin amends approved item in-place (reviews dismissed)
 ```
+
+### 9.7 Approval Process Flow
+
+This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–§9.6 the states; this section defines the sequence that moves between them. Where a step restates a rule from §8, the rule in §8 is authoritative.
+
+#### 9.7.1 Entity operations (foundation services)
+
+1. **Add.** Any authenticated user may contribute unless they hold a blocking read-only role (§14.7 posture A). The row is written with `IsPublished = false` and the `ApprovalStatus` the caller asked for — `Submitted` on the common path, `Draft` when saving work in progress (§9.2). The foundation publishes its `-Added` fact; the orchestration publishes its own completion fact (§10.2 rule 5).
+2. **Modify.** The general modify operation is for **content changes only**. It is available to the owner, and to `Publisher` / `Admin` while the entity is not yet approved (so typos can be corrected during review).
+
+   **What counts as content is defined by subtraction, not by a per-entity list.** Every approvable entity's properties fall into exactly three groups:
+
+   | Group | Owned by | Examples |
+   | --- | --- | --- |
+   | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder` | the identifier broker, the security-audit broker, the version fork, the approve operation, and the sort operation respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `ContentItemGroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `SortOrder` |
+   | Derived content | computed by the orchestration from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentTypeSlug` / `EntityBContentTypeSlug` (from the resolved endpoint) and `UserId` (from the security context) |
+   | Caller-supplied, create-only | the caller, once | `ContentItem.ContentTypeId` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a) |
+   | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content`; an association's confidence fields |
+
+   Only the last group is mapped from the caller's entity onto the row loaded from storage. The first is never accepted from a caller at all; the second is written by the orchestration rather than copied from input; the third is accepted on add and then pinned against storage on every modify. This replaces enumerating control fields per entity — a new property is caller-editable content unless it is on one of the interfaces, is derived, or is declared create-only.
+
+   Note the consequence for `ContentItem`: `PublishDate` is an `IApproval` member, so it leaves the modify path and belongs solely to the approve operation. `MapPermittedFields` currently carries it and must stop.
+3. **Approve.** Each approvable foundation service exposes a **separate state-transition operation** whose entire field scope is `IApproval` — `ApprovalStatus`, `IsPublished` and `PublishDate` (§10.2 rule 7, §10.17):
+
+   ```csharp
+   ValueTask<ContentItem> ApproveContentItemAsync(
+       ContentItem contentItem,
+       CancellationToken cancellationToken = default);
+   ```
+
+   It loads the row from storage and copies **only** the `IApproval` members onto it, exactly as the general modify copies only content fields. It publishes `<Entity>-Approved`, never `<Entity>-Modified`, and the approval workflow does not subscribe to that address — so an approval write can never re-enter the flow that caused it.
+
+   Approve and publish are one operation because `IApproval` covers both; no separate `-Publishing` verb is needed. Splitting modify from approve this way means the general modify grants `Reviewer` and `Publisher` no access at all, and the approval operation cannot change content. Each validates exactly the fields it owns and is gated by the role appropriate to it.
+
+   `PublishDate` belongs here and only here. It is an `IApproval` member, so under the subtraction rule in rule 2 it is not content and the general modify never carries it — scheduling publication is a decision made at approval time, by whoever approves.
+
+4. **Sort.** Ordering is neither content nor approval state, so it is its own interface and its own operation. `ISortOrder` declares a single nullable `int? SortOrder`, and is implemented only by entities that actually appear in an ordered list — today just `Association`.
+
+   ```csharp
+   public interface ISortOrder
+   {
+       /// <summary>Position within the containing list. Null when unordered.</summary>
+       int? SortOrder { get; set; }
+   }
+   ```
+
+   Keeping it off `IApproval` matters for permissions as much as for tidiness: the approve operation is gated on a review role, so an author could not arrange the posts inside their own series without fetching a reviewer. A separate operation can be gated on ownership instead. It also keeps a permanently null column off the eight other `IApproval` implementors.
+
+   The operation writes `SortOrder` and nothing else, publishes `<Entity>-Sorted`, and **does not** enter the approval workflow — reordering a series never resets its members to `Submitted`.
+
+   **A pairwise swap cannot express a drag, so the signature takes an anchor and a side, not two peers.** Dragging item 2 to position 7 in a ten-item list shifts items 3–7 each up by one; swapping the items at positions 2 and 7 leaves 3–6 where they were, which is a visibly different result. Any signature of the form `Sort(first, second)` can only ever swap.
+
+   ```csharp
+   public enum SortPosition { Before = 0, After = 1 }
+
+   ValueTask<Association> SortAssociationAsync(
+       Association association,
+       Association anchorAssociation,
+       SortPosition position,
+       CancellationToken cancellationToken = default);
+   ```
+
+   This expresses every case the UI produces: nudge up is `(item, itemAbove, Before)`, nudge down is `(item, itemBelow, After)`, and an arbitrary drag is `(item, whateverItWasDroppedNextTo, Before|After)` — distance is irrelevant because the anchor is wherever it landed.
+
+   **Ordering values are sparse, so a move rewrites one row.** `SortOrder` is assigned in steps (100, 200, 300 …) rather than as a dense 1, 2, 3 sequence. Placing an item between two others sets it to the midpoint of their values, so the surrounding rows are untouched, the operation stays single-entity as a foundation method must be, and one move produces one `-Sorted` fact rather than a cascade of them. When the gap between two neighbours closes, that list is rebalanced by rewriting its values back to even steps — a maintenance action, not part of the move.
+
+   `SortOrder` is not unique within a list. Ties are legal and resolved by the tie-break chain in §11.7; a unique index would turn every move into a two-step dance to vacate the target value first.
+5. **Remove.** Removal is a takedown, not a moderation step. The owner or an `Admin` may remove an entity in **any** approval state, including `Approved` (§14.6 rule 3, §14.7 posture A.3). `Reviewer` and `Publisher` moderate through the approval workflow and never remove. Hard removal is `Admin` only. Approval state never gates removal — see §10.5: deletion is not an approval state.
+
+#### 9.7.2 Approval resolution
+
+Runs before any branch below.
+
+1. Resolve the `Approval` for `(EntityType, EntityId)`. If none exists, create it with `ApprovalStatus = Draft`. A newly created `Approval` is never created at `Submitted` — only the submit action (§9.2) moves it there.
+2. Existence is evaluated against **all** rows for the key, including soft-deleted ones. `UX_Approvals_EntityType_EntityId` is unique and is **not** filtered on `IsDeleted`, so a closed approval still occupies the key and a second insert can never succeed. A closed approval is reinstated in place (`IsDeleted = false`, deletion fields cleared), not re-inserted.
+3. Resolution must not use the caller-facing reads. Those are visibility-filtered and report `NotFound` for a soft-deleted approval, so they can answer "does not exist" for a key that does exist. A dedicated unfiltered probe is required, following the §14.6 pattern of filtered reads for entities and gated boolean probes for cross-row facts.
+4. `Approval.EntityId` is the identifier of a specific **row**, never of a version group. Every version row owns its own `Approval`. Approvals, reviews and comments never migrate, copy or cascade between versions sharing a `ContentItemGroupId`.
+
+#### 9.7.3 Added flow
+
+1. **If the approval was created at `Draft`, the flow ends here.** The content is not ready to be reviewed, so no policy is resolved, no evaluation runs, and nothing can be approved or published. The approval record exists only so that the later submit action has something to transition.
+2. Otherwise (created at `Submitted`), resolve the effective `ApprovalSetting` (§8.4).
+3. Run the approval evaluation (§9.7.7). At creation time no reviews exist, so this approves only where `RequireApprovals = false` **and** `AutoApproveIfAllApprovalRequirementsMet = true`.
+4. Added flow ends.
+
+#### 9.7.4 Modified flow
+
+**Every `-Modified` fact reaching this flow is a content change, by construction** — there is no field-comparison gate, because three earlier rules make one unnecessary:
+
+1. The operation split (§9.7.1 rules 2–3). Approval state is writable only through `Approve<Entity>Async`, which emits `<Entity>-Approved`. This flow subscribes to `-Modified` and never sees it.
+2. The permitted-field mapping (§12.4.3 business rule 2). A general modify carries only caller-editable content fields onto the storage row, so a `-Modified` fact cannot carry an approval-state change even if a caller supplied one.
+3. Orchestration-tier subscription (§10.17 rule 1). A version fork demotes the previous latest row through the general modify, emitting a *foundation* `-Modified` for a row whose only change is `IsLatestVersion`; the orchestration emits exactly one fact per completed amend, so the bookkeeping write is never observed.
+
+There are currently **no** permitted-modify fields that are exempt from approval. `SortOrder` was the one candidate — reordering posts within a series must not reset the membership association and dismiss its reviews — and giving it its own interface and operation (§9.7.1 rule 4) removes it from the modify path entirely. Should a future property be caller-editable but not approval-sensitive, list it alongside that entity's permitted-field mapping; a fact whose only differences are those fields ends this flow immediately.
+
+Then, having read the approval's current status and `ApprovalSetting.RequireReapprovalOnChange`:
+
+| Current approval status | Approval after the edit | Entity `ApprovalStatus` | Active reviews | Entity `IsPublished` |
+| --- | --- | --- | --- | --- |
+| `Draft` | stays `Draft` | stays `Draft` | dismissed only when `RequireReapprovalOnChange = true` | untouched |
+| `Submitted` | stays `Submitted` (§3.4 rule 6, §3.5 rule 3, §8.8 rule 3) | stays `Submitted` | dismissed only when `RequireReapprovalOnChange = true` | untouched |
+| `Rejected` | moves to `Draft` (§9.6); the owner must resubmit explicitly | moves to `Draft` | dismissed — they belong to the closed round — regardless of the setting | untouched |
+| `Approved`, **Versioned** entity | not reached: the owner's edit forks a new `Draft` row (§3.4 rule 8) which runs the Added flow with its own approval | — | — | new row `false`; previously published row untouched |
+| `Approved`, **Single-Row** entity | moves to `Submitted` | moves to `Submitted` | dismissed | set to `false` |
+
+Two invariants hold across every row: the flow never writes `Submitted` onto an approval that is currently `Draft`, and it never dismisses reviews when `RequireReapprovalOnChange = false`. The single exception is an `Admin` in-place amendment of an `Approved` entity, which always resets to `Submitted` and dismisses active reviews regardless of the setting (§8.8, §12.4.4 business rule 12).
+
+The versioned/single-row split is resolved from §7.5.1, never by probing the entity's runtime shape. The last row is the strict one: for a single-row entity the edited row **is** the published row, so leaving it published would expose unreviewed content (§14.3).
+
+#### 9.7.5 Review flow
+
+**Approval review.** Record the review subject to the §7.7 and §8.6/§8.9 gates — one active review per reviewer, self-approval policy, reviewer roles, and the bar on anyone recorded in the entity's `UpdatedBy` reviewing it. Then run the approval evaluation (§9.7.7).
+
+**Rejection review.** When the review carries a rejected decision:
+
+1. Record the review, subject to the same gates.
+2. If `BlockOnReject = true`, set the `Approval` and the entity to `Rejected` immediately (§8.7 rule 1). This is **independent of the approval threshold** — the first rejection ends the round even when `RequiredNumberOfApprovals` is higher and even when approvals have already been recorded. No evaluation runs. Do **not** change `IsLatestVersion` or `IsPublished`: rejection leaves both untouched, and any previously published version of the same group stays published. Visibility is gated by `ApprovalStatus` (§14.1).
+3. If `BlockOnReject = false`, the approval stays `Submitted` and reviewing continues. The rejection is recorded for audit, never counts toward `RequiredNumberOfApprovals`, and does not block — approval may still proceed once the §8.5 conditions are met.
+
+   Worked example with `RequiredNumberOfApprovals = 2` and `BlockOnReject = false`: reviewer A rejects, reviewers B and C approve. The approval count reaches 2, the conditions are met, and the item may then be approved — automatically if `AutoApproveIfAllApprovalRequirementsMet = true`, otherwise by a `Publisher`/`Admin` clicking approve. The same sequence with `BlockOnReject = true` would have ended at reviewer A.
+
+**Direct decision.** While the approval is `Submitted`, a `Publisher` or `Admin` may approve or reject directly (§12.4.4 business rules 10 and 13). A direct approve still requires the §8.5 conditions to be met; a direct reject does not, and moves both records to `Rejected` immediately. Rejection withholds approval rather than granting it, so `DoNotAllowBypassingSettings` does not gate it and `IsApprovedByBypass` stays `false`.
+
+**Bypass.** Governed entirely by §12.4.4 business rule 11 — a separate method, role-gated, unavailable when `DoNotAllowBypassingSettings = true`, and recording `IsApprovedByBypass = true` with the actor on `UpdatedBy`.
+
+#### 9.7.6 Removal
+
+**The approval workflow does not subscribe to `-Removed` facts.** Deletion is not an approval state (§10.5), a removal is a takedown rather than a moderation step (§9.7.1 rule 4), and nothing about a removal should re-open or re-evaluate approval. The approval orchestration subscribes to `-Added` and `-Modified` only.
+
+Three consequences follow from that, and each is handled where it belongs rather than by an approval subscription:
+
+1. **The removing orchestration sets `IsPublished = false` on the row it removes**, in the same unit of work. This is an entity concern, not an approval one. A soft-deleted row that keeps `IsPublished = true` continues to occupy the group's single published slot and permanently blocks any other version from being published — the same filtered-unique-index trap described in §3.4.
+2. **The reviewer queue excludes approvals whose subject is deleted.** Because the approval record is untouched by removal, it would otherwise sit at `Submitted` forever, pointing at a subject that answers not-found to every caller. This is a read-side filter on the queue projection, not a state change.
+3. **Approval transitions are refused for a deleted subject.** The approve, reject and bypass operations validate that the entity is not soft-deleted before applying any transition, so a review submitted before a takedown cannot approve and re-publish a tombstone afterwards. This is a validation on the transition, not an event reaction.
+
+If the entity is later restored, its approval is still present and unchanged, so it resumes at its stored status with its review history intact — which is the main advantage of leaving it alone.
+
+#### 9.7.7 Approval evaluation (shared)
+
+Invoked identically by the Added, Modified and Review flows. **The phrase "automatic approval" must not be used** — two distinct settings are involved and must never be collapsed:
+
+- `RequireApprovals = false` — no reviews are required; the approval conditions are trivially met (§8.5 rule 1).
+- `AutoApproveIfAllApprovalRequirementsMet = true` — the system applies `Approved` without a human click *once the conditions are already met* (§8.5 rule 6). It never bypasses the conditions and never substitutes for them.
+
+1. Resolve the effective `ApprovalSetting` (§8.4).
+2. Evaluate `conditionsMet` exactly as defined by the formula in §8.5 — approval count excluding dismissed and deleted reviews, `BlockOnReject`, and `RequireApprovalCommentResolutionBeforeApproval`. Step count alone is never sufficient.
+3. If `conditionsMet` is false, the approval stays `Submitted`. Stop.
+4. If `conditionsMet` is true and `AutoApproveIfAllApprovalRequirementsMet = true`, apply `Approved` automatically with `IsApprovedByBypass = false`.
+5. If `conditionsMet` is true and the flag is false, the approval stays `Submitted` and the manual approve action becomes available to `Publisher` / `Admin` (§8.5 rule 5).
+6. On `Approved`: set the entity's `ApprovalStatus = Approved` and `IsPublished = true`, and set `IsPublished = false` on the previously published row of the same group, so only one published version exists per `ContentItemGroupId`. `IsLatestVersion` is not changed at publish time (§3.4.1). For a Single-Row entity there is no group and no previous row — the "only one published" clause is vacuous, and only the row's own flag is set.
+7. Both writes in rule 6 span two rows and must be ordered so that no window exists in which two rows are published: demote the previous row first, then promote the new one.
+
+### 9.8 Denormalized Status Invariant
+
+`Approval.ApprovalStatus` is the source of truth. The `ApprovalStatus` carried on each approvable entity is a denormalization maintained for query efficiency (§3.2).
+
+Every branch that changes an `Approval` must, before it completes, write the same value to the denormalized `ApprovalStatus` on the entity that approval keys on via `(EntityType, EntityId)`. **No branch may leave the two divergent.**
+
+Because the approval is per-row, a fork's previous and new versions each mirror their own approval, and a change to one never affects the other.
 
 ## 10. Event Design
 
@@ -1032,7 +1293,7 @@ public enum AuthenticationType
 
 `SecurityContext` should be built from the `ClaimsPrincipal` provided by ASP.NET Core Identity and OpenIddict (see section 16). A `securityContextFactory` at the entry point is responsible for this normalization. The rest of the application must not depend on `ClaimsPrincipal` directly.
 
-#### 10.7.1 1 Authentication Flow Examples
+#### 10.7.1 Authentication Flow Examples
 
 **OpenID Connect user login:**
 
@@ -1395,6 +1656,32 @@ Rules:
 2. Controllers must not perform business authorization; they rely on authentication middleware and standard policy attributes for coarse access only.
 3. The `SecurityContext` for event envelopes is obtained via `ISecurityBroker.GetCurrentSecurityContextAsync()` inside the service that creates the envelope (`IEventEnvelopeFactory`).
 
+### 10.17 Approval Workflow Wiring
+
+The approval workflow both **consumes** entity lifecycle facts and **causes** entity writes (§9.7.7 rule 6). Wired naively that cycle does not terminate, so the wiring is specified here rather than left to the implementation.
+
+**Inbound — subscribe to the orchestration fact, never the foundation fact.**
+
+1. The approval orchestration subscribes to `<Entity>Orchestration-Added` and `-Modified` **where an orchestration exists**. It does not subscribe to `-Removed` at all (§9.7.6). Per §10.2 rule 6 it must not also subscribe to the foundation facts for the same reaction.
+
+   Where an approvable entity has no orchestration — today that is every one except `ContentItem` — it subscribes to the **foundation** facts instead. That is safe for a Single-Row entity (§7.5.1): the loop is broken by rule 4 below rather than by the subscription tier, and with no version fork there is no multi-row bookkeeping write to misread. A **Versioned** entity must have an orchestration before it can participate in approval, for the reason in rule 2.
+2. The reason is §10.2 rule 5. A version fork writes two foundation rows and therefore emits two foundation facts — a `-Modified` for the previous latest row being demoted, and an `-Added` for the new version. Reacting to the demotion would reset the still-published previous version's approval and dismiss its review history, for a write that changed only `IsLatestVersion`. The orchestration emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about.
+3. The consequence to accept deliberately: a write made directly against a foundation service bypasses approval invalidation. Approvable entities are therefore written through their orchestration, and an exposer must bind to the orchestration rather than the foundation for any approvable entity.
+
+**Outbound — approval-caused writes use a transition verb, never `-Modifying`.**
+
+4. Every write the approval workflow causes on an entity's approval state goes through `Approve<Entity>Async` on the owning foundation service, published as `<Entity>-Approving` / `-Approved`. §10.2 rule 7 already establishes this vocabulary — a transition owning a narrower field scope than a general modify is a separate method and therefore a separate verb. Its scope is the whole of `IApproval`, so no separate publish verb is required.
+5. This operation validates only the `IApproval` members and **must not** publish `<Entity>-Modified`. This is what breaks the cycle: the workflow subscribes to `-Modified` and causes only `-Approved`.
+
+**Why `ProcessedEvents` is not sufficient on its own.**
+
+6. `ProcessedEvents` is unique on `(EventId, ReceiverName)` and stops *redeliveries of one event*. It does not stop *new events caused by a handler's own write*: a write-back publishes on an envelope minted by `CreateNextAsync` with a **fresh** `EventId`, which the receiver has never seen. Under the inline dispatch of §10.10 the repetition would be synchronous re-entry inside the original request.
+7. The changed-field gate of §9.7.4 is the second line of defence. Rules 1 and 4 above are the first.
+
+**Ownership of the entity write.**
+
+8. `ApprovalOrchestrationService` performs the entity write itself (§16.7 responsibilities 5 and 6, §10.2 rule 10). It does not publish an approval fact for the owning entity's orchestration to react to. This resolves a contradiction in earlier drafts: §12.4.4 responsibilities 7–9 previously assigned the same write to the owning entity's orchestration, which would have required every approvable entity's orchestration to subscribe to approval facts and would have reintroduced the cycle at one remove.
+
 ## 11. Topic and Feed Design
 
 ### 11.1 Topic as Content
@@ -1482,20 +1769,17 @@ A child item is visible under a topic only when:
 
 ### 11.7 Topic Ordering
 
-The current model does not include an explicit sort order.
+`Association` implements `ISortOrder` (§9.7.1 rule 4), carrying a nullable `int? SortOrder` written only by the sort operation.
 
-Recommended future extension on `ContentItemAssociation`:
-
-```csharp
-public int? SortOrder { get; set; }
-```
-
-Topic child ordering should be resolved as:
+Ordering is resolved as:
 
 1. `SortOrder`, if supplied.
 2. Association `PublishDate`, if supplied.
 3. Child `PublishDate`, if supplied.
-4. `CreatedWhen` as fallback.
+4. `CreatedWhen`.
+5. `Id`, so the order is total and paging cannot skip or repeat a row.
+
+`SortOrder` is the position of the association within the **containing** endpoint's list — the series a post belongs to. It is null where neither endpoint is a container, because canonical ordering means one row serves both endpoints' lists and a bare integer would then have no owner. Values are sparse rather than dense, so a move rewrites a single row; see §9.7.1 rule 4.
 
 ### 11.8 Future Topic Subscriptions
 
@@ -1551,23 +1835,23 @@ Current intended brokers:
 4. `SecurityAuditBroker`
 5. `AIBroker`
 
-#### 12.2.1 1 StorageBroker
+#### 12.2.1 StorageBroker
 
 `StorageBroker` is responsible for SQL persistence through EF Core.
 
-#### 12.2.2 2 EventBroker
+#### 12.2.2 EventBroker
 
 `EventBroker` is responsible for publishing and receiving domain events.
 
-#### 12.2.3 3 SecurityBroker
+#### 12.2.3 SecurityBroker
 
 `SecurityBroker` is responsible for user identity, claims, roles, and permission checks.
 
-#### 12.2.4 4 SecurityAuditBroker
+#### 12.2.4 SecurityAuditBroker
 
 `SecurityAuditBroker` is responsible for security-sensitive audit logging and traceability.
 
-#### 12.2.5 5 AIBroker
+#### 12.2.5 AIBroker
 
 `AIBroker` is responsible for infrastructure-level access to AI capabilities used by the content analysis workflow.
 
@@ -1614,7 +1898,7 @@ Current intended orchestrations:
 | 9 | `CommentOrchestration` | Orchestrates comment creation, versioning, approval, and association workflows. |
 | 10 | `BibleReferenceOrchestration` | Orchestrates Bible reference creation, versioning, approval, and association workflows. |
 
-#### 12.4.1 1 ContentItemOrchestration
+#### 12.4.1 ContentItemOrchestration
 
 `ContentItemOrchestration` orchestrates the full lifecycle of a content item across foundation services.
 
@@ -1648,41 +1932,43 @@ Business Rules:
    - `DeletedWhen`
    - `DeletionReason`
    - `ContentHash`
-7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Title`, `Author`, `Content`, `ContentTypeId`, `PublishDate`) onto that entity before saving.
+7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author` and `Content` — onto that entity before saving. `ContentTypeId` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
+7a. **`ContentTypeId` is set at creation and may never change.** Reclassifying a content item is not permitted — different content types carry different validation rules, so a `Story` cannot become a `Testimony` by relabelling it; the existing content was never validated against the target type's rules. An item filed under the wrong type is removed and re-created.
+
+   Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentTypeId` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a public address. The orchestration dropping it from the permitted map is defence in depth.
+
+   A version fork carries the value forward unchanged; it is preserved, never re-chosen.
 8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 9. Only the owner (`CreatedBy`) may modify a content item or its versions. A `Publisher` or `Admin` may amend the text of a `Submitted` item during review (typos/grammar); their identity is then recorded on `UpdatedBy`. `CreatedBy` never changes on an update.
 10. An `Admin` in-place amendment of an `Approved` content item fires the normal updated event; the approval workflow resets the approval to `Submitted` and dismisses active reviews (§3.4 rule 16).
 11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentTypeId`, `ContentHash`) across non-deleted rows (excluding the item's own `ContentItemGroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
 
-#### 12.4.2 2 ContentTypeOrchestration
+#### 12.4.2 ContentTypeOrchestration
 
 `ContentTypeOrchestration` orchestrates the full lifecycle of a content type across foundation services.
 
 Responsibilities:
 
-1. Orchestrate content type creation and modification, enforcing versioning rules and control field integrity.
-2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
-4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Ensure required seeded content types exist on startup.
-6. Orchestrate soft delete and prevent deletion of content types that have active content items.
-7. Publish `ContentTypeCreatedEvent`, `ContentTypeUpdatedEvent`, and `ContentTypeDeletedEvent` via `ContentTypeEventService`.
-8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
+1. Orchestrate content type creation, enforcing control field integrity. There is no modify operation — see business rule 1.
+2. Ensure required seeded content types exist on startup.
+3. Orchestrate soft delete, and refuse removal for a content type that still has content items assigned (business rules 5–6).
+4. Derive and validate `Slug` on creation — PascalCase, no whitespace or hyphens, unique across non-deleted content types (§3.7).
+5. **Own the identity-role side effects of the content type lifecycle.** Creating a content type must result in `ContentItem-%Slug%-Reviewer` and `ContentItem-%Slug%-Publisher` existing (§18.6); removing one must decide the fate of those roles. Because the roles live in the Identity store and the content type lives in Core, the role write is driven from the published fact rather than performed inline — see §18.6.
+6. Publish `ContentTypeCreatedEvent` and `ContentTypeDeletedEvent` via `ContentTypeEventService`. There is no updated event, because there is no modify (business rule 1).
+7. The approval orchestration service subscribes to these events to manage approval records and workflow state.
+
+**No content type may be written outside this orchestration.** A direct call to `ContentTypeService` would create a type with no reviewer or publisher roles, leaving its content unreviewable — so the foundation's write addresses are not safe to bind to an exposer, and the admin UI must call the orchestration.
 
 Business Rules:
 
-1. A content type in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
-2. An `Approved` content type is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
-5. The seeded content types `Quote`, `Story`, `Testimony`, and `Topic` must always exist and may not be deleted.
-6. A content type may not be deleted if it has active, non-deleted content items assigned to it.
-7. `ContentType.Name` must be unique across all non-deleted records.
-8. Renaming a content type must not affect existing content item assignments.
-9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentItemGroupId`
-   - `Version`
-   - `IsLatestVersion`
+1. **A content type is immutable once created. The only operations are Add and Remove — there is no modify.** `Name` and `Slug` are both fixed at creation. A content type that is wrong is removed and replaced, not edited.
+2. Immutability is why `ContentType` is not versioned. It has no `ContentItemGroupId`, `Version` or `IsLatestVersion` and needs none — there can only ever be one row per content type, which is why §7.5.1 classifies it Single-Row.
+3. The seeded content types `Quote`, `Story`, `Testimony`, and `Topic` must always exist and may not be removed.
+4. `Name` and `Slug` must each be unique across all non-deleted records.
+5. **A content type may not be removed while any content item is assigned to it, including soft-deleted ones.** The orchestration must check this itself and must not rely on the foreign key. `ContentItem.ContentTypeId` is configured `OnDelete(DeleteBehavior.NoAction)`, which does block a *hard* delete — but removal in this system is a **soft** delete, an `UPDATE` of `IsDeleted`, and no foreign key fires on an update. The database offers no protection here at all.
+6. Soft-deleted content items still count for rule 5. Their `ContentTypeId` continues to reference the type, so removing it would leave rows pointing at a type that no longer resolves — and a restored content item would come back orphaned.
+7. Because immutability removes the modify path, none of the reapproval machinery applies: there is no in-place amendment, no version fork, and no review dismissal to perform. Whether an added content type requires approval at all is a policy question for §8.4 — with add-and-remove-only semantics and an `Admin`-gated UI, the answer may reasonably be no.
+8. The following fields are control fields and must never be accepted from an external caller:
    - `IsPublished`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -1691,10 +1977,9 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
-10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Name`) onto that entity before saving.
-11. Review dismissal is not the responsibility of this orchestration. Publishing `ContentTypeUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
+9. `Slug` is derived by the orchestration on creation and is never accepted from a caller — it composes identity-role names (§18.6) and is denormalised onto association rows, so a caller-supplied value would be an authorization input under the caller's control.
 
-#### 12.4.3 3 ContentItemSettingsOrchestration
+#### 12.4.3 ContentItemSettingsOrchestration
 
 `ContentItemSettingsOrchestration` orchestrates the creation, modification, and policy resolution of content item settings across foundation services.
 
@@ -1727,24 +2012,24 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
-7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `TagAssociationsRequireApproval`, `ShowTags`, `ReactionsAllowed`, `ReactionAssociationsRequireApproval`, `ShowReactions`, `LinksAllowed`, `LinkAssociationsRequireApproval`, `ShowLinks`, `AttachmentsAllowed`, `AttachmentAssociationsRequireApproval`, `ShowAttachments`, `CommentsAllowed`, `CommentAssociationsRequireApproval`, `ShowComments`, `BibleReferenceAllowed`, `BibleReferenceAssociationsRequireApproval`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
+7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
 8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.4 4 ApprovalOrchestrationService
+#### 12.4.4 ApprovalOrchestrationService
 
 `ApprovalOrchestrationService` orchestrates the approval workflow across entities, policy evaluation, and denormalized state.
 
 Responsibilities:
 
-1. Subscribe to entity `CreatedEvent` and `UpdatedEvent` messages for all approvable entity types.
+1. Subscribe to entity `-Added` and `-Modified` **orchestration** facts for all approvable entity types, per §10.17. It does **not** subscribe to `-Removed`: a removal is a takedown, not a moderation step, and must never re-open or re-evaluate approval (§9.7.6).
 2. On receiving a `CreatedEvent`, check whether an approval record already exists for the entity. If none exists, create one with `ApprovalStatus = Draft` via `ApprovalService`.
 3. On receiving an `UpdatedEvent`, check whether an approval record exists for the entity. If none exists, create one with `ApprovalStatus = Draft`. If one exists, evaluate whether existing reviews must be dismissed based on the effective `ApprovalSetting.RequireReapprovalOnChange` policy.
 4. Orchestrate approval submission by moving `ApprovalStatus` from `Draft` to `Submitted`.
 5. Evaluate approval threshold after each review decision using `ApprovalSettingsService`.
 6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
-7. Publish approval status changes via `ApprovalUpdatedEvent`. The owning entity's orchestration subscribes and updates the denormalized `ApprovalStatus` on the entity.
-8. On `Approved`, the owning entity's orchestration sets `IsPublished = true` on the newly approved version.
-9. The owning entity's orchestration sets `IsPublished = false` on the previously published version, ensuring only one published version exists per `ContentItemGroupId`. `IsLatestVersion` is not changed at publish time (see §3.4.1).
+7. Write the denormalized `ApprovalStatus` onto the owning entity itself, through that entity's state-transition operation rather than a general modify (§10.17 rules 4–5). The two values must never diverge (§9.8).
+8. On `Approved`, set `IsPublished = true` on the newly approved version.
+9. Set `IsPublished = false` on the previously published version, ensuring only one published version exists per `ContentItemGroupId`, and order the two writes so no window exists in which both are published. `IsLatestVersion` is not changed at publish time (see §3.4.1). For a Single-Row entity (§7.5.1) there is no previous row and this rule is vacuous.
 10. Use `SecurityBroker` to validate user identity and role claims during submission and review.
 11. Publish `ApprovalCreatedEvent`, `ApprovalUpdatedEvent`, and `ApprovalDeletedEvent` via `ApprovalEventService`.
 
@@ -1763,8 +2048,13 @@ Business Rules:
 11. This orchestration is responsible for manual approval (bypass rules) i.e. policy rules not met but a permitted user needs to approve or reject anyway. This must be a separate method that does not enforce policy rules except role-based access: bypass is available to `Admin`, to the global `Publisher` role (any entity type), and to the matching `%EntityType%-Publisher` role (that entity type only). When `RestrictWhoCanApprove = true`, the actor must additionally match a role in `ApprovalSettingPublisherRoles`. Bypass is unavailable entirely when `ApprovalSetting.DoNotAllowBypassingSettings = true` — the conditions must then be met by everyone, including `Admin`. Bypassing sets `Approval.IsApprovedByBypass = true` and records the actor on `UpdatedBy`.
 12. Dismissal is only applied when `ApprovalSetting.RequireReapprovalOnChange = true` for the relevant entity type. If `false`, existing reviews are retained and no dismissal occurs. Exception: an `Admin` in-place amendment of an `Approved` entity always resets the approval to `Submitted` and dismisses active reviews, regardless of this setting.
 13. A `Publisher` or `Admin` may reject directly while the approval is `Submitted`; the outcome is recorded immediately as `Rejected`.
+14. Retrieve-or-create (business rule 2) must evaluate existence against **all** rows for `(EntityType, EntityId)`, including soft-deleted ones, because `UX_Approvals_EntityType_EntityId` is not filtered on `IsDeleted` and the caller-facing reads are visibility-filtered. Either can report "does not exist" for a key that does exist, and the resulting insert cannot succeed (§9.7.2).
+15. The `-Modified` branch runs only when an approval-sensitive field changed (§9.7.4). A fact whose only differences are workflow or bookkeeping fields ends the branch immediately, with no read or write of the approval.
+16. The versioned/single-row branch is resolved from the §7.5.1 publication-model table, never by probing the entity for `IVersion`, by reflection, or by inspecting EF configuration.
+17. No approval transition may be applied to a soft-deleted entity. The approve, reject and bypass operations validate that the subject is not deleted before applying any transition, so a review submitted before a takedown cannot approve and re-publish it afterwards (§9.7.6 rule 3). Removal itself never changes the approval record.
+18. `Rejected` is reachable by exactly two routes: a blocking review rejection when `BlockOnReject = true` (§8.7 rule 1), and a direct `Publisher`/`Admin` rejection (business rule 13). Both apply immediately and independently of `RequiredNumberOfApprovals`, and both leave `IsPublished` and `IsLatestVersion` untouched.
 
-#### 12.4.5 5 ApprovalReviewOrchestration
+#### 12.4.5 ApprovalReviewOrchestration
 
 `ApprovalReviewOrchestration` orchestrates the recording, validation, and evaluation of individual reviewer decisions.
 
@@ -1784,7 +2074,7 @@ Business Rules:
 5. A new review may be submitted after the reviewer's previous review was dismissed.
 6. A reviewer whose identity matches the entity's `UpdatedBy` must never review that record, regardless of `AllowSelfApproval`. The entity's audit fields are retrieved via the `%EntityType%-RetrievingById` request event.
 
-#### 12.4.6 6 ApprovalCommentOrchestration
+#### 12.4.6 ApprovalCommentOrchestration
 
 `ApprovalCommentOrchestration` orchestrates the creation and lifecycle management of comments attached to approval records.
 
@@ -1810,7 +2100,7 @@ Business Rules:
 3. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Comment`) onto that entity before saving.
 4. Approval comments do not participate in the approval threshold or status transition workflow.
 
-#### 12.4.7 7 TagOrchestration
+#### 12.4.7 TagOrchestration
 
 `TagOrchestration` orchestrates the full lifecycle of a tag across foundation services, including versioning, approval, and content item association.
 
@@ -1832,7 +2122,7 @@ Business Rules:
 3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A tag may only be associated with a content item if `ContentItemSetting.TagsAllowed = true`.
-6. The association requires its own approval when `ContentItemSetting.TagAssociationsRequireApproval = true`.
+6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 7. A tag is only visible on a content item when both the tag and the association are approved and not deleted.
 8. A soft-deleted tag must not be visible on any content item.
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
@@ -1850,7 +2140,7 @@ Business Rules:
 10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Name`) onto that entity before saving.
 11. Review dismissal is not the responsibility of this orchestration. Publishing `TagUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.8 8 ReactionOrchestration
+#### 12.4.8 ReactionOrchestration
 
 `ReactionOrchestration` orchestrates the full lifecycle of a reaction definition across foundation services, including versioning, approval, and content item association.
 
@@ -1873,7 +2163,7 @@ Business Rules:
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A reaction may only be associated with a content item if `ContentItemSetting.ReactionsAllowed = true`.
 6. When `ContentItemSetting.LimitReactionsToLoveOnly = true`, only the designated love reaction may be associated.
-7. The association requires its own approval when `ContentItemSetting.ReactionAssociationsRequireApproval = true`.
+7. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 8. A soft-deleted reaction definition must not be associated with new content items.
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
@@ -1890,7 +2180,7 @@ Business Rules:
 10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Name`, `UnicodeEmoji`) onto that entity before saving.
 11. Review dismissal is not the responsibility of this orchestration. Publishing `ReactionUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.9 9 CommentOrchestration
+#### 12.4.9 CommentOrchestration
 
 `CommentOrchestration` orchestrates the full lifecycle of a comment across foundation services, including versioning, approval, and content item association.
 
@@ -1912,7 +2202,7 @@ Business Rules:
 3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A comment may only be associated with a content item if `ContentItemSetting.CommentsAllowed = true`.
-6. The association requires its own approval when `ContentItemSetting.CommentAssociationsRequireApproval = true`.
+6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 7. A soft-deleted comment must not be visible on any content item.
 8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentItemGroupId`
@@ -1929,7 +2219,7 @@ Business Rules:
 9. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Content`) onto that entity before saving.
 10. Review dismissal is not the responsibility of this orchestration. Publishing `CommentUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.10 10 BibleReferenceOrchestration
+#### 12.4.10 BibleReferenceOrchestration
 
 `BibleReferenceOrchestration` orchestrates the full lifecycle of a Bible reference across foundation services, including versioning, approval, and content item association.
 
@@ -1951,7 +2241,7 @@ Business Rules:
 3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
 4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A Bible reference may only be associated with a content item if `ContentItemSetting.BibleReferenceAllowed = true`.
-6. The association requires its own approval when `ContentItemSetting.BibleReferenceAssociationsRequireApproval = true`.
+6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 7. A soft-deleted Bible reference must not be visible on any content item.
 8. The same Bible reference may be associated with multiple content items independently.
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
@@ -2091,11 +2381,14 @@ An association is visible only when:
 
 1. The association is not soft deleted.
 2. The association approval status is `Approved`, if approval is required.
-3. The associated entity is not soft deleted.
-4. The associated entity approval status is `Approved`, if approval is required.
-5. The parent content item is visible.
-6. `ContentItemAssociation.PublishDate` is null or has passed.
-7. The effective `ContentItemSetting` allows the association type to be shown.
+3. **Both** endpoints are not soft deleted.
+4. **Both** endpoints are visible under their own entity's §14.1 rule — not deleted, approved if approval is required, and published if their publish date has passed.
+5. `Association.PublishDate` is null or has passed.
+6. The effective settings for each host endpoint allow the association to be shown (§6.10).
+
+Rules 3 and 4 replace the earlier "the associated entity" and "the parent content item is visible", both of which assumed one endpoint was always a `ContentItem`. Under symmetric endpoints there is no parent, and the driving case — `BibleReference` ↔ `BibleReference` — has no content item at all.
+
+**Layer.** Rules 3, 4 and 6 span more than one entity, so they cannot be evaluated by the association's foundation service, whose reads touch only its own table. The foundation keeps a self-only filter covering rules 1, 2 and 5; the composite rule belongs to an orchestration or aggregation service that can resolve both endpoints. A public read surface must therefore bind to that service, not to the foundation's collection read.
 
 ### 14.4 Topic Visibility
 
@@ -2146,7 +2439,7 @@ The §14.6 mandate is applied per entity according to what the entity is. Four p
 **A. User-contributed approvable content** — `ContentItem`, `ContentItemAssociation`, `Tag`, `Reaction`, `Comment`, `BibleReference`, `Link` (and `Attachment` when implemented):
 
 1. Contribution gate on writes: authenticated and not blocked by `ReadOnly` or `%EntityType%-ReadOnly`.
-2. Review roles: global `Reviewer` / `Publisher` / `Admin` plus `%EntityType%-Reviewer` / `%EntityType%-Publisher` (§16.6).
+2. Review roles: global `Reviewer` / `Publisher` / `Admin` plus `%EntityType%-Reviewer` / `%EntityType%-Publisher` (§18.6).
 3. Modify: owner (`CreatedBy`) or review role. Remove: owner or `Admin` (a takedown, not a moderation step — checked before the idempotent already-deleted short-circuit). Hard remove: `Admin` only.
 4. Reads: the §14.1 public-visibility rule; non-public rows answer not-found to everyone but the owner and the review roles (§14.5). Collections: review roles see all non-deleted rows; authenticated callers see public plus their own; anonymous callers see public only.
 
@@ -2172,7 +2465,7 @@ Soft-deleted rows follow §14.5 for every posture: not found for every caller in
 
 ## 15. Recommended Corrections
 
-### 14.1 Correct Typographical Issues
+### 15.1 Correct Typographical Issues
 
 The draw.io model includes `ConentItemAssociation`.
 
@@ -2182,7 +2475,7 @@ The correct name should be:
 ContentItemAssociation
 ```
 
-### 14.2 Remove ApprovalId from Approvable Entities
+### 15.2 Remove ApprovalId from Approvable Entities
 
 The draw.io model included `ApprovalId` on `ContentItem` and `ContentItemAssociation` as a direct foreign key to the `Approval` record. This has been resolved.
 
@@ -2193,7 +2486,7 @@ Final direction:
 3. `ApprovalId` on `ContentItemAssociation` has been removed. Approval for an association is resolved through `Approval(EntityType = ContentItemAssociation, EntityId = ContentItemAssociation.Id)`.
 4. `ApprovalId` remains valid only on `ApprovalReview` and `ApprovalComment` as a direct foreign key to their parent `Approval` record, not as a lookup from approvable entities.
 
-### 14.3 Add ContentItemAssociation to EntityType
+### 15.3 Add ContentItemAssociation to EntityType
 
 The current `EntityType` enum does not include `ContentItemAssociation`.
 
@@ -2205,7 +2498,7 @@ ContentItemAssociation = 7
 
 This allows association records themselves to be approved through the same approval mechanism.
 
-### 14.4 Add Topic Content Type
+### 15.4 Add Topic Content Type
 
 `Topic` does not require a separate `EntityType` because it is represented as a `ContentItem` with `ContentType = Topic`.
 
@@ -2216,7 +2509,7 @@ Recommended direction:
 3. Use `ContentItemAssociation` to connect topics to child content items.
 4. Exclude `Topic` from feed projections.
 
-### 14.5 Review ContentItemSetting Type Mismatch
+### 15.5 Review ContentItemSetting Type Mismatch
 
 The current `ContentItemSetting.ContentTypeId` is a string, while `ContentType.Id` is a `Guid`.
 
@@ -2306,7 +2599,7 @@ Responsible for:
 
 ## 17. Recommended API Design
 
-### 15.1 Content Endpoints
+### 17.1 Content Endpoints
 
 Recommended endpoints:
 
@@ -2321,7 +2614,7 @@ Recommended endpoints:
 | `POST` | `/api/content-items/{id}/submit` | Submit content item for approval. |
 | `DELETE` | `/api/content-items/{id}` | Soft delete content item. |
 
-### 15.2 Feed Endpoints
+### 17.2 Feed Endpoints
 
 Recommended endpoints:
 
@@ -2330,7 +2623,7 @@ Recommended endpoints:
 | `GET` | `/api/feed` | Retrieve visible published content excluding topics. |
 | `GET` | `/api/feed?contentType={name}` | Retrieve visible published content by content type. |
 
-### 15.3 Topic Endpoints
+### 17.3 Topic Endpoints
 
 Recommended endpoints:
 
@@ -2340,7 +2633,7 @@ Recommended endpoints:
 | `GET` | `/api/topics/{id}/items` | Retrieve visible child items for a topic. |
 | `POST` | `/api/topics/{id}/items` | Associate a content item with a topic. |
 
-### 15.4 Association Endpoints
+### 17.4 Association Endpoints
 
 Recommended endpoints:
 
@@ -2351,7 +2644,7 @@ Recommended endpoints:
 | `GET` | `/api/content-items/{id}/associations` | Retrieve visible associations for a content item. |
 | `DELETE` | `/api/content-item-associations/{id}` | Soft delete an association. |
 
-### 15.5 Approval Endpoints
+### 17.5 Approval Endpoints
 
 Recommended endpoints:
 
@@ -2365,13 +2658,13 @@ Recommended endpoints:
 | `POST` | `/api/approvals/{approvalId}/comments` | Add approval comment. |
 | `GET` | `/api/approvals/entity/{entityType}/{entityId}` | Retrieve approval for entity. |
 
-## 16. Authentication and Authorisation
+## 18. Authentication and Authorisation
 
-### 16.1 Purpose
+### 18.1 Purpose
 
 Authentication and authorisation ensures that G2H users are correctly identified, that access to content and actions is controlled by role and permission, and that the system is ready to support future client applications, mobile apps, and machine-to-machine integrations without requiring a rewrite.
 
-### 16.2 Technology Selection
+### 18.2 Technology Selection
 
 G2H uses the following stack for authentication and authorisation:
 
@@ -2383,7 +2676,7 @@ G2H uses the following stack for authentication and authorisation:
 
 This combination gives full ownership of users and data with no vendor lock-in and no external auth service costs.
 
-### 16.3 ASP.NET Core Identity
+### 18.3 ASP.NET Core Identity
 
 ASP.NET Core Identity provides:
 
@@ -2395,7 +2688,7 @@ ASP.NET Core Identity provides:
 6. Cookie-based authentication for the React frontend hosted within the same ASP.NET app.
 7. JWT bearer token support for API consumers.
 
-### 16.4 OpenIddict
+### 18.4 OpenIddict
 
 OpenIddict layers OAuth 2.0 and OpenID Connect on top of ASP.NET Core Identity.
 
@@ -2409,7 +2702,7 @@ It enables:
 
 OpenIddict integrates directly with ASP.NET Core Identity and persists its data to EF Core, meaning no separate identity server infrastructure is required.
 
-### 16.5 Scope Design
+### 18.5 Scope Design
 
 OAuth 2.0 scopes define what a client application is permitted to access.
 
@@ -2436,7 +2729,7 @@ Example scope assignments by client type:
 | AI background worker | `content.read` via client credentials |
 | Partner/ministry API consumer | `content.read` via client credentials |
 
-### 16.6 Role Design
+### 18.6 Role Design
 
 ASP.NET Core Identity roles control access within the G2H application. Roles are stored in the standard Identity roles table and assigned through admin user management.
 
@@ -2460,22 +2753,56 @@ BibleReference-ReadOnly,         BibleReference-Reviewer,         BibleReference
 Comment-ReadOnly,                Comment-Reviewer,                Comment-Publisher,
 Link-ReadOnly,                   Link-Reviewer,                   Link-Publisher,
 Attachment-ReadOnly,             Attachment-Reviewer,             Attachment-Publisher,
-ContentItemAssociation-ReadOnly, ContentItemAssociation-Reviewer, ContentItemAssociation-Publisher
+Association-ReadOnly,            Association-Reviewer,            Association-Publisher
 ```
 
 The same convention applies to any further approvable entity types (e.g. `Reaction`, `ContentType`, `ContentItemSetting`).
+
+**Content-type-scoped roles.** `ContentItem` has a further granularity: `%EntityType%-%ContentTypeCode%-Reviewer` and `-Publisher`, so a reviewer can be trusted with blog posts but not testimonies.
+
+```text
+ContentItem-Blog-Reviewer,       ContentItem-Blog-Publisher,
+ContentItem-Series-Reviewer,     ContentItem-Series-Publisher,
+ContentItem-Testimony-Reviewer,  ContentItem-Testimony-Publisher
+```
+
+**The capability must stay last in the name.** `ContentItem-Blog-Reviewer`, not `ContentItem-Reviewer-Blog`. `ApprovalService`, `ApprovalReviewService` and `ApprovalCommentService` all identify a reviewer by suffix — `role.EndsWith("-Reviewer")` — so a name ending in the content type would not be recognised as a review role at all, and a content-type-scoped reviewer would silently lose every capability the suffix check grants. Capability-last keeps those three checks working untouched.
+
+The capability segment is also **singular** (`-Reviewer`, `-Publisher`), matching every existing role constant and the global `Reviewer` / `Publisher` / `Admin`. A plural variant would match neither the constants nor the suffix checks.
 
 Granular role rules:
 
 1. A granular role grants its capability only for its own entity type. A user in `ContentItem-Reviewer` who is not `Admin`, not in a global role, and not in `Tag-Reviewer` cannot review tags.
 2. `%EntityType%-ReadOnly` blocks contributions for that entity type only; the global `ReadOnly` role blocks all contributions.
 3. The global `Publisher` role gains the option to bypass approval criteria for any entity type. `%EntityType%-Publisher` gains the bypass option only for that entity type.
+4. The three tiers widen from narrow to broad — `ContentItem-Blog-Reviewer` ⊂ `ContentItem-Reviewer` ⊂ `Reviewer`. Holding any one of them satisfies a check for that content type; the narrow role never satisfies a check for a different content type.
+5. Content-type-scoped roles apply to `ContentItem` only. No other entity type has a sub-classification, and none should be invented to make the pattern uniform.
+
+**The role segment is `ContentType.Slug`, never `ContentType.Name`.** `Name` is free text, so `Bible Study` or `Q&A` produces a role name that cannot be parsed on `-`, and `Guest-Post` produces one that parses wrongly. `Slug` is PascalCase with no hyphens or whitespace (§3.7), and unique across non-deleted content types so two types can never compose the same role name.
+
+**Role lifecycle is driven by the content type lifecycle:**
+
+1. Creating a content type creates `ContentItem-%Slug%-Reviewer` and `ContentItem-%Slug%-Publisher`.
+2. A content type is immutable once created (§12.4.2 business rule 1), so role names never change once issued. This removes an entire class of problem: no rename cascade, no stale role claims sitting in already-issued tokens, and no bulk update of the slugs denormalised onto association rows.
+3. Soft-deleting a content type leaves its roles in place. They are inert once no content of that type can be created, and removing them would destroy the assignment history that shows who reviewed what.
+
+**The two writes cannot share a transaction**, because the content type lives in Core's store and the role in the Identity store. Drive the role creation from the content type's `-Added` fact so a failed role write is retried rather than silently lost, leaving a content type nobody can review.
+
+**This capability does not exist yet.** Core's `ISecurityBroker` is read-only on roles — `IsInRoleAsync` and nothing more — and `IIdentityBroker` in the web app manages *user-to-role assignment* (`InsertUserToRoleAsync`, `DeleteUserFromRoleAsync`, `SelectAllRoles`) but cannot create, rename or delete a role. Since Identity is owned by the web app and `ContentType` is owned by Core, the role write belongs on the web-app side reacting to Core's content-type facts, not on a new Core dependency into the Identity store.
+
+Note also that these role names depend on **data** rather than on a fixed enum, so they cannot be enumerated at compile time and no test can assert the full set exists.
+
+**Composing an association's role check.** An `Association` is authorised from its two endpoints (§14.7), so the check must be able to name both role tiers for each end. The entity type is on the row, but the content type is not — it lives on the endpoint. Rather than resolve the endpoint (which the foundation may not do, §14.3, and which an `IQueryable` filter cannot do at all), the association **denormalises each endpoint's content type slug** onto its own row. A `Blog` post's association therefore satisfies `ContentItem-Reviewer` *or* `ContentItem-Blog-Reviewer` from the row alone.
+
+The slug is stored rather than the `ContentTypeId`, because the role name needs the slug and a `Guid` would force the join the denormalisation exists to avoid. It is **derived on write and never accepted from a caller** — it is an input to an authorization decision, so a caller who could set it could claim authority over a content type they do not hold a role for.
+
+**The denormalised value can never go stale.** A content type is immutable once created (§12.4.2 business rule 1), so there is no rename to cascade; and a content item's `ContentTypeId` is create-only (§12.4.1 business rule 7a), so there is no reclassification to chase either. The value is written once, at association creation, from an endpoint whose type can never change — which is what makes denormalising it safe rather than a maintenance liability.
 
 Role claims from the identity token must be used to control visibility of role-restricted navigation items in the React frontend and to enforce API-level authorisation.
 
-### 16.7 Authentication Flow
+### 18.7 Authentication Flow
 
-#### 16.7.1 1 Web App (Cookie Auth)
+#### 18.7.1 Web App (Cookie Auth)
 
 1. The React frontend is hosted within the same ASP.NET Core application.
 2. Login submits credentials to the ASP.NET Core Identity sign-in endpoint.
@@ -2484,7 +2811,7 @@ Role claims from the identity token must be used to control visibility of role-r
 5. Logout clears the cookie and redirects to the home page.
 6. Role claims from the cookie identity are used for route guards and UI state.
 
-#### 16.7.2 2 API (JWT Bearer)
+#### 18.7.2 API (JWT Bearer)
 
 1. API consumers authenticate using OAuth 2.0 via OpenIddict.
 2. The authorisation code + PKCE flow is used for interactive clients such as mobile apps.
@@ -2501,19 +2828,19 @@ Example:
 public IActionResult CreateContentItem(...) { ... }
 ```
 
-#### 16.7.3 3 Two-Factor Authentication
+#### 18.7.3 Two-Factor Authentication
 
 1. TOTP-based 2FA is supported via ASP.NET Core Identity.
 2. Users can enable 2FA from their profile and scan a QR code with Microsoft Authenticator or Google Authenticator.
 3. 2FA is enforced for `Admin` and `Publisher` roles by policy.
 
-#### 16.7.4 4 External Login Providers
+#### 18.7.4 External Login Providers
 
 1. Google, Microsoft, GitHub, and Facebook external login providers can be configured.
 2. External login users are linked to ASP.NET Core Identity accounts.
 3. Role assignment for external login users follows the same rules as internal users.
 
-### 16.8 Authorisation Policies
+### 18.8 Authorisation Policies
 
 API authorisation is enforced using ASP.NET Core policy-based authorisation.
 
@@ -2527,7 +2854,7 @@ Recommended policies:
 | `publish` | Authenticated user with `Publisher` role. |
 | `admin` | Authenticated user with `Admin` role or access token with `admin.users` scope. |
 
-### 16.9 Phased Adoption
+### 18.9 Phased Adoption
 
 The recommended adoption path is:
 
@@ -2549,7 +2876,7 @@ The recommended adoption path is:
 5. Enable authorisation code + PKCE for mobile clients.
 6. Enable client credentials for machine-to-machine integrations.
 
-### 16.10 Future Token Claims Example
+### 18.10 Future Token Claims Example
 
 When OpenIddict is active, access tokens will carry structured claims:
 
@@ -2571,7 +2898,7 @@ APIs enforce access using:
 
 This allows fine-grained permission control per client type without changing the domain model.
 
-### 16.11 Architecture
+### 18.11 Architecture
 
 The authentication and authorisation architecture follows the same layered pattern as the rest of the system:
 
@@ -2594,11 +2921,11 @@ This keeps all users, tokens, roles, clients, and domain data in a single owned 
 
 ## 19. Search Engine Optimisation
 
-### 16.1 Purpose
+### 19.1 Purpose
 
 Search engine optimisation (SEO) ensures that gospel content published through G2H is discoverable by search engines and social platforms, maximising the reach of the content.
 
-### 16.2 ContentItem SEO Fields
+### 19.2 ContentItem SEO Fields
 
 The following optional fields should be added to `ContentItem` to support SEO:
 
@@ -2614,7 +2941,7 @@ The following optional fields should be added to `ContentItem` to support SEO:
 | `OgImageUrl` | Open Graph image URL for social sharing previews. |
 | `StructuredDataJson` | Optional JSON-LD structured data blob for rich search results, for example `Article`, `Quote`, or `FAQPage` schema. |
 
-### 16.3 Slug Rules
+### 19.3 Slug Rules
 
 The following rules apply to `Slug`:
 
@@ -2625,7 +2952,7 @@ The following rules apply to `Slug`:
 5. If an approved content item is edited and a new version is created, the new version inherits the slug from the previous published version.
 6. An unpublished draft may have a provisional slug that can still be edited.
 
-### 16.4 API SEO Considerations
+### 19.4 API SEO Considerations
 
 The following API behaviour should be supported for SEO:
 
@@ -2635,7 +2962,7 @@ The following API behaviour should be supported for SEO:
 4. Topic landing page responses should include SEO fields for the topic content item itself.
 5. APIs should not expose draft or unpublished SEO fields to unauthenticated callers.
 
-### 16.5 Structured Data Recommendations
+### 19.5 Structured Data Recommendations
 
 Recommended JSON-LD schema types for G2H content:
 
@@ -2648,7 +2975,7 @@ Recommended JSON-LD schema types for G2H content:
 
 Structured data should be rendered server-side or returned by the API for use in server-side rendered frontends.
 
-### 16.6 Sitemap and Indexing
+### 19.6 Sitemap and Indexing
 
 The following sitemap and indexing support should be considered:
 
@@ -2660,13 +2987,13 @@ The following sitemap and indexing support should be considered:
 
 ## 20. UI / UX Design
 
-### 17.1 Purpose
+### 20.1 Purpose
 
 The G2H frontend is a React application responsible for presenting gospel content to users in a clean, readable, and accessible way.
 
 The design reference is the Blogzine Bootstrap template (https://www.webestica.com/bootstrap-templates/blogzine-blog-magazine-template), which will be converted into a React + TypeScript + Vite + Bootstrap architecture with full componentisation and clean separation of concerns.
 
-### 17.2 Technology Stack
+### 20.2 Technology Stack
 
 | Layer | Technology |
 | --- | --- |
@@ -2679,7 +3006,7 @@ The design reference is the Blogzine Bootstrap template (https://www.webestica.c
 | HTTP client | Axios or native Fetch with typed wrappers |
 | Auth | Token-based — JWT or MSAL depending on identity provider |
 
-### 17.3 Architecture Principles
+### 20.3 Architecture Principles
 
 The following principles apply to the frontend architecture:
 
@@ -2691,7 +3018,7 @@ The following principles apply to the frontend architecture:
 6. Models are TypeScript interfaces that match API response shapes.
 7. Navigation must support both unauthenticated public routes and authenticated, role-aware private routes.
 
-### 17.4 Folder Structure
+### 20.4 Folder Structure
 
 Recommended project structure:
 
@@ -2709,7 +3036,7 @@ src/
   assets/           # Static assets, images, fonts
 ```
 
-### 17.5 Pages
+### 20.5 Pages
 
 Planned pages based on the Blogzine template and the G2H domain:
 
@@ -2730,7 +3057,7 @@ Planned pages based on the Blogzine template and the G2H domain:
 | `AdminDashboardPage` | Admin overview of content, settings, and approval configuration. |
 | `NotFoundPage` | 404 fallback. |
 
-### 17.6 Components
+### 20.6 Components
 
 Planned reusable components based on the Blogzine template:
 
@@ -2760,7 +3087,7 @@ Planned reusable components based on the Blogzine template:
 | `LoadingSpinner` | Generic loading indicator. |
 | `ErrorMessage` | Generic error display. |
 
-### 17.7 Navigation
+### 20.7 Navigation
 
 Navigation must support three levels:
 
@@ -2770,7 +3097,7 @@ Navigation must support three levels:
 
 Route guards should redirect unauthenticated users to the login page and unauthorised users to a 403 or not-found page.
 
-### 17.8 Authentication
+### 20.8 Authentication
 
 The following authentication behaviour is required:
 
@@ -2781,7 +3108,7 @@ The following authentication behaviour is required:
 5. Role claims from the token must be used to control visibility of role-restricted navigation items.
 6. Token refresh or silent renewal must be handled transparently.
 
-### 17.9 Services and Brokers
+### 20.9 Services and Brokers
 
 | Layer | Responsibility |
 | --- | --- |
@@ -2801,7 +3128,7 @@ The following authentication behaviour is required:
 
 ## 21. Summary
 
-### 18.1 Final Design Direction
+### 21.1 Final Design Direction
 
 G2H should use `ContentItem` as the primary content model and represent different kinds of content through `ContentType`.
 
@@ -2813,7 +3140,7 @@ All content and supporting entities should use a shared approval workflow based 
 
 The feed should not be a database entity. It should be a projection of visible, approved, published, non-deleted content items excluding `Topic`, ordered by publish date descending.
 
-### 18.2 Immediate Next Changes
+### 21.2 Immediate Next Changes
 
 The next changes to look at:
 

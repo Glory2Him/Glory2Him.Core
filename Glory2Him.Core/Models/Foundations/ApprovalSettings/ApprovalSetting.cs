@@ -59,6 +59,11 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public bool BlockOnReject { get; set; } = false;
 
         /// <summary>
+        /// Indicates whether an entity with a zero approval score is blocked from being approved.
+        /// </summary>
+        public bool BlockOnZeroApprovalScore { get; set; } = false;
+
+        /// <summary>
         /// Indicates whether edits to the entity reset existing approval reviews.
         /// </summary>
         public bool RequireReapprovalOnChange { get; set; } = true;
