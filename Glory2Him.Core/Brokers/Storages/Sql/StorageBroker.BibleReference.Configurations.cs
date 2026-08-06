@@ -27,6 +27,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(bibleReference => bibleReference.Id)
                  .IsRequired();
 
+            model.Property(bibleReference => bibleReference.USFM)
+                 .HasMaxLength(50)
+                 .IsRequired();
+
             model.Property(bibleReference => bibleReference.Reference)
                  .HasMaxLength(255)
                  .IsRequired();
@@ -66,17 +70,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(bibleReference => bibleReference.DeletionReason)
                  .IsRequired(false);
 
-            model.Property(bibleReference => bibleReference.ContentItemGroupId)
-                 .IsRequired();
-
-            model.Property(bibleReference => bibleReference.Version)
-                 .IsRequired()
-                 .HasDefaultValue(1);
-
-            model.Property(bibleReference => bibleReference.IsLatestVersion)
-                 .IsRequired()
-                 .HasDefaultValue(false);
-
             model.Property(bibleReference => bibleReference.PublishDate)
                  .IsRequired(false);
 
@@ -88,22 +81,13 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(ApprovalStatus.Draft);
 
-            // Unique version per group
-            model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.Version })
+            // BibleReference is a Single-Row entity (no IVersion) — USFM is the canonical
+            // passage key (includes translation, since Scripture is translation-specific)
+            // and is immutable after creation (pinned in ValidateAgainstStorageBibleReferenceOnModify).
+            model.HasIndex(bibleReference => bibleReference.USFM)
                  .IsUnique()
-                 .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_Version");
-
-            // Exactly one latest version per group
-            model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.IsLatestVersion })
-                 .IsUnique()
-                 .HasFilter($"[{nameof(BibleReference.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_G2Hatest");
-
-            // Exactly one published version per group
-            model.HasIndex(bibleReference => new { bibleReference.ContentItemGroupId, bibleReference.IsPublished })
-                 .IsUnique()
-                 .HasFilter($"[{nameof(BibleReference.IsPublished)}] = 1")
-                 .HasDatabaseName("UX_BibleReferences_ContentItemGroupId_IsPublished");
+                 .HasFilter($"[{nameof(BibleReference.IsDeleted)}] = 0")
+                 .HasDatabaseName("UX_BibleReferences_USFM");
         }
     }
 }

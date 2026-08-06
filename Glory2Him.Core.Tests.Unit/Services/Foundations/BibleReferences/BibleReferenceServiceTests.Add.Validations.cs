@@ -77,9 +77,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             var invalidBibleReference = new BibleReference
             {
                 Id = Guid.Empty,
+                USFM = invalidText,
                 Reference = invalidText,
                 Translation = invalidText,
-                ContentItemGroupId = Guid.Empty,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -95,16 +95,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 values: "Id is required");
 
             invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.USFM),
+                values: "Text is required");
+
+            invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.Reference),
                 values: "Text is required");
 
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.Translation),
                 values: "Text is required");
-
-            invalidBibleReferenceException.AddData(
-                key: nameof(BibleReference.ContentItemGroupId),
-                values: "Id is required");
 
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.CreatedBy),
@@ -191,12 +191,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             BibleReference invalidBibleReference =
                 CreateBibleReferenceFiller(randomDateTimeOffset, randomUserId).Create();
+            invalidBibleReference.USFM = GetRandomStringWithLengthOf(51);
             invalidBibleReference.Reference = GetRandomStringWithLengthOf(256);
             invalidBibleReference.Translation = GetRandomStringWithLengthOf(51);
 
             var invalidBibleReferenceException =
                 new InvalidBibleReferenceException(
                     message: "Bible reference is invalid, fix the errors and try again.");
+
+            invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.USFM),
+                values: $"Text exceed max length of {invalidBibleReference.USFM.Length - 1} characters");
 
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.Reference),
