@@ -63,6 +63,16 @@ sqlcmd -S <server> -d <database> -i Glory2Him.Core.Database.sql -b
 The script is idempotent — applying it to an up-to-date database is a no-op, and applying it
 to an empty one builds the whole schema.
 
+**Keep the `-b`.** Without it `sqlcmd` prints the error and still exits `0`, so a pipeline step
+reports success over a database that received nothing. Each migration is its own transaction,
+so a failure leaves the database consistent — but silently un-migrated.
+
+**Running your own SQL against this schema needs `sqlcmd -I`.** The header above covers the
+generated script, not your session. `Associations` carries indexes on computed columns, and any
+`INSERT` or `UPDATE` against it under `sqlcmd`'s default `QUOTED_IDENTIFIER OFF` fails with the
+same `Msg 1934` — so backfills, data fixes and seed scripts need `-I` (or the same `SET` header)
+even though the schema is already in place.
+
 **Why the tool and not `dotnet ef migrations script` on its own.** The schema uses filtered
 indexes and indexes on computed columns, and SQL Server refuses to create those unless a
 specific set of `SET` options is on. EF emits no `SET` statements, and `sqlcmd` defaults
