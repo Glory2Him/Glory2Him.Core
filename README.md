@@ -38,3 +38,38 @@ in line with Christian values.
 
 ---
 
+## 🗄️ Database migrations
+
+To bring a database up to date **from the application**, EF applies the migrations itself and
+nothing special is needed:
+
+```bash
+dotnet ef database update --project Glory2Him.Core
+```
+
+To produce a **SQL script** for a DBA or a deployment pipeline, use the tool rather than
+`dotnet ef migrations script` directly:
+
+```bash
+Tools/new-database-script.sh Glory2Him.Core.Database.sql
+```
+
+Then apply it:
+
+```bash
+sqlcmd -S <server> -d <database> -i Glory2Him.Core.Database.sql -b
+```
+
+The script is idempotent — applying it to an up-to-date database is a no-op, and applying it
+to an empty one builds the whole schema.
+
+**Why the tool and not `dotnet ef migrations script` on its own.** The schema uses filtered
+indexes and indexes on computed columns, and SQL Server refuses to create those unless a
+specific set of `SET` options is on. EF emits no `SET` statements, and `sqlcmd` defaults
+`QUOTED_IDENTIFIER` to **off** — so the raw script fails on its very first `CREATE INDEX` with
+`Msg 1934`, and not one migration is applied. The tool prepends the required options to the
+generated file, so the artifact is correct however it is applied instead of depending on
+whoever runs it remembering `sqlcmd -I`.
+
+---
+
