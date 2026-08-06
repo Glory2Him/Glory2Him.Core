@@ -14,10 +14,12 @@ using System.Data.SqlTypes;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Services.Foundations.Associations;
 using Moq;
 
@@ -240,6 +242,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             inputAssociation.EntityBType.Should().Be(EntityType.Tag);
             inputAssociation.EntityBGroupId.Should().Be(tagKeyId);
             inputAssociation.EntityBKeyId.Should().Be(tagKeyId);
+        }
+
+        [Fact]
+        public async Task ShouldNormalizeEndpointOrderBeforeHandingTheRowToStorageAsync()
+        {
+            // given: issue #106 places normalisation inside DoAdd specifically so it cannot
+            // be bypassed. Asserting on the caller's object after the call cannot tell the
+            // difference between normalising before the insert and normalising after it —
+            // the object is the same reference either way — so this snapshots the row at the
+            // moment storage receives it.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Guid contentItemKeyId = Guid.NewGuid();
+            Guid bibleReferenceKeyId = Guid.NewGuid();
+
+            Association inputAssociation =
+                CreateAssociationFiller(randomDateTimeOffset).Create();
+
+            inputAssociation.EntityAType = EntityType.ContentItem;
+            inputAssociation.EntityAKeyId = contentItemKeyId;
+            inputAssociation.EntityAGroupId = Guid.NewGuid();
+            inputAssociation.EntityBType = EntityType.BibleReference;
+            inputAssociation.EntityBKeyId = bibleReferenceKeyId;
+
+            Association associationAsStorageSawIt = null;
+
+            SetupAddPathBrokers(inputAssociation, randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertAssociationAsync(
+                    inputAssociation,
+                    It.IsAny<CancellationToken>()))
+                    .Callback<Association, CancellationToken>((association, _) =>
+                        associationAsStorageSawIt = association.DeepClone())
+                    .ReturnsAsync(inputAssociation);
+
+            // when
+            await this.associationService.AddAssociationAsync(
+                inputAssociation,
+                TestContext.Current.CancellationToken);
+
+            // then: BibleReference sorts below ContentItem ordinally, so storage must have
+            // been handed the swapped row, not the caller's ordering
+            associationAsStorageSawIt.Should().NotBeNull();
+            associationAsStorageSawIt.EntityAType.Should().Be(EntityType.BibleReference);
+            associationAsStorageSawIt.EntityAKeyId.Should().Be(bibleReferenceKeyId);
+            associationAsStorageSawIt.EntityBType.Should().Be(EntityType.ContentItem);
+            associationAsStorageSawIt.EntityBKeyId.Should().Be(contentItemKeyId);
+        }
+
+        [Fact]
+        public async Task ShouldRejectATagAssociatedWithItselfOnAddAsync()
+        {
+            // given: the same tag on both endpoints, with two different caller-supplied
+            // group ids. Only the non-versioned GroupId := KeyId derivation collapses these
+            // to one value and lets the same-endpoint rule see them as equal — so this
+            // pins that derivation running BEFORE validation, which nothing else does.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Guid tagKeyId = Guid.NewGuid();
+
+            Association invalidAssociation =
+                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidAssociation.EntityAType = EntityType.Tag;
+            invalidAssociation.EntityAKeyId = tagKeyId;
+            invalidAssociation.EntityAGroupId = Guid.NewGuid();
+            invalidAssociation.EntityBType = EntityType.Tag;
+            invalidAssociation.EntityBKeyId = tagKeyId;
+            invalidAssociation.EntityBGroupId = Guid.NewGuid();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<AssociationValidationException>(
+                addAssociationTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         private void SetupAddPathBrokers(

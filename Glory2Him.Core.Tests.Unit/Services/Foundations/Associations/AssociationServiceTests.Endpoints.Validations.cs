@@ -233,15 +233,164 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Never);
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfContentTypeIsNotADefinedMemberAndLogItAsync()
+        {
+            // given: a ContentItem endpoint carrying a content type outside the enum — the
+            // structural rule below only rejects a value on the WRONG endpoint type, so
+            // without a definedness check this reaches the database as a string
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Association invalidAssociation =
+                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidAssociation.EntityBContentType = (ContentType)int.MaxValue;
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.EntityBContentType),
+                values: "Value is not a supported content type");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            SetupFailingAddPathBrokers(invalidAssociation, randomUserId, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfUserIdExceedsMaxLengthAndLogItAsync()
+        {
+            // given: the column is nvarchar(255). Without a rule the overflow surfaces as a
+            // storage dependency error rather than a validation error the caller can act on.
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Association invalidAssociation =
+                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidAssociation.UserId = GetRandomStringWithLengthOf(256);
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.UserId),
+                values: "Text exceed max length of 255 characters");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            SetupFailingAddPathBrokers(invalidAssociation, randomUserId, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfModelVersionExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Association invalidAssociation =
+                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidAssociation.ModelVersion = GetRandomStringWithLengthOf(129);
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.ModelVersion),
+                values: "Text exceed max length of 128 characters");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            SetupFailingAddPathBrokers(invalidAssociation, randomUserId, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> addAssociationTask =
+                this.associationService.AddAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    addAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
         public static TheoryData<string> ReclassifiableEndpointFields() =>
             new TheoryData<string>
             {
                 nameof(Association.EntityAType),
                 nameof(Association.EntityAKeyId),
                 nameof(Association.EntityAGroupId),
+                nameof(Association.EntityAContentType),
                 nameof(Association.EntityBType),
                 nameof(Association.EntityBKeyId),
-                nameof(Association.EntityBGroupId)
+                nameof(Association.EntityBGroupId),
+                nameof(Association.EntityBContentType)
             };
 
         [Theory]
@@ -259,6 +408,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 CreateRandomModifyAssociation(randomDateTimeOffset, randomUserId);
 
             Association invalidAssociation = randomAssociation;
+
+            // a content type is legal only on a ContentItem endpoint, so the endpoint under
+            // test becomes one before the storage row is cloned — otherwise the
+            // not-applicable rule fires instead of the storage pin this test is about
+            if (repointedField == nameof(Association.EntityAContentType))
+            {
+                invalidAssociation.EntityAType = EntityType.ContentItem;
+            }
+
             Association storageAssociation = invalidAssociation.DeepClone();
             storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
 
@@ -397,6 +555,172 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Once);
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfScopeIsNotADefinedMemberAndLogItAsync()
+        {
+            // given: scope is derived on add but caller-supplied on modify, so it is the one
+            // endpoint field where an out-of-range enum can reach the row — and it feeds the
+            // PERSISTED effective id, so a bad value moves the row's identity
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Association randomAssociation =
+                CreateRandomModifyAssociation(randomDateTimeOffset, randomUserId);
+
+            Association invalidAssociation = randomAssociation;
+            Association storageAssociation = invalidAssociation.DeepClone();
+            storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
+
+            invalidAssociation.EntityAScope = (Scope)int.MaxValue;
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.EntityAScope),
+                values: "Value is not a supported scope");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            SetupFailingModifyPathBrokers(invalidAssociation, storageAssociation, randomUserId, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> modifyAssociationTask =
+                this.associationService.ModifyAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    modifyAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Theory]
+        [InlineData(EntityType.Tag)]
+        [InlineData(EntityType.BibleReference)]
+        [InlineData(EntityType.Comment)]
+        public async Task
+            ShouldThrowValidationExceptionOnModifyIfANonVersionedEndpointIsScopedToAllVersionsAndLogItAsync(
+                EntityType nonVersionedType)
+        {
+            // given: a non-versioned entity has exactly one row, so AllVersions cannot mean
+            // anything for it. Add derives this away; modify has to defend it, because
+            // re-deriving here would overwrite the legitimate narrowing that the set-scope
+            // operation exists to perform.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Association randomAssociation =
+                CreateRandomModifyAssociation(randomDateTimeOffset, randomUserId);
+
+            Association invalidAssociation = randomAssociation;
+            invalidAssociation.EntityAType = nonVersionedType;
+            invalidAssociation.EntityAScope = Scope.ThisVersionOnly;
+
+            Association storageAssociation = invalidAssociation.DeepClone();
+            storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
+
+            invalidAssociation.EntityAScope = Scope.AllVersions;
+
+            var invalidAssociationException =
+                new InvalidAssociationException(
+                    message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.EntityAScope),
+                values: "Value is only applicable to a versioned endpoint");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            SetupFailingModifyPathBrokers(invalidAssociation, storageAssociation, randomUserId, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> modifyAssociationTask =
+                this.associationService.ModifyAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    modifyAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        private void SetupFailingAddPathBrokers(
+            Association association,
+            string actorUserId,
+            DateTimeOffset currentDateTimeOffset)
+        {
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(association, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(association);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTimeOffset);
+        }
+
+        private void SetupFailingModifyPathBrokers(
+            Association association,
+            Association storageAssociation,
+            string actorUserId,
+            DateTimeOffset currentDateTimeOffset)
+        {
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(association, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(association);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    association.Id,
+                    It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    association,
+                    storageAssociation))
+                    .ReturnsAsync(association);
+        }
+
         // mutates the field under test to something the storage row does not have, and
         // returns the message the pin is expected to produce for it
         private static string RepointEndpointField(
@@ -406,7 +730,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             switch (fieldName)
             {
                 case nameof(Association.EntityAType):
-                    association.EntityAType = EntityType.Comment;
+                    association.EntityAType = EntityType.Link;
 
                     return $"Value is not the same as {nameof(Association.EntityAType)}";
 
@@ -420,8 +744,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
                     return $"Id is not the same as {nameof(Association.EntityAGroupId)}";
 
+                case nameof(Association.EntityAContentType):
+                    association.EntityAContentType = ContentType.Story;
+
+                    return $"Value is not the same as {nameof(Association.EntityAContentType)}";
+
                 case nameof(Association.EntityBType):
-                    association.EntityBType = EntityType.Comment;
+                    association.EntityBType = EntityType.Link;
 
                     return $"Value is not the same as {nameof(Association.EntityBType)}";
 
@@ -434,6 +763,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     association.EntityBGroupId = Guid.NewGuid();
 
                     return $"Id is not the same as {nameof(Association.EntityBGroupId)}";
+
+                case nameof(Association.EntityBContentType):
+                    association.EntityBContentType = ContentType.Story;
+
+                    return $"Value is not the same as {nameof(Association.EntityBContentType)}";
 
                 default:
                     throw new ArgumentOutOfRangeException(
