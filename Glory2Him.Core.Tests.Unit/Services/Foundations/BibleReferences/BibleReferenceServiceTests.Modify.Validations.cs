@@ -79,9 +79,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             var invalidBibleReference = new BibleReference
             {
                 Id = Guid.Empty,
+                USFM = invalidText,
                 Reference = invalidText,
                 Translation = invalidText,
-                ContentItemGroupId = Guid.Empty,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -97,16 +97,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 values: "Id is required");
 
             invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.USFM),
+                values: "Text is required");
+
+            invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.Reference),
                 values: "Text is required");
 
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.Translation),
                 values: "Text is required");
-
-            invalidBibleReferenceException.AddData(
-                key: nameof(BibleReference.ContentItemGroupId),
-                values: "Id is required");
 
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.CreatedBy),
@@ -382,6 +382,106 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.CreatedBy),
                 values: $"Text is not the same as {nameof(BibleReference.CreatedBy)}");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: invalidBibleReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    invalidBibleReference.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidBibleReference,
+                    storageBibleReference))
+                        .ReturnsAsync(invalidBibleReference);
+
+            // when
+            ValueTask<BibleReference> modifyBibleReferenceTask =
+                this.bibleReferenceService.ModifyBibleReferenceAsync(
+                    invalidBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    modifyBibleReferenceTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    invalidBibleReference.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidBibleReference,
+                    storageBibleReference),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageUSFMNotSameAsInputAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
+            BibleReference invalidBibleReference = randomBibleReference;
+            BibleReference storageBibleReference = randomBibleReference.DeepClone();
+            storageBibleReference.USFM = GetRandomString();
+            storageBibleReference.UpdatedWhen = storageBibleReference.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var invalidBibleReferenceException =
+                new InvalidBibleReferenceException(
+                    message: "Bible reference is invalid, fix the errors and try again.");
+
+            invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.USFM),
+                values: $"Text is not the same as {nameof(BibleReference.USFM)}");
 
             var expectedBibleReferenceValidationException =
                 new BibleReferenceValidationException(
