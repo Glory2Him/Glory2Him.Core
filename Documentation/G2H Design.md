@@ -256,7 +256,7 @@ Until this is resolved, `Series` and `Topic` are numbered apart from the standal
 
 ### 4.1 Purpose
 
-`Association` is the generic association mechanism between a content item and another entity.
+`Association` is the generic link between **two entities**. Both endpoints are generic and symmetric: neither is hard-wired to a `ContentItem`.
 
 It supports:
 
@@ -267,75 +267,78 @@ It supports:
 5. Links
 6. Attachments
 7. Child content items
-8. Topic membership
+8. Topic and series membership
 9. Related content
+10. Related Bible references — a `BibleReference` to `BibleReference` pair, which the earlier one-sided shape could not express at all
 
-### 4.2 Association Scope
+**There is no `Kind` and no `SourceEndpoint`.** The `(EntityType, ContentType)` pair on each endpoint already carries the meaning, and direction falls out of the asymmetry — a `Series` paired with a `Story` is always container-to-member, because the reverse is not a thing that exists. A separate discriminator would be a second source of truth for something the endpoints already say, and two sources of truth for one fact eventually disagree.
 
-Associations can apply to:
+### 4.2 Endpoint Shape
 
-1. All versions of a content item.
-2. One specific content item version.
+Each endpoint carries the same six fields:
 
-This is controlled by `Scope`.
+| Field | Purpose | Owned by |
+| --- | --- | --- |
+| `Entity{A,B}Type` | The `EntityType` of the endpoint. | caller, create-only |
+| `Entity{A,B}KeyId` | The specific row — the version, for a versioned entity type. | caller, create-only |
+| `Entity{A,B}GroupId` | The version group. Equal to `KeyId` when the entity type is not versioned, so every endpoint has a group id and one set of rules covers both kinds. | caller for a versioned type; derived otherwise; create-only |
+| `Entity{A,B}Scope` | Whether the association follows the endpoint across versions. | derived (§4.5); the only endpoint field that may change after creation |
+| `Entity{A,B}EffectiveId` | `GroupId` under `AllVersions`, `KeyId` under `ThisVersionOnly`. | the database (§4.6) |
+| `Entity{A,B}ContentType` | The endpoint's `ContentType`, denormalised so authorization composes from the row alone (§18.6). Null unless the type is `ContentItem`. | derived from the resolved endpoint, never caller-supplied |
+
+Plus `UserId`, set only where the association is personal rather than editorial — today a `Reaction` endpoint. Null means editorial.
+
+`Association` also implements `ISortOrder` (§11.7) and `IConfidence` (§9.7.1 rule 5).
 
 ### 4.3 Scope Rules
 
-| Scope | Meaning | Required Field |
+| Scope | Meaning | Effective id |
 | --- | --- | --- |
-| `AllVersions` | Association applies to every version sharing the same `AssociatedContentItemGroupId`. | `AssociatedContentItemGroupId` |
-| `ThisVersionOnly` | Association applies only to a single content item version. | `ContentItemId` |
+| `AllVersions` | The association follows the endpoint's whole version group — a tag on a story survives the story being amended. | `GroupId` |
+| `ThisVersionOnly` | The association applies to one specific row. | `KeyId` |
 
-### 4.4 Scope Consistency Rules
+### 4.4 Canonical Ordering
 
-The following rules must be enforced:
+The two endpoints are stored in a fixed order, A before B, computed on add. One row therefore serves both endpoints' lists, and "is X linked to Y" is one lookup rather than two.
 
-1. If `Scope = AllVersions`, `AssociatedContentItemGroupId` must be supplied and `ContentItemId` must be null.
-2. If `Scope = ThisVersionOnly`, `ContentItemId` must be supplied and `AssociatedContentItemGroupId` must be null.
-3. Both fields must not be supplied at the same time.
-4. Both fields must not be null.
+A is the endpoint with the lower `(EntityType name, GroupId)` tuple; B is the other.
 
-### 4.5 Association Properties
+1. **Order on the enum name, not its numeric value**, using `string.CompareOrdinal`. The name is what SQL stores and what the §4.4 check constraint compares. A rename then breaks loudly at the constraint; a renumber would silently reorder existing rows.
+2. **Order on `GroupId`, not the effective id.** `GroupId` never changes, so a scope toggle can never force A and B to swap columns — which would otherwise turn a set-scope operation into a repoint.
+3. **Guid comparison must use SQL Server's ordering, not .NET's.** SQL Server orders `uniqueidentifier` by bytes 10–15 first; .NET compares the leading `_a`/`_b`/`_c` fields as integers. The two disagree on most pairs, so `Guid.CompareTo` would produce an order the database's own canonical-order constraint rejects. Use `new SqlGuid(a).CompareTo(new SqlGuid(b))`.
+4. **Normalisation runs inside `DoAddAssociationAsync`, before the storage call** — not in the public method and not in an orchestration. `Association-Adding` is a public event address whose substrate handler enters `DoAdd` directly, so anything layered above it is bypassed.
 
-| Property | Purpose |
-| --- | --- |
-| `Id` | Unique association identifier. |
-| `Scope` | Defines whether the association applies to one version or all versions. |
-| `ContentItemId` | Specific content item version targeted by the association. Populated when `Scope = ThisVersionOnly`; null otherwise. |
-| `AssociatedContentItemGroupId` | Target content item group for the association. Populated when `Scope = AllVersions`; null otherwise. |
-| `ContentItemGroupId` | Groups all versions of this association record together. Populated on creation and shared across all versions. |
-| `Version` | Version number of this association record, defaults to 1. |
-| `IsLatestVersion` | Identifies the latest version of this association record. |
-| `EntityType` | Type of the associated entity. |
-| `EntityId` | Identifier of the associated entity. |
-| `PublishDate` | Optional visibility date for the association. |
-| `IsPublished` | Identifies whether the current version of this association is published. |
-| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
-| `IsDeleted` | Soft-delete flag. When `true` the association is excluded from all public visibility. |
-| `CreatedBy` | User who created the association. |
-| `CreatedWhen` | Creation timestamp. |
-| `UpdatedBy` | User who last updated the association. |
-| `UpdatedWhen` | Last update timestamp. |
-| `DeletedBy` | User who deleted the item. |
-| `DeletedWhen` | Deletion timestamp. |
-| `DeletionReason` | Reason for deletion. |
+### 4.5 Derived and Pinned Endpoint Fields
 
-### 4.6 Associated Entity Types
+1. `Scope` is **derived, never accepted from a caller**: a non-versioned entity type resolves to `ThisVersionOnly` (it has exactly one row, so `AllVersions` would be a distinction without a difference); a versioned one defaults to `AllVersions`. The publication model comes from the §7.5.1 lookup — **never** from probing the entity for `IVersion` at runtime, which this repository has already proved unreliable twice.
+2. `GroupId` is derived as `KeyId` for a non-versioned endpoint.
+3. `ContentType` is derived from the resolved endpoint and never caller-supplied — it is an authorization input, so a caller who could set it could claim authority over a content type they hold no role for. Resolving it requires reading the endpoint row, which is an orchestration read; the foundation enforces the structural half of the rule (a value is permitted only on a `ContentItem` endpoint) and leaves a null endpoint costing the caller only the narrow role tier.
+4. **Reclassification is forbidden.** `Type`, `KeyId` and `GroupId` are pinned against storage on every modify. Repointing an association is indistinguishable from deleting one link and creating another — except that it carries the original's approval state and review history across to a pair nobody reviewed.
+5. The two endpoints must differ: `EntityAGroupId != EntityBGroupId`. Because a non-versioned endpoint's group id is its key id, this one rule covers an entity associated with itself, two versions of the same entity, and a tag paired with itself.
 
-The supported associated entity types are defined by `EntityType`.
+### 4.6 Effective Id
+
+`Entity{A,B}EffectiveId` is a `PERSISTED` computed column — `CASE WHEN Scope = 'AllVersions' THEN GroupId ELSE KeyId END` — read-only to application code. It earns its keep twice:
+
+1. **It is the read predicate.** Every tag panel and related-passage panel asks "associations for this entity". Without the column that is an `OR` across `KeyId`/`GroupId` plus two scope tests per side; with it, one seekable comparison on the query that runs on every page render.
+2. **It makes uniqueness a database guarantee.** Two `AllVersions` rows for the same group differing only in `KeyId` mean the same thing; over the raw columns they are distinct rows, and the effective id collapses them. This matters because foundation services are reachable through public event addresses and cannot assume an orchestration's retrieve-or-add ran first.
+
+### 4.7 Associated Entity Types
+
+The supported entity types on either endpoint are defined by `EntityType`.
 
 | EntityType | Purpose |
 | --- | --- |
-| `ContentItem` | Related content, topic child items, parent/child links. |
+| `ContentItem` | Related content, topic and series children, parent/child links. |
 | `Association` | Allows association records themselves to be approved. |
 | `Tag` | Categorisation and labelling. |
 | `Reaction` | Reactions such as love, like, celebrate. |
-| `BibleReference` | Scripture references. |
+| `BibleReference` | Scripture references, including reference-to-reference pairs. |
 | `Comment` | Comments on content. |
 | `Link` | External or internal links. |
 | `Attachment` | Files or binary resources. |
 
-### 4.7 Association Approval
+### 4.8 Association Approval
 
 Associations are themselves subject to approval.
 
@@ -345,10 +348,10 @@ Example:
 
 1. A tag named `Faith` may already be approved.
 2. A user associates `Faith` with a story.
-3. The association can require approval based on the effective `ApprovalSetting` for `(Association, Tagged)` — see §8.4. This is **not** a `ContentItemSetting` concern (§6.1).
+3. The association can require approval based on the effective `ApprovalSetting` for `EntityType.Association` — see §8.4. This is **not** a `ContentItemSetting` concern (§6.1).
 4. The tag becomes visible on the story only when both the tag and association are visible.
 
-**Associations hosted on something other than a content item.** Once associations become symmetric, either endpoint may be any entity type, so a `BibleReference` ↔ `Tag` or `BibleReference` ↔ `BibleReference` association has no `ContentItem` to resolve settings from.
+**Associations hosted on something other than a content item.** Because associations are symmetric, either endpoint may be any entity type, so a `BibleReference` ↔ `Tag` or `BibleReference` ↔ `BibleReference` association has no `ContentItem` to resolve settings from.
 
 `ContentItemSetting` is not generalised to cover that. It stays scoped to content items (§6.1), and each host entity type gets its own settings entity instead — `BibleReferenceSetting` (§6.9) for the reference page. An association resolves the allowed/show switches per endpoint, from that endpoint's own settings entity, and is permitted only when both ends allow it (§6.10).
 
@@ -832,7 +835,7 @@ Rules:
 1. The `ContentType` tier exists because one policy row cannot sensibly govern every content item. A `Testimony` may warrant two reviewers where a `Blog` needs one, yet both are `EntityType.ContentItem`. This mirrors the content-type-scoped roles in §18.6, so policy and permission are keyed the same way.
 2. **The system default is fail-closed.** When no row resolves, the effective policy is `RequireApprovals = true`, `RequiredNumberOfApprovals = 1`, `AutoApproveIfAllApprovalRequirementsMet = false`, `AllowSelfApproval = false`, `BlockOnReject = true`, `RequireReapprovalOnChange = true`, `DoNotAllowBypassingSettings = false`. A missing configuration row must never mean "no approval needed" — an unseeded environment would silently publish everything.
 3. Approval settings are not snapshotted. If approval settings change, subsequent approval evaluation uses the latest effective settings.
-4. Whether an association *may be created at all*, and whether it is *displayed*, are separate questions from whether it requires approval, and are not answered here — see §6 and the note in §4.7.
+4. Whether an association *may be created at all*, and whether it is *displayed*, are separate questions from whether it requires approval, and are not answered here — see §6 and the note in §4.8.
 
 ### 8.5 Approval Threshold Rules
 
@@ -974,7 +977,7 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
    | Group | Owned by | Examples |
    | --- | --- | --- |
    | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `ContentItemGroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
-   | Derived content | computed by the orchestration from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentTypeSlug` / `EntityBContentTypeSlug` (from the resolved endpoint) and `UserId` (from the security context) |
+   | Derived content | computed by the orchestration from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentType` / `EntityBContentType` (from the resolved endpoint) and `UserId` (from the security context) |
    | Caller-supplied, create-only | the caller, once | `ContentItem.ContentType` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a) |
    | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content`; an association's confidence fields |
 
