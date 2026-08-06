@@ -38,10 +38,20 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// request envelope in → shared do-work). The private <c>DoXAsync</c> methods own auditing,
     /// validation, storage, and publishing the past-tense fact, so the two paths cannot
     /// diverge; the inbound envelope carries the original caller's <c>SecurityContext</c> and
-    /// anchors the causation chain. Per design §14.6 the foundation enforces security itself
-    /// — the contribution gate on writes, owner-or-moderation-role write permission (removal
-    /// by owner or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility
-    /// posture — never assuming an upstream orchestration already gated the caller.
+    /// anchors the causation chain. Per design §14.6 the foundation enforces security itself,
+    /// never assuming an upstream orchestration already gated the caller.
+    ///
+    /// <para><b>Security posture A′ (design §14.7).</b> An association has no scoped roles of
+    /// its own; every scoped question is answered from its two endpoints, using only columns
+    /// on the row. The contribution gate blocks on the global <c>ReadOnly</c> <b>or</b> a
+    /// <c>ReadOnly</c> scoped to <i>either</i> endpoint type. Review permission is a global
+    /// elevated role <b>or</b> a scoped role matching <i>at least one</i> endpoint, each
+    /// endpoint checked at both the coarse entity-type tier and the narrow content-type tier.
+    /// Write permission is the owner or a review role; removal is the owner or <c>Admin</c>,
+    /// hard removal <c>Admin</c> only — both additionally subject to the endpoint veto. The
+    /// veto is scoped to writes and never consulted on a read, so a moderator holding one
+    /// scoped <c>ReadOnly</c> keeps their audit visibility. Reads otherwise follow the
+    /// §14.1/§14.5 posture.</para>
     /// </summary>
     internal partial class AssociationService : IAssociationService
     {
@@ -517,7 +527,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // only the endpoint-independent half of the contribution gate can run here — the
             // scoped veto needs the row, and this path is handed an id. Keeping the
             // authentication and global-block checks above the read means an anonymous or
-            // globally blocked caller is still rejected without a query.
+            // globally blocked caller never reaches the Associations table, so this surface
+            // cannot be used to probe which association ids exist. (The event path first
+            // touches ProcessedEvents for deduplication; that lookup is keyed on the event
+            // id, not the association id, so it reveals nothing about which rows exist.)
             ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
             ValidateOnRemoveAssociationById(associationId);
 
@@ -594,6 +607,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     cancellationToken: cancellationToken);
 
             ValidateStorageAssociation(maybeAssociation, associationId);
+
+            // the same endpoint veto the soft delete applies. Without it this surface is the
+            // one write an endpoint-blocked Admin can still perform — and it is the
+            // destructive one, taking the audit trail with it. A block that stops the
+            // reversible takedown but not the irreversible one is the wrong way round.
+            ValidateUserIsNotBlockedFromEndpoints(
+                securityContext: inboundEnvelope.SecurityContext,
+                firstEntityType: maybeAssociation.EntityAType,
+                secondEntityType: maybeAssociation.EntityBType);
 
             Association deletedAssociation =
                 await this.storageBroker.DeleteAssociationAsync(

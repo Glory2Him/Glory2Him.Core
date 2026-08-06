@@ -498,6 +498,127 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualAssociations.Should().BeEmpty();
         }
 
+        public static TheoryData<string, EntityType, ContentType?> CollectionScopedReviewRoles() =>
+            new TheoryData<string, EntityType, ContentType?>
+            {
+                // endpoint A, coarse tier
+                { Roles.TagReviewer, EntityType.Tag, null },
+                { Roles.TagPublisher, EntityType.Tag, null },
+
+                // endpoint B, coarse tier — B is always the ContentItem here
+                { Roles.ContentItemReviewer, EntityType.Tag, null },
+                { Roles.ContentItemPublisher, EntityType.Tag, null },
+
+                // narrow tier, both capabilities
+                { "ContentItem-Testimony-Reviewer", EntityType.Tag, ContentType.Testimony },
+                { "ContentItem-Testimony-Publisher", EntityType.Tag, ContentType.Testimony }
+            };
+
+        [Theory]
+        [MemberData(nameof(CollectionScopedReviewRoles))]
+        public async Task ShouldIncludeRowsReachableByEveryScopedTierInTheCollectionReadAsync(
+            string scopedRole,
+            EntityType otherEndpointType,
+            ContentType? contentItemContentType)
+        {
+            // given: the filter has four separate role-derived clauses — A coarse, B coarse,
+            // A content type, B content type — and each capability tier feeds them. Covering
+            // only one left the rest dead: they could be deleted with the suite green.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(scopedRole);
+            string randomActorUserId = GetRandomString();
+
+            Association reachableAssociation =
+                CreateNonPublicAssociation(otherEndpointType, contentItemContentType);
+
+            // the control row must share NO endpoint type with any role under test — the
+            // ContentItem-scoped rows would otherwise match it too, since every row built by
+            // CreateNonPublicAssociation has a ContentItem on the B side
+            Association unreachableAssociation = CreateRandomAssociation();
+            unreachableAssociation.EntityAType = EntityType.Comment;
+            unreachableAssociation.EntityAScope = Scope.ThisVersionOnly;
+            unreachableAssociation.EntityAContentType = null;
+            unreachableAssociation.EntityBType = EntityType.Link;
+            unreachableAssociation.EntityBContentType = null;
+            unreachableAssociation.IsDeleted = false;
+            unreachableAssociation.ApprovalStatus = ApprovalStatus.Draft;
+            unreachableAssociation.IsPublished = false;
+            unreachableAssociation.CreatedBy = GetRandomString();
+
+            IQueryable<Association> storageAssociations = new[]
+            {
+                reachableAssociation,
+                unreachableAssociation
+            }.AsQueryable();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageAssociations);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            IQueryable<Association> actualAssociations =
+                await this.associationService.RetrieveAllAssociationsAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().ContainSingle()
+                .Which.Should().BeEquivalentTo(reachableAssociation);
+        }
+
+        [Theory]
+        [InlineData("ContentItem-Testimony-Reviewer")]
+        [InlineData("ContentItem-Testimony-Publisher")]
+        public async Task ShouldMatchTheNarrowTierOnTheAEndpointAsync(string narrowRole)
+        {
+            // given: a CANONICAL row with the ContentItem on the A side. Every other
+            // authorization test pairs ContentItem with a type that sorts below it, so the
+            // ContentItem always lands on B and the A-side content-type clause is never
+            // exercised. Reaction sorts above ContentItem ordinally, so this row puts the
+            // ContentItem on A — which is also the ordering the add path would produce.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(narrowRole);
+            string randomActorUserId = GetRandomString();
+
+            Association storageAssociation = CreateRandomAssociation();
+            storageAssociation.EntityAType = EntityType.ContentItem;
+            storageAssociation.EntityAContentType = ContentType.Testimony;
+            storageAssociation.EntityBType = EntityType.Reaction;
+            storageAssociation.EntityBScope = Scope.ThisVersionOnly;
+            storageAssociation.EntityBContentType = null;
+            storageAssociation.IsDeleted = false;
+            storageAssociation.ApprovalStatus = ApprovalStatus.Draft;
+            storageAssociation.IsPublished = false;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            Association actualAssociation =
+                await this.associationService.RetrieveAssociationByIdAsync(
+                    storageAssociation.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociation.Should().BeEquivalentTo(storageAssociation);
+        }
+
         // a non-public row owned by somebody else, so only a review role can reach it. The
         // ContentItem endpoint carries the content type, because that is the only entity
         // type with a narrow tier.

@@ -185,13 +185,20 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Admin only, and additionally
+        // subject to the endpoint veto once the row is known (applied by the caller)
         private static void ValidateUserCanHardRemoveAssociation(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not authenticated.");
+            }
+
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is blocked from contributing content item associations.");
             }
 
             if (securityContext.Roles.Contains(Roles.Admin) is false)
@@ -283,6 +290,20 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsNotWithinRange(association.ConfidenceScore, 0, 10),
                     Parameter: nameof(Association.ConfidenceScore)),
+
+                // A row is contributed unpublished, and publication is the approve
+                // operation's to grant (design §9.7.1 rules 1 and 3). Without these three
+                // rules any authenticated caller can insert a row that is already Approved
+                // and IsPublished, which is public the moment it lands — the approval
+                // workflow is simply skipped rather than bypassed.
+                (Rule: IsSetOnAdd(association.IsPublished),
+                    Parameter: nameof(Association.IsPublished)),
+
+                (Rule: IsSetOnAdd(association.PublishDate),
+                    Parameter: nameof(Association.PublishDate)),
+
+                (Rule: IsNotContributableStatus(association.ApprovalStatus),
+                    Parameter: nameof(Association.ApprovalStatus)),
 
                 (Rule: IsNotSame(
                         firstDate: association.UpdatedWhen,
@@ -511,6 +532,33 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         secondName: nameof(Association.EntityBContentType)),
                     Parameter: nameof(Association.EntityBContentType)),
 
+                // The general modify is for content only. Every IApproval member belongs to
+                // the approve operation (design §9.7.1 rules 2 and 3), so all three are
+                // pinned here rather than carried.
+                //
+                // This matters more since authorization became endpoint-derived: the write
+                // gate now admits any scoped reviewer for EITHER endpoint, so without these
+                // pins a Tag-Reviewer could take someone else's pending association and
+                // publish it through the general modify — approving content nobody with
+                // authority over it ever looked at.
+                (Rule: IsNotSame(
+                        first: inputAssociation.ApprovalStatus,
+                        second: storageAssociation.ApprovalStatus,
+                        secondName: nameof(Association.ApprovalStatus)),
+                    Parameter: nameof(Association.ApprovalStatus)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.IsPublished,
+                        second: storageAssociation.IsPublished,
+                        secondName: nameof(Association.IsPublished)),
+                    Parameter: nameof(Association.IsPublished)),
+
+                (Rule: IsNotSame(
+                        firstDate: inputAssociation.PublishDate,
+                        secondDate: storageAssociation.PublishDate,
+                        secondDateName: nameof(Association.PublishDate)),
+                    Parameter: nameof(Association.PublishDate)),
+
                 (Rule: IsSame(
                         firstDate: inputAssociation.UpdatedWhen,
                         secondDate: storageAssociation.UpdatedWhen,
@@ -686,6 +734,59 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 Condition = first != second,
                 Message = $"Value is not the same as {secondName}"
             };
+
+        private static dynamic IsNotSame(
+            ApprovalStatus first,
+            ApprovalStatus second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            bool first,
+            bool second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            DateTimeOffset? firstDate,
+            DateTimeOffset? secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate != secondDate,
+                Message = $"Date is not the same as {secondDateName}"
+            };
+
+        // a contribution is unpublished by definition — publication is granted by the
+        // approve operation, never asserted by the contributor
+        private static dynamic IsSetOnAdd(bool value) => new
+        {
+            Condition = value,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(DateTimeOffset? date) => new
+        {
+            Condition = date is not null,
+            Message = "Date is not allowed on add"
+        };
+
+        // a caller may save work in progress or submit it for review; the remaining states
+        // are verdicts, and a verdict is the approval workflow's to record (design §9.7.1
+        // rule 1)
+        private static dynamic IsNotContributableStatus(ApprovalStatus approvalStatus) => new
+        {
+            Condition = approvalStatus != ApprovalStatus.Draft
+                && approvalStatus != ApprovalStatus.Submitted,
+
+            Message = $"Value must be {nameof(ApprovalStatus.Draft)} " +
+                $"or {nameof(ApprovalStatus.Submitted)} on add"
+        };
 
         private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
