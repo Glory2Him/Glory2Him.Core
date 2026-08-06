@@ -27,7 +27,6 @@ using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
-using Glory2Him.Core.Services.Foundations.ContentTypes;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
@@ -45,7 +44,6 @@ namespace Glory2Him.Core.Registrations
     /// <code>
     /// services.AddSingleton&lt;IEventBroker, EventBroker&gt;();
     /// services.AddSingleton&lt;IEventEnvelopeFactory, EventEnvelopeFactory&gt;();
-    /// services.AddSingleton&lt;IContentTypeService, ContentTypeService&gt;();
     /// services.AddSingleton&lt;IEventSubscriptionRegistration, EventSubscriptionRegistration&gt;();
     ///
     /// // after the container is built:
@@ -63,7 +61,6 @@ namespace Glory2Him.Core.Registrations
     internal class EventSubscriptionRegistration : IEventSubscriptionRegistration
     {
         private readonly IEventBroker eventBroker;
-        private readonly IContentTypeService contentTypeService;
         private readonly IContentItemService contentItemService;
         private readonly IApprovalService approvalService;
         private readonly IBibleReferenceService bibleReferenceService;
@@ -82,7 +79,6 @@ namespace Glory2Him.Core.Registrations
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
-            IContentTypeService contentTypeService,
             IContentItemService contentItemService,
             IApprovalService approvalService,
             IBibleReferenceService bibleReferenceService,
@@ -100,7 +96,6 @@ namespace Glory2Him.Core.Registrations
             IContentItemOrchestrationService contentItemOrchestrationService)
         {
             this.eventBroker = eventBroker;
-            this.contentTypeService = contentTypeService;
             this.contentItemService = contentItemService;
             this.approvalService = approvalService;
             this.bibleReferenceService = bibleReferenceService;
@@ -138,73 +133,6 @@ namespace Glory2Him.Core.Registrations
             // subscribers, and Func<EventEnvelope<T>, CancellationToken,
             // ValueTask<EventEnvelope<T>?>> for responders — the returned reply envelope is
             // recorded as the delivery's response on its ListenerEventV2 row (null = no reply).
-
-            // ── ContentType request handlers ─────────────────────────────────────
-            await this.eventBroker.SubscribeToContentTypeEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentTypeOnAddingContentTypeSubscriptionName,
-
-                    Description = "Handles add requests: stores the content type, publishes " +
-                        "ContentType-Added, and replies with the added entity."
-                },
-                operation: ContentTypeEventOperation.Adding,
-                contentTypeEventHandler: this.contentTypeService.OnAddingContentTypeAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToContentTypeEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentTypeOnModifyingContentTypeSubscriptionName,
-
-                    Description = "Handles modify requests: updates the content type, publishes " +
-                        "ContentType-Modified, and replies with the updated entity."
-                },
-                operation: ContentTypeEventOperation.Modifying,
-                contentTypeEventHandler: this.contentTypeService.OnModifyingContentTypeAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToContentTypeEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentTypeOnRemovingContentTypeByIdSubscriptionName,
-
-                    Description = "Handles remove requests: soft-deletes the content type, " +
-                        "publishes ContentType-Removed, and replies with the removed entity."
-                },
-                operation: ContentTypeEventOperation.RemovingById,
-                contentTypeEventHandler: this.contentTypeService.OnRemovingContentTypeByIdAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToContentTypeEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentTypeOnHardRemovingContentTypeByIdSubscriptionName,
-
-                    Description = "Handles hard-remove requests: permanently deletes the " +
-                        "content type, publishes ContentTypeHardRemoved on the removal " +
-                        "address, and replies with the deleted entity."
-                },
-                operation: ContentTypeEventOperation.HardRemovingById,
-                contentTypeEventHandler: this.contentTypeService.OnHardRemovingContentTypeByIdAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToContentTypeEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ContentTypeOnRetrievingContentTypeByIdSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentTypeOnRetrievingContentTypeByIdSubscriptionName,
-
-                    Description = "Handles retrieve requests: retrieves a content type by id " +
-                        "and replies with it on the delivery."
-                },
-                operation: ContentTypeEventOperation.RetrievingById,
-                contentTypeEventHandler: this.contentTypeService.OnRetrievingContentTypeByIdAsync,
-                cancellationToken: cancellationToken);
 
             // ── ContentItem request handlers ─────────────────────────────────────
             await this.eventBroker.SubscribeToContentItemEventAsync(

@@ -33,7 +33,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired();
 
             model
-                .Property(contentItem => contentItem.ContentTypeId)
+                .Property(contentItem => contentItem.ContentType)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsUnicode(true)
                 .IsRequired();
 
             model.Property(contentItem => contentItem.Content)
@@ -128,15 +131,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasFilter($"[{nameof(ContentItem.IsPublished)}] = 1")
                  .HasDatabaseName("IX_ContentItem_IsPublished");
 
-            // Relationship: many ContentItems to one ContentType
-            model.HasOne(contentItem => contentItem.ContentType)
-                .WithMany(contentType => contentType.ContentItems)
-                .HasForeignKey(contentItem => contentItem.ContentTypeId)
-                .OnDelete(DeleteBehavior.NoAction);
-
             // §14.2 — additional recommended indexes
-            model.HasIndex(contentItem => contentItem.ContentTypeId)
-                 .HasDatabaseName("IX_ContentItems_ContentTypeId");
+            model.HasIndex(contentItem => contentItem.ContentType)
+                 .HasDatabaseName("IX_ContentItems_ContentType");
 
             model.HasIndex(contentItem => contentItem.PublishDate)
                  .HasDatabaseName("IX_ContentItems_PublishDate");
@@ -157,7 +154,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // wording); uniqueness is enforced application-side by the orchestration.
             model.HasIndex(contentItem => new
             {
-                contentItem.ContentTypeId,
+                contentItem.ContentType,
                 contentItem.ContentHash
             })
                  .HasDatabaseName("IX_ContentItems_ContentTypeId_ContentHash");

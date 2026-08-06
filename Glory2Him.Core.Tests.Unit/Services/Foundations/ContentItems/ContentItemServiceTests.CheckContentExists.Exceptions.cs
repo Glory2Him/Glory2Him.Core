@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Microsoft.Data.SqlClient;
 using Moq;
@@ -25,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowCriticalDependencyExceptionOnCheckContentExistsIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType someContentType = ContentType.Quote;
             string someContentHash = GetRandomString();
             SqlException sqlException = GetSqlException();
 
@@ -45,7 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    someContentTypeId,
+                    someContentType,
                     someContentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
@@ -78,7 +79,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowDependencyExceptionOnCheckContentExistsIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType someContentType = ContentType.Quote;
             string someContentHash = GetRandomString();
             var operationCanceledException = new OperationCanceledException();
 
@@ -102,7 +103,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    someContentTypeId,
+                    someContentType,
                     someContentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
@@ -135,14 +136,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowOperationCanceledExceptionOnCheckContentExistsIfCancellationRequestedAsync()
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType someContentType = ContentType.Quote;
             string someContentHash = GetRandomString();
             var cancellationToken = new CancellationToken(canceled: true);
 
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    someContentTypeId,
+                    someContentType,
                     someContentHash,
                     excludedContentItemGroupId: null,
                     cancellationToken);
@@ -162,7 +163,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowServiceExceptionOnCheckContentExistsIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            Guid someContentTypeId = Guid.NewGuid();
+            ContentType someContentType = ContentType.Quote;
             string someContentHash = GetRandomString();
             var serviceException = new Exception();
 
@@ -182,7 +183,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             ValueTask<bool> checkContentExistsTask =
                 this.contentItemService.CheckContentItemContentExistsAsync(
-                    someContentTypeId,
+                    someContentType,
                     someContentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);

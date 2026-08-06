@@ -75,7 +75,6 @@ namespace Glory2Him.Core.Models.Configurations
                 ContentItemEventAddresses,
                 ContentItemOrchestrationEventAddresses,
                 ContentItemSettingEventAddresses,
-                ContentTypeEventAddresses,
                 LinkEventAddresses,
                 ReactionEventAddresses,
                 TagEventAddresses

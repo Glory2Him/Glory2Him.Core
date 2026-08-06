@@ -43,7 +43,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             var expectedMappedContentItem = new ContentItem
             {
                 Id = contentItemId,
-                ContentTypeId = inputContentItem.ContentTypeId,
+                ContentType = inputContentItem.ContentType,
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
@@ -70,7 +70,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     null,
                     It.IsAny<CancellationToken>()))
@@ -114,7 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     null,
                     It.IsAny<CancellationToken>()),
@@ -172,7 +172,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     null,
                     It.IsAny<CancellationToken>()))
@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // types, so a matching row in either state reports no duplicate
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     null,
                     It.IsAny<CancellationToken>()))

@@ -22,6 +22,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
@@ -230,9 +231,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         // the duplicate probe's request payload carries only the content type and hash
         // being checked — the envelope exists to capture the ambient security context
         private static Expression<Func<ContentItem, bool>> SameCheckRequestAs(
-            Guid expectedContentTypeId,
+            ContentType expectedContentType,
             string expectedContentHash) =>
-            actualContentItem => actualContentItem.ContentTypeId == expectedContentTypeId
+            actualContentItem => actualContentItem.ContentType == expectedContentType
                 && actualContentItem.ContentHash == expectedContentHash;
 
         private static SqlException GetSqlException() =>

@@ -11,6 +11,7 @@
 
 using System;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Enums;
 
 namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
 {
@@ -25,9 +26,9 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         public Guid Id { get; set; }
 
         /// <summary>
-        /// Identifier for the content type this setting applies to.
+        /// The content type this setting applies to.
         /// </summary>
-        public Guid ContentTypeId { get; set; }
+        public ContentType ContentType { get; set; }
 
         /// <summary>
         /// Optional identifier for a specific content item.
@@ -46,11 +47,6 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         public bool TagsAllowed { get; set; }
 
         /// <summary>
-        /// Indicates whether tag associations require approval.
-        /// </summary>
-        public bool TagAssociationsRequireApproval { get; set; }
-
-        /// <summary>
         /// Indicates whether tags should be displayed.
         /// </summary>
         public bool ShowTags { get; set; }
@@ -63,11 +59,6 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         /// Indicates whether new reactions can be created.
         /// </summary>
         public bool ReactionsAllowed { get; set; }
-
-        /// <summary>
-        /// Indicates whether reaction associations require approval.
-        /// </summary>
-        public bool ReactionAssociationsRequireApproval { get; set; }
 
         /// <summary>
         /// Indicates whether reactions should be displayed.
@@ -84,11 +75,6 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         public bool LinksAllowed { get; set; }
 
         /// <summary>
-        /// Indicates whether link associations require approval.
-        /// </summary>
-        public bool LinkAssociationsRequireApproval { get; set; }
-
-        /// <summary>
         /// Indicates whether links should be displayed.
         /// </summary>
         public bool ShowLinks { get; set; }
@@ -101,11 +87,6 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         /// Indicates whether new attachments can be created.
         /// </summary>
         public bool AttachmentsAllowed { get; set; }
-
-        /// <summary>
-        /// Indicates whether attachment associations require approval.
-        /// </summary>
-        public bool AttachmentAssociationsRequireApproval { get; set; }
 
         /// <summary>
         /// Indicates whether attachments should be displayed.
@@ -122,11 +103,6 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         public bool CommentsAllowed { get; set; }
 
         /// <summary>
-        /// Indicates whether comment associations require approval.
-        /// </summary>
-        public bool CommentAssociationsRequireApproval { get; set; }
-
-        /// <summary>
         /// Indicates whether comments should be displayed.
         /// </summary>
         public bool ShowComments { get; set; }
@@ -139,11 +115,6 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         /// Indicates whether new Bible references can be created.
         /// </summary>
         public bool BibleReferenceAllowed { get; set; }
-
-        /// <summary>
-        /// Indicates whether Bible reference associations require approval.
-        /// </summary>
-        public bool BibleReferenceAssociationsRequireApproval { get; set; }
 
         /// <summary>
         /// Indicates whether Bible references should be displayed.

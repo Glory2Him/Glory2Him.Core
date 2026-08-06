@@ -27,7 +27,6 @@ using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
-using Glory2Him.Core.Models.Foundations.ContentTypes;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Foundations.Reactions;
@@ -78,7 +77,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             AddCommentConfigurations(modelBuilder.Entity<Comment>());
             AddContentItemConfigurations(modelBuilder.Entity<ContentItem>());
             AddContentItemSettingConfigurations(modelBuilder.Entity<ContentItemSetting>());
-            AddContentTypeConfigurations(modelBuilder.Entity<ContentType>());
             AddLinkConfigurations(modelBuilder.Entity<Link>());
             AddProcessedEventConfigurations(modelBuilder.Entity<ProcessedEvent>());
             AddReactionConfigurations(modelBuilder.Entity<Reaction>());

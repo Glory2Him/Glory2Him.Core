@@ -28,12 +28,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: the probe is deliberately unfiltered by visibility — another user's
             // non-public draft still counts as a duplicate
-            Guid contentTypeId = Guid.NewGuid();
+            ContentType contentType = ContentType.Quote;
             string contentHash = GetRandomString();
             Guid excludedContentItemGroupId = Guid.NewGuid();
 
             ContentItem matchingContentItem = CreateRandomContentItem();
-            matchingContentItem.ContentTypeId = contentTypeId;
+            matchingContentItem.ContentType = contentType;
             matchingContentItem.ContentHash = contentHash;
             matchingContentItem.ContentItemGroupId = Guid.NewGuid();
             matchingContentItem.IsDeleted = false;
@@ -41,12 +41,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             matchingContentItem.IsPublished = false;
 
             ContentItem differentHashContentItem = CreateRandomContentItem();
-            differentHashContentItem.ContentTypeId = contentTypeId;
+            differentHashContentItem.ContentType = contentType;
             differentHashContentItem.ContentHash = GetRandomString();
             differentHashContentItem.IsDeleted = false;
 
             ContentItem differentTypeContentItem = CreateRandomContentItem();
-            differentTypeContentItem.ContentTypeId = Guid.NewGuid();
+            differentTypeContentItem.ContentType = ContentType.Story;
             differentTypeContentItem.ContentHash = contentHash;
             differentTypeContentItem.IsDeleted = false;
 
@@ -64,7 +64,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             bool actualResult =
                 await this.contentItemService.CheckContentItemContentExistsAsync(
-                    contentTypeId,
+                    contentType,
                     contentHash,
                     excludedContentItemGroupId,
                     TestContext.Current.CancellationToken);
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualResult.Should().BeTrue();
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameCheckRequestAs(contentTypeId, contentHash))),
+                broker.CreateAsync(It.Is(SameCheckRequestAs(contentType, contentHash))),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -92,12 +92,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: the caller's own group is excluded — a later version reverting to
             // earlier wording of the same group is not a duplicate
-            Guid contentTypeId = Guid.NewGuid();
+            ContentType contentType = ContentType.Quote;
             string contentHash = GetRandomString();
             Guid excludedContentItemGroupId = Guid.NewGuid();
 
             ContentItem excludedGroupContentItem = CreateRandomContentItem();
-            excludedGroupContentItem.ContentTypeId = contentTypeId;
+            excludedGroupContentItem.ContentType = contentType;
             excludedGroupContentItem.ContentHash = contentHash;
             excludedGroupContentItem.ContentItemGroupId = excludedContentItemGroupId;
             excludedGroupContentItem.IsDeleted = false;
@@ -114,7 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             bool actualResult =
                 await this.contentItemService.CheckContentItemContentExistsAsync(
-                    contentTypeId,
+                    contentType,
                     contentHash,
                     excludedContentItemGroupId,
                     TestContext.Current.CancellationToken);
@@ -123,7 +123,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualResult.Should().BeFalse();
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameCheckRequestAs(contentTypeId, contentHash))),
+                broker.CreateAsync(It.Is(SameCheckRequestAs(contentType, contentHash))),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -141,11 +141,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldReturnFalseOnCheckContentExistsWhenOnlyMatchIsSoftDeletedAsync()
         {
             // given: a soft-deleted row no longer occupies the duplicate slot
-            Guid contentTypeId = Guid.NewGuid();
+            ContentType contentType = ContentType.Quote;
             string contentHash = GetRandomString();
 
             ContentItem deletedMatchingContentItem = CreateRandomContentItem();
-            deletedMatchingContentItem.ContentTypeId = contentTypeId;
+            deletedMatchingContentItem.ContentType = contentType;
             deletedMatchingContentItem.ContentHash = contentHash;
             deletedMatchingContentItem.IsDeleted = true;
 
@@ -161,7 +161,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             bool actualResult =
                 await this.contentItemService.CheckContentItemContentExistsAsync(
-                    contentTypeId,
+                    contentType,
                     contentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
@@ -170,7 +170,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualResult.Should().BeFalse();
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameCheckRequestAs(contentTypeId, contentHash))),
+                broker.CreateAsync(It.Is(SameCheckRequestAs(contentType, contentHash))),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -188,16 +188,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldReturnFalseOnCheckContentExistsWhenNoContentItemMatchesAsync()
         {
             // given
-            Guid contentTypeId = Guid.NewGuid();
+            ContentType contentType = ContentType.Quote;
             string contentHash = GetRandomString();
 
             ContentItem differentHashContentItem = CreateRandomContentItem();
-            differentHashContentItem.ContentTypeId = contentTypeId;
+            differentHashContentItem.ContentType = contentType;
             differentHashContentItem.ContentHash = GetRandomString();
             differentHashContentItem.IsDeleted = false;
 
             ContentItem differentTypeContentItem = CreateRandomContentItem();
-            differentTypeContentItem.ContentTypeId = Guid.NewGuid();
+            differentTypeContentItem.ContentType = ContentType.Story;
             differentTypeContentItem.ContentHash = contentHash;
             differentTypeContentItem.IsDeleted = false;
 
@@ -214,7 +214,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // when
             bool actualResult =
                 await this.contentItemService.CheckContentItemContentExistsAsync(
-                    contentTypeId,
+                    contentType,
                     contentHash,
                     excludedContentItemGroupId: null,
                     TestContext.Current.CancellationToken);
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualResult.Should().BeFalse();
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameCheckRequestAs(contentTypeId, contentHash))),
+                broker.CreateAsync(It.Is(SameCheckRequestAs(contentType, contentHash))),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

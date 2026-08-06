@@ -50,7 +50,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 createdBy: actorUserId);
 
             ContentItem expectedMappedContentItem = storageContentItem.DeepClone();
-            expectedMappedContentItem.ContentTypeId = inputContentItem.ContentTypeId;
+            expectedMappedContentItem.ContentType = inputContentItem.ContentType;
             expectedMappedContentItem.Title = inputContentItem.Title;
             expectedMappedContentItem.Author = inputContentItem.Author;
             expectedMappedContentItem.Content = inputContentItem.Content;
@@ -83,7 +83,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()))
@@ -130,7 +130,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()),
@@ -185,7 +185,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             var expectedNewVersionContentItem = new ContentItem
             {
                 Id = newVersionContentItemId,
-                ContentTypeId = inputContentItem.ContentTypeId,
+                ContentType = inputContentItem.ContentType,
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
@@ -225,7 +225,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()))
@@ -288,7 +288,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()),
@@ -376,7 +376,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     expectedContentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()))
@@ -447,7 +447,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // that group reports no duplicate
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     storageContentItem.ContentItemGroupId,
                     It.IsAny<CancellationToken>()))

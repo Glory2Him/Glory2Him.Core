@@ -97,11 +97,11 @@ The content item model should contain the following design-relevant properties:
 | Property | Purpose |
 | --- | --- |
 | `Id` | Unique identifier for this specific content version. |
-| `ContentTypeId` | Identifies the type of content, such as `Quote`, `Story`, `Testimony`, or `Topic`. |
+| `ContentType` | Identifies the type of content, such as `Quote`, `Story`, `Testimony`, or `Topic`. |
 | `Title` | Optional content title. |
 | `Author` | Optional content author. |
 | `Content` | Required body content. |
-| `ContentHash` | SHA-256 hash of the normalized `Content` (trim, collapse whitespace, lowercase). Control field computed on every write. Non-unique index on (`ContentTypeId`, `ContentHash`) for duplicate detection (§3.4.2). |
+| `ContentHash` | SHA-256 hash of the normalized `Content` (trim, collapse whitespace, lowercase). Control field computed on every write. Non-unique index on (`ContentType`, `ContentHash`) for duplicate detection (§3.4.2). |
 | `ContentItemGroupId` | Groups multiple versions of the same logical content item. |
 | `Version` | Version number for the item. |
 | `IsLatestVersion` | Identifies the latest version within the content group. Only one row per `ContentItemGroupId` may be latest. |
@@ -178,9 +178,9 @@ Purpose: two different people cannot submit the exact same content.
 
 1. The duplicate match compares `Content` only (not `Title` or `Author`).
 2. The match is normalized: trim ends, collapse whitespace/newline runs to a single space, lowercase (invariant culture). The normalization function is a frozen contract — changing it requires recomputing every stored hash in a migration.
-3. The match is scoped per `ContentTypeId`.
+3. The match is scoped per `ContentType`.
 4. The match compares against all non-deleted rows (any status, any version). On modify, the item's own `ContentItemGroupId` is excluded.
-5. Mechanism: `ContentHash` = SHA-256 of the normalized content, computed by the orchestration on every write and stored on `ContentItem`. A non-unique index on (`ContentTypeId`, `ContentHash`) makes the check an index seek. The index must not be unique — rows within one group may legitimately share a hash (for example a later version reverting to earlier wording); enforcement is application-side.
+5. Mechanism: `ContentHash` = SHA-256 of the normalized content, computed by the orchestration on every write and stored on `ContentItem`. A non-unique index on (`ContentType`, `ContentHash`) makes the check an index seek. The index must not be unique — rows within one group may legitimately share a hash (for example a later version reverting to earlier wording); enforcement is application-side.
 6. Response on a duplicate: add → polite acknowledgement ("Thank you for your submission") without creating the record and without revealing the duplicate; modify → validation error.
 
 ### 3.5 Approval Invalidation Rules
@@ -191,7 +191,7 @@ A change to an entity only invalidates approvals for that specific entity and mu
 
 For `ContentItem`:
 
-1. Changes to `Title`, `Author`, `Content`, `ContentTypeId`, `PublishDate`, or other approval-sensitive content metadata may invalidate the content item's own approval.
+1. Changes to `Title`, `Author`, `Content`, `ContentType`, `PublishDate`, or other approval-sensitive content metadata may invalidate the content item's own approval.
 2. If reviews exist for the content item, the reviews should be marked as `Dismissed` when the content changes.
 3. The approval status of the item does not change when reviews are dismissed — a `Submitted` item remains `Submitted`. Exception: an `Admin` in-place amendment of an `Approved` item resets the approval to `Submitted`.
 4. Reviewers must review the updated content again.
@@ -212,45 +212,45 @@ Example:
 
 ### 3.6 ContentType
 
-`ContentType` defines the type of content represented by a `ContentItem`.
+`ContentType` is a fixed C# enum, not a database entity or a `ContentItem`. There is no `ContentTypes` table, no foundation service, no orchestration, and no lifecycle — a content type is a compile-time constant of the running application, not admin- or user-defined data.
 
-Standard content type examples:
+```csharp
+public enum ContentType
+{
+    Quote = 0,
+    Story = 1,
+    Testimony = 2,
+    Devotional = 3,
+    BibleStudy = 4,
+    BlogPost = 5,
+    Series = 999,
+    Topic = 1000
+}
+```
 
-1. `Quote`
-2. `Story`
-3. `Testimony`
-4. `Topic`
+`Series` and `Topic` are numbered apart from the standalone content types above — see §3.9.
 
 ### 3.7 ContentType Properties
 
-A content type is **immutable once created** — the only operations are Add and Remove (§12.4.2 business rule 1). It is therefore not versioned and carries none of the `IVersion` members.
-
-| Property | Purpose |
-| --- | --- |
-| `Id` | Unique content type identifier. |
-| `Name` | Display name of the content type. Fixed at creation. |
-| `Slug` | PascalCase, delimiter-safe identifier used to compose content-type-scoped role names (§18.6) and denormalised onto association rows. Unique across non-deleted content types. Derived on creation and fixed thereafter. |
-| `PublishDate` | Optional date/time from which this content type becomes visible. |
-| `IsPublished` | Whether this content type is published. |
-| `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). |
-| `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
-| `CreatedBy` | User who created the type. |
-| `CreatedWhen` | Creation timestamp. |
-| `UpdatedBy` | User who last updated the type. |
-| `UpdatedWhen` | Last update timestamp. |
-| `DeletedBy` | User who deleted the item. |
-| `DeletedWhen` | Deletion timestamp. |
-| `DeletionReason` | Reason for deletion. |
+Not applicable. `ContentType` has no properties of its own — it is persisted as a string (`HasConversion<string>()`, matching `EntityType`, `Scope`, and `ApprovalStatus`) wherever it is stored, and it is `ContentItem`, `ContentItemSetting`, and `ApprovalSetting` that carry a `ContentType` value, not the reverse. Adding, renaming, or removing a member is a code change and a release, not a runtime CRUD operation.
 
 ### 3.8 Content Type Rules
 
 The following rules apply:
 
-1. `ContentType.Name` must be unique.
-2. Content type values should be seeded for standard G2H content types.
-3. `Topic` should be represented as a `ContentType`, not as a separate root entity.
-4. The feed must exclude `Topic` content items.
-5. Any publishable content type except `Topic` can appear in the feed.
+1. `Topic` and `Series` are `ContentType` members, not separate root entities.
+2. The feed must exclude `Topic` and `Series` content items.
+3. Any publishable content type except `Topic` and `Series` can appear in the feed.
+4. `ContentItem.ContentType` is set on creation and never accepted from a caller on modify (§12.4.1 business rule 7a) — different content types carry different validation rules, so an item cannot be relabelled into a type its content was never checked against.
+5. Adding a new `ContentType` member requires a code change; it can never be introduced by an end user or admin at runtime.
+
+### 3.9 Series vs. Topic — to revisit
+
+`Series` and `Topic` currently have identical documented behaviour: both are grouping content items excluded from the feed (§3.8 rules 1–3), and neither carries a rule that distinguishes one from the other. §11 ("Topic and Feed Design") describes the grouping mechanism only in terms of `Topic`; `Series` was added to the enum without an equivalent section or without checking whether it duplicates `Topic`.
+
+**Open question:** are `Series` and `Topic` the same concept under two names, or do they represent genuinely different groupings (e.g. an ordered, authored sequence vs. an unordered subject tag)? This needs a design decision — either give `Series` its own rules distinct from §11, fold it into `Topic` and remove the member, or document the distinction explicitly (e.g. `Series` implies `Association.SortOrder`-based ordering per §9.6/§9.7.1 rule 4, `Topic` does not).
+
+Until this is resolved, `Series` and `Topic` are numbered apart from the standalone content types (§3.6) as a placeholder, not as a statement that the design question is settled.
 
 ## 4. Association Design
 
@@ -352,7 +352,7 @@ Example:
 
 `ContentItemSetting` is not generalised to cover that. It stays scoped to content items (§6.1), and each host entity type gets its own settings entity instead — `BibleReferenceSetting` (§6.9) for the reference page. An association resolves the allowed/show switches per endpoint, from that endpoint's own settings entity, and is permitted only when both ends allow it (§6.10).
 
-Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, ContentTypeId)` (§8.4) and needs no host at all.
+Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, ContentType)` (§8.4) and needs no host at all.
 
 ## 5. Supporting Content Entities
 
@@ -486,9 +486,9 @@ Each facet has exactly two switches:
 | `<Facet>Allowed` | Whether the *contribute* component is shown (e.g. the "Suggest a tag" box), **and** whether the association submit process will persist the record. When `false` the submit is rejected server-side, not merely hidden. |
 | `Show<Facet>` | Whether the *display* component is shown (e.g. the tag panel). |
 
-**`<Facet>AssociationsRequireApproval` is removed.** Whether an association requires approval is answered by `ApprovalSetting` and the approval workflow (§8.4), keyed on `(EntityType, ContentTypeId)`. Keeping a second copy here would create two sources of truth for one question and two places to look when an approval fails to fire. Six columns are dropped: the `RequireApproval` switch for each of Tags, Reactions, Links, Attachments, Comments and Bible References.
+**`<Facet>AssociationsRequireApproval` is removed.** Whether an association requires approval is answered by `ApprovalSetting` and the approval workflow (§8.4), keyed on `(EntityType, ContentType)`. Keeping a second copy here would create two sources of truth for one question and two places to look when an approval fails to fire. Six columns are dropped: the `RequireApproval` switch for each of Tags, Reactions, Links, Attachments, Comments and Bible References.
 
-**Scope.** `ContentItemSetting` governs associations hosted on a `ContentItem` and nothing else. It is keyed on `ContentTypeId` (required) with an optional `ContentItemId` override, both `ContentItem` concepts, and it is not generalised to other hosts. A host of another type gets its own settings entity following the same shape — see §6.9 for `BibleReferenceSetting` and §6.10 for how an association resolves the two.
+**Scope.** `ContentItemSetting` governs associations hosted on a `ContentItem` and nothing else. It is keyed on `ContentType` (required) with an optional `ContentItemId` override, both `ContentItem` concepts, and it is not generalised to other hosts. A host of another type gets its own settings entity following the same shape — see §6.9 for `BibleReferenceSetting` and §6.10 for how an association resolves the two.
 
 ### 6.2 Default and Override Behaviour
 
@@ -527,7 +527,7 @@ If `ContentItemId` is supplied, the setting applies only to that specific conten
 | Property | Purpose |
 | --- | --- |
 | `Id` | Unique content item setting identifier. |
-| `ContentTypeId` | Content type this setting applies to. |
+| `ContentType` | Content type this setting applies to. |
 | `ContentItemId` | Optional specific content item override. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from active policy resolution. |
 | `CreatedBy` | User who created the setting. |
@@ -548,14 +548,12 @@ public bool LimitReactionsToLoveOnly { get; set; }
 
 This supports favourite-style behaviour where only a love reaction should be allowed.
 
-### 6.8 Recommended Type Correction
+### 6.8 ContentItemSetting.ContentType typing — done
 
-The current `ContentItemSetting.ContentTypeId` is a string, while `ContentType.Id` is a `Guid`.
-
-Recommended change:
+`ContentItemSetting.ContentType` is typed `ContentType` (§3.6), persisted as a string via `HasConversion<string>()` like every other enum in the schema. There is no `Guid` involved on either side — `ContentType` is not an entity and never had an `Id`.
 
 ```csharp
-public Guid ContentTypeId { get; set; }
+public ContentType ContentType { get; set; }
 ```
 
 ### 6.9 BibleReferenceSetting
@@ -674,9 +672,10 @@ The following entities are subject to approval:
 6. `BibleReference`
 7. `Link`
 8. `Attachment`
-9. `ContentType`, if end-user or admin-defined content types should be reviewed.
-10. `ContentItemSetting`, if policy changes require approval.
-11. `BibleReferenceSetting` (§6.9), on the same condition.
+9. `ContentItemSetting`, if policy changes require approval.
+10. `BibleReferenceSetting` (§6.9), on the same condition.
+
+`ContentType` is not in this list — it is a fixed enum (§3.6), not a database entity, so it has no `EntityType` of its own and cannot itself be submitted for approval. Its role in the approval system is purely as a scoping dimension of `ContentItem` approval policy (§8.4).
 
 ### 7.5.1 Publication Model per Approvable Entity
 
@@ -692,7 +691,6 @@ Every approvable `EntityType` declares exactly one publication model. This table
 | `Reaction` | Single-Row |
 | `Comment` | Single-Row |
 | `Association` | Single-Row |
-| `ContentType` | Single-Row |
 | `ContentItemSetting` | Single-Row |
 | `BibleReferenceSetting` | Single-Row |
 
@@ -820,18 +818,18 @@ Properties (identical shape for both):
 
 When an approval record is created or evaluated, the approval service must resolve the effective approval setting by entity type.
 
-An `ApprovalSetting` row is identified by `(EntityType, ContentTypeId)`. `ContentTypeId` is nullable, where `NULL` means "every content type of this entity type". It may be populated only when `EntityType = ContentItem`, and must be `NULL` for every other entity type. The unique index moves from `(EntityType)` to `(EntityType, ContentTypeId)` accordingly.
+An `ApprovalSetting` row is identified by `(EntityType, ContentType)`. `ContentType` is a nullable enum, where `NULL` means "every content type of this entity type". It may be populated only when `EntityType = ContentItem`, and must be `NULL` for every other entity type. The unique index moves from `(EntityType)` to `(EntityType, ContentType)` accordingly.
 
 Resolution order — the first matching row supplies **every** policy field. Fields are never merged across tiers, and rows with `IsDeleted = true` are skipped at every tier:
 
 1. Entity-instance override — `(EntityType, EntityId)`. Reserved for a future design; no such store exists today.
-2. `(EntityType, ContentTypeId)` — the content-type policy. Applies only when `EntityType = ContentItem`.
-3. `(EntityType, ContentTypeId = NULL)` — the entity-type default.
+2. `(EntityType, ContentType)` — the content-type policy. Applies only when `EntityType = ContentItem`.
+3. `(EntityType, ContentType = NULL)` — the entity-type default.
 4. The system default, when no row matches at all.
 
 Rules:
 
-1. The `ContentTypeId` tier exists because one policy row cannot sensibly govern every content item. A `Testimony` may warrant two reviewers where a `Blog` needs one, yet both are `EntityType.ContentItem`. This mirrors the content-type-scoped roles in §18.6, so policy and permission are keyed the same way.
+1. The `ContentType` tier exists because one policy row cannot sensibly govern every content item. A `Testimony` may warrant two reviewers where a `Blog` needs one, yet both are `EntityType.ContentItem`. This mirrors the content-type-scoped roles in §18.6, so policy and permission are keyed the same way.
 2. **The system default is fail-closed.** When no row resolves, the effective policy is `RequireApprovals = true`, `RequiredNumberOfApprovals = 1`, `AutoApproveIfAllApprovalRequirementsMet = false`, `AllowSelfApproval = false`, `BlockOnReject = true`, `RequireReapprovalOnChange = true`, `DoNotAllowBypassingSettings = false`. A missing configuration row must never mean "no approval needed" — an unseeded environment would silently publish everything.
 3. Approval settings are not snapshotted. If approval settings change, subsequent approval evaluation uses the latest effective settings.
 4. Whether an association *may be created at all*, and whether it is *displayed*, are separate questions from whether it requires approval, and are not answered here — see §6 and the note in §4.7.
@@ -977,7 +975,7 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
    | --- | --- | --- |
    | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `ContentItemGroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
    | Derived content | computed by the orchestration from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentTypeSlug` / `EntityBContentTypeSlug` (from the resolved endpoint) and `UserId` (from the security context) |
-   | Caller-supplied, create-only | the caller, once | `ContentItem.ContentTypeId` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a) |
+   | Caller-supplied, create-only | the caller, once | `ContentItem.ContentType` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a) |
    | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content`; an association's confidence fields |
 
    Only the last group is mapped from the caller's entity onto the row loaded from storage. The first is never accepted from a caller at all; the second is written by the orchestration rather than copied from input; the third is accepted on add and then pinned against storage on every modify. This replaces enumerating control fields per entity — a new property is caller-editable content unless it is on one of the interfaces, is derived, or is declared create-only.
@@ -1461,7 +1459,7 @@ Events are published through the `EventBroker`, which wraps [EventHighway](https
 
 Publishing returns an `EventPublishResult<T>`: the persisted event id plus one `EventDelivery<T>` per subscription, each with its dispatch-time status and — for responders — the reply envelope deserialized back to `EventEnvelope<T>`. This is a dispatch-time snapshot: failed deliveries may still succeed later via retries, and the durable truth remains the event store. Notification-style publishers simply ignore the result.
 
-Foundation services follow a dual-path shape (see `ContentTypeService` as the template):
+Foundation services follow a dual-path shape (see `ContentItemService` as the template):
 
 - **Non-event path**: receive the object → convert to a request envelope via `IEventEnvelopeFactory.CreateAsync` (captures the caller's `SecurityContext`, stamps event/correlation identifiers) → call the shared private `DoXAsync` method.
 - **Event path** (the `.Substrate` partial): one `On<Operation><Entity>Async` handler per request address (`OnAdding…`, `OnModifying…`, `OnRemoving…ById`, `OnRetrieving…ById`) → validate the envelope → dedup mutating handlers via the `ProcessedEvents` table (unique on EventId + ReceiverName; a deduplicated delivery replies `null`) → converge on the same `DoXAsync` methods → reply with the outcome envelope on the delivery.
@@ -1904,20 +1902,21 @@ Current intended foundation services:
 | Number | Name | Purpose |
 | --- | --- | --- |
 | 1 | `ContentItemService` | CRUD, validation, and versioning rules for content items. |
-| 2 | `ContentTypeService` | CRUD and validation for content types. |
-| 3 | `ContentItemSettingsService` | CRUD and policy resolution for content item settings. |
-| 4 | `ApprovalService` | Approval record creation, status transitions, and uniqueness enforcement. |
-| 5 | `ApprovalSettingsService` | Approval policy rule management and effective setting resolution. |
-| 6 | `ApprovalCommentService` | CRUD for approval comments. |
-| 7 | `ApprovalReviewService` | Reviewer decision recording, eligibility validation, and threshold evaluation. |
-| 8 | `TagService` | CRUD and validation for tags. |
-| 9 | `ReactionService` | CRUD and validation for reaction definitions. |
-| 10 | `CommentService` | CRUD and validation for comments. |
-| 11 | `BibleReferenceService` | CRUD and validation for Bible references. |
-| 12 | `LinkService` *(future)* | CRUD and validation for links. |
-| 13 | `AttachmentService` *(future)* | CRUD and validation for attachments. |
-| 14 | `ApprovalSettingReviewerRoleService` | CRUD and validation for approval setting reviewer roles. |
-| 15 | `ApprovalSettingPublisherRoleService` | CRUD and validation for approval setting publisher roles. |
+| 2 | `ContentItemSettingsService` | CRUD and policy resolution for content item settings. |
+| 3 | `ApprovalService` | Approval record creation, status transitions, and uniqueness enforcement. |
+| 4 | `ApprovalSettingsService` | Approval policy rule management and effective setting resolution. |
+| 5 | `ApprovalCommentService` | CRUD for approval comments. |
+| 6 | `ApprovalReviewService` | Reviewer decision recording, eligibility validation, and threshold evaluation. |
+| 7 | `TagService` | CRUD and validation for tags. |
+| 8 | `ReactionService` | CRUD and validation for reaction definitions. |
+| 9 | `CommentService` | CRUD and validation for comments. |
+| 10 | `BibleReferenceService` | CRUD and validation for Bible references. |
+| 11 | `LinkService` *(future)* | CRUD and validation for links. |
+| 12 | `AttachmentService` *(future)* | CRUD and validation for attachments. |
+| 13 | `ApprovalSettingReviewerRoleService` | CRUD and validation for approval setting reviewer roles. |
+| 14 | `ApprovalSettingPublisherRoleService` | CRUD and validation for approval setting publisher roles. |
+
+`ContentType` is not in this list — it is a fixed enum (§3.6), not an entity, so it has no foundation service.
 
 ### 12.4 Orchestration Layer
 
@@ -1928,15 +1927,14 @@ Current intended orchestrations:
 | Number | Name | Purpose |
 | --- | --- | --- |
 | 1 | `ContentItemOrchestration` | Orchestrates content item creation, versioning, approval submission, and publish workflows. |
-| 2 | `ContentTypeOrchestration` | Orchestrates content type management and seeding workflows. |
-| 3 | `ContentItemSettingsOrchestration` | Orchestrates effective settings resolution across content type defaults and item overrides. |
-| 4 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
-| 5 | `ApprovalReviewOrchestration` | Orchestrates reviewer eligibility, threshold evaluation, and dismissal workflows. |
-| 6 | `ApprovalCommentOrchestration` | Orchestrates approval comment creation and lifecycle management. |
-| 7 | `TagOrchestration` | Orchestrates tag creation, versioning, approval, and association workflows. |
-| 8 | `ReactionOrchestration` | Orchestrates reaction creation, versioning, approval, and association workflows. |
-| 9 | `CommentOrchestration` | Orchestrates comment creation, versioning, approval, and association workflows. |
-| 10 | `BibleReferenceOrchestration` | Orchestrates Bible reference creation, versioning, approval, and association workflows. |
+| 2 | `ContentItemSettingsOrchestration` | Orchestrates effective settings resolution across content type defaults and item overrides. |
+| 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
+| 4 | `ApprovalReviewOrchestration` | Orchestrates reviewer eligibility, threshold evaluation, and dismissal workflows. |
+| 5 | `ApprovalCommentOrchestration` | Orchestrates approval comment creation and lifecycle management. |
+| 6 | `TagOrchestration` | Orchestrates tag creation, versioning, approval, and association workflows. |
+| 7 | `ReactionOrchestration` | Orchestrates reaction creation, versioning, approval, and association workflows. |
+| 8 | `CommentOrchestration` | Orchestrates comment creation, versioning, approval, and association workflows. |
+| 9 | `BibleReferenceOrchestration` | Orchestrates Bible reference creation, versioning, approval, and association workflows. |
 
 #### 12.4.1 ContentItemOrchestration
 
@@ -1972,52 +1970,22 @@ Business Rules:
    - `DeletedWhen`
    - `DeletionReason`
    - `ContentHash`
-7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author` and `Content` — onto that entity before saving. `ContentTypeId` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
-7a. **`ContentTypeId` is set at creation and may never change.** Reclassifying a content item is not permitted — different content types carry different validation rules, so a `Story` cannot become a `Testimony` by relabelling it; the existing content was never validated against the target type's rules. An item filed under the wrong type is removed and re-created.
+7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author` and `Content` — onto that entity before saving. `ContentType` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
+7a. **`ContentType` is set at creation and may never change.** Reclassifying a content item is not permitted — different content types carry different validation rules, so a `Story` cannot become a `Testimony` by relabelling it; the existing content was never validated against the target type's rules. An item filed under the wrong type is removed and re-created.
 
-   Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentTypeId` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a public address. The orchestration dropping it from the permitted map is defence in depth.
+   Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentType` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a public address. The orchestration dropping it from the permitted map is defence in depth.
 
    A version fork carries the value forward unchanged; it is preserved, never re-chosen.
 8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 9. Only the owner (`CreatedBy`) may modify a content item or its versions. A `Publisher` or `Admin` may amend the text of a `Submitted` item during review (typos/grammar); their identity is then recorded on `UpdatedBy`. `CreatedBy` never changes on an update.
 10. An `Admin` in-place amendment of an `Approved` content item fires the normal updated event; the approval workflow resets the approval to `Submitted` and dismisses active reviews (§3.4 rule 16).
-11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentTypeId`, `ContentHash`) across non-deleted rows (excluding the item's own `ContentItemGroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
+11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentType`, `ContentHash`) across non-deleted rows (excluding the item's own `ContentItemGroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
 
-#### 12.4.2 ContentTypeOrchestration
+#### 12.4.2 ContentType — no orchestration
 
-`ContentTypeOrchestration` orchestrates the full lifecycle of a content type across foundation services.
+`ContentType` is a fixed enum (§3.6), not a database entity — there is no `ContentTypeOrchestration`, no `ContentTypeService`, no lifecycle to orchestrate, and no events to publish. Adding or removing a content type is a code change and a release, gated by the normal PR/build process rather than by a runtime authorization rule.
 
-Responsibilities:
-
-1. Orchestrate content type creation, enforcing control field integrity. There is no modify operation — see business rule 1.
-2. Ensure required seeded content types exist on startup.
-3. Orchestrate soft delete, and refuse removal for a content type that still has content items assigned (business rules 5–6).
-4. Derive and validate `Slug` on creation — PascalCase, no whitespace or hyphens, unique across non-deleted content types (§3.7).
-5. **Own the identity-role side effects of the content type lifecycle.** Creating a content type must result in `ContentItem-%Slug%-Reviewer` and `ContentItem-%Slug%-Publisher` existing (§18.6); removing one must decide the fate of those roles. Because the roles live in the Identity store and the content type lives in Core, the role write is driven from the published fact rather than performed inline — see §18.6.
-6. Publish `ContentTypeCreatedEvent` and `ContentTypeDeletedEvent` via `ContentTypeEventService`. There is no updated event, because there is no modify (business rule 1).
-7. The approval orchestration service subscribes to these events to manage approval records and workflow state.
-
-**No content type may be written outside this orchestration.** A direct call to `ContentTypeService` would create a type with no reviewer or publisher roles, leaving its content unreviewable — so the foundation's write addresses are not safe to bind to an exposer, and the admin UI must call the orchestration.
-
-Business Rules:
-
-1. **A content type is immutable once created. The only operations are Add and Remove — there is no modify.** `Name` and `Slug` are both fixed at creation. A content type that is wrong is removed and replaced, not edited.
-2. Immutability is why `ContentType` is not versioned. It has no `ContentItemGroupId`, `Version` or `IsLatestVersion` and needs none — there can only ever be one row per content type, which is why §7.5.1 classifies it Single-Row.
-3. The seeded content types `Quote`, `Story`, `Testimony`, and `Topic` must always exist and may not be removed.
-4. `Name` and `Slug` must each be unique across all non-deleted records.
-5. **A content type may not be removed while any content item is assigned to it, including soft-deleted ones.** The orchestration must check this itself and must not rely on the foreign key. `ContentItem.ContentTypeId` is configured `OnDelete(DeleteBehavior.NoAction)`, which does block a *hard* delete — but removal in this system is a **soft** delete, an `UPDATE` of `IsDeleted`, and no foreign key fires on an update. The database offers no protection here at all.
-6. Soft-deleted content items still count for rule 5. Their `ContentTypeId` continues to reference the type, so removing it would leave rows pointing at a type that no longer resolves — and a restored content item would come back orphaned.
-7. Because immutability removes the modify path, none of the reapproval machinery applies: there is no in-place amendment, no version fork, and no review dismissal to perform. Whether an added content type requires approval at all is a policy question for §8.4 — with add-and-remove-only semantics and an `Admin`-gated UI, the answer may reasonably be no.
-8. The following fields are control fields and must never be accepted from an external caller:
-   - `IsPublished`
-   - `ApprovalStatus`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-9. `Slug` is derived by the orchestration on creation and is never accepted from a caller — it composes identity-role names (§18.6) and is denormalised onto association rows, so a caller-supplied value would be an authorization input under the caller's control.
+Content-type-scoped identity roles (§18.6) are seeded once, at startup, for every member of the enum — they are not created or removed reactively in response to a content type lifecycle, because there is no such lifecycle.
 
 #### 12.4.3 ContentItemSettingsOrchestration
 
@@ -2043,7 +2011,7 @@ Business Rules:
 4. Only one override setting per content item may exist where `ContentItemId IS NOT NULL`. (also enforced by database unique index)
 5. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
 6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentTypeId`
+   - `ContentType`
    - `ContentItemId`
    - `ApprovalStatus`
    - `IsDeleted`
@@ -2308,17 +2276,18 @@ Current intended controllers:
 | Number | Name | Purpose |
 | --- | --- | --- |
 | 1 | `ContentItemController` | Exposes endpoints for content item creation, editing, versioning, submission, and soft delete. |
-| 2 | `ContentTypeController` | Exposes endpoints for content type management. |
-| 3 | `ContentItemSettingsController` | Exposes endpoints for content item policy settings. |
-| 4 | `ApprovalController` | Exposes endpoints for approval submission and status retrieval. |
-| 5 | `ApprovalCommentController` | Exposes endpoints for adding and reading approval comments. |
-| 6 | `ApprovalReviewController` | Exposes endpoints for submitting and reading approval reviews. |
-| 7 | `TagController` | Exposes endpoints for tag management. |
-| 8 | `ReactionController` | Exposes endpoints for reaction definition management. |
-| 9 | `CommentController` | Exposes endpoints for comment management. |
-| 10 | `BibleReferenceController` | Exposes endpoints for Bible reference management. |
-| 11 | `LinkController` *(future)* | Exposes endpoints for link management. |
-| 12 | `AttachmentController` *(future)* | Exposes endpoints for attachment management. |
+| 2 | `ContentItemSettingsController` | Exposes endpoints for content item policy settings. |
+| 3 | `ApprovalController` | Exposes endpoints for approval submission and status retrieval. |
+| 4 | `ApprovalCommentController` | Exposes endpoints for adding and reading approval comments. |
+| 5 | `ApprovalReviewController` | Exposes endpoints for submitting and reading approval reviews. |
+| 6 | `TagController` | Exposes endpoints for tag management. |
+| 7 | `ReactionController` | Exposes endpoints for reaction definition management. |
+| 8 | `CommentController` | Exposes endpoints for comment management. |
+| 9 | `BibleReferenceController` | Exposes endpoints for Bible reference management. |
+| 10 | `LinkController` *(future)* | Exposes endpoints for link management. |
+| 11 | `AttachmentController` *(future)* | Exposes endpoints for attachment management. |
+
+`ContentType` is not in this list — a fixed enum has no CRUD endpoints.
 
 ### 12.6 SQL Storage
 
@@ -2331,12 +2300,11 @@ The EF Core model snapshot currently shows tables and constraints for:
 | 1 | `Approvals` | Stores approval workflow state for all approvable entity types. |
 | 2 | `ApprovalComments` | Stores discussion and notes attached to approval records. |
 | 3 | `ApprovalReviews` | Stores individual reviewer decisions for approval records. |
-| 4 | `ContentItems` | Stores all versioned content item records. |
-| 5 | `ContentTypes` | Stores content type definitions such as `Quote`, `Story`, `Testimony`, and `Topic`. |
-| 6 | `ContentItemSettings` | Stores policy settings for content interaction behaviour per content type or content item. |
-| 7 | `Associations` | Stores generic associations between content items and other entities. |
-| 8 | `Tags` | Stores tag definitions used for content categorisation. |
-| 9 | `Reactions` | Stores reusable reaction definitions. |
+| 4 | `ContentItems` | Stores all versioned content item records. `ContentType` (§3.6) is a column on this table, not a table of its own. |
+| 5 | `ContentItemSettings` | Stores policy settings for content interaction behaviour per content type or content item. |
+| 6 | `Associations` | Stores generic associations between content items and other entities. |
+| 7 | `Tags` | Stores tag definitions used for content categorisation. |
+| 8 | `Reactions` | Stores reusable reaction definitions. |
 
 ### 12.7 Event System
 
@@ -2593,15 +2561,9 @@ Recommended direction:
 3. Use `Association` to connect topics to child content items.
 4. Exclude `Topic` from feed projections.
 
-### 15.5 Review ContentItemSetting Type Mismatch
+### 15.5 ContentItemSetting Type Mismatch — done
 
-The current `ContentItemSetting.ContentTypeId` is a string, while `ContentType.Id` is a `Guid`.
-
-Recommended change:
-
-```csharp
-public Guid ContentTypeId { get; set; }
-```
+Resolved by converting `ContentType` from a database entity to a fixed enum (§3.6) rather than by changing `ContentItemSetting.ContentType` to a `Guid`. There is no `ContentType.Id` any more for the two sides to mismatch against — `ContentItem.ContentType`, `ContentItemSetting.ContentType`, and the nullable `ApprovalSetting.ContentType` (§8.4) are all typed `ContentType` and persisted as a string via `HasConversion<string>()`.
 
 ## 16. Recommended Service Responsibilities
 
@@ -2614,7 +2576,7 @@ Responsible for:
 3. Updating `IsPublished` flags when approval completes.
 4. Validating content item fields.
 5. Reading content by id, group id, type, latest version, and published version.
-6. Reading content by (`ContentTypeId`, `ContentHash`) for duplicate detection.
+6. Reading content by (`ContentType`, `ContentHash`) for duplicate detection.
 7. Applying soft delete fields.
 
 ### 16.2 AssociationService
@@ -2826,7 +2788,7 @@ Global roles:
 | `ReadOnly` | **The block role.** If present — even alongside any other roles — the user cannot contribute anywhere. Assigned to users who misbehave. Takes precedence over every other role. |
 | `Reviewer` | Can submit approval reviews and approval comments for any entity type. |
 | `Publisher` | Can approve and reject content for any entity type, may amend the text of `Submitted` items during review, and gains the option to bypass approval criteria by being in the role. |
-| `Admin` | Full access including user management, approval settings, content type management, bypass approval, and in-place amendment of `Approved` records. |
+| `Admin` | Full access including user management, approval settings, bypass approval, and in-place amendment of `Approved` records. |
 
 Granular (entity-type-scoped) roles follow the `%EntityType%-ReadOnly`, `%EntityType%-Reviewer`, and `%EntityType%-Publisher` convention, created for each approvable entity type:
 
@@ -2840,12 +2802,12 @@ Attachment-ReadOnly,             Attachment-Reviewer,             Attachment-Pub
 Association-ReadOnly,            Association-Reviewer,            Association-Publisher
 ```
 
-The same convention applies to any further approvable entity types (e.g. `Reaction`, `ContentType`, `ContentItemSetting`).
+The same convention applies to any further approvable entity types (e.g. `Reaction`, `ContentItemSetting`).
 
-**Content-type-scoped roles.** `ContentItem` has a further granularity: `%EntityType%-%ContentTypeCode%-Reviewer` and `-Publisher`, so a reviewer can be trusted with blog posts but not testimonies.
+**Content-type-scoped roles.** `ContentItem` has a further granularity: `%EntityType%-%ContentType%-Reviewer` and `-Publisher`, so a reviewer can be trusted with stories but not testimonies.
 
 ```text
-ContentItem-Blog-Reviewer,       ContentItem-Blog-Publisher,
+ContentItem-Story-Reviewer,      ContentItem-Story-Publisher,
 ContentItem-Series-Reviewer,     ContentItem-Series-Publisher,
 ContentItem-Testimony-Reviewer,  ContentItem-Testimony-Publisher
 ```
@@ -2862,25 +2824,19 @@ Granular role rules:
 4. The three tiers widen from narrow to broad — `ContentItem-Blog-Reviewer` ⊂ `ContentItem-Reviewer` ⊂ `Reviewer`. Holding any one of them satisfies a check for that content type; the narrow role never satisfies a check for a different content type.
 5. Content-type-scoped roles apply to `ContentItem` only. No other entity type has a sub-classification, and none should be invented to make the pattern uniform.
 
-**The role segment is `ContentType.Slug`, never `ContentType.Name`.** `Name` is free text, so `Bible Study` or `Q&A` produces a role name that cannot be parsed on `-`, and `Guest-Post` produces one that parses wrongly. `Slug` is PascalCase with no hyphens or whitespace (§3.7), and unique across non-deleted content types so two types can never compose the same role name.
+**The role segment is the `ContentType` enum member name** (`Quote`, `Story`, `Testimony`, `Topic`, `Series`) — there is no `Slug` any more (§3.7). Every member is already a single PascalCase word with no whitespace or hyphens by construction, so no derivation step is needed and no two members can ever collide on the composed role name.
 
-**Role lifecycle is driven by the content type lifecycle:**
+**Role lifecycle is fixed, not driven by any content-type lifecycle** — there is none (§12.4.2). `ContentType` is a compile-time enum, so the full set of content-type-scoped roles is known at compile time and can be enumerated and seeded once, at application startup, for every member: `ContentItem-Quote-Reviewer`, `ContentItem-Quote-Publisher`, `ContentItem-Story-Reviewer`, `ContentItem-Story-Publisher`, and so on for every member. Adding a `ContentType` member is a code change and a release; the corresponding roles are seeded on that release's startup, the same as any other fixed role. There is no rename cascade, no stale role claim, and no removal case to design for.
 
-1. Creating a content type creates `ContentItem-%Slug%-Reviewer` and `ContentItem-%Slug%-Publisher`.
-2. A content type is immutable once created (§12.4.2 business rule 1), so role names never change once issued. This removes an entire class of problem: no rename cascade, no stale role claims sitting in already-issued tokens, and no bulk update of the slugs denormalised onto association rows.
-3. Soft-deleting a content type leaves its roles in place. They are inert once no content of that type can be created, and removing them would destroy the assignment history that shows who reviewed what.
+**This capability does not exist yet.** Core's `ISecurityBroker` is read-only on roles — `IsInRoleAsync` and nothing more — and `IIdentityBroker` in the web app manages *user-to-role assignment* (`InsertUserToRoleAsync`, `DeleteUserFromRoleAsync`, `SelectAllRoles`) but cannot create, rename or delete a role. Since Identity is owned by the web app and the `ContentType` enum is owned by Core, the startup seed belongs on the web-app side, reading the fixed set of Core enum members, not on a new Core dependency into the Identity store.
 
-**The two writes cannot share a transaction**, because the content type lives in Core's store and the role in the Identity store. Drive the role creation from the content type's `-Added` fact so a failed role write is retried rather than silently lost, leaving a content type nobody can review.
+Because these role names now depend on a **fixed enum** rather than on data, they can be enumerated at compile time, and a test can assert the full set exists.
 
-**This capability does not exist yet.** Core's `ISecurityBroker` is read-only on roles — `IsInRoleAsync` and nothing more — and `IIdentityBroker` in the web app manages *user-to-role assignment* (`InsertUserToRoleAsync`, `DeleteUserFromRoleAsync`, `SelectAllRoles`) but cannot create, rename or delete a role. Since Identity is owned by the web app and `ContentType` is owned by Core, the role write belongs on the web-app side reacting to Core's content-type facts, not on a new Core dependency into the Identity store.
+**Composing an association's role check.** An `Association` is authorised from its two endpoints (§14.7), so the check must be able to name both role tiers for each end. The entity type is on the row, but the content type is not — it lives on the endpoint. Rather than resolve the endpoint (which the foundation may not do, §14.3, and which an `IQueryable` filter cannot do at all), the association **denormalises each endpoint's `ContentType` onto its own row.** A `Story` content item's association therefore satisfies `ContentItem-Reviewer` *or* `ContentItem-Story-Reviewer` from the row alone.
 
-Note also that these role names depend on **data** rather than on a fixed enum, so they cannot be enumerated at compile time and no test can assert the full set exists.
+The enum member name is stored — as a string, via the same `HasConversion<string>()` used everywhere else `ContentType` is persisted — because the role name needs the member name and there is no separate identifier to join through any more. It is **derived on write and never accepted from a caller** — it is an input to an authorization decision, so a caller who could set it could claim authority over a content type they do not hold a role for.
 
-**Composing an association's role check.** An `Association` is authorised from its two endpoints (§14.7), so the check must be able to name both role tiers for each end. The entity type is on the row, but the content type is not — it lives on the endpoint. Rather than resolve the endpoint (which the foundation may not do, §14.3, and which an `IQueryable` filter cannot do at all), the association **denormalises each endpoint's content type slug** onto its own row. A `Blog` post's association therefore satisfies `ContentItem-Reviewer` *or* `ContentItem-Blog-Reviewer` from the row alone.
-
-The slug is stored rather than the `ContentTypeId`, because the role name needs the slug and a `Guid` would force the join the denormalisation exists to avoid. It is **derived on write and never accepted from a caller** — it is an input to an authorization decision, so a caller who could set it could claim authority over a content type they do not hold a role for.
-
-**The denormalised value can never go stale.** A content type is immutable once created (§12.4.2 business rule 1), so there is no rename to cascade; and a content item's `ContentTypeId` is create-only (§12.4.1 business rule 7a), so there is no reclassification to chase either. The value is written once, at association creation, from an endpoint whose type can never change — which is what makes denormalising it safe rather than a maintenance liability.
+**The denormalised value can never go stale.** `ContentType` members never change identity once released (§3.6), so there is no rename to cascade; and a content item's `ContentType` is create-only (§3.8 rule 4), so there is no reclassification to chase either. The value is written once, at association creation, from an endpoint whose type can never change — which is what makes denormalising it safe rather than a maintenance liability.
 
 Role claims from the identity token must be used to control visibility of role-restricted navigation items in the React frontend and to enforce API-level authorisation.
 
@@ -3197,7 +3153,6 @@ The following authentication behaviour is required:
 | Layer | Responsibility |
 | --- | --- |
 | `ContentItemBroker` | Calls content item API endpoints. |
-| `ContentTypeBroker` | Calls content type API endpoints. |
 | `TagBroker` | Calls tag API endpoints. |
 | `ReactionBroker` | Calls reaction API endpoints. |
 | `CommentBroker` | Calls comment API endpoints. |

@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
@@ -37,7 +38,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         /// contribution flows.
         /// </summary>
         ValueTask<bool> CheckContentItemContentExistsAsync(
-            Guid contentTypeId,
+            ContentType contentType,
             string contentHash,
             Guid? excludedContentItemGroupId = null,
             CancellationToken cancellationToken = default);

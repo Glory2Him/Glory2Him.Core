@@ -39,7 +39,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// <c>Admin</c>; an <c>Approved</c> item may only be modified by its owner, which forks
         /// a new version row (<c>Version + 1</c>, new row becomes the latest, previous latest
         /// is demoted). Only the permitted caller fields (<c>Title</c>, <c>Author</c>,
-        /// <c>Content</c>, <c>ContentTypeId</c>, <c>PublishDate</c>) are mapped onto the entity
+        /// <c>Content</c>, <c>ContentType</c>, <c>PublishDate</c>) are mapped onto the entity
         /// loaded from storage, so control fields can never be tampered with; <c>CreatedBy</c>
         /// never changes on an update. State transitions such as approval and publication are
         /// deliberately NOT reachable here — they own narrower field scopes and get their own

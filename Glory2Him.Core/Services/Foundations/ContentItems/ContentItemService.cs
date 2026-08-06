@@ -106,7 +106,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             });
 
         public ValueTask<bool> CheckContentItemContentExistsAsync(
-            Guid contentTypeId,
+            ContentType contentType,
             string contentHash,
             Guid? excludedContentItemGroupId = null,
             CancellationToken cancellationToken = default) =>
@@ -116,7 +116,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 var checkRequest = new ContentItem
                 {
-                    ContentTypeId = contentTypeId,
+                    ContentType = contentType,
                     ContentHash = contentHash
                 };
 
@@ -124,7 +124,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     await this.eventEnvelopeBroker.CreateAsync(content: checkRequest);
 
                 ValidateUserIsAllowedToContribute(envelope.SecurityContext);
-                ValidateOnCheckContentItemContentExists(contentTypeId, contentHash);
+                ValidateOnCheckContentItemContentExists(contentType, contentHash);
 
                 IQueryable<ContentItem> allContentItems =
                     await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
@@ -133,7 +133,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 // a boolean reveals no row data — only that identical content already
                 // exists, which the duplicate rule already reveals to submitters
                 return allContentItems.Any(contentItem =>
-                    contentItem.ContentTypeId == contentTypeId
+                    contentItem.ContentType == contentType
                         && contentItem.ContentHash == contentHash
                         && contentItem.IsDeleted == false
                         && (excludedContentItemGroupId == null

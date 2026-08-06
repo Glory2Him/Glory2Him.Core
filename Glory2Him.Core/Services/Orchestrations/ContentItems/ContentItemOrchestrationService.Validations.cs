@@ -196,14 +196,14 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private static void ValidateContentItem(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
 
         private static void ValidateContentItemOnModify(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
-                (Rule: IsInvalid(contentItem.ContentTypeId), Parameter: nameof(ContentItem.ContentTypeId)),
+                (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)));
 
         private static void ValidateContentItemIdOnRetrieve(Guid contentItemId) =>
@@ -231,6 +231,15 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         {
             Condition = string.IsNullOrWhiteSpace(text),
             Message = "Text is required"
+        };
+
+        // structural validation for an enum crossing a boundary — rejects an out-of-range
+        // value; it cannot detect "caller forgot to set it", since ContentType has no
+        // unset sentinel
+        private static dynamic IsInvalid(ContentType contentType) => new
+        {
+            Condition = Enum.IsDefined(contentType) == false,
+            Message = "Value is not a supported content type"
         };
 
         private static void Validate(

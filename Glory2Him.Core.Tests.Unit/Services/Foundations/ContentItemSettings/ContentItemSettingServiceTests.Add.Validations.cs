@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
@@ -79,7 +80,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             var invalidContentItemSetting = new ContentItemSetting
             {
                 Id = Guid.Empty,
-                ContentTypeId = Guid.Empty,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -92,10 +92,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
 
             invalidContentItemSettingException.AddData(
                 key: nameof(ContentItemSetting.Id),
-                values: "Id is required");
-
-            invalidContentItemSettingException.AddData(
-                key: nameof(ContentItemSetting.ContentTypeId),
                 values: "Id is required");
 
             invalidContentItemSettingException.AddData(
@@ -197,6 +193,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             invalidContentItemSettingException.AddData(
                 key: nameof(ContentItemSetting.UpdatedBy),
                 values: $"Text exceed max length of {invalidContentItemSetting.UpdatedBy.Length - 1} characters");
+
+            var expectedContentItemSettingValidationException =
+                new ContentItemSettingValidationException(
+                    message: "Content item setting validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemSettingException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidContentItemSetting, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidContentItemSetting);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItemSetting> addContentItemSettingTask =
+                this.contentItemSettingService.AddContentItemSettingAsync(
+                    invalidContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    addContentItemSettingTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidContentItemSetting, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfContentTypeIsInvalidAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItemSetting randomContentItemSetting =
+                CreateContentItemSettingFiller(randomDateTimeOffset, randomUserId).Create();
+            ContentItemSetting invalidContentItemSetting = randomContentItemSetting;
+            invalidContentItemSetting.ContentType = (ContentType)int.MaxValue;
+
+            var invalidContentItemSettingException =
+                new InvalidContentItemSettingException(
+                    message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.AddData(
+                key: nameof(ContentItemSetting.ContentType),
+                values: "Value is not a supported content type");
 
             var expectedContentItemSettingValidationException =
                 new ContentItemSettingValidationException(

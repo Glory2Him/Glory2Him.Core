@@ -34,6 +34,13 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public EntityType EntityType { get; set; }
 
         /// <summary>
+        /// The content type this setting is scoped to, when <see cref="EntityType"/> is
+        /// <c>ContentItem</c>. Null means "every content type of this entity type" — the
+        /// entity-type-default tier. Must be null for every other entity type (design §8.4).
+        /// </summary>
+        public ContentType? ContentType { get; set; }
+
+        /// <summary>
         /// When enabled, entity items require a number of approvals before they can be approved.
         /// </summary>
         public bool RequireApprovals { get; set; } = true;

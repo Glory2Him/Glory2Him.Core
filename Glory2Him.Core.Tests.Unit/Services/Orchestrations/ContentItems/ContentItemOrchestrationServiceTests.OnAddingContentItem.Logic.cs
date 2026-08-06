@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -58,7 +59,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Setup(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     null,
                     It.IsAny<CancellationToken>()))
@@ -99,7 +100,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             this.contentItemServiceMock.Verify(service =>
                 service.CheckContentItemContentExistsAsync(
-                    inputContentItem.ContentTypeId,
+                    inputContentItem.ContentType,
                     contentHash,
                     null,
                     It.IsAny<CancellationToken>()),
