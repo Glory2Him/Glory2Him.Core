@@ -577,11 +577,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [InlineData("ContentItem-Testimony-Publisher")]
         public async Task ShouldMatchTheNarrowTierOnTheAEndpointAsync(string narrowRole)
         {
-            // given: a CANONICAL row with the ContentItem on the A side. Every other
-            // authorization test pairs ContentItem with a type that sorts below it, so the
-            // ContentItem always lands on B and the A-side content-type clause is never
-            // exercised. Reaction sorts above ContentItem ordinally, so this row puts the
-            // ContentItem on A — which is also the ordering the add path would produce.
+            // given: a CANONICAL row with the ContentItem on the A side.
+            //
+            // Every other authorization test writes EntityAType = Tag, EntityBType =
+            // ContentItem — which is NOT the order the add path would produce, because
+            // "ContentItem" sorts BELOW "Tag" ordinally and canonical ordering would put the
+            // ContentItem on A. Reads do not normalise, so those rows stay as written and the
+            // A-side content-type clause is never reached by them.
+            //
+            // Reaction also sorts above ContentItem, so pairing the two here yields a row
+            // that is genuinely canonical — the shape production would actually store.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(narrowRole);
             string randomActorUserId = GetRandomString();
 
@@ -617,6 +622,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // then
             actualAssociation.Should().BeEquivalentTo(storageAssociation);
+        }
+
+        [Fact]
+        public async Task ShouldMatchTheNarrowTierOnTheAEndpointInTheCollectionReadAsync()
+        {
+            // given: the collection filter has FOUR role-derived clauses — A coarse, B
+            // coarse, A content type, B content type. Every row built by
+            // CreateNonPublicAssociation puts the ContentItem on B, so the A-side
+            // content-type clause is unreachable through them and stays deletable. This row
+            // is canonically ordered with the ContentItem on A, which is what production
+            // stores, and is the only thing that clause matches.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewer");
+
+            string randomActorUserId = GetRandomString();
+
+            Association reachableAssociation = CreateRandomAssociation();
+            reachableAssociation.EntityAType = EntityType.ContentItem;
+            reachableAssociation.EntityAContentType = ContentType.Testimony;
+            reachableAssociation.EntityBType = EntityType.Reaction;
+            reachableAssociation.EntityBScope = Scope.ThisVersionOnly;
+            reachableAssociation.EntityBContentType = null;
+            reachableAssociation.IsDeleted = false;
+            reachableAssociation.ApprovalStatus = ApprovalStatus.Draft;
+            reachableAssociation.IsPublished = false;
+            reachableAssociation.CreatedBy = GetRandomString();
+
+            Association unreachableAssociation = CreateRandomAssociation();
+            unreachableAssociation.EntityAType = EntityType.ContentItem;
+            unreachableAssociation.EntityAContentType = ContentType.Story;
+            unreachableAssociation.EntityBType = EntityType.Reaction;
+            unreachableAssociation.EntityBScope = Scope.ThisVersionOnly;
+            unreachableAssociation.EntityBContentType = null;
+            unreachableAssociation.IsDeleted = false;
+            unreachableAssociation.ApprovalStatus = ApprovalStatus.Draft;
+            unreachableAssociation.IsPublished = false;
+            unreachableAssociation.CreatedBy = GetRandomString();
+
+            IQueryable<Association> storageAssociations = new[]
+            {
+                reachableAssociation,
+                unreachableAssociation
+            }.AsQueryable();
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageAssociations);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            IQueryable<Association> actualAssociations =
+                await this.associationService.RetrieveAllAssociationsAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociations.Should().ContainSingle()
+                .Which.Should().BeEquivalentTo(reachableAssociation);
         }
 
         // a non-public row owned by somebody else, so only a review role can reach it. The

@@ -203,7 +203,82 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Never);
         }
 
+        [Theory]
+        [InlineData(ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Submitted)]
+        public async Task ShouldAcceptAContributableApprovalStatusOnAddAsync(
+            ApprovalStatus contributableStatus)
+        {
+            // given: the positive half of the rule. Design §9.7.1 rule 1 says a row is written
+            // with "the ApprovalStatus the caller asked for — Submitted on the common path,
+            // Draft when saving work in progress", so narrowing the rule to Draft-only would
+            // break the documented common path. Without this test that narrowing is invisible.
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Association inputAssociation =
+                CreateAssociationFiller(randomDateTimeOffset, randomUserId).Create();
+
+            inputAssociation.ApprovalStatus = contributableStatus;
+
+            SetupAddPathBrokers(inputAssociation, randomDateTimeOffset);
+
+            // when
+            Association actualAssociation =
+                await this.associationService.AddAssociationAsync(
+                    inputAssociation,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualAssociation.ApprovalStatus.Should().Be(contributableStatus);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertAssociationAsync(inputAssociation, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
         // ── The endpoint veto on every write surface ─────────────────────────────────
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
+        {
+            // given: the global half of the hard-remove gate. The endpoint half is pinned by
+            // the Tag-ReadOnly test below, but "Tag-ReadOnly" is a different string from
+            // "ReadOnly" — so that test is caught by the endpoint veto and says nothing about
+            // this branch. Without this, the site-wide contribution ban could be dropped from
+            // the destructive surface with the suite green.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+
+            Guid someAssociationId = Guid.NewGuid();
+
+            var unauthorizedAssociationException = new UnauthorizedAssociationException(
+                message: "The current user is blocked from contributing content item associations.");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedAssociationException);
+
+            // when
+            ValueTask<Association> hardRemoveTask =
+                this.associationService.HardRemoveAssociationByIdAsync(
+                    someAssociationId,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(hardRemoveTask.AsTask);
+
+            // then: rejected before the row is even read
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAssociationByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
 
         [Fact]
         public async Task ShouldBlockRemoveWhenAnEndpointIsBannedAndLogItAsync()
