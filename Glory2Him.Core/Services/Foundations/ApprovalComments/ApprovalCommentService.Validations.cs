@@ -26,8 +26,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // an upstream layer already gated the caller
 
         // §16.6 spells an entity-scoped role "{Entity}-Reviewer" / "{Entity}-Publisher"
-        private const string ScopedReviewerRoleSuffix = "-" + Roles.Reviewer;
-        private const string ScopedPublisherRoleSuffix = "-" + Roles.Publisher;
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
 
         // commenting on a review thread is a conversation, not a moderation step: the
         // submitter answers the reviewer's questions on their own submission, so any

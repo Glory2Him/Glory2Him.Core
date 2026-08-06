@@ -28,11 +28,37 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // an upstream layer already gated the caller
         //
         // Association has no scoped roles of its own (design §14.7, §18.6) — authorization
-        // is derived from the two endpoint entity types instead. That derivation is an
-        // orchestration-level concern (needs both endpoints resolved) and lands in a
-        // follow-up change; until then this foundation enforces only the global roles.
+        // derives from its two endpoints. Both tiers compose from the row alone, which is
+        // what the denormalised endpoint content type is for: no endpoint is resolved, and
+        // no read is issued, to answer an authorization question.
 
-        private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
+        // The contribution gate. Takes the association because the answer depends on the
+        // endpoints, and blocks on EITHER of them.
+        //
+        // The OR is load-bearing. Under AND, a user holding Tag-ReadOnly alongside
+        // BibleReference-Reviewer could pair a tag with an entity type they are not banned
+        // from and land it on a public scripture page — precisely what Tag-ReadOnly exists
+        // to prevent. A block on one end blocks the association.
+        private static void ValidateUserIsAllowedToContribute(
+            SecurityContext securityContext,
+            Association association)
+        {
+            ValidateUserIsNotGloballyBlockedFromContributing(securityContext);
+            ValidateAssociationIsNotNull(association);
+
+            ValidateUserIsNotBlockedFromEndpoints(
+                securityContext: securityContext,
+                firstEntityType: association.EntityAType,
+                secondEntityType: association.EntityBType);
+        }
+
+        // The half of the gate that needs no endpoints: authentication and the global block
+        // role. Split out so the remove path — which is handed an id, not an association —
+        // can still reject an anonymous or globally-blocked caller before it reads storage.
+        // Folding the whole gate below the load would let an anonymous caller probe which
+        // ids exist, and would cost a query per rejected request.
+        private static void ValidateUserIsNotGloballyBlockedFromContributing(
+            SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
             {
@@ -40,7 +66,24 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     message: "The current user is not authenticated.");
             }
 
-            bool isBlocked = securityContext.Roles.Contains(Roles.ReadOnly);
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is blocked from contributing content item associations.");
+            }
+        }
+
+        // The endpoint-scoped half, which needs both entity types. Runs against a
+        // caller-supplied association on add and modify, and against the storage row on
+        // remove — the same rule either way.
+        private static void ValidateUserIsNotBlockedFromEndpoints(
+            SecurityContext securityContext,
+            EntityType firstEntityType,
+            EntityType secondEntityType)
+        {
+            bool isBlocked =
+                securityContext.Roles.Contains(Roles.ReadOnlyFor(firstEntityType))
+                    || securityContext.Roles.Contains(Roles.ReadOnlyFor(secondEntityType));
 
             if (isBlocked)
             {
@@ -49,13 +92,57 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // the moderation roles that may act on and read non-public versions for review and
-        // audit (Reviewer, Publisher, Admin — global only until endpoint-derived
-        // authorization lands, §16.6)
-        private static bool HasReviewRole(SecurityContext securityContext) =>
+        // the global moderation roles, which grant review over every entity type
+        private static bool HasGlobalReviewRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Reviewer)
                 || securityContext.Roles.Contains(Roles.Publisher)
                 || securityContext.Roles.Contains(Roles.Admin);
+
+        // Both tiers for one endpoint: the coarse ContentItem-Reviewer from the entity type,
+        // and the narrow ContentItem-Testimony-Reviewer from the denormalised content type.
+        // The narrow tier only exists for ContentItem, so a null content type simply costs
+        // the caller that tier rather than widening anything (design §18.6 rule 4).
+        private static bool HasEndpointReviewRole(
+            SecurityContext securityContext,
+            EntityType entityType,
+            ContentType? contentType)
+        {
+            if (securityContext.Roles.Contains(Roles.ReviewerFor(entityType))
+                || securityContext.Roles.Contains(Roles.PublisherFor(entityType)))
+            {
+                return true;
+            }
+
+            if (contentType.HasValue is false)
+            {
+                return false;
+            }
+
+            return securityContext.Roles.Contains(
+                    Roles.ReviewerFor(entityType, contentType.Value))
+                || securityContext.Roles.Contains(
+                    Roles.PublisherFor(entityType, contentType.Value));
+        }
+
+        // the moderation roles that may act on and read non-public rows for review and
+        // audit: a global elevated role, or a scoped role matching AT LEAST ONE endpoint.
+        //
+        // One endpoint is enough because a reviewer trusted with tags is trusted to judge
+        // whether a tag belongs on something — the pairing is the thing under review, and
+        // they can see both ends of it. Requiring both would leave every cross-type
+        // association unreviewable by anyone short of a global role.
+        private static bool HasReviewRoleForAssociation(
+            SecurityContext securityContext,
+            Association association) =>
+            HasGlobalReviewRole(securityContext)
+                || HasEndpointReviewRole(
+                    securityContext,
+                    association.EntityAType,
+                    association.EntityAContentType)
+                || HasEndpointReviewRole(
+                    securityContext,
+                    association.EntityBType,
+                    association.EntityBContentType);
 
         // row-level write permission: the owner or a review role may write the row — the
         // narrower workflow rules stay in the orchestration, which needs owner writes for
@@ -70,7 +157,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageAssociation.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            if (isOwner is false
+                && HasReviewRoleForAssociation(securityContext, storageAssociation) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to modify this content item association.");

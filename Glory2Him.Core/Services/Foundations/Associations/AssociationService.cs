@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,7 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Associations
 {
@@ -249,7 +251,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && maybeAssociation.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            // the review check is endpoint-derived and the row is in hand, so a reviewer
+            // scoped to either end can audit it. The contribution veto is deliberately NOT
+            // consulted here: design §18.6 defines ReadOnly as a contribution block, and
+            // treating it as a read block would strip audit visibility from a moderator who
+            // happens to hold one scoped ReadOnly.
+            if (isOwner is false
+                && HasReviewRoleForAssociation(securityContext, maybeAssociation) is false)
             {
                 await this.loggingBroker.LogWarningAsync(
                     message: $"Content item association read denied. Content item association " +
@@ -277,7 +285,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             bool isAuthenticated =
                 securityContext is not null && securityContext.IsAuthenticated;
 
-            if (isAuthenticated && HasReviewRole(securityContext!))
+            if (isAuthenticated && HasGlobalReviewRole(securityContext!))
             {
                 return visibleAssociations;
             }
@@ -290,8 +298,28 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             bool includeOwnAssociations = string.IsNullOrWhiteSpace(actorUserId) is false;
 
+            // This filter has no row to inspect — it composes an expression tree — so the
+            // scoped roles are resolved in memory FIRST and the resulting sets are closed
+            // over. `Contains` on a local collection translates to `IN (...)`, and because
+            // both enums persist as strings EF parameterises the converted values.
+            //
+            // A caller with no scoped roles gets two empty sets, and an empty
+            // `HashSet.Contains` is constant-false, so the query degrades to exactly the
+            // public-plus-own predicate it had before.
+            HashSet<EntityType> reviewableEntityTypes =
+                ResolveReviewableEntityTypes(securityContext);
+
+            HashSet<ContentType> reviewableContentTypes =
+                ResolveReviewableContentTypes(securityContext);
+
             return visibleAssociations.Where(association =>
-                (association.ApprovalStatus == ApprovalStatus.Approved
+                reviewableEntityTypes.Contains(association.EntityAType)
+                || reviewableEntityTypes.Contains(association.EntityBType)
+                || (association.EntityAContentType != null
+                    && reviewableContentTypes.Contains(association.EntityAContentType.Value))
+                || (association.EntityBContentType != null
+                    && reviewableContentTypes.Contains(association.EntityBContentType.Value))
+                || (association.ApprovalStatus == ApprovalStatus.Approved
                     && association.IsPublished
                     && (association.PublishDate == null
                         || association.PublishDate <= currentDateTime))
@@ -299,12 +327,71 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     && association.CreatedBy == actorUserId));
         }
 
+        // the entity types this caller may review, from the coarse tier. Enumerating the
+        // enum rather than parsing the caller's role strings means an unrecognised role
+        // simply never matches, instead of being split on '-' into something that might.
+        private static HashSet<EntityType> ResolveReviewableEntityTypes(
+            SecurityContext? securityContext)
+        {
+            var reviewableEntityTypes = new HashSet<EntityType>();
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                return reviewableEntityTypes;
+            }
+
+            foreach (EntityType entityType in Enum.GetValues<EntityType>())
+            {
+                bool isReviewable =
+                    securityContext.Roles.Contains(Roles.ReviewerFor(entityType))
+                        || securityContext.Roles.Contains(Roles.PublisherFor(entityType));
+
+                if (isReviewable)
+                {
+                    reviewableEntityTypes.Add(entityType);
+                }
+            }
+
+            return reviewableEntityTypes;
+        }
+
+        // the narrow tier. Only ContentItem carries a content type (design §18.6 rule 5),
+        // so only ContentItem-scoped role names are composed — and because the column is
+        // null on every other endpoint type, matching on the content type alone cannot
+        // reach a row of a different entity type.
+        private static HashSet<ContentType> ResolveReviewableContentTypes(
+            SecurityContext? securityContext)
+        {
+            var reviewableContentTypes = new HashSet<ContentType>();
+
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                return reviewableContentTypes;
+            }
+
+            foreach (ContentType contentType in Enum.GetValues<ContentType>())
+            {
+                bool isReviewable =
+                    securityContext.Roles.Contains(
+                            Roles.ReviewerFor(EntityType.ContentItem, contentType))
+                        || securityContext.Roles.Contains(
+                            Roles.PublisherFor(EntityType.ContentItem, contentType));
+
+                if (isReviewable)
+                {
+                    reviewableContentTypes.Add(contentType);
+                }
+            }
+
+            return reviewableContentTypes;
+        }
+
         private async ValueTask<Association> DoAddAssociationAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, association);
 
             association = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(
@@ -359,7 +446,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext, association);
 
             association = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(
@@ -427,7 +514,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            // only the endpoint-independent half of the contribution gate can run here — the
+            // scoped veto needs the row, and this path is handed an id. Keeping the
+            // authentication and global-block checks above the read means an anonymous or
+            // globally blocked caller is still rejected without a query.
+            ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
             ValidateOnRemoveAssociationById(associationId);
 
             Association maybeAssociation =
@@ -436,6 +527,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     cancellationToken: cancellationToken);
 
             ValidateStorageAssociation(maybeAssociation, associationId);
+
+            // the endpoint veto, now that both endpoints are known
+            ValidateUserIsNotBlockedFromEndpoints(
+                securityContext: inboundEnvelope.SecurityContext,
+                firstEntityType: maybeAssociation.EntityAType,
+                secondEntityType: maybeAssociation.EntityBType);
 
             // permission comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
