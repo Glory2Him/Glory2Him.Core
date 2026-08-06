@@ -22,9 +22,9 @@ using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles;
 using Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.Comments;
-using Glory2Him.Core.Services.Foundations.ContentItemAssociations;
 using Glory2Him.Core.Services.Foundations.ContentItems;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentTypes;
@@ -76,7 +76,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalSettingService approvalSettingService;
         private readonly IApprovalSettingReviewerRoleService approvalSettingReviewerRoleService;
         private readonly IApprovalSettingPublisherRoleService approvalSettingPublisherRoleService;
-        private readonly IContentItemAssociationService contentItemAssociationService;
+        private readonly IAssociationService associationService;
         private readonly IContentItemSettingService contentItemSettingService;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
 
@@ -95,7 +95,7 @@ namespace Glory2Him.Core.Registrations
             IApprovalSettingService approvalSettingService,
             IApprovalSettingReviewerRoleService approvalSettingReviewerRoleService,
             IApprovalSettingPublisherRoleService approvalSettingPublisherRoleService,
-            IContentItemAssociationService contentItemAssociationService,
+            IAssociationService associationService,
             IContentItemSettingService contentItemSettingService,
             IContentItemOrchestrationService contentItemOrchestrationService)
         {
@@ -113,7 +113,7 @@ namespace Glory2Him.Core.Registrations
             this.approvalSettingService = approvalSettingService;
             this.approvalSettingReviewerRoleService = approvalSettingReviewerRoleService;
             this.approvalSettingPublisherRoleService = approvalSettingPublisherRoleService;
-            this.contentItemAssociationService = contentItemAssociationService;
+            this.associationService = associationService;
             this.contentItemSettingService = contentItemSettingService;
             this.contentItemOrchestrationService = contentItemOrchestrationService;
         }
@@ -1149,92 +1149,92 @@ namespace Glory2Him.Core.Registrations
 
                 cancellationToken: cancellationToken);
 
-            // ── ContentItemAssociation request handlers ──────────────────────────
-            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+            // ── Association request handlers ──────────────────────────
+            await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers
-                        .ContentItemAssociationOnAddingContentItemAssociationSubscriptionId,
+                        .AssociationOnAddingAssociationSubscriptionId,
 
                     Name = EventBrokerIdentifiers
-                        .ContentItemAssociationOnAddingContentItemAssociationSubscriptionName,
+                        .AssociationOnAddingAssociationSubscriptionName,
 
                     Description = "Handles add requests: stores the content item association, " +
-                        "publishes ContentItemAssociation-Added, and replies with the added entity."
+                        "publishes Association-Added, and replies with the added entity."
                 },
-                operation: ContentItemAssociationEventOperation.Adding,
-                contentItemAssociationEventHandler:
-                    this.contentItemAssociationService.OnAddingContentItemAssociationAsync,
+                operation: AssociationEventOperation.Adding,
+                associationEventHandler:
+                    this.associationService.OnAddingAssociationAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+            await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers
-                        .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionId,
+                        .AssociationOnModifyingAssociationSubscriptionId,
 
                     Name = EventBrokerIdentifiers
-                        .ContentItemAssociationOnModifyingContentItemAssociationSubscriptionName,
+                        .AssociationOnModifyingAssociationSubscriptionName,
 
                     Description = "Handles modify requests: updates the content item association, " +
-                        "publishes ContentItemAssociation-Modified, and replies with the updated entity."
+                        "publishes Association-Modified, and replies with the updated entity."
                 },
-                operation: ContentItemAssociationEventOperation.Modifying,
-                contentItemAssociationEventHandler:
-                    this.contentItemAssociationService.OnModifyingContentItemAssociationAsync,
+                operation: AssociationEventOperation.Modifying,
+                associationEventHandler:
+                    this.associationService.OnModifyingAssociationAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+            await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers
-                        .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionId,
+                        .AssociationOnRemovingAssociationByIdSubscriptionId,
 
                     Name = EventBrokerIdentifiers
-                        .ContentItemAssociationOnRemovingContentItemAssociationByIdSubscriptionName,
+                        .AssociationOnRemovingAssociationByIdSubscriptionName,
 
                     Description = "Handles remove requests: soft-deletes the content item " +
-                        "association, publishes ContentItemAssociation-Removed, and replies " +
+                        "association, publishes Association-Removed, and replies " +
                         "with the removed entity."
                 },
-                operation: ContentItemAssociationEventOperation.RemovingById,
-                contentItemAssociationEventHandler:
-                    this.contentItemAssociationService.OnRemovingContentItemAssociationByIdAsync,
+                operation: AssociationEventOperation.RemovingById,
+                associationEventHandler:
+                    this.associationService.OnRemovingAssociationByIdAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+            await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers
-                        .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionId,
+                        .AssociationOnHardRemovingAssociationByIdSubscriptionId,
 
                     Name = EventBrokerIdentifiers
-                        .ContentItemAssociationOnHardRemovingContentItemAssociationByIdSubscriptionName,
+                        .AssociationOnHardRemovingAssociationByIdSubscriptionName,
 
                     Description = "Handles hard-remove requests: permanently deletes the " +
-                        "content item association, publishes ContentItemAssociationHardRemoved " +
+                        "content item association, publishes AssociationHardRemoved " +
                         "on the removal address, and replies with the deleted entity."
                 },
-                operation: ContentItemAssociationEventOperation.HardRemovingById,
-                contentItemAssociationEventHandler:
-                    this.contentItemAssociationService.OnHardRemovingContentItemAssociationByIdAsync,
+                operation: AssociationEventOperation.HardRemovingById,
+                associationEventHandler:
+                    this.associationService.OnHardRemovingAssociationByIdAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemAssociationEventAsync(
+            await this.eventBroker.SubscribeToAssociationEventAsync(
                 subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers
-                        .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionId,
+                        .AssociationOnRetrievingAssociationByIdSubscriptionId,
 
                     Name = EventBrokerIdentifiers
-                        .ContentItemAssociationOnRetrievingContentItemAssociationByIdSubscriptionName,
+                        .AssociationOnRetrievingAssociationByIdSubscriptionName,
 
                     Description = "Handles retrieve requests: retrieves a content item " +
                         "association by id and replies with it on the delivery."
                 },
-                operation: ContentItemAssociationEventOperation.RetrievingById,
-                contentItemAssociationEventHandler:
-                    this.contentItemAssociationService.OnRetrievingContentItemAssociationByIdAsync,
+                operation: AssociationEventOperation.RetrievingById,
+                associationEventHandler:
+                    this.associationService.OnRetrievingAssociationByIdAsync,
                 cancellationToken: cancellationToken);
 
             // ── ContentItemSetting request handlers ──────────────────────────────

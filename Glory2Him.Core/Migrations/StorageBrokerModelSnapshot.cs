@@ -423,6 +423,105 @@ namespace Glory2Him.Core.Migrations
                     b.ToTable("Approvals", (string)null);
                 });
 
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.Associations.Association", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ApprovalStatus")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("AssociationConfidenceReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("AssociationConfidenceScore")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset>("CreatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset?>("DeletedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletionReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsPublished")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid?>("LinkedContentItemGroupId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("LinkedContentItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LinkedContentScope")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("LinkedEntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LinkedEntityType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTimeOffset?>("PublishDate")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTimeOffset>("UpdatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LinkedContentScope", "LinkedContentItemGroupId")
+                        .HasDatabaseName("IX_Association_ByAssociatedContentItemGroupId_ScopeAll")
+                        .HasFilter("[LinkedContentScope] = N'AllVersions'");
+
+                    b.HasIndex("LinkedContentScope", "LinkedContentItemId")
+                        .HasDatabaseName("IX_Association_ByItem_ScopeThis")
+                        .HasFilter("[LinkedContentScope] = N'ThisVersionOnly'");
+
+                    b.HasIndex("LinkedEntityType", "LinkedEntityId")
+                        .HasDatabaseName("IX_Association_Target");
+
+                    b.ToTable("Associations", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Association_AssociationConfidenceScoreRange", "(AssociationConfidenceScore IS NULL OR AssociationConfidenceScore BETWEEN 0 AND 10)");
+
+                            t.HasCheckConstraint("CK_Association_ScopeConsistency", "((LinkedContentScope = N'AllVersions' AND LinkedContentItemGroupId IS NOT NULL AND LinkedContentItemId IS NULL) OR (LinkedContentScope = N'ThisVersionOnly' AND LinkedContentItemId IS NOT NULL AND LinkedContentItemGroupId IS NULL))");
+                        });
+                });
+
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.Attachments.Attachment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -658,105 +757,6 @@ namespace Glory2Him.Core.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Comments", (string)null);
-                });
-
-            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ContentItemAssociations.ContentItemAssociation", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("ApprovalStatus")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<string>("AssociationConfidenceReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int?>("AssociationConfidenceScore")
-                        .HasColumnType("int");
-
-                    b.Property<string>("CreatedBy")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<DateTimeOffset>("CreatedWhen")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("DeletedBy")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<DateTimeOffset?>("DeletedWhen")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("DeletionReason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsDeleted")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<bool>("IsPublished")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
-                    b.Property<Guid?>("LinkedContentItemGroupId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("LinkedContentItemId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("LinkedContentScope")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .IsUnicode(true)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<Guid>("LinkedEntityId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("LinkedEntityType")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .IsUnicode(true)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<DateTimeOffset?>("PublishDate")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("UpdatedBy")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<DateTimeOffset>("UpdatedWhen")
-                        .HasColumnType("datetimeoffset");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("LinkedContentScope", "LinkedContentItemGroupId")
-                        .HasDatabaseName("IX_ContentItemAssociation_ByAssociatedContentItemGroupId_ScopeAll")
-                        .HasFilter("[LinkedContentScope] = N'AllVersions'");
-
-                    b.HasIndex("LinkedContentScope", "LinkedContentItemId")
-                        .HasDatabaseName("IX_ContentItemAssociation_ByItem_ScopeThis")
-                        .HasFilter("[LinkedContentScope] = N'ThisVersionOnly'");
-
-                    b.HasIndex("LinkedEntityType", "LinkedEntityId")
-                        .HasDatabaseName("IX_ContentItemAssociation_Target");
-
-                    b.ToTable("ContentItemAssociations", null, t =>
-                        {
-                            t.HasCheckConstraint("CK_ContentItemAssociation_AssociationConfidenceScoreRange", "(AssociationConfidenceScore IS NULL OR AssociationConfidenceScore BETWEEN 0 AND 10)");
-
-                            t.HasCheckConstraint("CK_ContentItemAssociation_ScopeConsistency", "((LinkedContentScope = N'AllVersions' AND LinkedContentItemGroupId IS NOT NULL AND LinkedContentItemId IS NULL) OR (LinkedContentScope = N'ThisVersionOnly' AND LinkedContentItemId IS NOT NULL AND LinkedContentItemGroupId IS NULL))");
-                        });
                 });
 
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting", b =>

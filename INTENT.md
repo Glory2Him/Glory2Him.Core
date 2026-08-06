@@ -189,7 +189,7 @@ Defines rules for how approvals are evaluated.
 
 ---
 
-## ContentItemAssociation
+## Association
 
 Links ContentItems to other entities.
 

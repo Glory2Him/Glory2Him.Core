@@ -27,7 +27,7 @@ The design follows these principles:
 5. Content associations must support both a specific content version and all versions of a content item group.
 6. Content-specific behaviour must be policy-driven through settings.
 7. `Topic` must be modelled as a `ContentType`, not as a separate database entity.
-8. A `Topic` groups other content items through `ContentItemAssociation`.
+8. A `Topic` groups other content items through `Association`.
 9. The feed is a domain projection only, not a database entity.
 10. Any publishable content type except `Topic` can appear in the feed.
 11. All deletes are soft deletes.
@@ -76,7 +76,7 @@ The domain model is grouped into the following areas:
 
 | Area | Entities |
 | --- | --- |
-| Content | `ContentItem`, `ContentType`, `ContentItemSetting`, `ContentItemAssociation` |
+| Content | `ContentItem`, `ContentType`, `ContentItemSetting`, `Association` |
 | Approval | `Approval`, `ApprovalReview`, `ApprovalComment`, `ApprovalSetting`, `ApprovalSettingReviewerRole`, `ApprovalSettingPublisherRole` |
 | Associated Entities | `Tag`, `Reaction`, `Comment`, `BibleReference`, `Link`, `Attachment` |
 | Enum / Lookup | `EntityType`, `ApprovalStatus`, `Scope` |
@@ -252,11 +252,11 @@ The following rules apply:
 4. The feed must exclude `Topic` content items.
 5. Any publishable content type except `Topic` can appear in the feed.
 
-## 4. ContentItemAssociation Design
+## 4. Association Design
 
 ### 4.1 Purpose
 
-`ContentItemAssociation` is the generic association mechanism between a content item and another entity.
+`Association` is the generic association mechanism between a content item and another entity.
 
 It supports:
 
@@ -295,7 +295,7 @@ The following rules must be enforced:
 3. Both fields must not be supplied at the same time.
 4. Both fields must not be null.
 
-### 4.5 ContentItemAssociation Properties
+### 4.5 Association Properties
 
 | Property | Purpose |
 | --- | --- |
@@ -327,7 +327,7 @@ The supported associated entity types are defined by `EntityType`.
 | EntityType | Purpose |
 | --- | --- |
 | `ContentItem` | Related content, topic child items, parent/child links. |
-| `ContentItemAssociation` | Allows association records themselves to be approved. |
+| `Association` | Allows association records themselves to be approved. |
 | `Tag` | Categorisation and labelling. |
 | `Reaction` | Reactions such as love, like, celebrate. |
 | `BibleReference` | Scripture references. |
@@ -405,7 +405,7 @@ Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, C
 
 ### 5.3 Comment
 
-`Comment` represents user or reviewer visible discussion attached to content through `ContentItemAssociation`.
+`Comment` represents user or reviewer visible discussion attached to content through `Association`.
 
 | Property | Purpose |
 | --- | --- |
@@ -667,7 +667,7 @@ Instead:
 The following entities are subject to approval:
 
 1. `ContentItem`
-2. `ContentItemAssociation`
+2. `Association`
 3. `Tag`
 4. `Reaction`
 5. `Comment`
@@ -1190,9 +1190,9 @@ Recommended domain events. The names below identify each event's **intent**; the
 | `ContentItemCreatedEvent` | Create approval record for new content. |
 | `ContentItemUpdatedEvent` | Dismiss or retain approval based on approval settings and entity-scoped rules. |
 | `ContentItemDeletedEvent` | Record soft delete and remove from visibility. |
-| `ContentItemAssociationCreatedEvent` | Create approval record for association. |
-| `ContentItemAssociationUpdatedEvent` | Dismiss or retain association approval. |
-| `ContentItemAssociationDeletedEvent` | Record soft delete and remove association from visibility. |
+| `AssociationCreatedEvent` | Create approval record for association. |
+| `AssociationUpdatedEvent` | Dismiss or retain association approval. |
+| `AssociationDeletedEvent` | Record soft delete and remove association from visibility. |
 | `TagCreatedEvent` | Create approval record for tag. |
 | `TagUpdatedEvent` | Dismiss or retain tag approval. |
 | `TagDeletedEvent` | Record soft delete and remove tag from visibility. |
@@ -1734,7 +1734,7 @@ Example:
 
 1. Create a `ContentItem` with `ContentType = Topic`.
 2. Title it `God's Love`.
-3. Associate other content items with that topic through `ContentItemAssociation`.
+3. Associate other content items with that topic through `Association`.
 4. The associated content may be `Quote`, `Story`, `Testimony`, or any future publishable content type.
 
 ### 11.2 Topic Is Not a Feed Item
@@ -1774,9 +1774,9 @@ ORDER BY PublishDate DESC, CreatedWhen DESC;
 
 ### 11.4 Topic Parent/Child Relationship
 
-Topics use `ContentItemAssociation` for parent/child relationships.
+Topics use `Association` for parent/child relationships.
 
-A child item is associated to the topic by creating a `ContentItemAssociation` where:
+A child item is associated to the topic by creating a `Association` where:
 
 | Field | Value |
 | --- | --- |
@@ -1803,8 +1803,8 @@ A child item is visible under a topic only when:
 
 1. The topic is visible.
 2. The child content item is visible.
-3. The `ContentItemAssociation` between the topic and child is approved if approval is required.
-4. The `ContentItemAssociation.PublishDate` is null or has passed.
+3. The `Association` between the topic and child is approved if approval is required.
+4. The `Association.PublishDate` is null or has passed.
 5. The effective `ContentItemSetting` allows the relationship or associated content to be shown.
 
 ### 11.7 Topic Ordering
@@ -2150,7 +2150,7 @@ Responsibilities:
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate an approved tag with a content item by creating a `ContentItemAssociation`, validating that tagging is permitted by resolving the effective `ContentItemSetting`.
+5. Associate an approved tag with a content item by creating a `Association`, validating that tagging is permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of tags and flag associated content item associations as appropriate.
 7. Publish `TagCreatedEvent`, `TagUpdatedEvent`, and `TagDeletedEvent` via `TagEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
@@ -2190,7 +2190,7 @@ Responsibilities:
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate a reaction with a content item by creating a `ContentItemAssociation`, validating that reactions are permitted and enforcing `LimitReactionsToLoveOnly` when the setting is enabled.
+5. Associate a reaction with a content item by creating a `Association`, validating that reactions are permitted and enforcing `LimitReactionsToLoveOnly` when the setting is enabled.
 6. Orchestrate soft delete of reactions and flag associated content item associations as appropriate.
 7. Publish `ReactionCreatedEvent`, `ReactionUpdatedEvent`, and `ReactionDeletedEvent` via `ReactionEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
@@ -2230,7 +2230,7 @@ Responsibilities:
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate an approved comment with a content item by creating a `ContentItemAssociation`, validating that comments are permitted by resolving the effective `ContentItemSetting`.
+5. Associate an approved comment with a content item by creating a `Association`, validating that comments are permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of comments and flag associated content item associations as appropriate.
 7. Publish `CommentCreatedEvent`, `CommentUpdatedEvent`, and `CommentDeletedEvent` via `CommentEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
@@ -2269,7 +2269,7 @@ Responsibilities:
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate an approved Bible reference with a content item by creating a `ContentItemAssociation`, validating that Bible references are permitted by resolving the effective `ContentItemSetting`.
+5. Associate an approved Bible reference with a content item by creating a `Association`, validating that Bible references are permitted by resolving the effective `ContentItemSetting`.
 6. Orchestrate soft delete of Bible references and flag associated content item associations as appropriate.
 7. Publish `BibleReferenceCreatedEvent`, `BibleReferenceUpdatedEvent`, and `BibleReferenceDeletedEvent` via `BibleReferenceEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
@@ -2334,7 +2334,7 @@ The EF Core model snapshot currently shows tables and constraints for:
 | 4 | `ContentItems` | Stores all versioned content item records. |
 | 5 | `ContentTypes` | Stores content type definitions such as `Quote`, `Story`, `Testimony`, and `Topic`. |
 | 6 | `ContentItemSettings` | Stores policy settings for content interaction behaviour per content type or content item. |
-| 7 | `ContentItemAssociations` | Stores generic associations between content items and other entities. |
+| 7 | `Associations` | Stores generic associations between content items and other entities. |
 | 8 | `Tags` | Stores tag definitions used for content categorisation. |
 | 9 | `Reactions` | Stores reusable reaction definitions. |
 
@@ -2522,7 +2522,7 @@ Cross-row rules under visibility filtering: because the entity-returning collect
 
 The §14.6 mandate is applied per entity according to what the entity is. Four postures cover every foundation entity; each service documents its posture in its class XML doc and enforces it on all six CRUD surfaces (Add, RetrieveAll, RetrieveById, Modify, RemoveById, HardRemoveById), on both entry paths.
 
-**A. User-contributed approvable content** — `ContentItem`, `ContentItemAssociation`, `Tag`, `Reaction`, `Comment`, `BibleReference`, `Link` (and `Attachment` when implemented):
+**A. User-contributed approvable content** — `ContentItem`, `Association`, `Tag`, `Reaction`, `Comment`, `BibleReference`, `Link` (and `Attachment` when implemented):
 
 1. Contribution gate on writes: authenticated and not blocked by `ReadOnly` or `%EntityType%-ReadOnly`.
 2. Review roles: global `Reviewer` / `Publisher` / `Admin` plus `%EntityType%-Reviewer` / `%EntityType%-Publisher` (§18.6).
@@ -2558,28 +2558,26 @@ The draw.io model includes `ConentItemAssociation`.
 The correct name should be:
 
 ```text
-ContentItemAssociation
+Association
 ```
 
 ### 15.2 Remove ApprovalId from Approvable Entities
 
-The draw.io model included `ApprovalId` on `ContentItem` and `ContentItemAssociation` as a direct foreign key to the `Approval` record. This has been resolved.
+The draw.io model included `ApprovalId` on `ContentItem` and `Association` as a direct foreign key to the `Approval` record. This has been resolved.
 
 Final direction:
 
 1. `ApprovalId` must not be placed on any approvable entity.
 2. Approval lookup is performed generically through `Approval.EntityType` and `Approval.EntityId`.
-3. `ApprovalId` on `ContentItemAssociation` has been removed. Approval for an association is resolved through `Approval(EntityType = ContentItemAssociation, EntityId = ContentItemAssociation.Id)`.
+3. `ApprovalId` on `Association` has been removed. Approval for an association is resolved through `Approval(EntityType = Association, EntityId = Association.Id)`.
 4. `ApprovalId` remains valid only on `ApprovalReview` and `ApprovalComment` as a direct foreign key to their parent `Approval` record, not as a lookup from approvable entities.
 
-### 15.3 Add ContentItemAssociation to EntityType
+### 15.3 Add Association to EntityType — done
 
-The current `EntityType` enum does not include `ContentItemAssociation`.
-
-Recommended addition:
+`EntityType` includes `Association = 7`.
 
 ```csharp
-ContentItemAssociation = 7
+Association = 7
 ```
 
 This allows association records themselves to be approved through the same approval mechanism.
@@ -2592,7 +2590,7 @@ Recommended direction:
 
 1. Add `Topic` as a seeded `ContentType`.
 2. Use `EntityType.ContentItem` for topic parent/child associations.
-3. Use `ContentItemAssociation` to connect topics to child content items.
+3. Use `Association` to connect topics to child content items.
 4. Exclude `Topic` from feed projections.
 
 ### 15.5 Review ContentItemSetting Type Mismatch
@@ -2619,7 +2617,7 @@ Responsible for:
 6. Reading content by (`ContentTypeId`, `ContentHash`) for duplicate detection.
 7. Applying soft delete fields.
 
-### 16.2 ContentItemAssociationService
+### 16.2 AssociationService
 
 Responsible for:
 
@@ -3220,9 +3218,9 @@ G2H should use `ContentItem` as the primary content model and represent differen
 
 All content and supporting entities should use a shared approval workflow based on `EntityType` and `EntityId`, rather than direct entity-specific database relationships.
 
-`ContentItemAssociation` should be the generic relationship table that links content items to tags, reactions, comments, Bible references, links, attachments, and other content items.
+`Association` should be the generic relationship table that links content items to tags, reactions, comments, Bible references, links, attachments, and other content items.
 
-`Topic` should be implemented as a `ContentItem` of type `Topic`, with child content items attached using `ContentItemAssociation`.
+`Topic` should be implemented as a `ContentItem` of type `Topic`, with child content items attached using `Association`.
 
 The feed should not be a database entity. It should be a projection of visible, approved, published, non-deleted content items excluding `Topic`, ordered by publish date descending.
 
