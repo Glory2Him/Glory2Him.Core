@@ -26,10 +26,13 @@ namespace Glory2Him.Core.Models.Foundations.BibleReferences
         public Guid Id { get; set; }
 
         /// <summary>
-        /// USFM stands for Unified Standard Format Markers — it's the reference notation Bible publishing tools 
+        /// USFM stands for Unified Standard Format Markers — it's the reference notation Bible publishing tools
         /// use to identify a book, chapter, and verse unambiguously in code e.g. JHN.3.16.NIV
+        /// The canonical passage key, including translation since <see cref="Scripture"/> is
+        /// translation-specific. Unique across non-deleted rows and immutable after creation —
+        /// editing it would silently re-point every association attached to this row's id.
         /// </summary>
-        public string USFM { get; set; }
+        public string USFM { get; set; } = string.Empty;
 
         /// <summary>
         /// The human readable scripture reference, such as John 3:16.
