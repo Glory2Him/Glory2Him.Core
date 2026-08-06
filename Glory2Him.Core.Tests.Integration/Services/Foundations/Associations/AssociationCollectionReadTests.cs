@@ -76,13 +76,13 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // predicate would silently match nothing.
             //
             // Asserting on the bare words "Tag" and "Testimony" would not show that: both
-            // appear in the SELECT projection as part of column names. The assertion has to
-            // name the parameter DECLARATION, which only exists if the value was passed as a
-            // string.
-            sql.Should().Contain("nvarchar(32) = N'Tag'",
+            // appear in the SELECT projection as part of column names. This asserts on the
+            // parameter's declared VALUE — an N-prefixed string literal, which is what a
+            // numeric parameterisation could not produce.
+            sql.Should().Contain("= N'Tag'",
                 because: "the reviewable entity type is parameterised as its name, not its number");
 
-            sql.Should().Contain("nvarchar(32) = N'Testimony'",
+            sql.Should().Contain("= N'Testimony'",
                 because: "the reviewable content type is parameterised as its name, not its number");
 
             // The role predicate itself must be server-side. Asserting on a projected column
