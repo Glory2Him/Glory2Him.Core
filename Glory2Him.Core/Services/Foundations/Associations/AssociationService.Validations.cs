@@ -419,11 +419,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 (Rule: IsNotWithinRange(association.ConfidenceScore, 0, 10),
                     Parameter: nameof(Association.ConfidenceScore)),
 
-                // scope is the one endpoint field a modify may move, so unlike add it is
-                // validated rather than derived — re-deriving here would overwrite a
-                // legitimate narrowing and pre-empt the set-scope operation (design §9.7.1
-                // rule 6). The endpoint type is pinned against storage, so checking the
-                // scope against the input's own type is sound.
+                // Scope is pinned against storage further down — set-scope owns it (design
+                // §9.7.1 rule 6). It is still checked structurally here rather than
+                // re-derived, for two reasons: re-deriving would silently overwrite a
+                // narrowing that set-scope legitimately made, and these structural rules run
+                // BEFORE the storage pin, so a malformed value is reported as the unsupported
+                // scope it is instead of as a mismatch with the stored row. The endpoint type
+                // is pinned too, so checking the scope against the input's own type is sound.
                 (Rule: IsInvalid(association.EntityAScope),
                     Parameter: nameof(Association.EntityAScope)),
 
@@ -470,9 +472,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // entities, and repointing it is indistinguishable from deleting one link and
         // creating another — except that it carries the original's approval state and
         // review history across to a pair nobody reviewed. Type, KeyId and GroupId are
-        // therefore pinned against storage on both endpoints; Scope is the one endpoint
-        // field that may change, and only through the set-scope operation (design §9.7.1
-        // rule 6).
+        // therefore pinned against storage on both endpoints. Scope is pinned here as well:
+        // it may still change, but only through the set-scope operation (design §9.7.1
+        // rule 6), whose Publisher/Admin gate this modify would otherwise route around.
         private static void ValidateAgainstStorageAssociationOnModify(
             Association inputAssociation,
             Association storageAssociation,

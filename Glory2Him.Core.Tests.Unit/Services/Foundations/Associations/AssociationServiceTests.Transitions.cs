@@ -57,6 +57,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 PublishDate = null
             };
 
+        // ModelVersion is drawn to a FIXED length rather than by GetRandomString(). The column
+        // caps at 128 and set-confidence validates that cap, while GetRandomString() draws two
+        // to ten mnemonic words — which reaches past 128 at the top of its range. A decision
+        // this helper calls valid must never be invalid on the draw, and when it was, the
+        // symptom was a rare failure in a test about something else entirely: the transition
+        // threw a validation exception before reaching the storage read the test was pinning.
+        // ConfidenceReason is left free because its cap is 500, out of the draw's reach.
         private static Association CreateConfidenceDecision(Guid associationId) =>
             new Association
             {
@@ -64,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 ConfidenceScore = GetRandomConfidenceScore(),
                 ConfidenceReason = GetRandomString(),
                 SourceBatchId = Guid.NewGuid(),
-                ModelVersion = GetRandomString()
+                ModelVersion = GetRandomStringWithLengthOf(64)
             };
 
         // A human correction: a score with the machine provenance deliberately cleared.

@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -262,7 +263,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: this restriction is load-bearing, not policy. A scope change does not
             // re-open approval, and the stated reason it need not is that only the people who
             // would be re-approving it can make one. A Reviewer is deliberately not enough.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();
             SetupStorageRead(storageAssociation);

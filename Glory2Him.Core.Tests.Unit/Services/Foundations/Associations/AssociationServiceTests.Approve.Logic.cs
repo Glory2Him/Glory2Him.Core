@@ -154,12 +154,49 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
+            storageAssociation.EntityAType = EntityType.ContentItem;
+            storageAssociation.EntityAContentType = ContentType.Story;
+            storageAssociation.EntityAScope = Scope.AllVersions;
+            storageAssociation.EntityBType = EntityType.Tag;
+            storageAssociation.EntityBContentType = null;
+            storageAssociation.EntityBScope = Scope.AllVersions;
 
+            // The service copies the approval fields ONTO the instance the storage broker
+            // hands back, so `storageAssociation` is mutated in place by the act. Asserting
+            // against it directly would compare the row with itself and pass however the
+            // operation behaved — this snapshot is what lets the assertions below fail.
+            Association expectedStorageAssociation = storageAssociation.DeepClone();
+
+            // The caller's copy differs from storage on every field approve does not own, and
+            // the differences are SET rather than drawn: the fillers pin the endpoint pair and
+            // draw the rest, so a drawn value could coincide with storage and quietly turn the
+            // assertion for that field into a tautology.
             Association inputAssociation = CreateRandomAssociation();
             inputAssociation.Id = storageAssociation.Id;
             inputAssociation.ApprovalStatus = ApprovalStatus.Approved;
             inputAssociation.IsPublished = true;
             inputAssociation.PublishDate = GetRandomDateTimeOffset();
+
+            inputAssociation.EntityAType = EntityType.Link;
+            inputAssociation.EntityAKeyId = Guid.NewGuid();
+            inputAssociation.EntityAGroupId = Guid.NewGuid();
+            inputAssociation.EntityAContentType = null;
+            inputAssociation.EntityAScope = Scope.ThisVersionOnly;
+            inputAssociation.EntityBType = EntityType.ContentItem;
+            inputAssociation.EntityBKeyId = Guid.NewGuid();
+            inputAssociation.EntityBGroupId = Guid.NewGuid();
+            inputAssociation.EntityBContentType = ContentType.Testimony;
+            inputAssociation.EntityBScope = Scope.ThisVersionOnly;
+
+            inputAssociation.UserId = $"caller-{Guid.NewGuid()}";
+            inputAssociation.SortOrder = expectedStorageAssociation.SortOrder + 1;
+            inputAssociation.ConfidenceScore = expectedStorageAssociation.ConfidenceScore + 1;
+            inputAssociation.ConfidenceReason = $"caller-{Guid.NewGuid()}";
+            inputAssociation.SourceBatchId = Guid.NewGuid();
+            inputAssociation.ModelVersion = $"caller-{Guid.NewGuid()}";
+            inputAssociation.CreatedBy = $"caller-{Guid.NewGuid()}";
+            inputAssociation.CreatedWhen =
+                expectedStorageAssociation.CreatedWhen.AddDays(1);
 
             Association savedAssociation = null;
 
@@ -215,25 +252,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             savedAssociation.IsPublished.Should().Be(inputAssociation.IsPublished);
             savedAssociation.PublishDate.Should().Be(inputAssociation.PublishDate);
 
-            // everything else came from STORAGE, not from the caller
-            savedAssociation.EntityAType.Should().Be(storageAssociation.EntityAType);
-            savedAssociation.EntityAKeyId.Should().Be(storageAssociation.EntityAKeyId);
-            savedAssociation.EntityAGroupId.Should().Be(storageAssociation.EntityAGroupId);
-            savedAssociation.EntityAScope.Should().Be(storageAssociation.EntityAScope);
-            savedAssociation.EntityAContentType.Should().Be(storageAssociation.EntityAContentType);
-            savedAssociation.EntityBType.Should().Be(storageAssociation.EntityBType);
-            savedAssociation.EntityBKeyId.Should().Be(storageAssociation.EntityBKeyId);
-            savedAssociation.EntityBGroupId.Should().Be(storageAssociation.EntityBGroupId);
-            savedAssociation.EntityBScope.Should().Be(storageAssociation.EntityBScope);
-            savedAssociation.EntityBContentType.Should().Be(storageAssociation.EntityBContentType);
-            savedAssociation.UserId.Should().Be(storageAssociation.UserId);
-            savedAssociation.SortOrder.Should().Be(storageAssociation.SortOrder);
-            savedAssociation.ConfidenceScore.Should().Be(storageAssociation.ConfidenceScore);
-            savedAssociation.ConfidenceReason.Should().Be(storageAssociation.ConfidenceReason);
-            savedAssociation.SourceBatchId.Should().Be(storageAssociation.SourceBatchId);
-            savedAssociation.ModelVersion.Should().Be(storageAssociation.ModelVersion);
-            savedAssociation.CreatedBy.Should().Be(storageAssociation.CreatedBy);
-            savedAssociation.CreatedWhen.Should().Be(storageAssociation.CreatedWhen);
+            // everything else came from STORAGE, not from the caller — asserted against the
+            // pre-act snapshot, so copying a caller field onto the row fails here
+            savedAssociation.EntityAType.Should().Be(expectedStorageAssociation.EntityAType);
+            savedAssociation.EntityAKeyId.Should().Be(expectedStorageAssociation.EntityAKeyId);
+            savedAssociation.EntityAGroupId.Should().Be(expectedStorageAssociation.EntityAGroupId);
+            savedAssociation.EntityAScope.Should().Be(expectedStorageAssociation.EntityAScope);
+            savedAssociation.EntityAContentType.Should().Be(expectedStorageAssociation.EntityAContentType);
+            savedAssociation.EntityBType.Should().Be(expectedStorageAssociation.EntityBType);
+            savedAssociation.EntityBKeyId.Should().Be(expectedStorageAssociation.EntityBKeyId);
+            savedAssociation.EntityBGroupId.Should().Be(expectedStorageAssociation.EntityBGroupId);
+            savedAssociation.EntityBScope.Should().Be(expectedStorageAssociation.EntityBScope);
+            savedAssociation.EntityBContentType.Should().Be(expectedStorageAssociation.EntityBContentType);
+            savedAssociation.UserId.Should().Be(expectedStorageAssociation.UserId);
+            savedAssociation.SortOrder.Should().Be(expectedStorageAssociation.SortOrder);
+            savedAssociation.ConfidenceScore.Should().Be(expectedStorageAssociation.ConfidenceScore);
+            savedAssociation.ConfidenceReason.Should().Be(expectedStorageAssociation.ConfidenceReason);
+            savedAssociation.SourceBatchId.Should().Be(expectedStorageAssociation.SourceBatchId);
+            savedAssociation.ModelVersion.Should().Be(expectedStorageAssociation.ModelVersion);
+            savedAssociation.CreatedBy.Should().Be(expectedStorageAssociation.CreatedBy);
+            savedAssociation.CreatedWhen.Should().Be(expectedStorageAssociation.CreatedWhen);
         }
     }
 }
