@@ -46,6 +46,11 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public bool RequireApprovals { get; set; } = true;
 
         /// <summary>
+        /// When enabled, all conversations on code must be resolved before they can be approved.
+        /// </summary>
+        public bool RequireReviewCommentResolutionBeforeApprovals { get; set; } = true;
+
+        /// <summary>
         /// Number of approvals required before the entity is considered approved.
         /// </summary>
         public int RequiredNumberOfApprovals { get; set; } = 1;
