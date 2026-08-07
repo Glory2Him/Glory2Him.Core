@@ -294,7 +294,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(approvalReview => approvalReview.IsDeleted).Use(false)
                 .OnProperty(approvalReview => approvalReview.CreatedBy).Use(userId)
-                .OnProperty(approvalReview => approvalReview.UpdatedBy).Use(userId);
+                .OnProperty(approvalReview => approvalReview.UpdatedBy).Use(userId)
+
+                // the reviewer IS the caller, so a drawn value would fail the actor binding
+                // on every add test rather than on the one test that is about it
+                .OnProperty(approvalReview => approvalReview.ReviewerId).Use(userId);
 
             return filler;
         }

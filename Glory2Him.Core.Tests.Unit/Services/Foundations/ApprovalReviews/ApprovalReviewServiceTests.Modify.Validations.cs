@@ -457,6 +457,121 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        public static TheoryData<string> UniqueIndexKeyFields() =>
+            new TheoryData<string>
+            {
+                nameof(ApprovalReview.ReviewerId),
+                nameof(ApprovalReview.ApprovalId)
+            };
+
+        [Theory]
+        [MemberData(nameof(UniqueIndexKeyFields))]
+        public async Task
+            ShouldThrowValidationExceptionOnModifyIfAUniqueIndexKeyFieldWasChangedAndLogItAsync(
+                string changedField)
+        {
+            // given: both halves of UX_ApprovalReviews_ApprovalId_ReviewerId are fixed at add.
+            // The caller is an Admin ON PURPOSE — an Admin may legitimately amend anyone's
+            // review, and the point of these pins is that correcting a verdict must not also
+            // move it onto another reviewer's name or onto a different approval, either of
+            // which walks the row past the uniqueness rule that makes §7.7 rule 1 mean
+            // anything.
+            //
+            // The actor is deliberately NOT the review's author. With the two equal, the
+            // ownership branch of ValidateUserCanModifyStorageApprovalReviewAsync carries the
+            // authorization, Roles.Admin becomes inert, and the amending-someone-else's-review
+            // case these pins exist for is never actually exercised.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string reviewerUserId = GetRandomString();
+            string randomUserId = GetRandomString();
+
+            ApprovalReview randomApprovalReview =
+                CreateRandomModifyApprovalReview(randomDateTimeOffset, reviewerUserId);
+
+            ApprovalReview invalidApprovalReview = randomApprovalReview;
+            invalidApprovalReview.UpdatedBy = randomUserId;
+            ApprovalReview storageApprovalReview = randomApprovalReview.DeepClone();
+
+            storageApprovalReview.UpdatedWhen =
+                storageApprovalReview.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            string expectedMessage;
+
+            if (changedField == nameof(ApprovalReview.ReviewerId))
+            {
+                storageApprovalReview.ReviewerId = GetRandomString();
+                expectedMessage = $"Text is not the same as {nameof(ApprovalReview.ReviewerId)}";
+            }
+            else
+            {
+                storageApprovalReview.ApprovalId = Guid.NewGuid();
+                expectedMessage = $"Id is not the same as {nameof(ApprovalReview.ApprovalId)}";
+            }
+
+            var invalidApprovalReviewException =
+                new InvalidApprovalReviewException(
+                    message: "Approval review is invalid, fix the errors and try again.");
+
+            invalidApprovalReviewException.AddData(
+                key: changedField,
+                values: expectedMessage);
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalReviewException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidApprovalReview, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    invalidApprovalReview.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidApprovalReview,
+                    storageApprovalReview))
+                        .ReturnsAsync(invalidApprovalReview);
+
+            // when
+            ValueTask<ApprovalReview> modifyApprovalReviewTask =
+                this.approvalReviewService.ModifyApprovalReviewAsync(
+                    invalidApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    modifyApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+        }
+
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageUpdatedWhenSameAsInputAndLogItAsync()
         {
