@@ -35,6 +35,26 @@ namespace Glory2Him.Core.Models.Events.Foundations
         Added,
         Modified,
         Removed,
-        HardRemoved
+        HardRemoved,
+
+        // The narrow state-transition operations (design §9.7.1, §9.2). Each owns one field
+        // group, and each publishes its OWN fact rather than Modified. That is the whole
+        // point: the approval workflow subscribes to Modified and causes Approved, so a
+        // transition that published Modified would re-enter the handler that caused it —
+        // synchronously, under inline dispatch, inside the originating request.
+        // Sort has NO request address. Its signature takes an anchor and a side, and an
+        // EventEnvelope<Association> carries exactly one entity — there is nowhere to put the
+        // anchor. Rather than invent a second-entity channel or collapse the anchor into a
+        // raw SortOrder value (which is the design the anchor exists to avoid), sort is
+        // direct-call only and publishes its fact like the others.
+        Submitting,
+        Approving,
+        SettingConfidence,
+        SettingScope,
+        Submitted,
+        Approved,
+        Sorted,
+        ConfidenceSet,
+        Scoped
     }
 }

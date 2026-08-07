@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -1163,6 +1163,70 @@ namespace Glory2Him.Core.Registrations
                 operation: AssociationEventOperation.RetrievingById,
                 associationEventHandler:
                     this.associationService.OnRetrievingAssociationByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .AssociationOnSubmittingAssociationSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .AssociationOnSubmittingAssociationSubscriptionName,
+
+                    Description = "Handles submit requests: moves the content item association from Draft to Submitted, publishes Association-Submitted, and replies with the updated entity."
+                },
+                operation: AssociationEventOperation.Submitting,
+                associationEventHandler:
+                    this.associationService.OnSubmittingAssociationAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .AssociationOnApprovingAssociationSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .AssociationOnApprovingAssociationSubscriptionName,
+
+                    Description = "Handles approve requests: applies the approval decision, publishes Association-Approved, and replies with the updated entity."
+                },
+                operation: AssociationEventOperation.Approving,
+                associationEventHandler:
+                    this.associationService.OnApprovingAssociationAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .AssociationOnSettingAssociationConfidenceSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .AssociationOnSettingAssociationConfidenceSubscriptionName,
+
+                    Description = "Handles set-confidence requests: writes all four confidence fields as one unit, publishes Association-ConfidenceSet, and replies with the updated entity."
+                },
+                operation: AssociationEventOperation.SettingConfidence,
+                associationEventHandler:
+                    this.associationService.OnSettingAssociationConfidenceAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .AssociationOnSettingAssociationScopeSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .AssociationOnSettingAssociationScopeSubscriptionName,
+
+                    Description = "Handles set-scope requests: changes endpoint scope after re-checking pair uniqueness, publishes Association-Scoped, and replies with the updated entity."
+                },
+                operation: AssociationEventOperation.SettingScope,
+                associationEventHandler:
+                    this.associationService.OnSettingAssociationScopeAsync,
                 cancellationToken: cancellationToken);
 
             // ── ContentItemSetting request handlers ──────────────────────────────

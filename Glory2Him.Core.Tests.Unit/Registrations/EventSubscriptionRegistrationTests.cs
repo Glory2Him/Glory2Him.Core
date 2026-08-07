@@ -952,6 +952,42 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler: this.associationServiceMock.Object
                     .OnRetrievingAssociationByIdAsync);
 
+            VerifyAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .AssociationOnSubmittingAssociationSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .AssociationOnSubmittingAssociationSubscriptionName,
+                expectedOperation: AssociationEventOperation.Submitting,
+                expectedHandler: this.associationServiceMock.Object
+                    .OnSubmittingAssociationAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .AssociationOnApprovingAssociationSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .AssociationOnApprovingAssociationSubscriptionName,
+                expectedOperation: AssociationEventOperation.Approving,
+                expectedHandler: this.associationServiceMock.Object
+                    .OnApprovingAssociationAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .AssociationOnSettingAssociationConfidenceSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .AssociationOnSettingAssociationConfidenceSubscriptionName,
+                expectedOperation: AssociationEventOperation.SettingConfidence,
+                expectedHandler: this.associationServiceMock.Object
+                    .OnSettingAssociationConfidenceAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .AssociationOnSettingAssociationScopeSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .AssociationOnSettingAssociationScopeSubscriptionName,
+                expectedOperation: AssociationEventOperation.SettingScope,
+                expectedHandler: this.associationServiceMock.Object
+                    .OnSettingAssociationScopeAsync);
+
             VerifyContentItemSettingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ContentItemSettingOnAddingContentItemSettingSubscriptionId,

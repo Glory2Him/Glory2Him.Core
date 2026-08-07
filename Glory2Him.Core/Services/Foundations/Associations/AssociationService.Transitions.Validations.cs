@@ -1,0 +1,399 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
+using Glory2Him.Core.Models.Securities;
+
+namespace Glory2Him.Core.Services.Foundations.Associations
+{
+    internal partial class AssociationService
+    {
+        private static void ValidateAnchorAssociationIsNotNull(Association anchorAssociation)
+        {
+            if (anchorAssociation is null)
+            {
+                throw new NullAssociationException(
+                    message: "Content item association anchor is null.");
+            }
+        }
+
+        private static void ValidateOnSubmitAssociation(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)));
+
+        private static void ValidateOnApproveAssociation(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)),
+
+                // Approve owns the whole of IApproval, so it is the one operation allowed to
+                // carry these — but only to an outcome the approval workflow can produce.
+                // Draft and Submitted are states the row LEAVES here, not ones approving may
+                // set, and Dismissed belongs to a later withdrawal step.
+                (Rule: IsNotAnApprovalOutcome(association.ApprovalStatus),
+                    Parameter: nameof(Association.ApprovalStatus)),
+
+                // publication is a consequence of approval — a row cannot be published while
+                // being rejected, and a publish date without publication is a date nothing
+                // reads
+                (Rule: IsPublishedWithoutApproval(
+                        association.ApprovalStatus, association.IsPublished),
+                    Parameter: nameof(Association.IsPublished)),
+
+                (Rule: IsPublishDateWithoutPublication(
+                        association.IsPublished, association.PublishDate),
+                    Parameter: nameof(Association.PublishDate)));
+
+        private static void ValidateOnSortAssociation(
+            Association association,
+            Association anchorAssociation,
+            SortPosition position) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)),
+                (Rule: IsInvalidAnchorId(anchorAssociation.Id), Parameter: "AnchorAssociationId"),
+
+                // positioning a row relative to itself is a no-op the caller did not mean
+                (Rule: IsSameAssociation(association.Id, anchorAssociation.Id),
+                    Parameter: "AnchorAssociationId"),
+
+                (Rule: IsInvalid(position), Parameter: nameof(SortPosition)));
+
+        private static void ValidateOnSetAssociationConfidence(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)),
+
+                (Rule: IsOutOfRange(association.ConfidenceScore),
+                    Parameter: nameof(Association.ConfidenceScore)),
+
+                // provenance travels with the score. A score attributed to a model with no
+                // batch behind it cannot be retracted by a sweep over that batch, and a batch
+                // with no score is provenance for nothing.
+                (Rule: IsProvenanceIncomplete(
+                        association.SourceBatchId, association.ModelVersion),
+                    Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsProvenanceWithoutScore(
+                        association.ConfidenceScore,
+                        association.SourceBatchId,
+                        association.ModelVersion),
+                    Parameter: nameof(Association.SourceBatchId)));
+
+        private static void ValidateOnSetAssociationScope(Association association) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)),
+                (Rule: IsInvalid(association.EntityAScope), Parameter: nameof(Association.EntityAScope)),
+                (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)));
+
+        // Submit is the owner's own act — they are saying the row is ready. A Publisher or
+        // Admin may submit on their behalf; a reviewer may not, because reviewing a row you
+        // put into review yourself is the conflict the workflow exists to avoid.
+        private async ValueTask ValidateUserCanSubmitStorageAssociationAsync(
+            Association storageAssociation,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageAssociation.CreatedBy == actorUserId;
+
+            bool isPublisherOrAdmin =
+                securityContext.Roles.Contains(Roles.Publisher)
+                    || securityContext.Roles.Contains(Roles.Admin);
+
+            if (isOwner is false && isPublisherOrAdmin is false)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to submit " +
+                        "this content item association.");
+            }
+        }
+
+        // Approving is the endpoint-derived review decision (design §14.7 posture A′ rule 2).
+        private static void ValidateUserCanApproveStorageAssociation(
+            Association storageAssociation,
+            SecurityContext securityContext)
+        {
+            if (HasReviewRoleForAssociation(securityContext, storageAssociation) is false)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to approve " +
+                        "this content item association.");
+            }
+        }
+
+        // Sorting arranges someone's own list — an author ordering the posts inside their own
+        // series should not need to fetch a reviewer. An Admin may also reorder, because a
+        // takedown-adjacent tidy-up is an administrative act.
+        private async ValueTask ValidateUserCanSortStorageAssociationAsync(
+            Association storageAssociation,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageAssociation.CreatedBy == actorUserId;
+
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to sort " +
+                        "this content item association.");
+            }
+        }
+
+        // The owner is excluded ON PURPOSE, and the exclusion is the point of the operation:
+        // a contributor who could set the confidence in their own association to 10 defeats
+        // scoring entirely. This is the one gate in the service where being the owner makes a
+        // caller LESS able, not more.
+        private async ValueTask ValidateUserCanSetStorageAssociationConfidenceAsync(
+            Association storageAssociation,
+            SecurityContext securityContext)
+        {
+            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+
+            bool isOwner =
+                string.IsNullOrWhiteSpace(actorUserId) is false
+                    && storageAssociation.CreatedBy == actorUserId;
+
+            if (isOwner)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The owner of a content item association may not set " +
+                        "its confidence.");
+            }
+
+            bool isPublisherOrAdmin =
+                securityContext.Roles.Contains(Roles.Publisher)
+                    || securityContext.Roles.Contains(Roles.Admin);
+
+            if (isPublisherOrAdmin is false)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to set the confidence of " +
+                        "this content item association.");
+            }
+        }
+
+        // Publisher or Admin only, and that restriction is LOAD-BEARING rather than a policy
+        // preference: a scope change does not re-open approval, and the stated reason it need
+        // not is that only the people who would be re-approving it can make one. Widen this
+        // gate and the no-reapproval rule loses its justification.
+        private static void ValidateUserCanSetStorageAssociationScope(
+            SecurityContext securityContext)
+        {
+            bool isPublisherOrAdmin =
+                securityContext.Roles.Contains(Roles.Publisher)
+                    || securityContext.Roles.Contains(Roles.Admin);
+
+            if (isPublisherOrAdmin is false)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to set the scope of " +
+                        "this content item association.");
+            }
+        }
+
+        // Submit moves Draft to Submitted and nothing else. Re-submitting something already
+        // in review, or already decided, is not a no-op — it would reset a review in flight.
+        private static void ValidateStorageAssociationIsSubmittable(
+            Association storageAssociation)
+        {
+            if (storageAssociation.ApprovalStatus != ApprovalStatus.Draft)
+            {
+                throw new InvalidAssociationException(
+                    message: "Content item association cannot be submitted from status " +
+                        $"{storageAssociation.ApprovalStatus}.");
+            }
+        }
+
+        // Only a row actually in review can be decided. Approving a Draft would skip the
+        // submission the workflow is built around.
+        private static void ValidateStorageAssociationIsApprovable(
+            Association storageAssociation)
+        {
+            if (storageAssociation.ApprovalStatus != ApprovalStatus.Submitted)
+            {
+                throw new InvalidAssociationException(
+                    message: "Content item association cannot be approved from status " +
+                        $"{storageAssociation.ApprovalStatus}.");
+            }
+        }
+
+        private static void ValidateStorageAnchorAssociation(
+            Association maybeAnchorAssociation,
+            Guid anchorAssociationId)
+        {
+            if (maybeAnchorAssociation is null)
+            {
+                throw new NotFoundAssociationException(
+                    message: "Content item association anchor not found with id: " +
+                        $"{anchorAssociationId}.");
+            }
+
+            // an unpositioned anchor gives nothing to position relative to
+            if (maybeAnchorAssociation.SortOrder.HasValue is false)
+            {
+                throw new InvalidAssociationException(
+                    message: "Content item association anchor has no sort order.");
+            }
+        }
+
+        // A scope is only meaningful against the endpoint's publication model: a non-versioned
+        // entity has exactly one row, so AllVersions and ThisVersionOnly mean the same thing
+        // and offering the toggle would imply a choice that does not exist.
+        private static void ValidateScopeIsApplicableToEndpoints(
+            Association association,
+            Association storageAssociation) =>
+            Validate(
+                message: "Content item association is invalid, fix the errors and try again.",
+                (Rule: IsScopeNotApplicable(
+                        storageAssociation.EntityAType, association.EntityAScope),
+                    Parameter: nameof(Association.EntityAScope)),
+
+                (Rule: IsScopeNotApplicable(
+                        storageAssociation.EntityBType, association.EntityBScope),
+                    Parameter: nameof(Association.EntityBScope)));
+
+        // The same duplicate check an add does. UX_Associations_Pair keys on the EFFECTIVE id,
+        // which a scope toggle recomputes, so the row can move onto a key another row already
+        // holds. Letting the database raise it would surface as a dependency-validation
+        // exception with no indication of which endpoint moved.
+        private async ValueTask ValidateAssociationPairIsUnoccupiedAsync(
+            Association association,
+            CancellationToken cancellationToken)
+        {
+            IQueryable<Association> allAssociations =
+                await this.storageBroker.SelectAllAssociationsAsync(cancellationToken);
+
+            Guid entityAEffectiveId = ResolveEffectiveId(
+                association.EntityAScope,
+                association.EntityAGroupId,
+                association.EntityAKeyId);
+
+            Guid entityBEffectiveId = ResolveEffectiveId(
+                association.EntityBScope,
+                association.EntityBGroupId,
+                association.EntityBKeyId);
+
+            bool isOccupied = allAssociations.Any(other =>
+                other.Id != association.Id
+                    && other.IsDeleted == false
+                    && other.EntityAType == association.EntityAType
+                    && other.EntityBType == association.EntityBType
+                    && other.UserId == association.UserId
+                    && other.EntityAEffectiveId == entityAEffectiveId
+                    && other.EntityBEffectiveId == entityBEffectiveId);
+
+            if (isOccupied)
+            {
+                // deliberately a validation failure, not AlreadyExists. That type wraps a
+                // conflict the DATABASE raised and requires the inner exception to prove it;
+                // this is the service seeing the collision first, and it is something the
+                // caller can fix by choosing a different scope.
+                throw new InvalidAssociationException(
+                    message: "Content item association already exists for the endpoints " +
+                        "this scope change would produce.");
+            }
+        }
+
+        // mirrors the PERSISTED computed column so the check runs against the same key the
+        // index uses
+        private static Guid ResolveEffectiveId(Scope scope, Guid groupId, Guid keyId) =>
+            scope == Scope.AllVersions ? groupId : keyId;
+
+        private static dynamic IsNotAnApprovalOutcome(ApprovalStatus approvalStatus) => new
+        {
+            Condition =
+                approvalStatus != ApprovalStatus.Approved
+                    && approvalStatus != ApprovalStatus.Rejected,
+
+            Message = "Approval status must be Approved or Rejected."
+        };
+
+        private static dynamic IsPublishedWithoutApproval(
+            ApprovalStatus approvalStatus,
+            bool isPublished) => new
+            {
+                Condition = isPublished && approvalStatus != ApprovalStatus.Approved,
+                Message = "Is published requires an approved content item association."
+            };
+
+        private static dynamic IsPublishDateWithoutPublication(
+            bool isPublished,
+            DateTimeOffset? publishDate) => new
+            {
+                Condition = isPublished is false && publishDate.HasValue,
+                Message = "Publish date requires a published content item association."
+            };
+
+        private static dynamic IsInvalidAnchorId(Guid anchorAssociationId) => new
+        {
+            Condition = anchorAssociationId == Guid.Empty,
+            Message = "Id is required"
+        };
+
+        private static dynamic IsSameAssociation(Guid associationId, Guid anchorAssociationId) => new
+        {
+            Condition = associationId == anchorAssociationId,
+            Message = "Anchor must be a different content item association."
+        };
+
+        private static dynamic IsInvalid(SortPosition position) => new
+        {
+            Condition = Enum.IsDefined(position) is false,
+            Message = "Value is not recognized"
+        };
+
+        private static dynamic IsOutOfRange(decimal? confidenceScore) => new
+        {
+            Condition = confidenceScore.HasValue
+                && (confidenceScore.Value < 0m || confidenceScore.Value > 10m),
+
+            Message = "Confidence score must be between 0 and 10."
+        };
+
+        private static dynamic IsProvenanceIncomplete(
+            Guid? sourceBatchId,
+            string modelVersion) => new
+            {
+                Condition = sourceBatchId.HasValue
+                    != (string.IsNullOrWhiteSpace(modelVersion) is false),
+
+                Message = "Source batch id and model version must be set together."
+            };
+
+        private static dynamic IsProvenanceWithoutScore(
+            decimal? confidenceScore,
+            Guid? sourceBatchId,
+            string modelVersion) => new
+            {
+                Condition = confidenceScore.HasValue is false
+                    && (sourceBatchId.HasValue
+                        || string.IsNullOrWhiteSpace(modelVersion) is false),
+
+                Message = "Provenance requires a confidence score."
+            };
+    }
+}
