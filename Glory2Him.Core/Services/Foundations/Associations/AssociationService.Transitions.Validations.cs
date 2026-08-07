@@ -137,6 +137,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         //
         // Together they are what stop a contributor walking the whole path alone: create,
         // submit, approve, publish.
+        //
+        // Not enforced here: §8.6's regardless-rule 1, barring anyone who holds an active
+        // ApprovalReview on the row from also deciding it. That is a question about another
+        // entity's rows, so it arrives with IAccessBroker (§8.6.1).
         private async ValueTask ValidateUserCanApproveStorageAssociationAsync(
             Association storageAssociation,
             SecurityContext securityContext)
