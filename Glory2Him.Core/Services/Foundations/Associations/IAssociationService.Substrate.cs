@@ -45,5 +45,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         ValueTask<EventEnvelope<Association>?> OnRetrievingAssociationByIdAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);
+
+        // One handler per request address, including the state transitions. Sort is the only
+        // one whose direct-call signature takes more than the entity, and the event path has
+        // no way to carry an anchor and a side — so it is deliberately absent here rather than
+        // faked. See the note on the sort handler in AssociationService.Substrate.cs.
+
+        ValueTask<EventEnvelope<Association>?> OnSubmittingAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Association>?> OnApprovingAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Association>?> OnSettingAssociationConfidenceAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Association>?> OnSettingAssociationScopeAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

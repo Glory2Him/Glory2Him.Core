@@ -190,5 +190,126 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
                 },
                 cancellationToken: cancellationToken);
+
+        // ── State-transition handlers (design §9.7.1, §9.2) ───────────────────────────
+        //
+        // One handler per request address, each converging on the same DoX the direct path
+        // uses so the two entry paths cannot diverge.
+        //
+        // Sort has no handler because it has no request address: its signature needs an
+        // anchor and a side, and an envelope carries exactly one entity.
+
+        public ValueTask<EventEnvelope<Association>?> OnSubmittingAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationEventEnvelope(envelope);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .AssociationOnSubmittingAssociationSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Association transitionedAssociation =
+                    await DoSubmitAssociationAsync(
+                        association: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: transitionedAssociation);
+            });
+
+        public ValueTask<EventEnvelope<Association>?> OnApprovingAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationEventEnvelope(envelope);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .AssociationOnApprovingAssociationSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Association transitionedAssociation =
+                    await DoApproveAssociationAsync(
+                        association: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: transitionedAssociation);
+            });
+
+        public ValueTask<EventEnvelope<Association>?> OnSettingAssociationConfidenceAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationEventEnvelope(envelope);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .AssociationOnSettingAssociationConfidenceSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Association transitionedAssociation =
+                    await DoSetAssociationConfidenceAsync(
+                        association: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: transitionedAssociation);
+            });
+
+        public ValueTask<EventEnvelope<Association>?> OnSettingAssociationScopeAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationEventEnvelope(envelope);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .AssociationOnSettingAssociationScopeSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Association transitionedAssociation =
+                    await DoSetAssociationScopeAsync(
+                        association: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: transitionedAssociation);
+            });
+
     }
 }

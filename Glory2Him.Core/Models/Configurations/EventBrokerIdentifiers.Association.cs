@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -41,6 +41,47 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid AssociationRemovedEventAddressId =
             new Guid("019f814e-89c1-7e44-8fe2-bd2d85f21c3d");
 
+        // ── State-transition addresses (design §9.7.1, §9.2) ──────────────────────────
+        //
+        // Every transition gets its OWN request/fact pair rather than sharing the modify
+        // pair. A consumer that wants approvals must be able to subscribe to approvals
+        // alone, and — more sharply — the approval workflow subscribes to Modified, so a
+        // transition published there would re-enter the handler that caused it.
+        //
+        // Tense carries direction, per the §10.2 naming contract: the present participle is
+        // the request, the past participle is the fact. The doc named only the fact half for
+        // sort, confidence and scope; the request halves are chosen here to mirror the method
+        // name, the way Adding/Modifying already do.
+
+        public static readonly Guid AssociationSubmittingEventAddressId =
+            new Guid("019fd991-a27b-7f67-b43e-ab0a50d0b5b6");
+
+        public static readonly Guid AssociationSubmittedEventAddressId =
+            new Guid("019fd991-a27c-7f9a-8228-192565fd80ba");
+
+        public static readonly Guid AssociationApprovingEventAddressId =
+            new Guid("019fd991-a27d-7011-bcc7-e40517d1b14e");
+
+        public static readonly Guid AssociationApprovedEventAddressId =
+            new Guid("019fd991-a27e-764a-84f9-4732feae6587");
+
+        // Sort has a fact address but no request address: its signature needs an anchor and a
+        // side, and an envelope carries one entity. See AssociationEventOperation.
+        public static readonly Guid AssociationSortedEventAddressId =
+            new Guid("019fd991-a280-76fa-b6bb-92ccd5da13da");
+
+        public static readonly Guid AssociationSettingConfidenceEventAddressId =
+            new Guid("019fd991-a281-7511-a958-35585705a5bd");
+
+        public static readonly Guid AssociationConfidenceSetEventAddressId =
+            new Guid("019fd991-a282-7170-879f-e07a04235e69");
+
+        public static readonly Guid AssociationSettingScopeEventAddressId =
+            new Guid("019fd991-a283-76c0-bd32-f7b79eb5694a");
+
+        public static readonly Guid AssociationScopedEventAddressId =
+            new Guid("019fd991-a284-73b0-b736-5fe28310fb62");
+
         internal static readonly IReadOnlyDictionary<AssociationEventOperation, Guid>
             AssociationEventAddressIds = new Dictionary<AssociationEventOperation, Guid>
             {
@@ -57,7 +98,17 @@ namespace Glory2Him.Core.Models.Configurations
                 // the composed event name ("AssociationHardRemoved" vs
                 // "AssociationRemoved").
                 { AssociationEventOperation.Removed, AssociationRemovedEventAddressId },
-                { AssociationEventOperation.HardRemoved, AssociationRemovedEventAddressId }
+                { AssociationEventOperation.HardRemoved, AssociationRemovedEventAddressId },
+
+                { AssociationEventOperation.Submitting, AssociationSubmittingEventAddressId },
+                { AssociationEventOperation.Approving, AssociationApprovingEventAddressId },
+                { AssociationEventOperation.SettingConfidence, AssociationSettingConfidenceEventAddressId },
+                { AssociationEventOperation.SettingScope, AssociationSettingScopeEventAddressId },
+                { AssociationEventOperation.Submitted, AssociationSubmittedEventAddressId },
+                { AssociationEventOperation.Approved, AssociationApprovedEventAddressId },
+                { AssociationEventOperation.Sorted, AssociationSortedEventAddressId },
+                { AssociationEventOperation.ConfidenceSet, AssociationConfidenceSetEventAddressId },
+                { AssociationEventOperation.Scoped, AssociationScopedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> AssociationEventAddresses =
@@ -70,7 +121,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationRetrievingByIdEventAddressId, "Association-RetrievingById" },
                 { AssociationAddedEventAddressId, "Association-Added" },
                 { AssociationModifiedEventAddressId, "Association-Modified" },
-                { AssociationRemovedEventAddressId, "Association-Removed" }
+                { AssociationRemovedEventAddressId, "Association-Removed" },
+                { AssociationSubmittingEventAddressId, "Association-Submitting" },
+                { AssociationApprovingEventAddressId, "Association-Approving" },
+                { AssociationSettingConfidenceEventAddressId, "Association-SettingConfidence" },
+                { AssociationSettingScopeEventAddressId, "Association-SettingScope" },
+                { AssociationSubmittedEventAddressId, "Association-Submitted" },
+                { AssociationApprovedEventAddressId, "Association-Approved" },
+                { AssociationSortedEventAddressId, "Association-Sorted" },
+                { AssociationConfidenceSetEventAddressId, "Association-ConfidenceSet" },
+                { AssociationScopedEventAddressId, "Association-Scoped" }
             };
 
         public static readonly Guid AssociationOnAddingAssociationSubscriptionId =
@@ -99,5 +159,35 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string AssociationOnRetrievingAssociationByIdSubscriptionName =
             "AssociationService.OnRetrievingAssociationById";
+
+        public static readonly Guid AssociationOnSubmittingAssociationSubscriptionId =
+            new Guid("019fd991-a285-7582-ab9b-51d1a73015dc");
+
+        public const string AssociationOnSubmittingAssociationSubscriptionName =
+            "AssociationService.OnSubmittingAssociation";
+
+        public static readonly Guid AssociationOnApprovingAssociationSubscriptionId =
+            new Guid("019fd991-a286-7e83-9eca-3b88e6c9698e");
+
+        public const string AssociationOnApprovingAssociationSubscriptionName =
+            "AssociationService.OnApprovingAssociation";
+
+        public static readonly Guid AssociationOnSortingAssociationSubscriptionId =
+            new Guid("019fd991-a287-7e02-b04e-71a4eacbb09b");
+
+        public const string AssociationOnSortingAssociationSubscriptionName =
+            "AssociationService.OnSortingAssociation";
+
+        public static readonly Guid AssociationOnSettingAssociationConfidenceSubscriptionId =
+            new Guid("019fd991-a288-72cd-a808-a22f023217c0");
+
+        public const string AssociationOnSettingAssociationConfidenceSubscriptionName =
+            "AssociationService.OnSettingAssociationConfidence";
+
+        public static readonly Guid AssociationOnSettingAssociationScopeSubscriptionId =
+            new Guid("019fd991-a289-7908-9866-880e5a093c75");
+
+        public const string AssociationOnSettingAssociationScopeSubscriptionName =
+            "AssociationService.OnSettingAssociationScope";
     }
 }
