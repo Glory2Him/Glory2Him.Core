@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
@@ -48,23 +49,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // §11.7 tie-break chain. A dense sequence would instead force renumbering every row
         // after the insertion point, which is multi-row work and belongs at orchestration.
         private const int SortOrderStep = 100;
-
-        public ValueTask<Association> SubmitAssociationAsync(
-            Association association,
-            CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationIsNotNull(association);
-
-                EventEnvelope<Association> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: association);
-
-                return await DoSubmitAssociationAsync(
-                    association: association,
-                    inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
-            });
 
         public ValueTask<Association> ApproveAssociationAsync(
             Association association,
@@ -123,53 +107,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             });
 
         public ValueTask<Association> SetAssociationScopeAsync(
-            Association association,
+            Guid associationId,
+            Scope? entityAScope,
+            Scope? entityBScope,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationIsNotNull(association);
+
+                var scopeRequest = new Association { Id = associationId };
 
                 EventEnvelope<Association> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: association);
+                    await this.eventEnvelopeBroker.CreateAsync(content: scopeRequest);
 
                 return await DoSetAssociationScopeAsync(
-                    association: association,
+                    associationId: associationId,
+                    entityAScope: entityAScope,
+                    entityBScope: entityBScope,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
-
-        private async ValueTask<Association> DoSubmitAssociationAsync(
-            Association association,
-            EventEnvelope<Association> inboundEnvelope,
-            CancellationToken cancellationToken)
-        {
-            ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
-            ValidateOnSubmitAssociation(association);
-
-            Association storageAssociation =
-                await LoadTransitionTargetAsync(
-                    associationId: association.Id,
-                    securityContext: inboundEnvelope.SecurityContext,
-                    cancellationToken: cancellationToken);
-
-            await ValidateUserCanSubmitStorageAssociationAsync(
-                storageAssociation: storageAssociation,
-                securityContext: inboundEnvelope.SecurityContext);
-
-            ValidateStorageAssociationIsSubmittable(storageAssociation);
-
-            // the operation's whole field scope: one value
-            storageAssociation.ApprovalStatus = ApprovalStatus.Submitted;
-
-            return await SaveTransitionAsync(
-                association: storageAssociation,
-                inboundEnvelope: inboundEnvelope,
-                operation: AssociationEventOperation.Submitted,
-                receiverName: EventBrokerIdentifiers
-                    .AssociationOnSubmittingAssociationSubscriptionName,
-                cancellationToken: cancellationToken);
-        }
 
         private async ValueTask<Association> DoApproveAssociationAsync(
             Association association,
@@ -188,7 +145,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // decided against the STORED endpoints. Approving from the caller's copy would let
             // a contributor claim an endpoint content type they hold a reviewer role for and
             // approve their own row.
-            ValidateUserCanApproveStorageAssociation(
+            await ValidateUserCanApproveStorageAssociationAsync(
                 storageAssociation: storageAssociation,
                 securityContext: inboundEnvelope.SecurityContext);
 
@@ -200,10 +157,18 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             storageAssociation.IsPublished = association.IsPublished;
             storageAssociation.PublishDate = association.PublishDate;
 
+            // The fact follows the DECISION, not the operation's name. A rejection broadcast
+            // on the Approved address would tell every subscriber the opposite of what
+            // happened, and the fact name is the contract they key on.
+            AssociationEventOperation decision =
+                storageAssociation.ApprovalStatus == ApprovalStatus.Approved
+                    ? AssociationEventOperation.Approved
+                    : AssociationEventOperation.Rejected;
+
             return await SaveTransitionAsync(
                 association: storageAssociation,
                 inboundEnvelope: inboundEnvelope,
-                operation: AssociationEventOperation.Approved,
+                operation: decision,
                 receiverName: EventBrokerIdentifiers
                     .AssociationOnApprovingAssociationSubscriptionName,
                 cancellationToken: cancellationToken);
@@ -287,32 +252,42 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         }
 
         private async ValueTask<Association> DoSetAssociationScopeAsync(
-            Association association,
+            Guid associationId,
+            Scope? entityAScope,
+            Scope? entityBScope,
             EventEnvelope<Association> inboundEnvelope,
             CancellationToken cancellationToken)
         {
             ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
-            ValidateOnSetAssociationScope(association);
+            ValidateOnSetAssociationScope(associationId, entityAScope, entityBScope);
 
             Association storageAssociation =
                 await LoadTransitionTargetAsync(
-                    associationId: association.Id,
+                    associationId: associationId,
                     securityContext: inboundEnvelope.SecurityContext,
                     cancellationToken: cancellationToken);
 
             ValidateUserCanSetStorageAssociationScope(inboundEnvelope.SecurityContext);
 
-            ValidateScopeIsApplicableToEndpoints(
-                association: association,
-                storageAssociation: storageAssociation);
+            // null leaves the endpoint exactly as stored. Defaulting instead would widen it to
+            // AllVersions, because that is enum value 0 - the dangerous direction is the one a
+            // non-nullable parameter would pick for a caller who said nothing.
+            Scope resolvedEntityAScope = entityAScope ?? storageAssociation.EntityAScope;
+            Scope resolvedEntityBScope = entityBScope ?? storageAssociation.EntityBScope;
 
-            storageAssociation.EntityAScope = association.EntityAScope;
-            storageAssociation.EntityBScope = association.EntityBScope;
+            ValidateScopeIsApplicableToEndpoints(
+                storageAssociation: storageAssociation,
+                entityAScope: resolvedEntityAScope,
+                entityBScope: resolvedEntityBScope);
+
+            storageAssociation.EntityAScope = resolvedEntityAScope;
+            storageAssociation.EntityBScope = resolvedEntityBScope;
 
             // A scope toggle moves the row's effective id, so it moves the row's position in
             // UX_Associations_Pair and can land on a key another row already holds. "Just
-            // toggle a flag" reads like it cannot fail, and it can — so this runs the same
-            // duplicate check an add does, rather than waiting for the database to raise it.
+            // toggle a flag" reads like it cannot fail, and it can - so this runs the same
+            // duplicate check an add relies on the index for, rather than waiting for the
+            // database to raise it.
             await ValidateAssociationPairIsUnoccupiedAsync(
                 association: storageAssociation,
                 cancellationToken: cancellationToken);
@@ -340,6 +315,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     cancellationToken: cancellationToken);
 
             ValidateStorageAssociation(
+                maybeAssociation,
+                associationId: associationId);
+
+            // A soft-removed row is a takedown. Transitioning one would approve, publish,
+            // reorder or re-score something already withdrawn, and would broadcast a fact
+            // about it — approving a tombstone would set IsPublished on a row the reads
+            // deliberately hide. Reported as not-found, matching the read posture, so a
+            // removed id is not distinguishable from one that never existed.
+            ValidateStorageAssociationIsNotDeleted(
                 maybeAssociation,
                 associationId: associationId);
 
@@ -401,7 +385,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Association anchorAssociation,
             SortPosition position)
         {
-            int anchorSortOrder = anchorAssociation.SortOrder.Value;
+            // ValidateStorageAnchorAssociation has already refused an anchor with no sort
+            // order, so this cannot be null here - the ?? states that for the compiler rather
+            // than asserting it with .Value and leaving a warning that hides the invariant.
+            int anchorSortOrder = anchorAssociation.SortOrder ?? 0;
             int halfStep = SortOrderStep / 2;
 
             return position == SortPosition.Before

@@ -51,10 +51,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // no way to carry an anchor and a side — so it is deliberately absent here rather than
         // faked. See the note on the sort handler in AssociationService.Substrate.cs.
 
-        ValueTask<EventEnvelope<Association>?> OnSubmittingAssociationAsync(
-            EventEnvelope<Association> envelope,
-            CancellationToken cancellationToken = default);
-
         ValueTask<EventEnvelope<Association>?> OnApprovingAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);

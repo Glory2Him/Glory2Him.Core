@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: approve owns the whole of IApproval, which makes it the one place these
             // values can be set — so the set it accepts has to be closed. Draft and Submitted
             // are states a row LEAVES here, and Dismissed belongs to a later withdrawal step.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association decision = CreateApprovalDecision(Guid.NewGuid());
             decision.ApprovalStatus = notAnOutcome;
@@ -68,7 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: publication is a consequence of approval, so a rejected row cannot be
             // published in the same write
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association decision = CreateRejectionDecision(Guid.NewGuid());
             decision.IsPublished = true;
@@ -85,7 +85,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnApproveIfPublishDateWithoutPublicationAsync()
         {
             // given: a publish date on an unpublished row is a date nothing reads
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association decision = CreateRejectionDecision(Guid.NewGuid());
             decision.PublishDate = GetRandomDateTimeOffset();
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: only a row actually in review can be decided. Approving a Draft would skip
             // the submission the whole workflow is built around.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association storageAssociation = CreateStorageAssociationInStatus(storedStatus);
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -154,7 +154,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnApproveIfAssociationIsNotFoundAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
             Association decision = CreateApprovalDecision(Guid.NewGuid());
 
             this.storageBrokerMock.Setup(broker =>
@@ -175,7 +175,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public static TheoryData<string> TransitionNames() =>
             new TheoryData<string>
             {
-                "Submit", "Approve", "Sort", "SetConfidence", "SetScope"
+                "Approve", "Sort", "SetConfidence", "SetScope"
             };
 
         [Theory]
@@ -200,31 +200,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateAssociationAsync(
-                        It.IsAny<Association>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
-        }
-
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnSubmitIfStoredRowIsNotDraftAsync()
-        {
-            // given: re-submitting a row already in review would reset a review in flight
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
-
-            Association storageAssociation =
-                CreateStorageAssociationInStatus(ApprovalStatus.Submitted);
-
-            SetupStorageRead(storageAssociation);
-            SetupActor(GetRandomString());
-
-            // when / then
-            await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.SubmitAssociationAsync(
-                    new Association { Id = storageAssociation.Id },
-                    TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.Verify(broker =>
                     broker.UpdateAssociationAsync(
@@ -287,22 +262,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: this restriction is load-bearing, not policy. A scope change does not
             // re-open approval, and the stated reason it need not is that only the people who
             // would be re-approving it can make one. A Reviewer is deliberately not enough.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();
             SetupStorageRead(storageAssociation);
 
-            Association decision = new Association
-            {
-                Id = storageAssociation.Id,
-                EntityAScope = storageAssociation.EntityAScope,
-                EntityBScope = storageAssociation.EntityBScope
-            };
-
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
                 await this.associationService.SetAssociationScopeAsync(
-                    decision, TestContext.Current.CancellationToken));
+                    storageAssociation.Id,
+                    storageAssociation.EntityAScope,
+                    storageAssociation.EntityBScope,
+                    TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.Verify(broker =>
                     broker.UpdateAssociationAsync(
@@ -341,17 +312,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(new List<Association> { occupyingAssociation }.AsQueryable());
 
-            Association decision = new Association
-            {
-                Id = storageAssociation.Id,
-                EntityAScope = Scope.AllVersions,
-                EntityBScope = storageAssociation.EntityBScope
-            };
-
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
                 await this.associationService.SetAssociationScopeAsync(
-                    decision, TestContext.Current.CancellationToken));
+                    storageAssociation.Id,
+                    Scope.AllVersions,
+                    storageAssociation.EntityBScope,
+                    TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.Verify(broker =>
                     broker.UpdateAssociationAsync(
@@ -426,8 +393,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             return transitionName switch
             {
-                "Submit" => this.associationService.SubmitAssociationAsync(
-                    new Association { Id = storageAssociation.Id }, cancellationToken),
 
                 "Approve" => this.associationService.ApproveAssociationAsync(
                     CreateApprovalDecision(storageAssociation.Id), cancellationToken),
@@ -442,12 +407,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     CreateConfidenceDecision(storageAssociation.Id), cancellationToken),
 
                 _ => this.associationService.SetAssociationScopeAsync(
-                    new Association
-                    {
-                        Id = storageAssociation.Id,
-                        EntityAScope = storageAssociation.EntityAScope,
-                        EntityBScope = storageAssociation.EntityBScope
-                    },
+                    storageAssociation.Id,
+                    storageAssociation.EntityAScope,
+                    storageAssociation.EntityBScope,
                     cancellationToken)
             };
         }

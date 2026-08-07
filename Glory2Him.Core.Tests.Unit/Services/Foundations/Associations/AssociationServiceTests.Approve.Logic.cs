@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Reviewer);
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -47,6 +47,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association auditAppliedAssociation = approvedAssociation.DeepClone();
             Association updatedAssociation = auditAppliedAssociation.DeepClone();
             Association expectedAssociation = updatedAssociation.DeepClone();
+
+            // approve refuses the author (HR-2), so the actor must be somebody else
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
@@ -124,6 +129,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     broker.GetCurrentDateTimeOffsetAsync(),
                 Times.AtLeastOnce);
 
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -142,7 +151,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // is exactly what the narrow operations exist to prevent — a reviewer approving a
             // row would silently overwrite its content in the same write.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Reviewer);
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
 
@@ -153,6 +162,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             inputAssociation.PublishDate = GetRandomDateTimeOffset();
 
             Association savedAssociation = null;
+
+            // approve refuses the author (HR-2), so the actor must be somebody else
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())

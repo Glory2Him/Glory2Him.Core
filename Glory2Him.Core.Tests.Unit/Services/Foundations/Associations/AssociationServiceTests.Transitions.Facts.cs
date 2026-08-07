@@ -120,9 +120,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-            // when: all five run
-            await this.associationService.SubmitAssociationAsync(
-                new Association { Id = submittableAssociation.Id }, cancellationToken);
+            // when: all four run
 
             await this.associationService.ApproveAssociationAsync(
                 CreateApprovalDecision(approvableAssociation.Id), cancellationToken);
@@ -136,18 +134,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             await this.associationService.SetAssociationConfidenceAsync(
                 CreateConfidenceDecision(scorableAssociation.Id), cancellationToken);
 
-            Association scopeDecision = new Association
-            {
-                Id = scopableAssociation.Id,
-                EntityAScope = scopableAssociation.EntityAScope,
-                EntityBScope = scopableAssociation.EntityBScope
-            };
-
             await this.associationService.SetAssociationScopeAsync(
-                scopeDecision, cancellationToken);
+                scopableAssociation.Id,
+                scopableAssociation.EntityAScope,
+                scopableAssociation.EntityBScope,
+                cancellationToken);
 
             // then
-            publishedOperations.Should().HaveCount(5,
+            publishedOperations.Should().HaveCount(4,
                 because: "each transition publishes exactly one fact");
 
             publishedOperations.Should().NotContain(AssociationEventOperation.Modified,
@@ -156,7 +150,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             publishedOperations.Should().BeEquivalentTo(new[]
             {
-                AssociationEventOperation.Submitted,
                 AssociationEventOperation.Approved,
                 AssociationEventOperation.Sorted,
                 AssociationEventOperation.ConfidenceSet,

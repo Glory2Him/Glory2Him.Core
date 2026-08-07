@@ -199,34 +199,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // Sort has no handler because it has no request address: its signature needs an
         // anchor and a side, and an envelope carries exactly one entity.
 
-        public ValueTask<EventEnvelope<Association>?> OnSubmittingAssociationAsync(
-            EventEnvelope<Association> envelope,
-            CancellationToken cancellationToken = default) =>
-            TryCatchSubstrate(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
-
-                bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope: envelope,
-                    receiverName: EventBrokerIdentifiers
-                        .AssociationOnSubmittingAssociationSubscriptionName,
-                    cancellationToken: cancellationToken);
-
-                if (alreadyProcessed)
-                    return null;
-
-                Association transitionedAssociation =
-                    await DoSubmitAssociationAsync(
-                        association: envelope.Content,
-                        inboundEnvelope: envelope,
-                        cancellationToken: cancellationToken);
-
-                return await this.eventEnvelopeBroker.CreateNextAsync(
-                    sourceEnvelope: envelope,
-                    content: transitionedAssociation);
-            });
-
         public ValueTask<EventEnvelope<Association>?> OnApprovingAssociationAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>
@@ -300,9 +272,16 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 if (alreadyProcessed)
                     return null;
 
+                // The event path states both scopes explicitly. The envelope carries an
+                // entity whose Scope properties are non-nullable, so "not supplied" cannot be
+                // expressed here — sending the entity's values as-is is therefore the honest
+                // reading of the request, and the direct path keeps the nullable form for
+                // callers who really do want to change one endpoint only.
                 Association transitionedAssociation =
                     await DoSetAssociationScopeAsync(
-                        association: envelope.Content,
+                        associationId: envelope.Content.Id,
+                        entityAScope: envelope.Content.EntityAScope,
+                        entityBScope: envelope.Content.EntityBScope,
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 

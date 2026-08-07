@@ -954,15 +954,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
 
             VerifyAssociationSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers
-                    .AssociationOnSubmittingAssociationSubscriptionId,
-                expectedSubscriptionName: EventBrokerIdentifiers
-                    .AssociationOnSubmittingAssociationSubscriptionName,
-                expectedOperation: AssociationEventOperation.Submitting,
-                expectedHandler: this.associationServiceMock.Object
-                    .OnSubmittingAssociationAsync);
-
-            VerifyAssociationSubscription(
-                expectedSubscriptionId: EventBrokerIdentifiers
                     .AssociationOnApprovingAssociationSubscriptionId,
                 expectedSubscriptionName: EventBrokerIdentifiers
                     .AssociationOnApprovingAssociationSubscriptionName,

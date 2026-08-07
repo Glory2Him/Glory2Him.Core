@@ -1,6 +1,3 @@
-            // a timeout is logged as an error, not as critical - the dependency was slow,
-            // not broken, and the distinction is what keeps timeouts from drowning real
-            // storage faults
 // ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
@@ -168,8 +165,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             CancellationToken cancellationToken) =>
             transitionName switch
             {
-                "Submit" => this.associationService.SubmitAssociationAsync(
-                    new Association { Id = storageAssociation.Id }, cancellationToken),
 
                 "Approve" => this.associationService.ApproveAssociationAsync(
                     CreateApprovalDecision(storageAssociation.Id), cancellationToken),
@@ -184,12 +179,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     CreateConfidenceDecision(storageAssociation.Id), cancellationToken),
 
                 _ => this.associationService.SetAssociationScopeAsync(
-                    new Association
-                    {
-                        Id = storageAssociation.Id,
-                        EntityAScope = storageAssociation.EntityAScope,
-                        EntityBScope = storageAssociation.EntityBScope
-                    },
+                    storageAssociation.Id,
+                    storageAssociation.EntityAScope,
+                    storageAssociation.EntityBScope,
                     cancellationToken)
             };
     }

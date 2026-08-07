@@ -147,7 +147,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // row-level write permission: the owner or a review role may write the row — the
         // narrower workflow rules stay in the orchestration, which needs owner writes for
         // resubmission and role writes for the publish flip
-        private async ValueTask ValidateUserCanModifyStorageAssociationAsync(
+        // Returns whether the caller may also use the Draft <-> Submitted carve-out (design
+        // §9.2 rules 4-6). The answer falls out of the ownership check this method already
+        // performs, so it is returned rather than recomputed - a second GetUserIdAsync would
+        // be a wasted call and a second chance for the two answers to disagree.
+        //
+        // Note what the carve-out is NOT gated on: write permission. A Reviewer passes the
+        // check below and may amend content, and must still never move an approval status
+        // (§8.6 HR-3).
+        private async ValueTask<bool> ValidateUserCanModifyStorageAssociationAsync(
             Association storageAssociation,
             SecurityContext securityContext)
         {
@@ -163,6 +171,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to modify this content item association.");
             }
+
+            return isOwner
+                || HasPublisherRoleForAssociation(securityContext, storageAssociation);
         }
 
         // removing an association is a takedown, not a moderation step — the owner may
@@ -464,7 +475,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // rule 6).
         private static void ValidateAgainstStorageAssociationOnModify(
             Association inputAssociation,
-            Association storageAssociation)
+            Association storageAssociation,
+            bool mayTransitionApprovalStatus)
         {
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
@@ -541,10 +553,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 // pins a Tag-Reviewer could take someone else's pending association and
                 // publish it through the general modify — approving content nobody with
                 // authority over it ever looked at.
-                (Rule: IsNotSame(
-                        first: inputAssociation.ApprovalStatus,
-                        second: storageAssociation.ApprovalStatus,
-                        secondName: nameof(Association.ApprovalStatus)),
+                (Rule: IsNotAPermittedStatusChangeOnModify(
+                        inputStatus: inputAssociation.ApprovalStatus,
+                        storageStatus: storageAssociation.ApprovalStatus,
+                        mayTransition: mayTransitionApprovalStatus),
                     Parameter: nameof(Association.ApprovalStatus)),
 
                 (Rule: IsNotSame(
@@ -558,6 +570,59 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         secondDate: storageAssociation.PublishDate,
                         secondDateName: nameof(Association.PublishDate)),
                     Parameter: nameof(Association.PublishDate)),
+
+                // Sorting, confidence, scope and the reacting user are not content either, and
+                // each has its own gated operation. Leaving them writable here routes straight
+                // around those gates: an author could score their own association through
+                // modify, or widen its reach, without ever meeting the Publisher tier the
+                // dedicated operations require. Design §9.7.1 - modify is content only.
+                (Rule: IsNotSame(
+                        first: inputAssociation.SortOrder,
+                        second: storageAssociation.SortOrder,
+                        secondName: nameof(Association.SortOrder)),
+                    Parameter: nameof(Association.SortOrder)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.ConfidenceScore,
+                        second: storageAssociation.ConfidenceScore,
+                        secondName: nameof(Association.ConfidenceScore)),
+                    Parameter: nameof(Association.ConfidenceScore)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.ConfidenceReason,
+                        second: storageAssociation.ConfidenceReason,
+                        secondName: nameof(Association.ConfidenceReason)),
+                    Parameter: nameof(Association.ConfidenceReason)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.SourceBatchId,
+                        second: storageAssociation.SourceBatchId,
+                        secondName: nameof(Association.SourceBatchId)),
+                    Parameter: nameof(Association.SourceBatchId)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.ModelVersion,
+                        second: storageAssociation.ModelVersion,
+                        secondName: nameof(Association.ModelVersion)),
+                    Parameter: nameof(Association.ModelVersion)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityAScope,
+                        second: storageAssociation.EntityAScope,
+                        secondName: nameof(Association.EntityAScope)),
+                    Parameter: nameof(Association.EntityAScope)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.EntityBScope,
+                        second: storageAssociation.EntityBScope,
+                        secondName: nameof(Association.EntityBScope)),
+                    Parameter: nameof(Association.EntityBScope)),
+
+                (Rule: IsNotSame(
+                        first: inputAssociation.UserId,
+                        second: storageAssociation.UserId,
+                        secondName: nameof(Association.UserId)),
+                    Parameter: nameof(Association.UserId)),
 
                 (Rule: IsSame(
                         firstDate: inputAssociation.UpdatedWhen,
@@ -764,6 +829,65 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         // a contribution is unpublished by definition — publication is granted by the
         // approve operation, never asserted by the contributor
+        private static dynamic IsNotSame(
+            Scope first,
+            Scope second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            int? first,
+            int? second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            decimal? first,
+            decimal? second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            Guid? first,
+            Guid? second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        // The one carve-out on modify (design §9.2 rules 4-6): the owner may move the status
+        // between Draft and Submitted, because submitting is inseparable from the edit that
+        // made the work ready. Everything else about the status stays pinned, and the caller
+        // must have been found eligible for the carve-out before this is reached - a Reviewer
+        // holds write permission on the row and must still never move the status (HR-3).
+        private static dynamic IsNotAPermittedStatusChangeOnModify(
+            ApprovalStatus inputStatus,
+            ApprovalStatus storageStatus,
+            bool mayTransition) => new
+            {
+                Condition =
+                    inputStatus != storageStatus
+                        && (mayTransition is false
+                            || IsDraftOrSubmitted(inputStatus) is false
+                            || IsDraftOrSubmitted(storageStatus) is false),
+
+                Message = "Value is not the same as storage approval status"
+            };
+
+        private static bool IsDraftOrSubmitted(ApprovalStatus approvalStatus) =>
+            approvalStatus == ApprovalStatus.Draft
+                || approvalStatus == ApprovalStatus.Submitted;
+
         private static dynamic IsSetOnAdd(bool value) => new
         {
             Condition = value,

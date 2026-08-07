@@ -123,11 +123,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                var retrieveRequest = new Association
-                {
-                    Id = associationId
-                };
+                var retrieveRequest = new Association { Id = associationId };
 
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
@@ -162,12 +158,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                var removeRequest = new Association
-                {
-                    Id = associationId,
-                    DeletionReason = deletionReason
-                };
+                var removeRequest = new Association { Id = associationId, DeletionReason = deletionReason };
 
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: removeRequest);
@@ -185,11 +176,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-
-                var hardRemoveRequest = new Association
-                {
-                    Id = associationId
-                };
+                var hardRemoveRequest = new Association { Id = associationId };
 
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: hardRemoveRequest);
@@ -486,9 +473,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 maybeAssociation,
                 associationId: association.Id);
 
-            await ValidateUserCanModifyStorageAssociationAsync(
-                storageAssociation: maybeAssociation,
-                securityContext: inboundEnvelope.SecurityContext);
+            bool mayTransitionApprovalStatus =
+                await ValidateUserCanModifyStorageAssociationAsync(
+                    storageAssociation: maybeAssociation,
+                    securityContext: inboundEnvelope.SecurityContext);
 
             association = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -497,7 +485,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             ValidateAgainstStorageAssociationOnModify(
                 inputAssociation: association,
-                storageAssociation: maybeAssociation);
+                storageAssociation: maybeAssociation,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             Association updatedAssociation =
                 await this.storageBroker.UpdateAssociationAsync(
