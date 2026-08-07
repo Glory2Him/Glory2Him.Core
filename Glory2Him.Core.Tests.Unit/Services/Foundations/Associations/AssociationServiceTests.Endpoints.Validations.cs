@@ -380,23 +380,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Never);
         }
 
-        public static TheoryData<string> ReclassifiableEndpointFields() =>
+        // Every endpoint field the general modify pins against storage. Scope sits here with
+        // the identity fields now that the state-transition operations have landed: it is not
+        // reclassification, but it has its own Publisher/Admin-gated operation (design §9.7.1
+        // rule 6), and leaving it writable on modify would route straight around that gate.
+        public static TheoryData<string> PinnedEndpointFields() =>
             new TheoryData<string>
             {
                 nameof(Association.EntityAType),
                 nameof(Association.EntityAKeyId),
                 nameof(Association.EntityAGroupId),
                 nameof(Association.EntityAContentType),
+                nameof(Association.EntityAScope),
                 nameof(Association.EntityBType),
                 nameof(Association.EntityBKeyId),
                 nameof(Association.EntityBGroupId),
-                nameof(Association.EntityBContentType)
+                nameof(Association.EntityBContentType),
+                nameof(Association.EntityBScope)
             };
 
         [Theory]
-        [MemberData(nameof(ReclassifiableEndpointFields))]
-        public async Task ShouldThrowValidationExceptionOnModifyIfAnEndpointWasRepointedAndLogItAsync(
-            string repointedField)
+        [MemberData(nameof(PinnedEndpointFields))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfAnEndpointFieldWasChangedAndLogItAsync(
+            string changedField)
         {
             // given: repointing an association is indistinguishable from deleting one link
             // and creating another — except that it carries the original's approval state
@@ -412,7 +418,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // a content type is legal only on a ContentItem endpoint, so the endpoint under
             // test becomes one before the storage row is cloned — otherwise the
             // not-applicable rule fires instead of the storage pin this test is about
-            if (repointedField == nameof(Association.EntityAContentType))
+            if (changedField == nameof(Association.EntityAContentType))
             {
                 invalidAssociation.EntityAType = EntityType.ContentItem;
             }
@@ -420,14 +426,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association storageAssociation = invalidAssociation.DeepClone();
             storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
 
-            string expectedMessage = RepointEndpointField(invalidAssociation, repointedField);
+            string expectedMessage = ChangeEndpointField(invalidAssociation, changedField);
 
             var invalidAssociationException =
                 new InvalidAssociationException(
                     message: "Content item association is invalid, fix the errors and try again.");
 
             invalidAssociationException.AddData(
-                key: repointedField,
+                key: changedField,
                 values: expectedMessage);
 
             var expectedAssociationValidationException =
@@ -485,75 +491,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Never);
         }
 
-        [Fact]
-        public async Task ShouldNotPinEndpointScopeAgainstStorageOnModifyAsync()
-        {
-            // given: scope is the one endpoint field that may move after creation — a
-            // versioned endpoint can be narrowed to a single version or widened back. This
-            // test exists to prove the reclassification pin does not over-reach onto it.
-            //
-            // That the *general* modify is the path carrying the change is temporary: design
-            // §9.7.1 rule 6 gives scope its own Publisher/Admin-gated operation publishing
-            // `-Scoped`, and the general modify becomes content-only when the five
-            // state-transition operations land.
-            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            string randomUserId = GetRandomString();
-
-            Association randomAssociation =
-                CreateRandomModifyAssociation(randomDateTimeOffset, randomUserId);
-
-            Association inputAssociation = randomAssociation;
-            Association storageAssociation = inputAssociation.DeepClone();
-            storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
-            storageAssociation.EntityAScope = Scope.ThisVersionOnly;
-
-            inputAssociation.EntityAScope = Scope.AllVersions;
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(inputAssociation);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(randomUserId);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectAssociationByIdAsync(
-                    inputAssociation.Id,
-                    It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(storageAssociation);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
-                    inputAssociation,
-                    storageAssociation))
-                    .ReturnsAsync(inputAssociation);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.UpdateAssociationAsync(
-                    inputAssociation,
-                    It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(inputAssociation);
-
-            // when
-            Association actualAssociation =
-                await this.associationService.ModifyAssociationAsync(
-                    inputAssociation,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualAssociation.EntityAScope.Should().Be(Scope.AllVersions);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.UpdateAssociationAsync(
-                    inputAssociation,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-        }
+        // The test that used to sit here asserted the OPPOSITE — that the general modify
+        // carried a scope change — and it said so itself: "that the general modify is the
+        // path carrying the change is temporary … the general modify becomes content-only
+        // when the five state-transition operations land." They have landed, so the pin is
+        // now deliberate and is covered by PinnedEndpointFields above. The path that carries
+        // a scope change is SetAssociationScopeAsync, covered in the Transitions tests.
 
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfScopeIsNotADefinedMemberAndLogItAsync()
@@ -723,7 +666,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         // mutates the field under test to something the storage row does not have, and
         // returns the message the pin is expected to produce for it
-        private static string RepointEndpointField(
+        private static string ChangeEndpointField(
             Association association,
             string fieldName)
         {
@@ -749,6 +692,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
                     return $"Value is not the same as {nameof(Association.EntityAContentType)}";
 
+                // narrowing, not widening: the filler pins both endpoints to AllVersions and
+                // both drawn types are versioned, so ThisVersionOnly differs from storage
+                // while staying applicable — the pin fires, not the applicability rule
+                case nameof(Association.EntityAScope):
+                    association.EntityAScope = Scope.ThisVersionOnly;
+
+                    return $"Value is not the same as {nameof(Association.EntityAScope)}";
+
                 case nameof(Association.EntityBType):
                     association.EntityBType = EntityType.Link;
 
@@ -768,6 +719,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     association.EntityBContentType = ContentType.Story;
 
                     return $"Value is not the same as {nameof(Association.EntityBContentType)}";
+
+                case nameof(Association.EntityBScope):
+                    association.EntityBScope = Scope.ThisVersionOnly;
+
+                    return $"Value is not the same as {nameof(Association.EntityBScope)}";
 
                 default:
                     throw new ArgumentOutOfRangeException(

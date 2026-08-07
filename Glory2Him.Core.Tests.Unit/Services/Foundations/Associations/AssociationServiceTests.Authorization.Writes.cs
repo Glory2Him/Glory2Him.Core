@@ -16,6 +16,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -64,9 +65,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             var invalidAssociationException = new InvalidAssociationException(
                 message: "Content item association is invalid, fix the errors and try again.");
 
+            // not the generic pin message: the status is guarded by the carve-out rule, which
+            // permits Draft <-> Submitted for an eligible caller and refuses everything else,
+            // so it reports against the STORED status rather than against a field name
             invalidAssociationException.AddData(
                 key: nameof(Association.ApprovalStatus),
-                values: $"Value is not the same as {nameof(Association.ApprovalStatus)}");
+                values: "Value is not the same as storage approval status");
 
             invalidAssociationException.AddData(
                 key: nameof(Association.IsPublished),
@@ -75,6 +79,166 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             invalidAssociationException.AddData(
                 key: nameof(Association.PublishDate),
                 values: $"Date is not the same as {nameof(Association.PublishDate)}");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: invalidAssociationException);
+
+            SetupFailingModifyPathBrokers(
+                invalidAssociation, storageAssociation, invalidAssociation.UpdatedBy, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> modifyTask =
+                this.associationService.ModifyAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(modifyTask.AsTask);
+
+            // then
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        public static TheoryData<ApprovalStatus, ApprovalStatus> SubmissionTransitions() =>
+            new TheoryData<ApprovalStatus, ApprovalStatus>
+            {
+                { ApprovalStatus.Draft, ApprovalStatus.Submitted },
+                { ApprovalStatus.Submitted, ApprovalStatus.Draft }
+            };
+
+        [Theory]
+        [MemberData(nameof(SubmissionTransitions))]
+        public async Task ShouldWriteTheSubmissionStatusOnModifyWhenTheOwnerMovesItAsync(
+            ApprovalStatus storedStatus,
+            ApprovalStatus requestedStatus)
+        {
+            // given: the carve-out's POSITIVE case (design §9.2 rules 4-6). Every other test
+            // around the status asserts a refusal, so the carve-out could be deleted outright
+            // — pinning the status unconditionally — and the suite would stay green while
+            // nobody could submit anything for review.
+            //
+            // The owner is what unlocks it: ValidateUserCanModifyStorageAssociationAsync
+            // returns the carve-out flag out of the same ownership check it already performs.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string ownerUserId = GetRandomString();
+
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association inputAssociation =
+                CreateRandomModifyAssociation(randomDateTimeOffset, ownerUserId);
+
+            inputAssociation.CreatedBy = ownerUserId;
+            inputAssociation.ApprovalStatus = storedStatus;
+
+            Association storageAssociation = inputAssociation.DeepClone();
+            storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
+
+            inputAssociation.ApprovalStatus = requestedStatus;
+
+            Association savedAssociation = null;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(ownerUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    inputAssociation.Id, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputAssociation, storageAssociation))
+                        .ReturnsAsync(inputAssociation);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(
+                    It.IsAny<Association>(), It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Association entity, CancellationToken _) =>
+                        {
+                            savedAssociation = entity.DeepClone();
+
+                            return entity;
+                        });
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    AssociationEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<Association>>(
+                            new EventPublishResult<Association>()));
+
+            // when
+            Association actual = await this.associationService.ModifyAssociationAsync(
+                inputAssociation,
+                TestContext.Current.CancellationToken);
+
+            // then: the row actually SAVED carries the new status — asserting only on the
+            // returned entity would pass on a service that validated the move and then
+            // dropped it
+            savedAssociation.Should().NotBeNull();
+            savedAssociation.ApprovalStatus.Should().Be(requestedStatus);
+            actual.ApprovalStatus.Should().Be(requestedStatus);
+
+            // the carve-out moves the status and nothing else — publication is approve's
+            savedAssociation.IsPublished.Should().Be(storageAssociation.IsPublished);
+            savedAssociation.PublishDate.Should().Be(storageAssociation.PublishDate);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    inputAssociation, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfANonOwnerMovesTheSubmissionStatusAsync()
+        {
+            // given: the other half of the carve-out. A Tag-Reviewer holds write permission on
+            // the row and may amend it, and must still never move the status (§8.6 HR-3) — so
+            // the flag has to come from OWNERSHIP, not from passing the write gate.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.TagReviewer);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string reviewerUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+
+            Association invalidAssociation =
+                CreateRandomModifyAssociation(randomDateTimeOffset, reviewerUserId);
+
+            invalidAssociation.EntityAType = EntityType.BibleReference;
+            invalidAssociation.EntityAScope = Scope.ThisVersionOnly;
+            invalidAssociation.EntityAContentType = null;
+            invalidAssociation.EntityBType = EntityType.Tag;
+            invalidAssociation.EntityBScope = Scope.ThisVersionOnly;
+            invalidAssociation.EntityBContentType = null;
+            invalidAssociation.CreatedBy = ownerUserId;
+            invalidAssociation.ApprovalStatus = ApprovalStatus.Draft;
+
+            Association storageAssociation = invalidAssociation.DeepClone();
+            storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
+
+            invalidAssociation.ApprovalStatus = ApprovalStatus.Submitted;
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.ApprovalStatus),
+                values: "Value is not the same as storage approval status");
 
             var expectedAssociationValidationException = new AssociationValidationException(
                 message: "Content item association validation error occurred, fix the errors and try again.",
@@ -479,7 +643,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association storageAssociation = inputAssociation.DeepClone();
             storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
 
-            inputAssociation.ConfidenceReason = GetRandomString();
+            // nothing on the entity is altered, and that is not an oversight: every non-audit
+            // field an Association carries now belongs to a narrow operation and is pinned
+            // against storage here. What this test asserts is the GATE — that a Tag-Reviewer
+            // who is not the owner is admitted to the modify path at all.
+            Association expectedAssociation = inputAssociation.DeepClone();
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()))
@@ -511,8 +679,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 inputAssociation,
                 TestContext.Current.CancellationToken);
 
-            // then
-            actual.Should().BeEquivalentTo(inputAssociation);
+            // then: against a clone taken before the act, not against the instance the mocks
+            // hand back — comparing that instance with itself would pass however the service
+            // mangled it
+            actual.Should().BeEquivalentTo(expectedAssociation);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.UpdateAssociationAsync(inputAssociation, It.IsAny<CancellationToken>()),

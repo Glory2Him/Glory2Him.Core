@@ -33,11 +33,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        private static void ValidateOnSubmitAssociation(Association association) =>
-            Validate(
-                message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)));
-
         private static void ValidateOnApproveAssociation(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
@@ -95,51 +90,117 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         association.ConfidenceScore,
                         association.SourceBatchId,
                         association.ModelVersion),
-                    Parameter: nameof(Association.SourceBatchId)));
+                    Parameter: nameof(Association.SourceBatchId)),
 
-        private static void ValidateOnSetAssociationScope(Association association) =>
+                // the two string columns this operation owns. Add and modify both bound them;
+                // without these the same payload that add rejects cleanly comes back from here
+                // as a "contact support" dependency failure raised by SQL Server, naming no
+                // field at all.
+                (Rule: IsGreaterThan(association.ConfidenceReason, 500),
+                    Parameter: nameof(Association.ConfidenceReason)),
+
+                (Rule: IsGreaterThan(association.ModelVersion, 128),
+                    Parameter: nameof(Association.ModelVersion)));
+
+        private static void ValidateOnSetAssociationScope(
+            Guid associationId,
+            Scope? entityAScope,
+            Scope? entityBScope) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)),
-                (Rule: IsInvalid(association.EntityAScope), Parameter: nameof(Association.EntityAScope)),
-                (Rule: IsInvalid(association.EntityBScope), Parameter: nameof(Association.EntityBScope)));
+                (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)),
 
-        // Submit is the owner's own act — they are saying the row is ready. A Publisher or
-        // Admin may submit on their behalf; a reviewer may not, because reviewing a row you
-        // put into review yourself is the conflict the workflow exists to avoid.
-        private async ValueTask ValidateUserCanSubmitStorageAssociationAsync(
+                // a call that names neither endpoint is not a scope change at all
+                (Rule: IsNoScopeSupplied(entityAScope, entityBScope),
+                    Parameter: nameof(Association.EntityAScope)),
+
+                (Rule: IsInvalid(entityAScope), Parameter: nameof(Association.EntityAScope)),
+                (Rule: IsInvalid(entityBScope), Parameter: nameof(Association.EntityBScope)));
+
+        // Approving is the PUBLISHER-tier decision, and it is the narrowest gate in the
+        // service because this is the only path by which an association becomes publicly
+        // visible.
+        //
+        // Two hard rules meet here (design §8.6):
+        //
+        // HR-3 — a Reviewer may NEVER set an approval status. A reviewer's instrument is the
+        // ApprovalReview record; they move the outcome only indirectly, through automatic
+        // approval. %EntityType%-Reviewer is not a weaker %EntityType%-Publisher, it is a
+        // different job, so the review-role helper is deliberately NOT used here.
+        //
+        // HR-2 — no one approves their own content. Enforced unconditionally for now: the
+        // setting that can relax it, ApprovalSetting.AllowSelfApproval, lives on another
+        // entity that a foundation service may not read, and it arrives with the approvals
+        // policy broker (§8.6.1). Refusing outright until then is the fail-closed reading —
+        // the strict rule ships first and relaxes later, rather than a hole staying open
+        // while the mechanism is built.
+        //
+        // Together they are what stop a contributor walking the whole path alone: create,
+        // submit, approve, publish.
+        //
+        // Not enforced here: §8.6's regardless-rule 1, barring anyone who holds an active
+        // ApprovalReview on the row from also deciding it. That is a question about another
+        // entity's rows, so it arrives with IAccessBroker (§8.6.1).
+        private async ValueTask ValidateUserCanApproveStorageAssociationAsync(
             Association storageAssociation,
             SecurityContext securityContext)
         {
+            if (HasPublisherRoleForAssociation(securityContext, storageAssociation) is false)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to approve " +
+                        "this content item association.");
+            }
+
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageAssociation.CreatedBy == actorUserId;
 
-            bool isPublisherOrAdmin =
-                securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Admin);
-
-            if (isOwner is false && isPublisherOrAdmin is false)
+            if (isOwner)
             {
                 throw new UnauthorizedAssociationException(
-                    message: "The current user is not allowed to submit " +
-                        "this content item association.");
+                    message: "The author of a content item association may not approve it.");
             }
         }
 
-        // Approving is the endpoint-derived review decision (design §14.7 posture A′ rule 2).
-        private static void ValidateUserCanApproveStorageAssociation(
-            Association storageAssociation,
-            SecurityContext securityContext)
+        // The Publisher tier: a global Publisher or Admin, or a scoped publisher matching AT
+        // LEAST ONE endpoint — the same one-endpoint-is-enough reasoning as the review roles
+        // (§14.7 posture A′ rule 2), because the pairing is the thing being decided and a
+        // publisher trusted with one end can see both. Reviewer-tier roles are excluded at
+        // every tier.
+        private static bool HasPublisherRoleForAssociation(
+            SecurityContext securityContext,
+            Association association) =>
+            securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.Admin)
+                || HasEndpointPublisherRole(
+                    securityContext,
+                    association.EntityAType,
+                    association.EntityAContentType)
+                || HasEndpointPublisherRole(
+                    securityContext,
+                    association.EntityBType,
+                    association.EntityBContentType);
+
+        private static bool HasEndpointPublisherRole(
+            SecurityContext securityContext,
+            EntityType entityType,
+            ContentType? contentType)
         {
-            if (HasReviewRoleForAssociation(securityContext, storageAssociation) is false)
+            if (securityContext.Roles.Contains(Roles.PublisherFor(entityType)))
             {
-                throw new UnauthorizedAssociationException(
-                    message: "The current user is not allowed to approve " +
-                        "this content item association.");
+                return true;
             }
+
+            if (contentType.HasValue is false)
+            {
+                return false;
+            }
+
+            return securityContext.Roles.Contains(
+                Roles.PublisherFor(entityType, contentType.Value));
         }
 
         // Sorting arranges someone's own list — an author ordering the posts inside their own
@@ -215,19 +276,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // Submit moves Draft to Submitted and nothing else. Re-submitting something already
-        // in review, or already decided, is not a no-op — it would reset a review in flight.
-        private static void ValidateStorageAssociationIsSubmittable(
-            Association storageAssociation)
-        {
-            if (storageAssociation.ApprovalStatus != ApprovalStatus.Draft)
-            {
-                throw new InvalidAssociationException(
-                    message: "Content item association cannot be submitted from status " +
-                        $"{storageAssociation.ApprovalStatus}.");
-            }
-        }
-
         // Only a row actually in review can be decided. Approving a Draft would skip the
         // submission the workflow is built around.
         private static void ValidateStorageAssociationIsApprovable(
@@ -264,16 +312,15 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // entity has exactly one row, so AllVersions and ThisVersionOnly mean the same thing
         // and offering the toggle would imply a choice that does not exist.
         private static void ValidateScopeIsApplicableToEndpoints(
-            Association association,
-            Association storageAssociation) =>
+            Association storageAssociation,
+            Scope entityAScope,
+            Scope entityBScope) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsScopeNotApplicable(
-                        storageAssociation.EntityAType, association.EntityAScope),
+                (Rule: IsScopeNotApplicable(storageAssociation.EntityAType, entityAScope),
                     Parameter: nameof(Association.EntityAScope)),
 
-                (Rule: IsScopeNotApplicable(
-                        storageAssociation.EntityBType, association.EntityBScope),
+                (Rule: IsScopeNotApplicable(storageAssociation.EntityBType, entityBScope),
                     Parameter: nameof(Association.EntityBScope)));
 
         // The same duplicate check an add does. UX_Associations_Pair keys on the EFFECTIVE id,
@@ -322,6 +369,32 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // index uses
         private static Guid ResolveEffectiveId(Scope scope, Guid groupId, Guid keyId) =>
             scope == Scope.AllVersions ? groupId : keyId;
+
+        // Reported as not-found rather than as a distinct "deleted" error, matching the read
+        // posture: a removed id must not be distinguishable from one that never existed, or the
+        // transitions become a probe for which associations used to exist.
+        private static void ValidateStorageAssociationIsNotDeleted(
+            Association storageAssociation,
+            Guid associationId)
+        {
+            if (storageAssociation.IsDeleted)
+            {
+                throw new NotFoundAssociationException(
+                    message: $"Content item association not found with id: {associationId}.");
+            }
+        }
+
+        private static dynamic IsNoScopeSupplied(Scope? entityAScope, Scope? entityBScope) => new
+        {
+            Condition = entityAScope.HasValue is false && entityBScope.HasValue is false,
+            Message = "At least one endpoint scope is required."
+        };
+
+        private static dynamic IsInvalid(Scope? scope) => new
+        {
+            Condition = scope.HasValue && Enum.IsDefined(scope.Value) is false,
+            Message = "Value is not recognized"
+        };
 
         private static dynamic IsNotAnApprovalOutcome(ApprovalStatus approvalStatus) => new
         {
@@ -376,7 +449,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         private static dynamic IsProvenanceIncomplete(
             Guid? sourceBatchId,
-            string modelVersion) => new
+            string? modelVersion) => new
             {
                 Condition = sourceBatchId.HasValue
                     != (string.IsNullOrWhiteSpace(modelVersion) is false),
@@ -387,7 +460,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private static dynamic IsProvenanceWithoutScore(
             decimal? confidenceScore,
             Guid? sourceBatchId,
-            string modelVersion) => new
+            string? modelVersion) => new
             {
                 Condition = confidenceScore.HasValue is false
                     && (sourceBatchId.HasValue

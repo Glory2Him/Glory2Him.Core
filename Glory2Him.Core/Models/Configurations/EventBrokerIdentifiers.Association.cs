@@ -53,17 +53,14 @@ namespace Glory2Him.Core.Models.Configurations
         // sort, confidence and scope; the request halves are chosen here to mirror the method
         // name, the way Adding/Modifying already do.
 
-        public static readonly Guid AssociationSubmittingEventAddressId =
-            new Guid("019fd991-a27b-7f67-b43e-ab0a50d0b5b6");
-
-        public static readonly Guid AssociationSubmittedEventAddressId =
-            new Guid("019fd991-a27c-7f9a-8228-192565fd80ba");
-
         public static readonly Guid AssociationApprovingEventAddressId =
             new Guid("019fd991-a27d-7011-bcc7-e40517d1b14e");
 
         public static readonly Guid AssociationApprovedEventAddressId =
             new Guid("019fd991-a27e-764a-84f9-4732feae6587");
+
+        public static readonly Guid AssociationRejectedEventAddressId =
+            new Guid("019fdd70-1b86-76cd-83ee-c46b10b2a6b0");
 
         // Sort has a fact address but no request address: its signature needs an anchor and a
         // side, and an envelope carries one entity. See AssociationEventOperation.
@@ -100,12 +97,11 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationEventOperation.Removed, AssociationRemovedEventAddressId },
                 { AssociationEventOperation.HardRemoved, AssociationRemovedEventAddressId },
 
-                { AssociationEventOperation.Submitting, AssociationSubmittingEventAddressId },
                 { AssociationEventOperation.Approving, AssociationApprovingEventAddressId },
                 { AssociationEventOperation.SettingConfidence, AssociationSettingConfidenceEventAddressId },
                 { AssociationEventOperation.SettingScope, AssociationSettingScopeEventAddressId },
-                { AssociationEventOperation.Submitted, AssociationSubmittedEventAddressId },
                 { AssociationEventOperation.Approved, AssociationApprovedEventAddressId },
+                { AssociationEventOperation.Rejected, AssociationRejectedEventAddressId },
                 { AssociationEventOperation.Sorted, AssociationSortedEventAddressId },
                 { AssociationEventOperation.ConfidenceSet, AssociationConfidenceSetEventAddressId },
                 { AssociationEventOperation.Scoped, AssociationScopedEventAddressId }
@@ -122,12 +118,11 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationAddedEventAddressId, "Association-Added" },
                 { AssociationModifiedEventAddressId, "Association-Modified" },
                 { AssociationRemovedEventAddressId, "Association-Removed" },
-                { AssociationSubmittingEventAddressId, "Association-Submitting" },
                 { AssociationApprovingEventAddressId, "Association-Approving" },
                 { AssociationSettingConfidenceEventAddressId, "Association-SettingConfidence" },
                 { AssociationSettingScopeEventAddressId, "Association-SettingScope" },
-                { AssociationSubmittedEventAddressId, "Association-Submitted" },
                 { AssociationApprovedEventAddressId, "Association-Approved" },
+                { AssociationRejectedEventAddressId, "Association-Rejected" },
                 { AssociationSortedEventAddressId, "Association-Sorted" },
                 { AssociationConfidenceSetEventAddressId, "Association-ConfidenceSet" },
                 { AssociationScopedEventAddressId, "Association-Scoped" }
@@ -159,12 +154,6 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string AssociationOnRetrievingAssociationByIdSubscriptionName =
             "AssociationService.OnRetrievingAssociationById";
-
-        public static readonly Guid AssociationOnSubmittingAssociationSubscriptionId =
-            new Guid("019fd991-a285-7582-ab9b-51d1a73015dc");
-
-        public const string AssociationOnSubmittingAssociationSubscriptionName =
-            "AssociationService.OnSubmittingAssociation";
 
         public static readonly Guid AssociationOnApprovingAssociationSubscriptionId =
             new Guid("019fd991-a286-7e83-9eca-3b88e6c9698e");

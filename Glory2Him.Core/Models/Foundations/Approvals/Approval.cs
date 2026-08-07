@@ -46,6 +46,11 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         public bool IsApprovedByBypass { get; set; } = false;
 
         /// <summary>
+        /// Reason for bypassing the approval conditions, if applicable.
+        /// </summary>
+        public string? ApprovedByBypassReason { get; set; }
+
+        /// <summary>
         /// User identifier for who created the content item.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;

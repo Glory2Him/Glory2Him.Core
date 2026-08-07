@@ -58,10 +58,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // Each takes the whole entity for house-style consistency with Modify, but reads only
         // the fields in its own scope from it; everything else comes from storage.
 
-        ValueTask<Association> SubmitAssociationAsync(
-            Association association,
-            CancellationToken cancellationToken = default);
-
         ValueTask<Association> ApproveAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default);
@@ -76,8 +72,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Association association,
             CancellationToken cancellationToken = default);
 
+        // Nullable on purpose: null means "leave this endpoint alone". Scope.AllVersions is
+        // 0, so a non-nullable parameter cannot tell an omitted value from a deliberate one —
+        // and the value it would default to is the WIDENING one, on the operation whose
+        // Publisher/Admin gate exists precisely because widening reach is consequential.
         ValueTask<Association> SetAssociationScopeAsync(
-            Association association,
+            Guid associationId,
+            Scope? entityAScope,
+            Scope? entityBScope,
             CancellationToken cancellationToken = default);
     }
 }

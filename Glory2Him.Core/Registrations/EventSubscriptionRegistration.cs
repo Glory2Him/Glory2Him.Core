@@ -1169,22 +1169,6 @@ namespace Glory2Him.Core.Registrations
                 subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers
-                        .AssociationOnSubmittingAssociationSubscriptionId,
-
-                    Name = EventBrokerIdentifiers
-                        .AssociationOnSubmittingAssociationSubscriptionName,
-
-                    Description = "Handles submit requests: moves the content item association from Draft to Submitted, publishes Association-Submitted, and replies with the updated entity."
-                },
-                operation: AssociationEventOperation.Submitting,
-                associationEventHandler:
-                    this.associationService.OnSubmittingAssociationAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToAssociationEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers
                         .AssociationOnApprovingAssociationSubscriptionId,
 
                     Name = EventBrokerIdentifiers

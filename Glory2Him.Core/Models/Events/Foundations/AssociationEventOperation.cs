@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -47,12 +47,14 @@ namespace Glory2Him.Core.Models.Events.Foundations
         // anchor. Rather than invent a second-entity channel or collapse the anchor into a
         // raw SortOrder value (which is the design the anchor exists to avoid), sort is
         // direct-call only and publishes its fact like the others.
-        Submitting,
         Approving,
         SettingConfidence,
         SettingScope,
-        Submitted,
+        // Approve carries the whole decision, so it publishes one of TWO facts. A rejection
+        // broadcast on the Approved address would tell every subscriber the opposite of
+        // what happened - the fact name is the contract they key on.
         Approved,
+        Rejected,
         Sorted,
         ConfidenceSet,
         Scoped
