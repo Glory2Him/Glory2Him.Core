@@ -865,15 +865,44 @@ conditionsMet =
 
 ### 8.6 Self-Approval Rules
 
-If `AllowSelfApproval = false`:
+These are **hard rules**. They are not defaults, they are not advisory, and no role — including `Admin` — is exempt except where a rule states its own exception.
 
-1. The creator of the entity must not approve the entity.
-2. The creator of the approval record must not approve the entity if they are the same as the content creator.
-3. Attempts to self-approve must be rejected by validation.
+**HR-1. No one may ever review their own content.** Self-review of an `ApprovalReview` is refused *unconditionally*. `AllowSelfApproval` does not relax it. A review is one person vouching for another's work; a review of your own work carries no information, and a threshold met by self-reviews is not a threshold.
 
-Regardless of `AllowSelfApproval`:
+**HR-2. No one may approve their own content unless `AllowSelfApproval` permits it.** This is the single rule the setting governs. With `AllowSelfApproval = false` — the fail-closed default (§8.4 rule 2) — the entity's creator must not approve it, and the creator of the `Approval` record must not approve it when they are also the content creator. Attempts must be rejected by validation, not merely discouraged.
+
+**HR-3. A `Reviewer` may never set an `ApprovalStatus` directly.** A reviewer's whole instrument is the `ApprovalReview` record. They influence the outcome only *indirectly*, through automatic approval when the settings allow it. A reviewer applying the decision is the conflict the two-role split exists to prevent, and the role tiers are not interchangeable: `%EntityType%-Reviewer` is not a weaker `%EntityType%-Publisher`, it is a different job.
+
+**HR-4. An `Approval`'s `ApprovalStatus` changes by exactly three routes, and no others.**
+
+1. **Manual set by a `Publisher`/`Admin`**, subject to every other settings check — the approval count in `RequiredNumberOfApprovals`, review-comment resolution under `RequireReviewCommentResolutionBeforeApprovals`, the rejection block under `BlockOnReject`, and the zero-score block under `BlockOnZeroApprovalScore`.
+2. **Automatic approval**, when `AutoApproveIfAllApprovalRequirementsMet = true` and every condition in §8.5 is satisfied.
+3. **Bypass by a `Publisher`/`Admin`**, setting `IsApprovedByBypass = true` with an `ApprovedByBypassReason` alongside the status — and *only* when `DoNotAllowBypassingSettings = false`.
+
+Setting `DoNotAllowBypassingSettings = true` closes route 3 entirely. Nobody, publishers and administrators included, can then approve without satisfying every required check.
+
+**One residual, stated so it is not mistaken for a gap.** The setting governs approval *time*, not settings *editing*. An administrator with permission to edit approval settings can still disable or delete the rule and then approve. That is a deliberate limit of the mechanism — closing it requires separating "who may approve" from "who may configure approval", which is not modelled today. Any environment that needs a genuinely unbypassable rule must control who can edit `ApprovalSetting` rows.
+
+**Regardless of `AllowSelfApproval`:**
 
 1. A user recorded on the entity's `UpdatedBy` must never review that entity — the person whose wording is under review cannot vouch for it. This includes a `Publisher` or `Admin` who amended the text during review; another `Publisher` or `Admin` must perform the approval.
+
+### 8.6.1 Where These Rules Are Enforced
+
+**The foundation service is the last line of defence, not the first.** Every rule above must hold even when the orchestration is bypassed — and it can be, because foundation services are reachable through public event addresses (§10.2). A rule enforced only at orchestration is not enforced.
+
+That creates a problem the architecture has to solve rather than wish away: HR-2 and HR-4 depend on `ApprovalSetting`, `ApprovalReview` and `ApprovalComment`, none of which a foundation service may read — a foundation service serves one entity and touches one table.
+
+The answer is a **policy broker**, not a cross-entity read:
+
+1. `G2H.Approvals.Client` owns the decision logic — counts, comment resolution, rejection and score blocks, bypass permission, self-approval permission. It **declares its own narrow read port** for the data it needs; `Glory2Him.Core` implements that port over its storage broker and injects it at registration. The dependency points from Core to the client, never back, so there is no cycle.
+2. Foundation services reach it through an `ApprovalSettingsBroker`, exactly as they reach identity through `SecurityAuditBroker`. The service still calls one storage broker for its own entity; the policy broker is a dependency like any other, so the service remains single-entity.
+3. **The broker returns a verdict, not settings.** If it handed back an `ApprovalSetting`, the decision logic would be re-implemented in every foundation service and would drift. One question, one answer, one place.
+4. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path.
+
+**Known limitation.** The policy read and the status write are not in one transaction, so two concurrent approvals can each observe the threshold as met. The window is small and the outcome is an over-approval rather than an unauthorized one, but it is real and is not closed by anything above.
+
+**Interim posture.** Until the approvals client exists, foundation services refuse self-approval **unconditionally** — the fail-closed reading of HR-2. `AllowSelfApproval = true` therefore has no effect at entity level until the client lands. That is deliberate: the strict rule ships first and relaxes later, rather than a hole staying open while the mechanism is built.
 
 ### 8.7 Rejection Rules
 
@@ -930,10 +959,11 @@ An entity starts in `Draft` when it is created but not yet ready for review.
 
 1. A create at `Submitted` creates the `Approval` at `Submitted` and the entity enters the review queue immediately. This is the common path.
 2. A create at `Draft` creates the `Approval` record at `Draft`. Nothing is reviewable, no reviewer queue shows it, and the approval flow stops there (§9.7.3).
-3. Beyond creation, an entity moves from `Draft` to `Submitted` only through an explicit submit action — a distinct operation with its own narrow field scope, registered under its own `<Subject>-Submitting` / `<Subject>-Submitted` address pair per §10.2 rule 7. It is not a general modify.
-4. Submission is available to the entity's owner (`CreatedBy`) and to `Publisher` / `Admin`. It is rejected when the approval is already `Submitted` or `Approved` (§12.4.4 business rule 3).
-5. A submit sets `Approval.ApprovalStatus = Submitted` **and** the owning entity's denormalized `ApprovalStatus = Submitted` in the same orchestration branch (§9.8). A submit never changes `IsLatestVersion` (§3.4 rule 18) and never changes `IsPublished` (§3.4.1).
-6. A version fork produces a new row at `Draft` with its own `Approval` at `Draft`. **The fork does not submit** — the owner must submit the new version explicitly. The previously published row stays `Approved` and `IsPublished = true` until the new version is approved.
+3. Beyond creation, an entity moves between `Draft` and `Submitted` through the **general modify**, as the single narrow carve-out to the content-only rule (§9.7.1). There is no separate submit operation: creation already carries `Submitted` for the common path, and a later submission is inseparable from the edit that made the work ready. A dedicated operation would have added a surface whose only job was to set one field the modify already had in hand.
+4. **The carve-out is gated on ownership, not on write permission.** It is available to the entity's owner (`CreatedBy`) and to `Publisher` / `Admin`. It is **not** available to a `Reviewer` — a reviewer may hold write permission on the row and may amend its content, but HR-3 forbids them setting `ApprovalStatus` by any route, and a modify is a route.
+5. The carve-out covers `ApprovalStatus` and **only** the `Draft` ↔ `Submitted` pair. Every other approval field stays pinned against storage on modify — `IsPublished` and `PublishDate` absolutely, always. Once the status has left `{Draft, Submitted}`, the owner may not change it at all; from `Approved`, `Rejected` or `Dismissed` only the dedicated approve operation moves it, and only for the `Publisher` tier.
+6. A submission through modify sets the entity's denormalized `ApprovalStatus = Submitted`; the `Approval` record is moved in the same orchestration branch (§9.8). It never changes `IsLatestVersion` (§3.4 rule 18) and never changes `IsPublished` (§3.4.1). Because the write is a modify, it publishes `-Modified`, which is exactly what makes in-flight reviews stale under `RequireReapprovalOnChange` (§8.8) — the edit and the resubmission are one event because they are one act.
+7. A version fork produces a new row at `Draft` with its own `Approval` at `Draft`. **The fork does not submit** — the owner must submit the new version explicitly. The previously published row stays `Approved` and `IsPublished = true` until the new version is approved.
 
 ### 9.3 Approved
 
@@ -968,6 +998,19 @@ stateDiagram-v2
 This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–§9.6 the states; this section defines the sequence that moves between them. Where a step restates a rule from §8, the rule in §8 is authoritative.
 
 #### 9.7.1 Entity operations (foundation services)
+
+**The write surface, and what each part of it may carry.** These four rules bound every write to an approvable entity at the foundation. They are the last line of defence (§8.6.1) and hold on the event path as well as the direct one.
+
+| Operation | May carry | Gated on |
+| --- | --- | --- |
+| `Add<Entity>Async` | `ApprovalStatus` of `Draft` or `Submitted` **only**. Never `IsPublished`, never `PublishDate`, never any other status. | any contributor not blocked by a read-only role |
+| `Modify<Entity>Async` | **content only**, plus the single `Draft` ↔ `Submitted` carve-out of §9.2 rules 4–6. Audit, approval, sorting and confidence fields are pinned against storage. | write permission for the row; the carve-out additionally requires ownership or the `Publisher` tier |
+| `Approve<Entity>Async` | all of `IApproval` — `ApprovalStatus`, `IsPublished`, `PublishDate` — as one unit. | the `Publisher` tier, and never the content's own author (HR-2) |
+| the other narrow operations | exactly their own field group and nothing else | per operation (§14.7) |
+
+**Pinning is by comparison against storage, not by omission.** A non-content field is not "left alone" — the validator reads the stored row and refuses the write when the caller's value differs. Omission would let a caller clear a field by sending a default, and `default` is a legal value for most of them: `ApprovalStatus.Draft` is `0`, `Scope.AllVersions` is `0`, `false` is the default for `IsPublished`. A rule that trusts absence cannot tell "not supplied" from "set to the dangerous value".
+
+**The `Publisher` tier** means the global `Publisher` or `Admin` role, or a scoped `%EntityType%-Publisher` / `%EntityType%-%ContentType%-Publisher` matching at least one endpoint (§18.6). `Reviewer`-tier roles are excluded from it everywhere, by HR-3.
 
 1. **Add.** Any authenticated user may contribute unless they hold a blocking read-only role (§14.7 posture A). The row is written with `IsPublished = false` and the `ApprovalStatus` the caller asked for — `Submitted` on the common path, `Draft` when saving work in progress (§9.2). The foundation publishes its `-Added` fact; the orchestration publishes its own completion fact (§10.2 rule 5).
 2. **Modify.** The general modify operation is for **content changes only**. It is available to the owner, and to `Publisher` / `Admin` while the entity is not yet approved (so typos can be corrected during review).
@@ -2515,13 +2558,12 @@ The §14.6 mandate is applied per entity according to what the entity is. Four p
 
 | Operation | Field scope | Who may call it | Publishes |
 | --- | --- | --- | --- |
-| `SubmitAssociationAsync` | `ApprovalStatus`, `Draft` → `Submitted` only | owner, `Publisher`, `Admin` | `Association-Submitted` |
-| `ApproveAssociationAsync` | all of `IApproval` | endpoint-derived review role (rule 2) | `Association-Approved` |
+| `ApproveAssociationAsync` | all of `IApproval` | the **`Publisher` tier** — global `Publisher`/`Admin` or `PublisherFor(endpoint)` — and never the row's own `CreatedBy` (HR-2) | `Association-Approved` on approval, `Association-Rejected` on rejection |
 | `SortAssociationAsync` | `SortOrder` only | owner, `Admin` | `Association-Sorted` |
 | `SetAssociationConfidenceAsync` | all four `IConfidence` fields, as one unit | `Publisher`, `Admin` — **never the owner** | `Association-ConfidenceSet` |
 | `SetAssociationScopeAsync` | `EntityAScope` / `EntityBScope` | `Publisher`, `Admin` | `Association-Scoped` |
 
-Four things about that table are load-bearing rather than incidental. **Every transition is a write**, so the global `ReadOnly` veto of rule 1 applies to all five before anything is read. **Authorization is decided against the STORED endpoints**, never the caller's copy — the endpoint content type is an authorization input, so trusting the caller's would be self-certification. **Set-confidence excludes the owner**, and that exclusion is the operation's whole point: a contributor who could score their own association defeats scoring. **Set-scope's `Publisher`/`Admin` restriction is what justifies scope changes not re-opening approval** — only the people who would be re-approving it can make one — so widening that gate would invalidate the no-reapproval rule, not merely loosen a policy.
+Submission is deliberately absent: it is the `Draft` ↔ `Submitted` carve-out on the general modify (§9.2 rules 4–6), not an operation of its own. Five things about the table are load-bearing rather than incidental. **Every transition is a write**, so the global `ReadOnly` veto of rule 1 applies to all five before anything is read. **Authorization is decided against the STORED endpoints**, never the caller's copy — the endpoint content type is an authorization input, so trusting the caller's would be self-certification. **Set-confidence excludes the owner**, and that exclusion is the operation's whole point: a contributor who could score their own association defeats scoring. **Set-scope's `Publisher`/`Admin` restriction is what justifies scope changes not re-opening approval** — only the people who would be re-approving it can make one — so widening that gate would invalidate the no-reapproval rule, not merely loosen a policy. **And approve admits neither a `Reviewer` nor the author** — HR-3 keeps the decision out of reviewers' hands entirely, and HR-2 keeps it out of the author's; together they are what stop this, the first path by which an association becomes publicly visible, from being a path a contributor can walk end to end alone.
 
 Sort takes an anchor and a side rather than a target index, because a pairwise swap cannot express a drag. Values are sparse (100, 200, 300 …) and landing beside an anchor is a half-step away, which at the default spacing is the midpoint between the anchor and its neighbour — so exactly one row is written and the operation stays single-entity. Ties are legal and fall through the §11.7 tie-break chain. Sort is the one transition with no request address: its signature needs a second entity and an envelope carries one, so it is direct-call only and publishes its fact like the others. Set-scope re-runs the same duplicate check an add does, because a scope toggle recomputes the effective id and can move the row onto a key `UX_Associations_Pair` already holds.
 
