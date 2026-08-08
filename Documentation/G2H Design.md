@@ -748,7 +748,7 @@ The following rules apply:
 | `ApprovalId` | Parent approval record. |
 | `UserId` | User who made the comment. |
 | `Comment` | Comment text. |
-| `IsResolved` | Whether the question this comment raised has been answered and is no longer open. An `ApprovalComment` is **open discussion between reviewers**, unlike `ApprovalReview.Comment`, which is one reviewer's rationale for their own verdict and is never resolvable. When `ApprovalSetting.RequireApprovalCommentResolutionBeforeApproval = true`, no unanswered question may be outstanding before the approval conditions are met. |
+| `IsResolved` | Whether the question this comment raised has been answered and is no longer open. An `ApprovalComment` is **open discussion between reviewers**, unlike `ApprovalReview.Comment`, which is one reviewer's rationale for their own verdict and is never resolvable. When `ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals = true`, no unanswered question may be outstanding before the approval conditions are met. |
 | `IsDeleted` | Soft-delete flag. When `true` the comment is excluded from public visibility. |
 | `CreatedBy` | User who created the comment. |
 | `CreatedWhen` | Creation timestamp. |
@@ -780,7 +780,7 @@ Recommended properties:
 | `BlockOnReject` | Whether a single rejection blocks the approval. |
 | `RequireReapprovalOnChange` | Whether edits reset approval status. |
 | `AutoApproveIfAllApprovalRequirementsMet` | Whether the entity is automatically approved when all approval requirements are met. |
-| `RequireApprovalCommentResolutionBeforeApproval` | Whether all approval comments must be resolved before approval can be granted. |
+| `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be resolved before approval can be granted. It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
 | `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a `Publisher`/`Admin` may still bypass it (§12.4.4 business rule 11) or correct the score first (§9.7.1 rule 5). |
 | `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Admin`. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from policy resolution. |
@@ -829,7 +829,7 @@ conditionsMet =
     (RequireApprovals == false
         OR (activeApprovals (excluding dismissed reviews) >= RequiredNumberOfApprovals
             AND NOT (BlockOnReject AND any active rejected review)))
-    AND (RequireApprovalCommentResolutionBeforeApproval == false
+    AND (RequireReviewCommentResolutionBeforeApprovals == false
         OR all approval comments are resolved)
     AND (BlockOnZeroApprovalScore == false
         OR entity does not implement IConfidence
@@ -842,7 +842,7 @@ conditionsMet =
 4. While the conditions are not met, status remains `Submitted`.
 5. Meeting the conditions enables the manual approve action for `Publisher`/`Admin` (the UI approve button).
 6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
-7. When `RequireApprovalCommentResolutionBeforeApproval = true`, all approval comments must be resolved (`ApprovalComment.IsResolved = true`) before the conditions are met.
+7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment raised during review must be resolved (`ApprovalComment.IsResolved = true`) before the conditions are met. This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a question is still open; the approval simply cannot complete until it is answered.
 8. When `BlockOnZeroApprovalScore = true`, an entity whose `ConfidenceScore` is `0` cannot meet the conditions. **A `null` score does not block** — it means the confidence process has not run yet, not that the association was judged worthless. Treating `null` as blocking would deadlock every approval until §13.4 ships, and would strand anything the process failed on. If a scored gate is wanted before that point, the setting to reach for is `RequireApprovals`, not this one.
 9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.4.4 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
 
@@ -858,7 +858,7 @@ These are **hard rules**. They are not defaults, they are not advisory, and no r
 
 **HR-4. An `Approval`'s `ApprovalStatus` changes by exactly three routes, and no others.**
 
-1. **Manual set by a `Publisher`/`Admin`**, subject to every other settings check — the approval count in `RequiredNumberOfApprovals`, approval-comment resolution under `RequireApprovalCommentResolutionBeforeApproval`, the rejection block under `BlockOnReject`, and the zero-score block under `BlockOnZeroApprovalScore`.
+1. **Manual set by a `Publisher`/`Admin`**, subject to every other settings check — the approval count in `RequiredNumberOfApprovals`, review-comment resolution under `RequireReviewCommentResolutionBeforeApprovals`, the rejection block under `BlockOnReject`, and the zero-score block under `BlockOnZeroApprovalScore`.
 2. **Automatic approval**, when `AutoApproveIfAllApprovalRequirementsMet = true` and every condition in §8.5 is satisfied.
 3. **Bypass by a `Publisher`/`Admin`**, setting `IsApprovedByBypass = true` with an `ApprovedByBypassReason` alongside the status — and *only* when `DoNotAllowBypassingSettings = false`.
 
@@ -897,7 +897,7 @@ The answer is a **policy broker**, not a cross-entity read — and it extends th
 
 **Interim posture — HR-2 only.** Until `IAccessClient` exists, foundation services refuse self-approval **unconditionally** — the fail-closed reading of HR-2. `AllowSelfApproval = true` therefore has no effect at entity level until the client lands. That is deliberate: the strict rule ships first and relaxes later, rather than a hole staying open while the mechanism is built.
 
-**Interim gap — HR-4's settings checks are enforced nowhere, and unlike the posture above this one does not fail closed.** The interim posture covers HR-2 and nothing else, and the difference is easy to miss precisely because the two sit together. `RequireApprovals`, `RequiredNumberOfApprovals`, `RequireApprovalCommentResolutionBeforeApproval`, `BlockOnReject`, `BlockOnZeroApprovalScore` and `DoNotAllowBypassingSettings` are read **nowhere in the repository** — not by any foundation service and not by any orchestration, and `Approval.IsApprovedByBypass` is never written. State this precisely, because "enforced at orchestration for now" would be a comforting misreading: there is no `Association` orchestration at all, and the one orchestration that exists (`ContentItem`) reads no approval setting either.
+**Interim gap — HR-4's settings checks are enforced nowhere, and unlike the posture above this one does not fail closed.** The interim posture covers HR-2 and nothing else, and the difference is easy to miss precisely because the two sit together. `RequireApprovals`, `RequiredNumberOfApprovals`, `RequireReviewCommentResolutionBeforeApprovals`, `BlockOnReject`, `BlockOnZeroApprovalScore` and `DoNotAllowBypassingSettings` are read **nowhere in the repository** — not by any foundation service and not by any orchestration, and `Approval.IsApprovedByBypass` is never written. State this precisely, because "enforced at orchestration for now" would be a comforting misreading: there is no `Association` orchestration at all, and the one orchestration that exists (`ContentItem`) reads no approval setting either.
 
 So HR-4 route 1 — a manual approve "subject to every other settings check" — has no implementation; route 2 (automatic approval) has none; and route 3 has neither a bypass verb nor the flag that would record one. The consequence is worse than a missing gate: because `IsApprovedByBypass` is never set, an ordinary approve that ignores every condition is an **unrecorded** bypass, leaving an audit trail that claims a normal approval. A caller reaching a foundation approve address directly (§10.2) can approve and publish a row that has no reviews at all, whose reviews are rejections, and whose `ConfidenceScore` is `0`, with `DoNotAllowBypassingSettings = true` configured — which §8.6 route 3 says nobody, publishers and administrators included, may do. (An association whose *own* `ApprovalStatus` is already `Rejected` is separately blocked, by the `Submitted`-only precondition.)
 
@@ -1195,7 +1195,7 @@ Invoked identically by the Added, Modified and Review flows. **The phrase "autom
 - `AutoApproveIfAllApprovalRequirementsMet = true` — the system applies `Approved` without a human click *once the conditions are already met* (§8.5 rule 6). It never bypasses the conditions and never substitutes for them.
 
 1. Resolve the effective `ApprovalSetting` (§8.4).
-2. Evaluate `conditionsMet` exactly as defined by the formula in §8.5 — approval count excluding dismissed and deleted reviews, `BlockOnReject`, and `RequireApprovalCommentResolutionBeforeApproval`. Step count alone is never sufficient.
+2. Evaluate `conditionsMet` exactly as defined by the formula in §8.5 — approval count excluding dismissed and deleted reviews, `BlockOnReject`, and `RequireReviewCommentResolutionBeforeApprovals`. Step count alone is never sufficient.
 3. If `conditionsMet` is false, the approval stays `Submitted`. Stop.
 4. If `conditionsMet` is true and `AutoApproveIfAllApprovalRequirementsMet = true`, apply `Approved` automatically with `IsApprovedByBypass = false`.
 5. If `conditionsMet` is true and the flag is false, the approval stays `Submitted` and the manual approve action becomes available to `Publisher` / `Admin` (§8.5 rule 5).
