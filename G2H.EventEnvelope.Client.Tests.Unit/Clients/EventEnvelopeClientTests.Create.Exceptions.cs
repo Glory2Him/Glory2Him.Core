@@ -42,7 +42,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                this.eventEnvelopeClient.CreateAsync(someContent);
+                this.eventEnvelopeClient.CreateAsync(someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeClientValidationException actualEventEnvelopeClientValidationException =
                 await Assert.ThrowsAsync<EventEnvelopeClientValidationException>(createTask.AsTask);
@@ -78,7 +78,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                this.eventEnvelopeClient.CreateAsync(someContent);
+                this.eventEnvelopeClient.CreateAsync(someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeClientDependencyException actualEventEnvelopeClientDependencyException =
                 await Assert.ThrowsAsync<EventEnvelopeClientDependencyException>(createTask.AsTask);
@@ -113,7 +113,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                this.eventEnvelopeClient.CreateAsync(someContent);
+                this.eventEnvelopeClient.CreateAsync(someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeClientServiceException actualEventEnvelopeClientServiceException =
                 await Assert.ThrowsAsync<EventEnvelopeClientServiceException>(createTask.AsTask);
@@ -142,7 +142,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Clients
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                this.eventEnvelopeClient.CreateAsync(someContent);
+                this.eventEnvelopeClient.CreateAsync(someContent, TestContext.Current.CancellationToken);
 
             // then: cancellation is never wrapped in a client exception
             await Assert.ThrowsAsync<OperationCanceledException>(createTask.AsTask);

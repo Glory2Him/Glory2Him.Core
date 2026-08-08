@@ -39,7 +39,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                this.eventEnvelopeService.CreateAsync(nullContent!);
+                this.eventEnvelopeService.CreateAsync(nullContent!, TestContext.Current.CancellationToken);
 
             EventEnvelopeValidationException actualEventEnvelopeValidationException =
                 await Assert.ThrowsAsync<EventEnvelopeValidationException>(createTask.AsTask);

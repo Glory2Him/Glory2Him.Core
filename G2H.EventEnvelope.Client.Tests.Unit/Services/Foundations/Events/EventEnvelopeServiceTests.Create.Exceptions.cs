@@ -51,7 +51,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                eventEnvelopeServiceMock.Object.CreateAsync(someContent);
+                eventEnvelopeServiceMock.Object.CreateAsync(someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeServiceException actualEventEnvelopeServiceException =
                 await Assert.ThrowsAsync<EventEnvelopeServiceException>(createTask.AsTask);
@@ -90,7 +90,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                this.eventEnvelopeService.CreateAsync(someContent);
+                this.eventEnvelopeService.CreateAsync(someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeServiceException actualEventEnvelopeServiceException =
                 await Assert.ThrowsAsync<EventEnvelopeServiceException>(createTask.AsTask);
@@ -135,7 +135,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             ValueTask<EventEnvelope<string>> createTask =
-                this.eventEnvelopeService.CreateAsync(someContent);
+                this.eventEnvelopeService.CreateAsync(someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeDependencyException actualEventEnvelopeDependencyException =
                 await Assert.ThrowsAsync<EventEnvelopeDependencyException>(createTask.AsTask);

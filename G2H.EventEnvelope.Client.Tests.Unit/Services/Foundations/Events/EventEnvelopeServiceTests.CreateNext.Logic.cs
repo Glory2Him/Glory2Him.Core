@@ -52,7 +52,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             EventEnvelope<string> actualEventEnvelope =
-                await this.eventEnvelopeService.CreateNextAsync(inputSourceEnvelope, inputContent);
+                await this.eventEnvelopeService.CreateNextAsync(inputSourceEnvelope, inputContent, TestContext.Current.CancellationToken);
 
             // then
             actualEventEnvelope.Should().BeEquivalentTo(expectedEventEnvelope);
