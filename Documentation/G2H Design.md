@@ -77,7 +77,7 @@ The domain model is grouped into the following areas:
 | Area | Entities |
 | --- | --- |
 | Content | `ContentItem`, `ContentType`, `ContentItemSetting`, `Association` |
-| Approval | `Approval`, `ApprovalReview`, `ApprovalComment`, `ApprovalSetting`, `ApprovalSettingReviewerRole`, `ApprovalSettingPublisherRole` |
+| Approval | `Approval`, `ApprovalReview`, `ApprovalComment`, `ApprovalSetting` |
 | Associated Entities | `Tag`, `Reaction`, `Comment`, `BibleReference`, `Link`, `Attachment` |
 | Enum / Lookup | `EntityType`, `ApprovalStatus`, `Scope` |
 | Future Subscription | `Subscription`, `SubscriptionDelivery`, or equivalent decoupled subscription records |
@@ -732,7 +732,7 @@ The following rules apply:
 1. A reviewer may only have one active review per approval record. A second active review by the same reviewer must be rejected by validation — review decisions are not superseded or replaced.
 2. A review can approve, reject, or become dismissed.
 3. A rejection may block approval depending on `ApprovalSetting.BlockOnReject`.
-4. Reviewer eligibility is controlled by `ApprovalSetting.RestrictWhoCanReview` and `ApprovalSettingReviewerRoles`.
+4. Reviewer eligibility is the review tier composed from the entity type (§8.3, §18.6), not per-setting configuration.
 5. Self-approval is controlled by `ApprovalSetting.AllowSelfApproval`.
 6. Dismissed reviews must not count toward the approval threshold.
 7. A reviewer may submit a new review only after their previous review was dismissed.
@@ -783,8 +783,6 @@ Recommended properties:
 | `RequireApprovalCommentResolutionBeforeApproval` | Whether all approval comments must be resolved before approval can be granted. |
 | `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a `Publisher`/`Admin` may still bypass it (§12.4.4 business rule 11) or correct the score first (§9.7.1 rule 5). |
 | `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Admin`. |
-| `RestrictWhoCanReview` | Whether reviewing is restricted to roles configured in `ApprovalSettingReviewerRoles`. |
-| `RestrictWhoCanApprove` | Whether approve/reject/bypass is restricted to roles configured in `ApprovalSettingPublisherRoles`. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from policy resolution. |
 | `CreatedBy` | User who created the setting. |
 | `CreatedWhen` | Creation timestamp. |
@@ -794,28 +792,13 @@ Recommended properties:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
-### 8.3 ApprovalSettingReviewerRole and ApprovalSettingPublisherRole Entities
+### 8.3 Who May Review and Publish Is Composed, Not Configured
 
-Two role tables hang off `ApprovalSetting` via the `ApprovalSettingReviewerRoles` and `ApprovalSettingPublisherRoles` navigation collections:
+There are no reviewer- or publisher-role tables, and `ApprovalSetting` carries no `RestrictWhoCanReview` or `RestrictWhoCanApprove` flags. `ApprovalSettingReviewerRole` and `ApprovalSettingPublisherRole`, their services and their navigation collections were removed once the role convention had a single home.
 
-1. `ApprovalSettingReviewerRole` — a role permitted to **review** (applies when `RestrictWhoCanReview = true`).
-2. `ApprovalSettingPublisherRole` — a role permitted to **approve/reject/publish** (applies when `RestrictWhoCanApprove = true`).
+Eligibility is **derived from the entity type** by the `%EntityType%-Reviewer` / `%EntityType%-Publisher` convention (§18.6), with the global `Reviewer`, `Publisher` and `Admin` roles above them. Configuring the same fact in a table gave the system two answers to one question and no rule for which wins; the convention needs no row, cannot drift from the role names actually issued, and is composed in exactly one place — `G2H.Security.Client`, which owns role naming because naming is an access concern (§8.6.1).
 
-Properties (identical shape for both):
-
-| Property | Purpose |
-| --- | --- |
-| `Id` | Unique approval setting role identifier. |
-| `ApprovalSettingId` | Parent approval setting. |
-| `RoleName` | Role name compared against the user's roles via `ISecurityBroker.IsInRoleAsync`. May be a global role or a granular `%EntityType%-` role (§18.6). |
-| `IsDeleted` | Soft-delete flag. When `true` the role is excluded from eligibility checks. |
-| `CreatedBy` | User who created the role rule. |
-| `CreatedWhen` | Creation timestamp. |
-| `UpdatedBy` | User who last updated the role rule. |
-| `UpdatedWhen` | Last update timestamp. |
-| `DeletedBy` | User who deleted the item. |
-| `DeletedWhen` | Deletion timestamp. |
-| `DeletionReason` | Reason for deletion. |
+A deployment that wants a *narrower* set than the convention grants restricts it where roles are issued, not by adding rows here.
 
 ### 8.4 Approval Policy Resolution
 
@@ -969,17 +952,11 @@ Regardless of this setting:
 
 ### 8.9 Role-Based Approval Rules
 
-If `RestrictWhoCanReview = true`:
+Reviewing requires a review-tier role and deciding requires the `Publisher` tier, both **composed from the entity type** (§8.3, §18.6). There is no per-setting role configuration and no flag that turns the restriction on or off — the tiers always apply.
 
-1. A reviewer must belong to at least one role configured in `ApprovalSettingReviewerRoles`. Role names may be global roles or granular `%EntityType%-` roles (see §18.6); they are compared against the user's roles via `ISecurityBroker.IsInRoleAsync`.
-2. Users outside the configured roles cannot submit reviews.
-
-If `RestrictWhoCanApprove = true`:
-
-1. The approve, reject, and bypass actions require at least one role configured in `ApprovalSettingPublisherRoles`, compared the same way.
-2. Users outside the configured roles cannot approve or reject.
-
-Approval comments may still be allowed regardless of either restriction, depending on product rules.
+1. Recording an `ApprovalReview` requires a global `Reviewer`/`Publisher`/`Admin`, or a `%EntityType%-Reviewer` / `%EntityType%-Publisher` matching the entity under review.
+2. Approving, rejecting and bypassing require the `Publisher` tier — global `Publisher`/`Admin` or `%EntityType%-Publisher`. Reviewer-tier roles are excluded at every tier by HR-3.
+3. Commenting is not gated by either tier. An open question is not a verdict, and the submitter must be able to answer one.
 
 ## 9. Approval Lifecycle
 
@@ -1993,8 +1970,6 @@ Current intended foundation services:
 | 10 | `BibleReferenceService` | CRUD and validation for Bible references. |
 | 11 | `LinkService` *(future)* | CRUD and validation for links. |
 | 12 | `AttachmentService` *(future)* | CRUD and validation for attachments. |
-| 13 | `ApprovalSettingReviewerRoleService` | CRUD and validation for approval setting reviewer roles. |
-| 14 | `ApprovalSettingPublisherRoleService` | CRUD and validation for approval setting publisher roles. |
 
 `ContentType` is not in this list — it is a fixed enum (§3.6), not an entity, so it has no foundation service.
 
@@ -2156,7 +2131,7 @@ Responsibilities:
 Business Rules:
 
 1. A reviewer may not submit more than one active review per approval record. Review decisions are not superseded or replaced — a second active review must be rejected by validation.
-2. A reviewer must belong to a role configured in `ApprovalSettingReviewerRoles` when `RestrictWhoCanReview = true`.
+2. A reviewer must hold the review tier for the entity under review (§8.3).
 3. A reviewer must not review their own submitted entity when `AllowSelfApproval = false`.
 4. Dismissed reviews must be retained for audit and must not be deleted.
 5. A new review may be submitted after the reviewer's previous review was dismissed.
@@ -2608,7 +2583,7 @@ Sort takes an anchor and a side rather than a target index, because a pairwise s
 1. All writes, including hard removal: `Admin` only. No owner branch — only admins author reference data.
 2. Reads: §14.1 public visibility for everyone; non-public rows are visible to `Admin` only. Collections: `Admin` sees all non-deleted rows; everyone else sees public rows only.
 
-**C. Configuration** — `ApprovalSetting`, `ApprovalSettingReviewerRole`, `ApprovalSettingPublisherRole`, `ContentItemSetting`:
+**C. Configuration** — `ApprovalSetting`, `ContentItemSetting`:
 
 1. All writes, including hard removal: `Admin` only.
 2. Reads of the approval-policy entities require an authenticated caller (any signed-in user may see the rules their submissions run under); anonymous callers get not-found / an empty set. `ContentItemSetting` is public-read (effective settings drive rendering for anonymous visitors). In both cases only non-deleted rows are visible; there is no §14.1 approval-visibility concept.
@@ -2732,7 +2707,6 @@ Explicitly **not** its responsibility, despite earlier drafts of this list: enfo
 Responsible for:
 
 1. Managing approval policy rules.
-2. Managing reviewer and publisher role rules (`ApprovalSettingReviewerRoles`, `ApprovalSettingPublisherRoles`).
 3. Resolving effective approval settings.
 4. Validating approval configuration.
 
