@@ -41,10 +41,15 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalComments
         public string Comment { get; set; } = string.Empty;
 
         /// <summary>
-        /// Indicates whether the comment has been resolved. Used by
-        /// <c>ApprovalSetting.RequireApprovalCommentResolutionBeforeApproval</c> — when that
-        /// setting is enabled, all comments on an approval must be resolved before the
-        /// approval conditions are met.
+        /// Whether the question this comment raised has been answered and is no longer open.
+        /// An <c>ApprovalComment</c> is open discussion between reviewers, unlike
+        /// <c>ApprovalReview.Comment</c>, which is one reviewer's rationale for their own
+        /// verdict and is never resolvable.
+        ///
+        /// <para>Read by <c>ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals</c>:
+        /// when that setting is enabled, no unanswered question may be outstanding before the
+        /// approval conditions are met. It gates the <c>Approval</c> entity only — it never
+        /// affects an individual <c>ApprovalReview</c>'s own verdict (design §8.5 rule 7).</para>
         /// </summary>
         public bool IsResolved { get; set; } = false;
 
