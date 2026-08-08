@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
@@ -102,6 +103,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.ReviewerId),
                 values: "Text is required");
+
+            // a bare review defaults StatusId to Draft, which is an entity state rather than
+            // a verdict — the closed set is Approved or Rejected (design §7.7 rule 2)
+            invalidApprovalReviewException.AddData(
+                key: nameof(ApprovalReview.StatusId),
+                values: "Value must be Approved or Rejected");
 
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.CreatedBy),
@@ -455,6 +462,92 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStoredReviewIsDismissedAndLogItAsync()
+        {
+            // given: THE gap this rule exists to close. A dismissed review is closed — §9.5
+            // retains it for audit and lets the reviewer file a NEW one, and §7.7 rule 1 says
+            // decisions are not superseded or replaced. Editing the dismissed row instead
+            // rewrites history in place: dismissal is precisely the record that a verdict no
+            // longer describes the current content, so amending it re-attaches a stale
+            // judgement to text nobody re-read.
+            //
+            // The caller is an Admin, who may otherwise amend anyone's review — the bar is on
+            // the row's state, not on who is asking.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            ApprovalReview randomApprovalReview =
+                CreateRandomModifyApprovalReview(randomDateTimeOffset, randomUserId);
+
+            ApprovalReview inputApprovalReview = randomApprovalReview;
+            ApprovalReview storageApprovalReview = randomApprovalReview.DeepClone();
+            storageApprovalReview.StatusId = ApprovalStatus.Dismissed;
+
+            storageApprovalReview.UpdatedWhen =
+                storageApprovalReview.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var invalidApprovalReviewException =
+                new InvalidApprovalReviewException(
+                    message: "A dismissed approval review cannot be amended. " +
+                        "Submit a new review instead.");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalReviewException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputApprovalReview, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    inputApprovalReview.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputApprovalReview,
+                    storageApprovalReview))
+                        .ReturnsAsync(inputApprovalReview);
+
+            // when
+            ValueTask<ApprovalReview> modifyApprovalReviewTask =
+                this.approvalReviewService.ModifyApprovalReviewAsync(
+                    inputApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    modifyApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
         }
 
         public static TheoryData<string> UniqueIndexKeyFields() =>
