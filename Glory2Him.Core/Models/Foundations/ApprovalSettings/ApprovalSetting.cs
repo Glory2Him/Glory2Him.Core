@@ -60,16 +60,22 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
 
         /// <summary>
         /// Indicates whether a single rejection immediately blocks the approval.
+        /// Approval is blocked for automatic approval / manual approval until the rejection is resolved.
+        /// (Bypassing the approval settings (if allowed) could still allow approval.)
         /// </summary>
         public bool BlockOnReject { get; set; } = false;
 
         /// <summary>
         /// Indicates whether an entity with a zero approval score is blocked from being approved.
+        /// Approval is blocked for automatic approval / manual approval until the rejection is resolved.
+        /// (Bypassing the approval settings (if allowed) could still allow approval.)
         /// </summary>
         public bool BlockOnZeroApprovalScore { get; set; } = false;
 
         /// <summary>
         /// Indicates whether edits to the entity reset existing approval reviews.
+        /// If set to true, any existing approval reviews will be dismissed and the entity will
+        /// require re-approval after changes are made.
         /// </summary>
         public bool RequireReapprovalOnChange { get; set; } = true;
 
@@ -82,6 +88,7 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
 
         /// <summary>
         /// Indicates whether bypassing approval settings is allowed.
+        /// Publishers / administrators may bypass approval settings if this is set to false.
         /// </summary>
         public bool DoNotAllowBypassingSettings { get; set; } = false;
 
