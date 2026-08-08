@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(false);
 
-            model.Property(approvalSetting => approvalSetting.RequireApprovalCommentResolutionBeforeApproval)
+            model.Property(approvalSetting => approvalSetting.RequireReviewCommentResolutionBeforeApprovals)
                  .IsRequired()
                  .HasDefaultValue(true);
 

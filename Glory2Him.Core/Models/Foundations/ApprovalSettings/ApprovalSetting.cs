@@ -74,9 +74,11 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public bool RequireReapprovalOnChange { get; set; } = true;
 
         /// <summary>
-        /// Gets or sets a value indicating whether all comments must be resolved before approval can be granted.
+        /// When enabled, all review comments must be resolved before approval can be granted on the Approval entity.
+        /// This does not affect the approval vote / approval status of an ApprovalReview,
+        /// but it does prevent the Approval entity from being considered approved until all comments are resolved.
         /// </summary>
-        public bool RequireApprovalCommentResolutionBeforeApproval { get; set; } = true;
+        public bool RequireReviewCommentResolutionBeforeApprovals { get; set; } = true;
 
         /// <summary>
         /// Indicates whether bypassing approval settings is allowed.
