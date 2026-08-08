@@ -715,7 +715,7 @@ Rules:
 | `ApprovalId` | Parent approval record. |
 | `ReviewerId` | User who reviewed the item. |
 | `StatusId` | Review decision status. |
-| `Comment` | Optional review comment. |
+| `Comment` | Optional free text explaining **why** this reviewer reached this `StatusId`. It is rationale attached to a verdict, not a question — it has no resolved state and nothing waits on it. Discussion between reviewers is `ApprovalComment`, which is a different thing (§7.8). |
 | `IsDeleted` | Soft-delete flag. When `true` the review is excluded from threshold calculations. |
 | `CreatedBy` | User who created the review. |
 | `CreatedWhen` | Creation timestamp. |
@@ -748,7 +748,7 @@ The following rules apply:
 | `ApprovalId` | Parent approval record. |
 | `UserId` | User who made the comment. |
 | `Comment` | Comment text. |
-| `IsResolved` | Whether the comment has been resolved. When `ApprovalSetting.RequireApprovalCommentResolutionBeforeApproval = true`, all comments on an approval must be resolved before the approval conditions are met. |
+| `IsResolved` | Whether the question this comment raised has been answered and is no longer open. An `ApprovalComment` is **open discussion between reviewers**, unlike `ApprovalReview.Comment`, which is one reviewer's rationale for their own verdict and is never resolvable. When `ApprovalSetting.RequireApprovalCommentResolutionBeforeApproval = true`, no unanswered question may be outstanding before the approval conditions are met. |
 | `IsDeleted` | Soft-delete flag. When `true` the comment is excluded from public visibility. |
 | `CreatedBy` | User who created the comment. |
 | `CreatedWhen` | Creation timestamp. |
@@ -875,7 +875,7 @@ These are **hard rules**. They are not defaults, they are not advisory, and no r
 
 **HR-4. An `Approval`'s `ApprovalStatus` changes by exactly three routes, and no others.**
 
-1. **Manual set by a `Publisher`/`Admin`**, subject to every other settings check — the approval count in `RequiredNumberOfApprovals`, review-comment resolution under `RequireReviewCommentResolutionBeforeApprovals`, the rejection block under `BlockOnReject`, and the zero-score block under `BlockOnZeroApprovalScore`.
+1. **Manual set by a `Publisher`/`Admin`**, subject to every other settings check — the approval count in `RequiredNumberOfApprovals`, approval-comment resolution under `RequireApprovalCommentResolutionBeforeApproval`, the rejection block under `BlockOnReject`, and the zero-score block under `BlockOnZeroApprovalScore`.
 2. **Automatic approval**, when `AutoApproveIfAllApprovalRequirementsMet = true` and every condition in §8.5 is satisfied.
 3. **Bypass by a `Publisher`/`Admin`**, setting `IsApprovedByBypass = true` with an `ApprovedByBypassReason` alongside the status — and *only* when `DoNotAllowBypassingSettings = false`.
 
