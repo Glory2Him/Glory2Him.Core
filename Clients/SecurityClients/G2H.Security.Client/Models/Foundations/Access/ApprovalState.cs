@@ -9,22 +9,28 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using G2H.Security.Client.Clients.Access;
-using G2H.Security.Client.Clients.Audits;
-using G2H.Security.Client.Clients.Users;
-
-namespace G2H.Security.Client.Clients
+namespace G2H.Security.Client.Models.Foundations.Access
 {
-    public interface ISecurityClient
+    /// <summary>
+    /// The state of the approval record a decision is about. <c>Dismissed</c> is absent because it
+    /// applies to reviews only — an approval never holds it (§9.5).
+    /// </summary>
+    public enum ApprovalState
     {
-        IUserClient Users { get; }
-        IAuditClient Audits { get; }
+        /// <summary>Not yet ready for review. Nothing is reviewable and nothing can be
+        /// approved.</summary>
+        Draft = 0,
 
         /// <summary>
-        /// Approval policy decisions. Grouped here beside identity because "may they?" is one
-        /// question and should have one place to ask it — a separate approvals client would have
-        /// duplicated the claims plumbing and given the system two answers.
+        /// Under review. This is the <b>only</b> state in which a review may be written (§7.7
+        /// rule 2b) and the only state from which a decision may be applied.
         /// </summary>
-        IAccessClient Access { get; }
+        Submitted = 1,
+
+        /// <summary>The round closed in favour. Reopening it is an edit, not a review.</summary>
+        Approved = 2,
+
+        /// <summary>The round closed against. Reopening it is an edit, not a review.</summary>
+        Rejected = 3,
     }
 }

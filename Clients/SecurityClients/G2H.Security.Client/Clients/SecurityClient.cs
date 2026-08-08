@@ -11,8 +11,10 @@
 
 using System;
 using G2H.Security.Client.Brokers.DateTimes;
+using G2H.Security.Client.Clients.Access;
 using G2H.Security.Client.Clients.Audits;
 using G2H.Security.Client.Clients.Users;
+using G2H.Security.Client.Services.Foundations.Access;
 using G2H.Security.Client.Services.Foundations.Audits;
 using G2H.Security.Client.Services.Foundations.Users;
 using G2H.Security.Client.Services.Orchestrations.Audits;
@@ -30,11 +32,13 @@ namespace G2H.Security.Client.Clients
 
         public IUserClient Users { get; private set; } = null!;
         public IAuditClient Audits { get; private set; } = null!;
+        public IAccessClient Access { get; private set; } = null!;
 
         private void InitializeClients(IServiceProvider serviceProvider)
         {
             Users = serviceProvider.GetRequiredService<IUserClient>();
             Audits = serviceProvider.GetRequiredService<IAuditClient>();
+            Access = serviceProvider.GetRequiredService<IAccessClient>();
         }
 
         private static IServiceProvider RegisterServices()
@@ -43,9 +47,11 @@ namespace G2H.Security.Client.Clients
                 .AddTransient<IDateTimeBroker, DateTimeBroker>()
                 .AddTransient<IAuditService, AuditService>()
                 .AddTransient<IUserService, UserService>()
+                .AddTransient<IAccessService, AccessService>()
                 .AddTransient<IAuditOrchestrationService, AuditOrchestrationService>()
                 .AddTransient<IUserClient, UserClient>()
-                .AddTransient<IAuditClient, AuditClient>();
+                .AddTransient<IAuditClient, AuditClient>()
+                .AddTransient<IAccessClient, AccessClient>();
 
             IServiceProvider serviceProvider = serviceCollection.BuildServiceProvider();
 

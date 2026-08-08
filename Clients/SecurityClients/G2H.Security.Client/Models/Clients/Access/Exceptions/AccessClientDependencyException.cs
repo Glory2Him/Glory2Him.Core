@@ -9,22 +9,15 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using G2H.Security.Client.Clients.Access;
-using G2H.Security.Client.Clients.Audits;
-using G2H.Security.Client.Clients.Users;
+using System.Collections;
+using Xeptions;
 
-namespace G2H.Security.Client.Clients
+namespace G2H.Security.Client.Models.Clients.Access.Exceptions
 {
-    public interface ISecurityClient
+    public class AccessClientDependencyException : Xeption
     {
-        IUserClient Users { get; }
-        IAuditClient Audits { get; }
-
-        /// <summary>
-        /// Approval policy decisions. Grouped here beside identity because "may they?" is one
-        /// question and should have one place to ask it — a separate approvals client would have
-        /// duplicated the claims plumbing and given the system two answers.
-        /// </summary>
-        IAccessClient Access { get; }
+        public AccessClientDependencyException(string message, Xeption innerException, IDictionary data)
+            : base(message, innerException, data)
+        { }
     }
 }

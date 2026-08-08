@@ -9,22 +9,20 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using G2H.Security.Client.Clients.Access;
-using G2H.Security.Client.Clients.Audits;
-using G2H.Security.Client.Clients.Users;
+using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 
-namespace G2H.Security.Client.Clients
+namespace G2H.Security.Client.Services.Foundations.Access
 {
-    public interface ISecurityClient
+    internal interface IAccessService
     {
-        IUserClient Users { get; }
-        IAuditClient Audits { get; }
+        ValueTask<ApprovalConditionsVerdict> EvaluateApprovalConditionsAsync(
+            ApprovalConditionsRequest approvalConditionsRequest);
 
-        /// <summary>
-        /// Approval policy decisions. Grouped here beside identity because "may they?" is one
-        /// question and should have one place to ask it — a separate approvals client would have
-        /// duplicated the claims plumbing and given the system two answers.
-        /// </summary>
-        IAccessClient Access { get; }
+        ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
+            RecordReviewRequest recordReviewRequest);
+
+        ValueTask<AccessVerdict> MayDecideApprovalAsync(
+            DecideApprovalRequest decideApprovalRequest);
     }
 }
