@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using G2H.Security.Client.Models.Securities;
 using Glory2Him.Core.Models.Enums;
 
 namespace Glory2Him.Core.Models.Securities
@@ -19,13 +20,21 @@ namespace Glory2Him.Core.Models.Securities
     /// grant or block capability only for their own entity type. The global
     /// <see cref="ReadOnly"/> role is the block role — when present it wins over every
     /// other role and the user cannot contribute anywhere.
+    ///
+    /// <para>This is a <b>typed façade over the convention, not a second copy of it.</b> The
+    /// spelling itself lives in <see cref="RoleNames"/> in <c>G2H.Security.Client</c>, because
+    /// <c>IAccessClient</c> decides eligibility by composing the name it expects and looking
+    /// for it among the actor's roles — so the composer and the decision that depends on it
+    /// have to be the same assembly or they drift apart silently. What this class adds is the
+    /// <see cref="EntityType"/> / <see cref="ContentType"/> overloads: the client takes strings
+    /// because it must not reference this project, and every caller here holds an enum.</para>
     /// </summary>
     public static class Roles
     {
-        public const string ReadOnly = "ReadOnly";
-        public const string Reviewer = "Reviewer";
-        public const string Publisher = "Publisher";
-        public const string Admin = "Admin";
+        public const string ReadOnly = RoleNames.ReadOnly;
+        public const string Reviewer = RoleNames.Reviewer;
+        public const string Publisher = RoleNames.Publisher;
+        public const string Admin = RoleNames.Admin;
 
         public const string ContentItemReadOnly = "ContentItem-ReadOnly";
         public const string ContentItemReviewer = "ContentItem-Reviewer";
@@ -62,9 +71,9 @@ namespace Glory2Him.Core.Models.Securities
         // `ContentItem-Story-Reviewer`, never `ContentItem-Reviewer-Story`. Three approval
         // services identify a reviewer by suffix match, so a name ending in anything else
         // would not be recognised as a review role at all (design §18.6).
-        public const string ReadOnlySuffix = "-ReadOnly";
-        public const string ReviewerSuffix = "-Reviewer";
-        public const string PublisherSuffix = "-Publisher";
+        public const string ReadOnlySuffix = RoleNames.ReadOnlySuffix;
+        public const string ReviewerSuffix = RoleNames.ReviewerSuffix;
+        public const string PublisherSuffix = RoleNames.PublisherSuffix;
 
         /// <summary>
         /// The entity-type-scoped block role, for example <c>Tag-ReadOnly</c>.
@@ -75,20 +84,20 @@ namespace Glory2Him.Core.Models.Securities
         /// parameterised test over every <c>EntityType</c> member asserts the two agree.</para>
         /// </summary>
         public static string ReadOnlyFor(EntityType entityType) =>
-            $"{entityType}{ReadOnlySuffix}";
+            RoleNames.ReadOnlyFor(entityType.ToString());
 
         /// <summary>
         /// The entity-type-scoped review role, for example <c>Tag-Reviewer</c> — the coarse
         /// tier, granting review over every instance of the type.
         /// </summary>
         public static string ReviewerFor(EntityType entityType) =>
-            $"{entityType}{ReviewerSuffix}";
+            RoleNames.ReviewerFor(entityType.ToString());
 
         /// <summary>
         /// The entity-type-scoped publish role, for example <c>Tag-Publisher</c>.
         /// </summary>
         public static string PublisherFor(EntityType entityType) =>
-            $"{entityType}{PublisherSuffix}";
+            RoleNames.PublisherFor(entityType.ToString());
 
         /// <summary>
         /// The content-type-scoped review role, for example
@@ -97,14 +106,14 @@ namespace Glory2Him.Core.Models.Securities
         /// granularity; no other entity type carries a content type (design §18.6 rule 5).
         /// </summary>
         public static string ReviewerFor(EntityType entityType, ContentType contentType) =>
-            $"{entityType}-{contentType}{ReviewerSuffix}";
+            RoleNames.ReviewerFor(entityType.ToString(), contentType.ToString());
 
         /// <summary>
         /// The content-type-scoped publish role, for example
         /// <c>ContentItem-Testimony-Publisher</c>.
         /// </summary>
         public static string PublisherFor(EntityType entityType, ContentType contentType) =>
-            $"{entityType}-{contentType}{PublisherSuffix}";
+            RoleNames.PublisherFor(entityType.ToString(), contentType.ToString());
 
         // There is deliberately no ReadOnlyFor(EntityType, ContentType): the block role has
         // no content-type tier (design §18.6 lists only -Reviewer and -Publisher there), and
