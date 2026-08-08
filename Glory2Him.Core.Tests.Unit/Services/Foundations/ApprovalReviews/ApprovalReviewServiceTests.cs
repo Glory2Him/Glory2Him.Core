@@ -22,6 +22,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
@@ -293,6 +294,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 // than drawn: a posture-sensitive test must never depend on the draw. Tests
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(approvalReview => approvalReview.IsDeleted).Use(false)
+
+                // A review carries a verdict and the service refuses anything else, so a
+                // drawn ApprovalStatus would fail every write test on the draw rather than on
+                // what it is testing. Tests about the closed set say the status explicitly.
+                .OnProperty(approvalReview => approvalReview.StatusId).Use(ApprovalStatus.Approved)
                 .OnProperty(approvalReview => approvalReview.CreatedBy).Use(userId)
                 .OnProperty(approvalReview => approvalReview.UpdatedBy).Use(userId)
 

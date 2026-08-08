@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
@@ -198,6 +199,18 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                         secondName: nameof(ApprovalReview.CreatedBy)),
                     Parameter: nameof(ApprovalReview.UpdatedBy)),
 
+                // A review IS a verdict, so the set it may carry is closed to the two a
+                // reviewer can reach (design §7.7 rule 2). StatusId was previously unvalidated
+                // altogether, so an undefined enum value could be persisted and counted.
+                //
+                // Dismissed is excluded deliberately: §9.5 makes dismissal something that
+                // HAPPENS to a review when an entity-scoped change invalidates it, not
+                // something its author declares. A reviewer who could dismiss their own review
+                // could retract a rejection without recording a verdict, which is the same
+                // outcome as changing it but leaves no trace of the change.
+                (Rule: IsNotAReviewVerdict(approvalReview.StatusId),
+                    Parameter: nameof(ApprovalReview.StatusId)),
+
                 (Rule: await IsNotRecentAsync(approvalReview.CreatedWhen),
                     Parameter: nameof(ApprovalReview.CreatedWhen)));
         }
@@ -239,6 +252,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                         secondDateName: nameof(ApprovalReview.CreatedWhen)),
                     Parameter: nameof(ApprovalReview.UpdatedWhen)),
 
+                // Changing a verdict is legitimate — a reviewer who raised a concern and had
+                // it answered on the ApprovalComment thread should move their own Rejected to
+                // Approved rather than the approval needing a bypass. What a reviewer may not
+                // do is declare their review Dismissed, for the same reason as on add.
+                (Rule: IsNotAReviewVerdict(approvalReview.StatusId),
+                    Parameter: nameof(ApprovalReview.StatusId)),
+
                 (Rule: await IsNotRecentAsync(approvalReview.UpdatedWhen),
                     Parameter: nameof(ApprovalReview.UpdatedWhen)));
         }
@@ -253,10 +273,28 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             }
         }
 
+        // A dismissed review is closed. §9.5 retains it for audit and lets the reviewer file a
+        // NEW one; §7.7 rule 1 says decisions are not superseded or replaced. Editing the
+        // dismissed row instead would rewrite history in place and, because dismissal is what
+        // records that a review no longer describes the current content, would silently
+        // re-attach a stale verdict to amended text.
+        private static void ValidateStorageApprovalReviewIsNotDismissed(
+            ApprovalReview storageApprovalReview)
+        {
+            if (storageApprovalReview.StatusId == ApprovalStatus.Dismissed)
+            {
+                throw new InvalidApprovalReviewException(
+                    message: "A dismissed approval review cannot be amended. " +
+                        "Submit a new review instead.");
+            }
+        }
+
         private static void ValidateAgainstStorageApprovalReviewOnModify(
             ApprovalReview inputApprovalReview,
             ApprovalReview storageApprovalReview)
         {
+            ValidateStorageApprovalReviewIsNotDismissed(storageApprovalReview);
+
             Validate(
                 message: "Approval review is invalid, fix the errors and try again.",
                 (Rule: IsNotSame(
@@ -326,6 +364,21 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 throw new NullApprovalReviewException(message: "Approval review is null.");
             }
         }
+
+        // A review carries a verdict, and only the two a reviewer can reach. Draft and
+        // Submitted are entity states, not review outcomes; Dismissed is what happens TO a
+        // review when an entity-scoped change invalidates it (design §9.5), never something
+        // its author declares. Undefined enum values are refused here too — StatusId is
+        // persisted as an int, so nothing else stops one.
+        private static dynamic IsNotAReviewVerdict(ApprovalStatus statusId) => new
+        {
+            Condition =
+                statusId != ApprovalStatus.Approved
+                    && statusId != ApprovalStatus.Rejected,
+
+            Message = $"Value must be {nameof(ApprovalStatus.Approved)} " +
+                $"or {nameof(ApprovalStatus.Rejected)}"
+        };
 
         private static dynamic IsInvalid(Guid id) => new
         {

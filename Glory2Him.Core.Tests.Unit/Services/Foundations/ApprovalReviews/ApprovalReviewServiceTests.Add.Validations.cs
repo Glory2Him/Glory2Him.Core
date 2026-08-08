@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
@@ -102,6 +103,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.ReviewerId),
                 values: "Text is required");
+
+            // a bare review defaults StatusId to Draft, which is an entity state rather than
+            // a verdict — the closed set is Approved or Rejected (design §7.7 rule 2)
+            invalidApprovalReviewException.AddData(
+                key: nameof(ApprovalReview.StatusId),
+                values: "Value must be Approved or Rejected");
 
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.CreatedBy),
@@ -418,6 +425,81 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        public static TheoryData<ApprovalStatus> NonVerdictReviewStatuses() =>
+            new TheoryData<ApprovalStatus>
+            {
+                ApprovalStatus.Draft,
+                ApprovalStatus.Submitted,
+                ApprovalStatus.Dismissed,
+                (ApprovalStatus)int.MaxValue
+            };
+
+        [Theory]
+        [MemberData(nameof(NonVerdictReviewStatuses))]
+        public async Task ShouldThrowValidationExceptionOnAddIfStatusIsNotAVerdictAndLogItAsync(
+            ApprovalStatus nonVerdictStatus)
+        {
+            // given: a review IS a verdict, so the set it may carry is closed to the two a
+            // reviewer can reach. Draft and Submitted are entity states. Dismissed is what
+            // HAPPENS to a review when an entity-scoped change invalidates it (§9.5) — a
+            // reviewer who could declare it would retract a rejection without recording a
+            // verdict, leaving no trace of the change. And StatusId persists as an int, so
+            // without this rule nothing at all refuses an undefined member.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ApprovalReview invalidApprovalReview =
+                CreateApprovalReviewFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidApprovalReview.StatusId = nonVerdictStatus;
+
+            var invalidApprovalReviewException =
+                new InvalidApprovalReviewException(
+                    message: "Approval review is invalid, fix the errors and try again.");
+
+            invalidApprovalReviewException.AddData(
+                key: nameof(ApprovalReview.StatusId),
+                values: "Value must be Approved or Rejected");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalReviewException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidApprovalReview, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ApprovalReview> addApprovalReviewTask =
+                this.approvalReviewService.AddApprovalReviewAsync(
+                    invalidApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    addApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Fact]
