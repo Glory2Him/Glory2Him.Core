@@ -71,14 +71,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(false);
 
-            model.Property(approvalSetting => approvalSetting.RestrictWhoCanReview)
-                 .IsRequired()
-                 .HasDefaultValue(false);
-
-            model.Property(approvalSetting => approvalSetting.RestrictWhoCanApprove)
-                 .IsRequired()
-                 .HasDefaultValue(false);
-
             model.Property(approvalSetting => approvalSetting.RequireApprovalCommentResolutionBeforeApproval)
                  .IsRequired()
                  .HasDefaultValue(true);
@@ -131,18 +123,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsUnique()
                  .HasFilter($"[{nameof(ApprovalSetting.ContentType)}] IS NOT NULL")
                  .HasDatabaseName("UX_ApprovalSettings_EntityTypeContentType");
-
-            // Relationship: one ApprovalSetting to many ApprovalSettingReviewerRoles
-            model.HasMany(approvalSetting => approvalSetting.ApprovalSettingReviewerRoles)
-                 .WithOne(approvalSettingReviewerRole => approvalSettingReviewerRole.ApprovalSetting)
-                 .HasForeignKey(approvalSettingReviewerRole => approvalSettingReviewerRole.ApprovalSettingId)
-                 .OnDelete(DeleteBehavior.NoAction);
-
-            // Relationship: one ApprovalSetting to many ApprovalSettingPublisherRoles
-            model.HasMany(approvalSetting => approvalSetting.ApprovalSettingPublisherRoles)
-                 .WithOne(approvalSettingPublisherRole => approvalSettingPublisherRole.ApprovalSetting)
-                 .HasForeignKey(approvalSettingPublisherRole => approvalSettingPublisherRole.ApprovalSettingId)
-                 .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }
