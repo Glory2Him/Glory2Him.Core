@@ -121,7 +121,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 await this.broker.AssociationService.RetrieveAllAssociationsAsync(
                     CancellationToken.None);
 
-            List<Association> actualAssociations = await query.ToListAsync();
+            List<Association> actualAssociations = await query.ToListAsync(TestContext.Current.CancellationToken);
 
             // then: it executes, and degrades to exactly the public-plus-own predicate
             actualAssociations.Should().NotContain(association =>
@@ -158,7 +158,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 await this.broker.AssociationService.RetrieveAllAssociationsAsync(
                     CancellationToken.None);
 
-            List<Association> actualAssociations = await query.ToListAsync();
+            List<Association> actualAssociations = await query.ToListAsync(TestContext.Current.CancellationToken);
 
             // then
             actualAssociations.Should().Contain(association =>
@@ -198,7 +198,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
                 await this.broker.AssociationService.RetrieveAllAssociationsAsync(
                     CancellationToken.None);
 
-            List<Association> actualAssociations = await query.ToListAsync();
+            List<Association> actualAssociations = await query.ToListAsync(TestContext.Current.CancellationToken);
 
             // then
             actualAssociations.Should().Contain(association =>

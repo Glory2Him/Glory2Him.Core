@@ -26,11 +26,11 @@ namespace G2H.EventEnvelope.Client.Tests.Acceptance.Clients
             string nextContent = GetRandomString();
 
             EventEnvelope<string> rootEventEnvelope =
-                await this.eventEnvelopeClient.CreateAsync(rootContent);
+                await this.eventEnvelopeClient.CreateAsync(rootContent, TestContext.Current.CancellationToken);
 
             // when
             EventEnvelope<string> actualEventEnvelope =
-                await this.eventEnvelopeClient.CreateNextAsync(rootEventEnvelope, nextContent);
+                await this.eventEnvelopeClient.CreateNextAsync(rootEventEnvelope, nextContent, TestContext.Current.CancellationToken);
 
             // then
             actualEventEnvelope.Content.Should().Be(nextContent);

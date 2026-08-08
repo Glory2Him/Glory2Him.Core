@@ -26,7 +26,7 @@ namespace G2H.EventEnvelope.Client.Tests.Acceptance.Clients
 
             // when
             EventEnvelope<string> actualEventEnvelope =
-                await this.eventEnvelopeClient.CreateAsync(randomContent);
+                await this.eventEnvelopeClient.CreateAsync(randomContent, TestContext.Current.CancellationToken);
 
             // then
             actualEventEnvelope.Content.Should().Be(randomContent);

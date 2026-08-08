@@ -41,7 +41,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             ValueTask<EventEnvelope<string>> createNextTask =
-                this.eventEnvelopeService.CreateNextAsync(nullSourceEnvelope!, someContent);
+                this.eventEnvelopeService.CreateNextAsync(nullSourceEnvelope!, someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeValidationException actualEventEnvelopeValidationException =
                 await Assert.ThrowsAsync<EventEnvelopeValidationException>(createNextTask.AsTask);
@@ -77,7 +77,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             ValueTask<EventEnvelope<string>> createNextTask =
-                this.eventEnvelopeService.CreateNextAsync(randomSourceEnvelope, nullContent!);
+                this.eventEnvelopeService.CreateNextAsync(randomSourceEnvelope, nullContent!, TestContext.Current.CancellationToken);
 
             EventEnvelopeValidationException actualEventEnvelopeValidationException =
                 await Assert.ThrowsAsync<EventEnvelopeValidationException>(createNextTask.AsTask);
@@ -118,7 +118,7 @@ namespace G2H.EventEnvelope.Client.Tests.Unit.Services.Foundations.Events
 
             // when
             ValueTask<EventEnvelope<string>> createNextTask =
-                this.eventEnvelopeService.CreateNextAsync(invalidSourceEnvelope, someContent);
+                this.eventEnvelopeService.CreateNextAsync(invalidSourceEnvelope, someContent, TestContext.Current.CancellationToken);
 
             EventEnvelopeValidationException actualEventEnvelopeValidationException =
                 await Assert.ThrowsAsync<EventEnvelopeValidationException>(createNextTask.AsTask);
