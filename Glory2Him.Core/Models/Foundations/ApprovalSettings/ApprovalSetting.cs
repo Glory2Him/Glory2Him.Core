@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -13,8 +13,6 @@ using System;
 using System.Collections.Generic;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
-using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
 
 namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
 {
@@ -44,11 +42,6 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         /// When enabled, entity items require a number of approvals before they can be approved.
         /// </summary>
         public bool RequireApprovals { get; set; } = true;
-
-        /// <summary>
-        /// When enabled, all conversations on code must be resolved before they can be approved.
-        /// </summary>
-        public bool RequireReviewCommentResolutionBeforeApprovals { get; set; } = true;
 
         /// <summary>
         /// Number of approvals required before the entity is considered approved.
@@ -91,16 +84,6 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         public bool DoNotAllowBypassingSettings { get; set; } = false;
 
         /// <summary>
-        /// Specifies whether the approval setting restricts who can review based on usernames and/or roles.
-        /// </summary>
-        public bool RestrictWhoCanReview { get; set; } = false;
-
-        /// <summary>
-        /// Specifies whether the approval setting restricts who can approve based on usernames and/or roles.
-        /// </summary>
-        public bool RestrictWhoCanApprove { get; set; } = false;
-
-        /// <summary>
         /// User identifier for who created the approval setting.
         /// </summary>
         public string CreatedBy { get; set; } = string.Empty;
@@ -140,16 +123,11 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
         /// </summary>
         public string? DeletionReason { get; set; }
 
-        /// <summary>
-        /// Roles permitted to review for this approval setting.
-        /// </summary>
-        public ICollection<ApprovalSettingReviewerRole> ApprovalSettingReviewerRoles { get; set; } =
-            new List<ApprovalSettingReviewerRole>();
-
-        /// <summary>
-        /// Roles permitted to publish for this approval setting.
-        /// </summary>
-        public ICollection<ApprovalSettingPublisherRole> ApprovalSettingPublisherRoles { get; set; } =
-            new List<ApprovalSettingPublisherRole>();
+        // The ApprovalSettingReviewerRoles and ApprovalSettingPublisherRoles collections are
+        // gone, along with RestrictWhoCanReview and RestrictWhoCanApprove. Who may review and
+        // who may publish is COMPOSED from the entity type by the %EntityType%-Reviewer /
+        // %EntityType%-Publisher convention (§18.6), not configured per settings row, and that
+        // composition now has a single home in G2H.Security.Client. Two sources for the same
+        // fact is two sources to drift.
     }
 }

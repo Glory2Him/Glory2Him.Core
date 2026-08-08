@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -19,8 +19,6 @@ using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Approvals;
-using Glory2Him.Core.Services.Foundations.ApprovalSettingPublisherRoles;
-using Glory2Him.Core.Services.Foundations.ApprovalSettingReviewerRoles;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
@@ -71,8 +69,6 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IApprovalReviewService approvalReviewService;
         private readonly IApprovalSettingService approvalSettingService;
-        private readonly IApprovalSettingReviewerRoleService approvalSettingReviewerRoleService;
-        private readonly IApprovalSettingPublisherRoleService approvalSettingPublisherRoleService;
         private readonly IAssociationService associationService;
         private readonly IContentItemSettingService contentItemSettingService;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
@@ -89,8 +85,6 @@ namespace Glory2Him.Core.Registrations
             IApprovalCommentService approvalCommentService,
             IApprovalReviewService approvalReviewService,
             IApprovalSettingService approvalSettingService,
-            IApprovalSettingReviewerRoleService approvalSettingReviewerRoleService,
-            IApprovalSettingPublisherRoleService approvalSettingPublisherRoleService,
             IAssociationService associationService,
             IContentItemSettingService contentItemSettingService,
             IContentItemOrchestrationService contentItemOrchestrationService)
@@ -106,8 +100,6 @@ namespace Glory2Him.Core.Registrations
             this.approvalCommentService = approvalCommentService;
             this.approvalReviewService = approvalReviewService;
             this.approvalSettingService = approvalSettingService;
-            this.approvalSettingReviewerRoleService = approvalSettingReviewerRoleService;
-            this.approvalSettingPublisherRoleService = approvalSettingPublisherRoleService;
             this.associationService = associationService;
             this.contentItemSettingService = contentItemSettingService;
             this.contentItemOrchestrationService = contentItemOrchestrationService;
@@ -889,192 +881,6 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalSettingEventOperation.RetrievingById,
                 approvalSettingEventHandler: this.approvalSettingService.OnRetrievingApprovalSettingByIdAsync,
-                cancellationToken: cancellationToken);
-
-            // ── ApprovalSettingReviewerRole request handlers ─────────────────────────────
-            await this.eventBroker.SubscribeToApprovalSettingReviewerRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnAddingApprovalSettingReviewerRoleSubscriptionId,
-                    Name = EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnAddingApprovalSettingReviewerRoleSubscriptionName,
-
-                    Description = "Handles add requests: stores the approval setting reviewer role, " +
-                        "publishes ApprovalSettingReviewerRole-Added, and replies with the added entity."
-                },
-                operation: ApprovalSettingReviewerRoleEventOperation.Adding,
-                approvalSettingReviewerRoleEventHandler: this.approvalSettingReviewerRoleService.OnAddingApprovalSettingReviewerRoleAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingReviewerRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnModifyingApprovalSettingReviewerRoleSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnModifyingApprovalSettingReviewerRoleSubscriptionName,
-
-                    Description = "Handles modify requests: updates the approval setting reviewer role, " +
-                        "publishes ApprovalSettingReviewerRole-Modified, and replies with the updated entity."
-                },
-                operation: ApprovalSettingReviewerRoleEventOperation.Modifying,
-
-                approvalSettingReviewerRoleEventHandler:
-                    this.approvalSettingReviewerRoleService.OnModifyingApprovalSettingReviewerRoleAsync,
-
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingReviewerRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id =
-                        EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnRemovingApprovalSettingReviewerRoleByIdSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnRemovingApprovalSettingReviewerRoleByIdSubscriptionName,
-
-                    Description = "Handles remove requests: soft-deletes the approval setting " +
-                        "role, publishes ApprovalSettingReviewerRole-Removed, and replies with the " +
-                        "removed entity."
-                },
-                operation: ApprovalSettingReviewerRoleEventOperation.RemovingById,
-
-                approvalSettingReviewerRoleEventHandler:
-                    this.approvalSettingReviewerRoleService.OnRemovingApprovalSettingReviewerRoleByIdAsync,
-
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingReviewerRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id =
-                        EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnHardRemovingApprovalSettingReviewerRoleByIdSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers
-                            .ApprovalSettingReviewerRoleOnHardRemovingApprovalSettingReviewerRoleByIdSubscriptionName,
-
-                    Description = "Handles hard-remove requests: permanently deletes the " +
-                        "approval setting reviewer role, publishes ApprovalSettingReviewerRoleHardRemoved on " +
-                        "the removal address, and replies with the deleted entity."
-                },
-                operation: ApprovalSettingReviewerRoleEventOperation.HardRemovingById,
-
-                approvalSettingReviewerRoleEventHandler:
-                    this.approvalSettingReviewerRoleService.OnHardRemovingApprovalSettingReviewerRoleByIdAsync,
-
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingReviewerRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id =
-                        EventBrokerIdentifiers.ApprovalSettingReviewerRoleOnRetrievingApprovalSettingReviewerRoleByIdSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers
-                            .ApprovalSettingReviewerRoleOnRetrievingApprovalSettingReviewerRoleByIdSubscriptionName,
-
-                    Description = "Handles retrieve requests: retrieves an approval setting " +
-                        "role by id and replies with it on the delivery."
-                },
-                operation: ApprovalSettingReviewerRoleEventOperation.RetrievingById,
-
-                approvalSettingReviewerRoleEventHandler:
-                    this.approvalSettingReviewerRoleService.OnRetrievingApprovalSettingReviewerRoleByIdAsync,
-
-                cancellationToken: cancellationToken);
-
-            // ── ApprovalSettingPublisherRole request handlers ─────────────────────────────
-            await this.eventBroker.SubscribeToApprovalSettingPublisherRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnAddingApprovalSettingPublisherRoleSubscriptionId,
-                    Name = EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnAddingApprovalSettingPublisherRoleSubscriptionName,
-
-                    Description = "Handles add requests: stores the approval setting publisher role, " +
-                        "publishes ApprovalSettingPublisherRole-Added, and replies with the added entity."
-                },
-                operation: ApprovalSettingPublisherRoleEventOperation.Adding,
-                approvalSettingPublisherRoleEventHandler: this.approvalSettingPublisherRoleService.OnAddingApprovalSettingPublisherRoleAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingPublisherRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnModifyingApprovalSettingPublisherRoleSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnModifyingApprovalSettingPublisherRoleSubscriptionName,
-
-                    Description = "Handles modify requests: updates the approval setting publisher role, " +
-                        "publishes ApprovalSettingPublisherRole-Modified, and replies with the updated entity."
-                },
-                operation: ApprovalSettingPublisherRoleEventOperation.Modifying,
-
-                approvalSettingPublisherRoleEventHandler:
-                    this.approvalSettingPublisherRoleService.OnModifyingApprovalSettingPublisherRoleAsync,
-
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingPublisherRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id =
-                        EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnRemovingApprovalSettingPublisherRoleByIdSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnRemovingApprovalSettingPublisherRoleByIdSubscriptionName,
-
-                    Description = "Handles remove requests: soft-deletes the approval setting " +
-                        "role, publishes ApprovalSettingPublisherRole-Removed, and replies with the " +
-                        "removed entity."
-                },
-                operation: ApprovalSettingPublisherRoleEventOperation.RemovingById,
-
-                approvalSettingPublisherRoleEventHandler:
-                    this.approvalSettingPublisherRoleService.OnRemovingApprovalSettingPublisherRoleByIdAsync,
-
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingPublisherRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id =
-                        EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnHardRemovingApprovalSettingPublisherRoleByIdSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers
-                            .ApprovalSettingPublisherRoleOnHardRemovingApprovalSettingPublisherRoleByIdSubscriptionName,
-
-                    Description = "Handles hard-remove requests: permanently deletes the " +
-                        "approval setting publisher role, publishes ApprovalSettingPublisherRoleHardRemoved on " +
-                        "the removal address, and replies with the deleted entity."
-                },
-                operation: ApprovalSettingPublisherRoleEventOperation.HardRemovingById,
-
-                approvalSettingPublisherRoleEventHandler:
-                    this.approvalSettingPublisherRoleService.OnHardRemovingApprovalSettingPublisherRoleByIdAsync,
-
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToApprovalSettingPublisherRoleEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id =
-                        EventBrokerIdentifiers.ApprovalSettingPublisherRoleOnRetrievingApprovalSettingPublisherRoleByIdSubscriptionId,
-
-                    Name =
-                        EventBrokerIdentifiers
-                            .ApprovalSettingPublisherRoleOnRetrievingApprovalSettingPublisherRoleByIdSubscriptionName,
-
-                    Description = "Handles retrieve requests: retrieves an approval setting " +
-                        "role by id and replies with it on the delivery."
-                },
-                operation: ApprovalSettingPublisherRoleEventOperation.RetrievingById,
-
-                approvalSettingPublisherRoleEventHandler:
-                    this.approvalSettingPublisherRoleService.OnRetrievingApprovalSettingPublisherRoleByIdAsync,
-
                 cancellationToken: cancellationToken);
 
             // ── Association request handlers ──────────────────────────

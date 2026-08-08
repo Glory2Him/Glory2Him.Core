@@ -18,8 +18,6 @@ using G2H.StorageClient.Clients;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
-using Glory2Him.Core.Models.Foundations.ApprovalSettingPublisherRoles;
-using Glory2Him.Core.Models.Foundations.ApprovalSettingReviewerRoles;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Attachments;
@@ -69,8 +67,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             AddApprovalCommentConfigurations(modelBuilder.Entity<ApprovalComment>());
             AddApprovalReviewConfigurations(modelBuilder.Entity<ApprovalReview>());
             AddApprovalSettingConfigurations(modelBuilder.Entity<ApprovalSetting>());
-            AddApprovalSettingPublisherRoleConfigurations(modelBuilder.Entity<ApprovalSettingPublisherRole>());
-            AddApprovalSettingReviewerRoleConfigurations(modelBuilder.Entity<ApprovalSettingReviewerRole>());
             AddAssociationConfigurations(modelBuilder.Entity<Association>());
             AddAttachmentConfigurations(modelBuilder.Entity<Attachment>());
             AddBibleReferenceConfigurations(modelBuilder.Entity<BibleReference>());
