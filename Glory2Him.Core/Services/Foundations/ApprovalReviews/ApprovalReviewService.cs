@@ -49,6 +49,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         private readonly IEventBroker eventBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IAccessBroker accessBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ApprovalReviewService(
@@ -58,6 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             IEventBroker eventBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IAccessBroker accessBroker,
             ILoggingBroker loggingBroker)
         {
             this.storageBroker = storageBroker;
@@ -66,6 +68,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             this.eventBroker = eventBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.accessBroker = accessBroker;
             this.loggingBroker = loggingBroker;
         }
 
@@ -293,6 +296,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 approvalReview: approvalReview,
                 securityContext: inboundEnvelope.SecurityContext);
 
+            await ValidateUserMayRecordApprovalReviewAsync(
+                approvalId: approvalReview.ApprovalId,
+                isAmendingOwnReview: false,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
             ApprovalReview addedApprovalReview =
                 await this.storageBroker.InsertApprovalReviewAsync(approvalReview, cancellationToken);
 
@@ -350,6 +359,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             ValidateAgainstStorageApprovalReviewOnModify(
                 inputApprovalReview: approvalReview,
                 storageApprovalReview: maybeApprovalReview);
+
+            // From STORAGE, and after the pin above has refused any attempt to move it. An
+            // amendment that could name its own ApprovalId would let a reviewer point a review
+            // at an approval whose round is still open and change a verdict on one that closed.
+            await ValidateUserMayRecordApprovalReviewAsync(
+                approvalId: maybeApprovalReview.ApprovalId,
+                isAmendingOwnReview: true,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             ApprovalReview updatedApprovalReview =
                 await this.storageBroker.UpdateApprovalReviewAsync(approvalReview, cancellationToken);

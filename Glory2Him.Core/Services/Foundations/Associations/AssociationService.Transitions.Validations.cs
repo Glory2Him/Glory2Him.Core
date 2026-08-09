@@ -10,9 +10,11 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -128,22 +130,21 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // approval. %EntityType%-Reviewer is not a weaker %EntityType%-Publisher, it is a
         // different job, so the review-role helper is deliberately NOT used here.
         //
-        // HR-2 — no one approves their own content. Enforced unconditionally for now: the
-        // setting that can relax it, ApprovalSetting.AllowSelfApproval, lives on another
-        // entity that a foundation service may not read, and it arrives with the approvals
-        // policy broker (§8.6.1). Refusing outright until then is the fail-closed reading —
-        // the strict rule ships first and relaxes later, rather than a hole staying open
-        // while the mechanism is built.
+        // HR-2 — no one approves their own content unless AllowSelfApproval permits it. That
+        // setting lives on another entity, so the question goes to IAccessBroker.
         //
         // Together they are what stop a contributor walking the whole path alone: create,
         // submit, approve, publish.
         //
-        // Not enforced here: §8.6's regardless-rule 1, barring anyone who holds an active
-        // ApprovalReview on the row from also deciding it. That is a question about another
-        // entity's rows, so it arrives with IAccessBroker (§8.6.1).
+        // The row-local publisher check below is kept even though the access decision repeats
+        // it. It is not redundancy for its own sake: it is what makes an unauthorised caller
+        // cost one role comparison instead of four table reads, and it means a defect in the
+        // gathering can only ever make this gate stricter, never open it.
         private async ValueTask ValidateUserCanApproveStorageAssociationAsync(
             Association storageAssociation,
-            SecurityContext securityContext)
+            Association association,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
         {
             if (HasPublisherRoleForAssociation(securityContext, storageAssociation) is false)
             {
@@ -152,16 +153,67 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         "this content item association.");
             }
 
-            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+            AccessVerdict verdict = await this.accessBroker.MayDecideApprovalAsync(
+                new ApprovalDecisionQuery
+                {
+                    EntityType = EntityType.Association,
+                    EntityId = storageAssociation.Id,
 
-            bool isOwner =
-                string.IsNullOrWhiteSpace(actorUserId) is false
-                    && storageAssociation.CreatedBy == actorUserId;
+                    // An association's own policy tier is (Association, null). Its endpoints'
+                    // content types authorise the CALLER, they do not key the policy — and a
+                    // Testimony-to-Devotional row would make the narrow tier ambiguous anyway,
+                    // because neither endpoint is more specific than the other.
+                    ContentType = null,
 
-            if (isOwner)
+                    // Both endpoints, because an association is authorised from them rather
+                    // than from itself, and one is enough.
+                    RoleSubjects = new List<RoleSubject>
+                    {
+                        new RoleSubject
+                        {
+                            EntityType = storageAssociation.EntityAType.ToString(),
+                            ContentType = storageAssociation.EntityAContentType?.ToString(),
+                        },
+                        new RoleSubject
+                        {
+                            EntityType = storageAssociation.EntityBType.ToString(),
+                            ContentType = storageAssociation.EntityBContentType?.ToString(),
+                        },
+                    },
+
+                    // From STORAGE. Taking the author from the caller's copy would let a
+                    // contributor name someone else as author and approve their own row.
+                    EntityCreatedBy = storageAssociation.CreatedBy,
+                    ConfidenceScore = storageAssociation.ConfidenceScore,
+
+                    Decision = association.ApprovalStatus == ApprovalStatus.Rejected
+                        ? ApprovalDecision.Reject
+                        : ApprovalDecision.Approve,
+
+                    // Bypass is its own operation and this is not it (§12.4.4 rule 11); an
+                    // ordinary approve never claims one. Passing the caller's flag here would
+                    // make every approve a potential bypass.
+                    IsBypassRequested = false,
+                    BypassReason = null,
+
+                    SecurityContext = securityContext,
+                },
+                cancellationToken);
+
+            if (verdict.IsPermitted is false)
             {
+                // §14.5: the true reason is logged server-side and the caller is told nothing
+                // about the policy. The verdict's explanation names resolved settings — how
+                // many approvals were required, which block fired — and exception messages and
+                // their Data surface outward through a public event address.
+                await this.loggingBroker.LogWarningAsync(
+                    $"Association approval denied for {storageAssociation.Id}. "
+                        + $"{verdict.DenialReason}: {verdict.Explanation} "
+                        + "Reported to the caller as unauthorized.");
+
                 throw new UnauthorizedAssociationException(
-                    message: "The author of a content item association may not approve it.");
+                    message: "The current user is not allowed to approve " +
+                        "this content item association.");
             }
         }
 
