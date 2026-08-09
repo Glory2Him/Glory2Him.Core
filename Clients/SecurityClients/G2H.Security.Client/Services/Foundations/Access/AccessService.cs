@@ -227,6 +227,13 @@ namespace G2H.Security.Client.Services.Foundations.Access
             IReadOnlyList<CommentRecord> comments,
             decimal? confidenceScore)
         {
+            // The Dismissed clause is redundant TODAY and kept on purpose. A dismissed review is
+            // neither Approved nor Rejected, so neither the count below nor the rejection check
+            // can see it either way — no test can distinguish its presence, and mutation testing
+            // correctly reports it as an equivalent mutant. It stays because `activeReviews` is a
+            // named concept that other rules will read, and the first rule to ask "is there any
+            // active review?" rather than "is there an approving one?" would silently get the
+            // wrong answer without it.
             IReadOnlyList<ReviewRecord> activeReviews = reviews
                 .Where(review => review.IsDeleted is false
                     && review.Verdict != ReviewVerdict.Dismissed)

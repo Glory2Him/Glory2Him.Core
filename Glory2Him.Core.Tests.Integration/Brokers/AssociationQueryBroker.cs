@@ -63,6 +63,10 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 eventBroker: new Mock<IEventBroker>().Object,
                 eventEnvelopeBroker: EventEnvelopeBrokerMock.Object,
                 securityAuditBroker: SecurityAuditBrokerMock.Object,
+
+                // left bare: this fixture only exercises the collection read, which never
+                // asks for an approval decision
+                accessBroker: new Mock<IAccessBroker>().Object,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
         }
 

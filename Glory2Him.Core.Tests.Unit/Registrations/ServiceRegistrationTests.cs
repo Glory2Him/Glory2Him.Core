@@ -32,6 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             services.AddSingleton(new Mock<IEventBroker>().Object);
             services.AddSingleton(new Mock<IEventEnvelopeBroker>().Object);
             services.AddSingleton(new Mock<ISecurityAuditBroker>().Object);
+            services.AddSingleton(new Mock<IAccessBroker>().Object);
             services.AddSingleton(new Mock<ILoggingBroker>().Object);
 
             return services;

@@ -122,7 +122,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupStorageRead(storageAssociation);
             SetupTransitionWriteBrokers();
 
-            // the caller must not be the author (§8.6 HR-2)
+            // HR-2 now lives behind the access broker, which the fixture leaves permissive.
+            // The actor is still stamped on the transition's audit fields, so it is set here.
             SetupActor(GetRandomString());
 
             // when
