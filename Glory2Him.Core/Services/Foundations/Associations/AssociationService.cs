@@ -61,6 +61,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private readonly IEventBroker eventBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IAccessBroker accessBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public AssociationService(
@@ -70,6 +71,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             IEventBroker eventBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IAccessBroker accessBroker,
             ILoggingBroker loggingBroker)
         {
             this.storageBroker = storageBroker;
@@ -78,6 +80,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             this.eventBroker = eventBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.accessBroker = accessBroker;
             this.loggingBroker = loggingBroker;
         }
 

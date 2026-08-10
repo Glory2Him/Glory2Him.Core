@@ -9,14 +9,36 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using G2H.Security.Client.Clients.Access;
 using G2H.Security.Client.Clients.Audits;
 using G2H.Security.Client.Clients.Users;
 
 namespace G2H.Security.Client.Clients
 {
+    /// <summary>
+    /// The security surface, grouped by the question being asked. One client, one configuration,
+    /// and one place a caller's rights are decided.
+    /// </summary>
     public interface ISecurityClient
     {
+        /// <summary>
+        /// Who the caller is — identity, authentication state, roles and claims, read from a
+        /// <see cref="System.Security.Claims.ClaimsPrincipal"/>.
+        /// </summary>
         IUserClient Users { get; }
+
+        /// <summary>
+        /// Who did what and when — stamps the created, updated and deleted audit values on an
+        /// entity, and holds them unchanged when a caller must not move them.
+        /// </summary>
         IAuditClient Audits { get; }
+
+        /// <summary>
+        /// Whether the caller may do it — approval policy decisions. Grouped here beside identity
+        /// because "may they?" is one question and should have one place to ask it; a separate
+        /// approvals client would have duplicated the claims plumbing and given the system two
+        /// answers.
+        /// </summary>
+        IAccessClient Access { get; }
     }
 }

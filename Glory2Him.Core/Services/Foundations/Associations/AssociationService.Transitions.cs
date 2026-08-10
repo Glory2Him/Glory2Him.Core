@@ -147,7 +147,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // approve their own row.
             await ValidateUserCanApproveStorageAssociationAsync(
                 storageAssociation: storageAssociation,
-                securityContext: inboundEnvelope.SecurityContext);
+                association: association,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             ValidateStorageAssociationIsApprovable(storageAssociation);
 

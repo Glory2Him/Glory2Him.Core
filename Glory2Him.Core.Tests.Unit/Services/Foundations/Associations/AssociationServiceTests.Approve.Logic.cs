@@ -48,11 +48,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association updatedAssociation = auditAppliedAssociation.DeepClone();
             Association expectedAssociation = updatedAssociation.DeepClone();
 
-            // approve refuses the author (HR-2), so the actor must be somebody else
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(GetRandomString());
-
+            // HR-2 is no longer a row-local comparison here: the self-approval bar is
+            // governed by ApprovalSetting.AllowSelfApproval and answered by IAccessBroker,
+            // which the fixture defaults to permitting. The service therefore never resolves
+            // the actor id on this path.
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
@@ -129,11 +128,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     broker.GetCurrentDateTimeOffsetAsync(),
                 Times.AtLeastOnce);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.accessBrokerMock.Verify(broker =>
+                    broker.MayDecideApprovalAsync(
+                        It.IsAny<ApprovalDecisionQuery>(),
+                        It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
@@ -200,11 +202,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             Association savedAssociation = null;
 
-            // approve refuses the author (HR-2), so the actor must be somebody else
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(GetRandomString());
-
+            // HR-2 now lives behind the access broker, which the fixture leaves permissive —
+            // this test is about which FIELDS are saved, not about who may save them.
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(GetRandomDateTimeOffset());

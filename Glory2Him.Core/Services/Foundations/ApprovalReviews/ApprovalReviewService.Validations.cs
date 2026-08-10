@@ -11,7 +11,9 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
@@ -76,6 +78,45 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
+
+        // The cross-entity half of the same question, and the reason it could not be asked here
+        // before: it needs the parent Approval and the entity under review, neither of which a
+        // single-entity service may read. IAccessBroker gathers them.
+        //
+        // Three rules land with this call. HR-1 — nobody reviews their own content, and no
+        // setting relaxes it. §7.7 rule 2b — a review may only be written while the Approval is
+        // Submitted; without it, a verdict flipped after the round closed leaves an entity
+        // Approved with a standing rejection and nothing re-runs the workflow. And §7.7 rule 1's
+        // one-active-review bar, which the unfiltered unique index alone cannot express.
+        //
+        // It also narrows the role check above rather than repeating it: HasReviewRole matches
+        // ANY "-Reviewer" suffix because the review row names no entity type, so a Tag-Reviewer
+        // passes it for a Link's approval. The broker resolves the entity behind the approval, so
+        // the tier is finally checked against the thing actually being reviewed.
+        private async ValueTask ValidateUserMayRecordApprovalReviewAsync(
+            Guid approvalId,
+            bool isAmendingOwnReview,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayRecordApprovalReviewAsync(
+                approvalId: approvalId,
+                isAmendingOwnReview: isAmendingOwnReview,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            if (verdict.IsPermitted is false)
+            {
+                // §14.5: the true reason server-side, nothing about the policy to the caller.
+                await this.loggingBroker.LogWarningAsync(
+                    $"Approval review denied for approval {approvalId}. "
+                        + $"{verdict.DenialReason}: {verdict.Explanation} "
+                        + "Reported to the caller as unauthorized.");
+
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not allowed to review approvals.");
+            }
+        }
 
         // row-level write permission: a review is the reviewer's own verdict, so only its
         // author may amend it — another reviewer records their own review instead; an

@@ -13,8 +13,10 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
@@ -44,6 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
+        private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalReviewService approvalReviewService;
         private SecurityContext ambientSecurityContext;
@@ -56,7 +59,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
+            this.accessBrokerMock = new Mock<IAccessBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            // the cross-entity review decision defaults to permitted so a test about
+            // something else exercises its own subject rather than failing on an
+            // unstubbed verdict. Tests about the gate itself call
+            // SetupAccessBrokerToRefuse to reverse it.
+            SetupAccessBrokerToPermit();
 
             // the ambient caller the envelope broker captures on the direct path — tests
             // override this field (before acting) to run as a different caller
@@ -93,8 +103,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 eventBroker: this.eventBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
+                accessBroker: this.accessBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
+
+        private void SetupAccessBrokerToPermit() =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayRecordApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = true,
+                            DenialReason = AccessDenialReason.None,
+                            Explanation = "permitted",
+                        });
+
+        // the reverse of the fixture default, for tests about what the service does when the
+        // access decision refuses
+        private void SetupAccessBrokerToRefuse(AccessDenialReason reason) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayRecordApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = false,
+                            DenialReason = reason,
+                            Explanation = "refused",
+                        });
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);
