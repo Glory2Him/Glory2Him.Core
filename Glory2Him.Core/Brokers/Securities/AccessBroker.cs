@@ -106,6 +106,8 @@ namespace Glory2Him.Core.Brokers.Securities
                 {
                     IsPermitted = false,
                     DenialReason = AccessDenialReason.ApprovalNotOpenForReview,
+                    IsBypassUsed = false,
+                    BypassedBlockReason = AccessDenialReason.None,
                     Explanation = $"No approval was found for id {approvalId}.",
                 };
             }

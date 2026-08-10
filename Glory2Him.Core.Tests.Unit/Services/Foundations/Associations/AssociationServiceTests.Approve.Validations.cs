@@ -307,6 +307,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         {
                             IsPermitted = true,
                             DenialReason = AccessDenialReason.None,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
                             Explanation = "permitted",
                         });
 

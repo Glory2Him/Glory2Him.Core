@@ -81,6 +81,14 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(ApprovalStatus.Draft);
 
+            model.Property(bibleReference => bibleReference.IsApprovedByBypass)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            model.Property(bibleReference => bibleReference.ApprovedByBypassReason)
+                 .HasMaxLength(500)
+                 .IsRequired(false);
+
             // BibleReference is a Single-Row entity (no IVersion) — USFM is the canonical
             // passage key (includes translation, since Scripture is translation-specific)
             // and is immutable after creation (pinned in ValidateAgainstStorageBibleReferenceOnModify).

@@ -118,7 +118,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         {
                             IsPermitted = true,
                             DenialReason = AccessDenialReason.None,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
                             Explanation = "permitted",
+                        });
+
+        // A permit reached by WAIVING the conditions rather than by meeting them. DenialReason
+        // stays None on purpose: a bypass is a permission, and every gate in the service reads
+        // `IsPermitted` and then the reason — a verdict that reported the waived block as a
+        // denial reason would refuse the very approve it just permitted.
+        private void SetupAccessBrokerToPermitByBypass(
+            AccessDenialReason bypassedBlockReason) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayDecideApprovalAsync(
+                    It.IsAny<ApprovalDecisionQuery>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = true,
+                            DenialReason = AccessDenialReason.None,
+                            IsBypassUsed = true,
+                            BypassedBlockReason = bypassedBlockReason,
+                            Explanation = "permitted by bypass",
                         });
 
         // the reverse of the fixture default, for tests about what the service does when the
@@ -132,6 +153,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         {
                             IsPermitted = false,
                             DenialReason = reason,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
                             Explanation = "refused",
                         });
 

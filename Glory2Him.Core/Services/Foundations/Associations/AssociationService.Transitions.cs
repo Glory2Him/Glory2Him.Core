@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -145,7 +146,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // decided against the STORED endpoints. Approving from the caller's copy would let
             // a contributor claim an endpoint content type they hold a reviewer role for and
             // approve their own row.
-            await ValidateUserCanApproveStorageAssociationAsync(
+            AccessVerdict accessVerdict = await ValidateUserCanApproveStorageAssociationAsync(
                 storageAssociation: storageAssociation,
                 association: association,
                 securityContext: inboundEnvelope.SecurityContext,
@@ -158,6 +159,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             storageAssociation.ApprovalStatus = association.ApprovalStatus;
             storageAssociation.IsPublished = association.IsPublished;
             storageAssociation.PublishDate = association.PublishDate;
+
+            // The two exceptions, DERIVED from the decision rather than accepted from the
+            // caller. Copying these the way the three above are copied would let a caller
+            // performing a genuine bypass send IsApprovedByBypass = false and erase the record.
+            //
+            // This operation never requests a bypass, so the decision can only come back false;
+            // the bypass verb of HR-4 route 3 is what will ever write true. Clearing the reason
+            // is deliberate rather than incidental: an entity bypass-approved, later amended and
+            // then approved normally must stop claiming it was bypassed.
+            storageAssociation.IsApprovedByBypass = accessVerdict.IsBypassUsed;
+            storageAssociation.ApprovedByBypassReason = null;
 
             // The fact follows the DECISION, not the operation's name. A rejection broadcast
             // on the Approved address would tell every subscriber the opposite of what

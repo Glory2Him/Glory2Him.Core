@@ -89,6 +89,20 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Draft;
 
         /// <summary>
+        /// A denormalized field to indicate whether the approval conditions were bypassed to
+        /// reach the current status. Derived on write from the access decision, never accepted
+        /// from a caller.
+        /// </summary>
+        public bool IsApprovedByBypass { get; set; } = false;
+
+        /// <summary>
+        /// A denormalized field recording why the approval conditions were waived. Populated
+        /// only when <see cref="IsApprovedByBypass"/> is true, and derived on write from the
+        /// same decision, never accepted from a caller.
+        /// </summary>
+        public string? ApprovedByBypassReason { get; set; }
+
+        /// <summary>
         /// Gets or sets a value indicating whether the content item is deleted.
         /// </summary>
         public bool IsDeleted { get; set; } = false;

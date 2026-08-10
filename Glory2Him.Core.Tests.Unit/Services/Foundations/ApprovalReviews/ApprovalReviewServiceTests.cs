@@ -118,7 +118,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                         {
                             IsPermitted = true,
                             DenialReason = AccessDenialReason.None,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
                             Explanation = "permitted",
+                        });
+
+        // A permit reached by WAIVING the conditions rather than by meeting them. Recording a
+        // review never takes this route today — HR-1 has no bypass — but the verdict type is
+        // shared, so the fixture can state the shape a bypassing verdict has.
+        private void SetupAccessBrokerToPermitByBypass(
+            AccessDenialReason bypassedBlockReason) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayRecordApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = true,
+                            DenialReason = AccessDenialReason.None,
+                            IsBypassUsed = true,
+                            BypassedBlockReason = bypassedBlockReason,
+                            Explanation = "permitted by bypass",
                         });
 
         // the reverse of the fixture default, for tests about what the service does when the
@@ -134,6 +156,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                         {
                             IsPermitted = false,
                             DenialReason = reason,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
                             Explanation = "refused",
                         });
 

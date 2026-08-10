@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -271,6 +272,156 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             savedAssociation.ModelVersion.Should().Be(expectedStorageAssociation.ModelVersion);
             savedAssociation.CreatedBy.Should().Be(expectedStorageAssociation.CreatedBy);
             savedAssociation.CreatedWhen.Should().Be(expectedStorageAssociation.CreatedWhen);
+        }
+
+        // ── The bypass record is DERIVED, not copied ─────────────────────────────────────────
+        //
+        // Three of the four IApproval members approve owns are taken from the caller. These two
+        // are not, and the exception is the whole point of them: the field exists to record that
+        // the approval conditions were waived, and a caller who can set it can equally clear it
+        // — un-recording the one event it is here to capture.
+
+        [Fact]
+        public async Task ShouldIgnoreTheCallersBypassRecordOnApproveAsync()
+        {
+            // given: the caller claims a bypass it was never granted. The decision came back
+            // permitted WITHOUT one, so the saved row must say so — otherwise the flag means
+            // "the caller said so" rather than "the rules were waived", and it is evidence of
+            // nothing.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            Association storageAssociation = CreateApprovableStorageAssociation();
+            storageAssociation.IsApprovedByBypass = false;
+            storageAssociation.ApprovedByBypassReason = null;
+
+            Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);
+            inputAssociation.IsApprovedByBypass = true;
+            inputAssociation.ApprovedByBypassReason = "caller supplied";
+
+            SetupAccessBrokerToPermit();
+
+            // when
+            Association savedAssociation = await CaptureSavedAssociationOnApproveAsync(
+                storageAssociation,
+                inputAssociation);
+
+            // then
+            savedAssociation.Should().NotBeNull();
+
+            // the decision, not the claim
+            savedAssociation.IsApprovedByBypass.Should().BeFalse();
+            savedAssociation.ApprovedByBypassReason.Should().BeNull();
+
+            // and the three members approve DOES take from the caller still arrive, so this is
+            // a statement about these two fields rather than about the copy being broken
+            savedAssociation.ApprovalStatus.Should().Be(inputAssociation.ApprovalStatus);
+            savedAssociation.IsPublished.Should().Be(inputAssociation.IsPublished);
+            savedAssociation.PublishDate.Should().Be(inputAssociation.PublishDate);
+        }
+
+        [Fact]
+        public async Task ShouldRecordTheBypassOnTheRowWhenTheDecisionWaivedTheConditionsAsync()
+        {
+            // given: the mirror image — the caller claims nothing and the DECISION reports a
+            // bypass. The flag has to travel from the verdict onto the row, or a genuine bypass
+            // leaves no trace at all and the field is dead weight.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            Association storageAssociation = CreateApprovableStorageAssociation();
+            storageAssociation.IsApprovedByBypass = false;
+            storageAssociation.ApprovedByBypassReason = null;
+
+            Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);
+            inputAssociation.IsApprovedByBypass = false;
+            inputAssociation.ApprovedByBypassReason = null;
+
+            SetupAccessBrokerToPermitByBypass(AccessDenialReason.BlockedByRejection);
+
+            // when
+            Association savedAssociation = await CaptureSavedAssociationOnApproveAsync(
+                storageAssociation,
+                inputAssociation);
+
+            // then
+            savedAssociation.Should().NotBeNull();
+            savedAssociation.IsApprovedByBypass.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldClearAnEarlierBypassRecordWhenTheRowIsApprovedNormallyAsync()
+        {
+            // given: a row bypass-approved once already, amended since, and now approved on its
+            // merits. Clearing is deliberate rather than incidental — a row that met its
+            // conditions this time must stop claiming they were waived, or the flag accumulates
+            // and every bypassed entity stays flagged for the rest of its life.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            Association storageAssociation = CreateApprovableStorageAssociation();
+            storageAssociation.IsApprovedByBypass = true;
+            storageAssociation.ApprovedByBypassReason = "an earlier bypass";
+
+            Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);
+            inputAssociation.IsApprovedByBypass = false;
+            inputAssociation.ApprovedByBypassReason = null;
+
+            SetupAccessBrokerToPermit();
+
+            // when
+            Association savedAssociation = await CaptureSavedAssociationOnApproveAsync(
+                storageAssociation,
+                inputAssociation);
+
+            // then
+            savedAssociation.Should().NotBeNull();
+            savedAssociation.IsApprovedByBypass.Should().BeFalse();
+            savedAssociation.ApprovedByBypassReason.Should().BeNull();
+        }
+
+        // Runs a permitted approve end to end and hands back a snapshot of the row that reached
+        // the storage broker. The snapshot is taken INSIDE the callback: the service copies onto
+        // the instance the storage read handed it, so reading that instance after the act would
+        // compare the row with itself and pass however the operation behaved.
+        private async ValueTask<Association> CaptureSavedAssociationOnApproveAsync(
+            Association storageAssociation,
+            Association inputAssociation)
+        {
+            Association savedAssociation = null;
+
+            SetupStorageRead(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((Association entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Association, CancellationToken>(
+                            (entity, _) => savedAssociation = entity.DeepClone())
+                        .ReturnsAsync((Association entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<AssociationEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Association>>(
+                            new EventPublishResult<Association>()));
+
+            await this.associationService.ApproveAssociationAsync(
+                inputAssociation,
+                TestContext.Current.CancellationToken);
+
+            return savedAssociation;
         }
     }
 }

@@ -110,5 +110,17 @@ namespace Glory2Him.Core.Models.Foundations.Links
         /// Denormalized approval state mirroring the linked <see cref="Approval"/> record.
         /// </summary>
         public ApprovalStatus ApprovalStatus { get; set; } = ApprovalStatus.Draft;
+
+        /// <summary>
+        /// Denormalized from the approval record: whether the approval conditions were bypassed
+        /// to reach the current status. Derived on write, never accepted from a caller.
+        /// </summary>
+        public bool IsApprovedByBypass { get; set; } = false;
+
+        /// <summary>
+        /// Denormalized from the approval record: why the conditions were waived. Set only when
+        /// <see cref="IsApprovedByBypass"/> is true, derived on write, never accepted from a caller.
+        /// </summary>
+        public string? ApprovedByBypassReason { get; set; }
     }
 }

@@ -29,8 +29,38 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <summary>
         /// Why it was refused, or <see cref="AccessDenialReason.None"/> when permitted. Switch on
         /// this to author a caller-facing message.
+        ///
+        /// <para>There is exactly one value meaning "permitted", and it stays that way. A second
+        /// success sentinel — a member meaning "permitted, by bypass" — would silently break every
+        /// gate written as <c>if (reason != None) throw</c>, which is every gate that throws. A
+        /// bypass is reported on <see cref="IsBypassUsed"/> instead.</para>
         /// </summary>
         public required AccessDenialReason DenialReason { get; init; }
+
+        /// <summary>
+        /// Whether this permission was granted by waiving the approval conditions rather than by
+        /// meeting them. Always false on a refusal.
+        ///
+        /// <para>The caller writes this to the row it is approving. It must come from here and
+        /// never from caller input: the field exists to record that the conditions were waived,
+        /// and whoever can set it can equally clear it, un-recording the one event it is here to
+        /// capture.</para>
+        /// </summary>
+        public required bool IsBypassUsed { get; init; }
+
+        /// <summary>
+        /// What <i>would</i> have blocked this approval had the bypass not been used, or
+        /// <see cref="AccessDenialReason.None"/> when nothing would have.
+        ///
+        /// <para>This is the difference between a bypass worth investigating and a harmless one.
+        /// Without it, waiving a standing rejection and waiving nothing at all leave identical
+        /// records — and the first is the entire reason the audit trail exists. The conditions are
+        /// therefore still evaluated on the bypass path, purely so this can be reported.</para>
+        ///
+        /// <para>Always <see cref="AccessDenialReason.None"/> when
+        /// <see cref="IsBypassUsed"/> is false.</para>
+        /// </summary>
+        public required AccessDenialReason BypassedBlockReason { get; init; }
 
         /// <summary>
         /// A human-readable account of the decision, for the server-side log.
