@@ -12,10 +12,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Clients;
 using G2H.Security.Client.Clients.Access;
+using G2H.Security.Client.Clients.Audits;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -42,12 +44,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
     public partial class AccessBrokerTests
     {
         private readonly Mock<IStorageBroker> storageBrokerMock;
-        private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<ISecurityClient> securityClientMock;
         private readonly Mock<IAccessClient> accessClientMock;
+        private readonly Mock<IAuditClient> auditClientMock;
         private readonly IAccessBroker accessBroker;
 
-        // The id the audit broker resolves. Every SecurityContext this fixture builds carries a
+        // The id the audit surface resolves. Every SecurityContext this fixture builds carries a
         // DIFFERENT SubjectId, so a test asserting the actor id cannot pass on the wrong source.
         private readonly string auditResolvedUserId;
 
@@ -56,20 +58,30 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         private DecideApprovalRequest capturedDecideApprovalRequest;
         private RecordReviewRequest capturedRecordReviewRequest;
 
+        // The principal the broker built from the envelope's SecurityContext. Rebuilt inside the
+        // broker, so it can only be seen from the boundary it was handed to.
+        private ClaimsPrincipal capturedActorPrincipal;
+
         public AccessBrokerTests()
         {
             this.storageBrokerMock = new Mock<IStorageBroker>();
-            this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.securityClientMock = new Mock<ISecurityClient>();
             this.accessClientMock = new Mock<IAccessClient>();
+            this.auditClientMock = new Mock<IAuditClient>();
             this.auditResolvedUserId = "audit-resolved-" + GetRandomString();
 
             this.securityClientMock.SetupGet(client =>
                 client.Access)
                     .Returns(this.accessClientMock.Object);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+            this.securityClientMock.SetupGet(client =>
+                client.Audits)
+                    .Returns(this.auditClientMock.Object);
+
+            this.auditClientMock.Setup(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()))
+                    .Callback((ClaimsPrincipal claimsPrincipal) =>
+                        this.capturedActorPrincipal = claimsPrincipal)
                     .ReturnsAsync(this.auditResolvedUserId);
 
             // Empty by default so a test only states the rows its own subject depends on. Moq
@@ -84,9 +96,18 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // make every test here an integration test against the decision function.
             this.accessBroker = new AccessBroker(
                 storageBroker: this.storageBrokerMock.Object,
-                securityAuditBroker: this.securityAuditBrokerMock.Object,
                 securityClient: this.securityClientMock.Object);
         }
+
+        // The broker rebuilds the principal from the envelope's SecurityContext, so the call
+        // cannot be matched by reference the way the SecurityContext once was. Matching on the
+        // NameIdentifier claim keeps the verification tied to the context it was made for.
+        private void VerifyTheActorWasResolvedFor(SecurityContext securityContext) =>
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.Is<ClaimsPrincipal>(claimsPrincipal =>
+                    claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier).Value
+                        == securityContext.SubjectId)),
+                            Times.Once);
 
         private void SetupAccessClientToReturn(AccessVerdict accessVerdict)
         {

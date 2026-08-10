@@ -184,27 +184,9 @@ namespace Glory2Him.Core.Brokers.Securities
         public async ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
             await securityClient.Audits.GetUserIdAsync(CreateClaimsPrincipal(securityContext));
 
-        // Rebuilds a principal from the envelope's normalized actor so the same security
-        // client pipeline (which resolves the user id from oid/nameidentifier claims) stamps
-        // the ORIGINAL caller, regardless of what identity the current process runs under.
-        private static ClaimsPrincipal CreateClaimsPrincipal(SecurityContext securityContext)
-        {
-            var claims = new List<Claim>();
-
-            if (string.IsNullOrWhiteSpace(securityContext?.SubjectId) is false)
-                claims.Add(new Claim(ClaimTypes.NameIdentifier, securityContext!.SubjectId!));
-
-            if (string.IsNullOrWhiteSpace(securityContext?.Username) is false)
-                claims.Add(new Claim(ClaimTypes.Name, securityContext!.Username!));
-
-            foreach (string role in securityContext?.Roles ?? [])
-                claims.Add(new Claim(ClaimTypes.Role, role));
-
-            ClaimsIdentity identity = securityContext?.IsAuthenticated == true
-                ? new ClaimsIdentity(claims, authenticationType: "EventEnvelope")
-                : new ClaimsIdentity(claims);
-
-            return new ClaimsPrincipal(identity);
-        }
+        // Shared with AccessBroker, which resolves the actor these audit values are later
+        // compared against. See SecurityContextPrincipalFactory for why there is only one.
+        private static ClaimsPrincipal CreateClaimsPrincipal(SecurityContext securityContext) =>
+            SecurityContextPrincipalFactory.Create(securityContext);
     }
 }

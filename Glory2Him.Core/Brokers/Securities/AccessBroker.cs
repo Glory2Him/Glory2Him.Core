@@ -30,25 +30,17 @@ namespace Glory2Him.Core.Brokers.Securities
     internal class AccessBroker : IAccessBroker
     {
         private readonly IStorageBroker storageBroker;
-        private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly ISecurityClient securityClient;
 
-        public AccessBroker(
-            IStorageBroker storageBroker,
-            ISecurityAuditBroker securityAuditBroker)
+        public AccessBroker(IStorageBroker storageBroker)
         {
             this.storageBroker = storageBroker;
-            this.securityAuditBroker = securityAuditBroker;
             this.securityClient = new SecurityClient();
         }
 
-        internal AccessBroker(
-            IStorageBroker storageBroker,
-            ISecurityAuditBroker securityAuditBroker,
-            ISecurityClient securityClient)
+        internal AccessBroker(IStorageBroker storageBroker, ISecurityClient securityClient)
         {
             this.storageBroker = storageBroker;
-            this.securityAuditBroker = securityAuditBroker;
             this.securityClient = securityClient;
         }
 
@@ -149,7 +141,12 @@ namespace Glory2Him.Core.Brokers.Securities
             // The actor id comes from the same function that stamped CreatedBy, NOT from
             // SecurityContext.SubjectId. The self-review and self-approval rules compare the two,
             // and two resolvers make that comparison meaningless.
-            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
+            //
+            // This reaches the security client directly rather than through SecurityAuditBroker,
+            // which would only have forwarded the same call. What the two brokers DO have to
+            // share is the principal built from the envelope's actor — hence the one factory.
+            string actorUserId = await this.securityClient.Audits.GetUserIdAsync(
+                SecurityContextPrincipalFactory.Create(securityContext));
 
             return new AccessActor
             {

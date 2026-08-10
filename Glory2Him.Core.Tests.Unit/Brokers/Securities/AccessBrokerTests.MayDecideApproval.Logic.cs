@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -30,10 +31,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
     public partial class AccessBrokerTests
     {
         // The self-approval bar compares the actor against CreatedBy, and CreatedBy is stamped by
-        // the audit broker. Resolving the actor from SecurityContext.SubjectId instead would make
-        // that comparison answer "not the author" for the author.
+        // the security client's audit surface. Resolving the actor from SecurityContext.SubjectId
+        // instead would make that comparison answer "not the author" for the author.
         [Fact]
-        public async Task ShouldResolveTheActorFromTheSecurityAuditBrokerOnDecideAsync()
+        public async Task ShouldResolveTheActorFromTheAuditClientOnDecideAsync()
         {
             // given
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
@@ -55,9 +56,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.capturedDecideApprovalRequest.Actor.UserId
                 .Should().NotBe(securityContext.SubjectId);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(securityContext),
-                    Times.Once);
+            VerifyTheActorWasResolvedFor(securityContext);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
@@ -72,7 +71,64 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
+            this.accessClientMock.VerifyNoOtherCalls();
+        }
+
+        // The actor is resolved from a principal the broker REBUILDS out of the envelope's
+        // SecurityContext, and SecurityAuditBroker stamps CreatedBy from a principal built the
+        // same way — one shared SecurityContextPrincipalFactory. A principal that stopped
+        // carrying the envelope's subject would still resolve to SOMETHING, just not the same
+        // person the self-approval bar compares against. This is the test that would fail first.
+        [Fact]
+        public async Task ShouldBuildTheActorPrincipalFromTheEnvelopeContextAsync()
+        {
+            // given
+            var roles = new List<string> { Roles.Publisher, "ContentItem-Testimony-Reviewer" };
+
+            SecurityContext securityContext = CreateSecurityContext(
+                roles: roles,
+                isAuthenticated: true);
+
+            ApprovalDecisionQuery approvalDecisionQuery = CreateApprovalDecisionQuery(
+                entityType: EntityType.ContentItem,
+                entityId: Guid.NewGuid(),
+                securityContext: securityContext);
+
+            // when
+            await this.accessBroker.MayDecideApprovalAsync(
+                approvalDecisionQuery,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedActorPrincipal.Should().NotBeNull();
+
+            this.capturedActorPrincipal.FindFirst(ClaimTypes.NameIdentifier)
+                .Should().NotBeNull();
+
+            this.capturedActorPrincipal.FindFirst(ClaimTypes.NameIdentifier).Value
+                .Should().Be(securityContext.SubjectId);
+
+            this.capturedActorPrincipal.FindAll(ClaimTypes.Role)
+                .Select(claim => claim.Value)
+                    .Should().BeEquivalentTo(roles);
+
+            VerifyTheActorWasResolvedFor(securityContext);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
+                    Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()),
+                    Times.Once);
+
+            this.accessClientMock.Verify(client =>
+                client.MayDecideApprovalAsync(It.IsAny<DecideApprovalRequest>()),
+                    Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -106,9 +162,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.capturedDecideApprovalRequest.Actor.IsAuthenticated
                 .Should().Be(isAuthenticated);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(securityContext),
-                    Times.Once);
+            VerifyTheActorWasResolvedFor(securityContext);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
@@ -123,7 +177,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -210,8 +264,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             VerifyDecideStorageReadsForAnExistingApproval();
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -219,7 +273,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -273,8 +327,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             VerifyDecideStorageReadsForAnExistingApproval();
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -282,7 +336,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -371,8 +425,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             narrowPolicy.RequireReviewCommentResolutionBeforeApprovals.Should().BeFalse();
             narrowPolicy.DoNotAllowBypassingSettings.Should().BeTrue();
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -388,7 +442,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -441,8 +495,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             VerifyDecideStorageReadsForAnExistingApproval();
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -450,7 +504,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -494,8 +548,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             VerifyDecideStorageReadsForAnExistingApproval();
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -503,7 +557,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -563,8 +617,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 broker.SelectAllApprovalSettingsAsync(It.IsAny<CancellationToken>()),
                     Times.Once);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -572,7 +626,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -619,8 +673,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             VerifyDecideStorageReadsForAnExistingApproval();
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -628,7 +682,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -671,8 +725,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.capturedDecideApprovalRequest.BypassReason.Should().Be("the recorded reason");
             this.capturedDecideApprovalRequest.RoleSubjects.Should().BeSameAs(roleSubjects);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -688,7 +742,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -719,8 +773,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // then
             actualVerdict.Should().BeSameAs(refusedVerdict);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -736,7 +790,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 

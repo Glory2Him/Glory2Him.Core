@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -58,16 +59,14 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 client.MayRecordApprovalReviewAsync(It.IsAny<RecordReviewRequest>()),
                     Times.Never);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(securityContext),
-                    Times.Once);
+            VerifyTheActorWasResolvedFor(securityContext);
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectApprovalByIdAsync(approvalId, It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -122,8 +121,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyEntityAuthorRead(entityType, entityId);
             VerifyRecordReviewGatherReads(approvalId);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -131,7 +130,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -172,8 +171,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyEntityAuthorRead(EntityType.ContentItem, entityId);
             VerifyRecordReviewGatherReads(approvalId);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -181,12 +180,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldResolveTheActorFromTheSecurityAuditBrokerOnRecordReviewAsync()
+        public async Task ShouldResolveTheActorFromTheAuditClientOnRecordReviewAsync()
         {
             // given
             Guid approvalId = Guid.NewGuid();
@@ -226,16 +225,14 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyEntityAuthorRead(EntityType.ContentItem, entityId);
             VerifyRecordReviewGatherReads(approvalId);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(securityContext),
-                    Times.Once);
+            VerifyTheActorWasResolvedFor(securityContext);
 
             this.accessClientMock.Verify(client =>
                 client.MayRecordApprovalReviewAsync(It.IsAny<RecordReviewRequest>()),
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -310,8 +307,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyEntityAuthorRead(EntityType.Tag, entityId);
             VerifyRecordReviewGatherReads(approvalId);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -319,7 +316,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
@@ -361,8 +358,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             VerifyEntityAuthorRead(EntityType.ContentItem, entityId);
             VerifyRecordReviewGatherReads(approvalId);
 
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
                     Times.Once);
 
             this.accessClientMock.Verify(client =>
@@ -370,7 +367,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     Times.Once);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
         }
 
