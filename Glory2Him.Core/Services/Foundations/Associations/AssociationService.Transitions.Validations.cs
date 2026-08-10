@@ -140,7 +140,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // it. It is not redundancy for its own sake: it is what makes an unauthorised caller
         // cost one role comparison instead of four table reads, and it means a defect in the
         // gathering can only ever make this gate stricter, never open it.
-        private async ValueTask ValidateUserCanApproveStorageAssociationAsync(
+        // Returns the verdict rather than only throwing on refusal, because the caller has to
+        // write IsApprovedByBypass from it. Those two IApproval members are the one part of the
+        // interface the approve operation DERIVES instead of accepting: they exist to record that
+        // the conditions were waived, and a caller able to set them is equally able to clear
+        // them, erasing the one event they are here to capture (design §9.7.1 rule 3).
+        private async ValueTask<AccessVerdict> ValidateUserCanApproveStorageAssociationAsync(
             Association storageAssociation,
             Association association,
             SecurityContext securityContext,
@@ -215,6 +220,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     message: "The current user is not allowed to approve " +
                         "this content item association.");
             }
+
+            return verdict;
         }
 
         // The Publisher tier: a global Publisher or Admin, or a scoped publisher matching AT

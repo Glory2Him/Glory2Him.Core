@@ -124,6 +124,8 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
             {
                 IsPermitted = true,
                 DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
                 Explanation = GetRandomString(),
             };
 

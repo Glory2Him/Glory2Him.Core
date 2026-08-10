@@ -104,6 +104,132 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 Times.Never);
         }
 
+        // The bypass record has to be pinned on modify as well as derived on approve. Approve
+        // refusing to accept it is worth nothing on its own if the general modify hands it back
+        // by the side door: whoever bypass-approved a row could then reopen it and quietly clear
+        // the flag that says so, and the evidence would be gone with no trace of its removal.
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheBypassFlagWasChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.TagReviewer);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string attackerUserId = GetRandomString();
+            string victimUserId = GetRandomString();
+
+            Association invalidAssociation =
+                CreateRandomModifyAssociation(randomDateTimeOffset, attackerUserId);
+
+            invalidAssociation.EntityAType = EntityType.BibleReference;
+            invalidAssociation.EntityAScope = Scope.ThisVersionOnly;
+            invalidAssociation.EntityAContentType = null;
+            invalidAssociation.EntityBType = EntityType.Tag;
+            invalidAssociation.EntityBScope = Scope.ThisVersionOnly;
+            invalidAssociation.EntityBContentType = null;
+            invalidAssociation.CreatedBy = victimUserId;
+            invalidAssociation.IsApprovedByBypass = true;
+
+            Association storageAssociation = invalidAssociation.DeepClone();
+            storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
+
+            // the erasure: the stored row says a bypass happened, the caller says it did not
+            invalidAssociation.IsApprovedByBypass = false;
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.IsApprovedByBypass),
+                values: $"Value is not the same as {nameof(Association.IsApprovedByBypass)}");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: invalidAssociationException);
+
+            SetupFailingModifyPathBrokers(
+                invalidAssociation, storageAssociation, invalidAssociation.UpdatedBy, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> modifyTask =
+                this.associationService.ModifyAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(modifyTask.AsTask);
+
+            // then
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheBypassReasonWasChangedAndLogItAsync()
+        {
+            // given: the flag alone is not the record — a bypass is only tolerable because it
+            // says WHY, so rewriting the reason defeats the field just as completely as clearing
+            // the flag does.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.TagReviewer);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string attackerUserId = GetRandomString();
+            string victimUserId = GetRandomString();
+
+            Association invalidAssociation =
+                CreateRandomModifyAssociation(randomDateTimeOffset, attackerUserId);
+
+            invalidAssociation.EntityAType = EntityType.BibleReference;
+            invalidAssociation.EntityAScope = Scope.ThisVersionOnly;
+            invalidAssociation.EntityAContentType = null;
+            invalidAssociation.EntityBType = EntityType.Tag;
+            invalidAssociation.EntityBScope = Scope.ThisVersionOnly;
+            invalidAssociation.EntityBContentType = null;
+            invalidAssociation.CreatedBy = victimUserId;
+            invalidAssociation.ApprovedByBypassReason = "the recorded reason";
+
+            Association storageAssociation = invalidAssociation.DeepClone();
+            storageAssociation.UpdatedWhen = storageAssociation.CreatedWhen;
+
+            invalidAssociation.ApprovedByBypassReason = "a reason of the caller's own";
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association is invalid, fix the errors and try again.");
+
+            invalidAssociationException.AddData(
+                key: nameof(Association.ApprovedByBypassReason),
+                values: $"Text is not the same as {nameof(Association.ApprovedByBypassReason)}");
+
+            var expectedAssociationValidationException = new AssociationValidationException(
+                message: "Content item association validation error occurred, fix the errors and try again.",
+                innerException: invalidAssociationException);
+
+            SetupFailingModifyPathBrokers(
+                invalidAssociation, storageAssociation, invalidAssociation.UpdatedBy, randomDateTimeOffset);
+
+            // when
+            ValueTask<Association> modifyTask =
+                this.associationService.ModifyAssociationAsync(
+                    invalidAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actual =
+                await Assert.ThrowsAsync<AssociationValidationException>(modifyTask.AsTask);
+
+            // then
+            actual.Should().BeEquivalentTo(expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(It.IsAny<Association>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
         public static TheoryData<ApprovalStatus, ApprovalStatus> SubmissionTransitions() =>
             new TheoryData<ApprovalStatus, ApprovalStatus>
             {

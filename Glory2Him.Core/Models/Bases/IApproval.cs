@@ -28,10 +28,35 @@ namespace Glory2Him.Core.Models.Bases
         bool IsPublished { get; set; }
 
         /// <summary>
-        /// A denormalized field to indicate if the content item has been approved. 
-        /// This is used to optimize queries for approved content items without 
+        /// A denormalized field to indicate if the content item has been approved.
+        /// This is used to optimize queries for approved content items without
         /// needing to join with the approvals table.
         /// </summary>
         ApprovalStatus ApprovalStatus { get; set; }
+
+        /// <summary>
+        /// Indicates whether the approval conditions were bypassed to reach the current
+        /// <see cref="ApprovalStatus"/>. Denormalized from the approval record for the same
+        /// reason the status is: so "what was published without meeting its conditions" is a
+        /// query rather than a join.
+        ///
+        /// <para><b>Derived on write and never accepted from a caller.</b> It exists to record
+        /// that the conditions were waived, and a caller who could set it could equally clear
+        /// it — un-recording the one event the field is here to capture. The approve operation
+        /// writes it from the access decision, not from its input, which is why it is an
+        /// exception to the rule that approve copies the caller's <c>IApproval</c> values
+        /// (design §9.7.1 rule 3).</para>
+        /// </summary>
+        bool IsApprovedByBypass { get; set; }
+
+        /// <summary>
+        /// Why the approval conditions were waived. Populated only when
+        /// <see cref="IsApprovedByBypass"/> is true, and cleared with it.
+        ///
+        /// <para>Derived on write from the same decision, for the same reason. A bypass is only
+        /// tolerable because it leaves a record, and an unexplained one records nothing worth
+        /// reading.</para>
+        /// </summary>
+        string? ApprovedByBypassReason { get; set; }
     }
 }

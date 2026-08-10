@@ -212,6 +212,14 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(ApprovalStatus.Draft);
 
+            model.Property(association => association.IsApprovedByBypass)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            model.Property(association => association.ApprovedByBypassReason)
+                 .HasMaxLength(500)
+                 .IsRequired(false);
+
             // the read that runs on every page render — "associations for this entity" —
             // has to check both sides, because canonical ordering means the entity the
             // caller is looking at may be on either

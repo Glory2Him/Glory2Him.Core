@@ -89,6 +89,14 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(ApprovalStatus.Draft);
 
+            model.Property(attachment => attachment.IsApprovedByBypass)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
+            model.Property(attachment => attachment.ApprovedByBypassReason)
+                 .HasMaxLength(500)
+                 .IsRequired(false);
+
             // Unique version per group
             model.HasIndex(attachment => new { attachment.ContentItemGroupId, attachment.Version })
                  .IsUnique()

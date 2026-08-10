@@ -755,6 +755,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             {
                 IsPermitted = false,
                 DenialReason = AccessDenialReason.ApprovalThresholdNotMet,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
                 Explanation = "2 of 3 approvals",
             };
 

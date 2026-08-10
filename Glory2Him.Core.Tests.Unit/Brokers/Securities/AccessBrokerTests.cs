@@ -285,6 +285,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             {
                 IsPermitted = true,
                 DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
                 Explanation = "permitted",
             };
 

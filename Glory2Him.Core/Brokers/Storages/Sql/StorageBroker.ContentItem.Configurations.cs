@@ -108,6 +108,16 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsRequired()
                 .HasDefaultValue(ApprovalStatus.Draft);
 
+            model
+                .Property(contentItem => contentItem.IsApprovedByBypass)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model
+                .Property(contentItem => contentItem.ApprovedByBypassReason)
+                .HasMaxLength(500)
+                .IsRequired(false);
+
             // Optional properties
             model.Property(contentItem => contentItem.Title);
             model.Property(contentItem => contentItem.Author);

@@ -200,7 +200,24 @@ namespace G2H.Security.Client.Services.Foundations.Access
                         "A bypass must record why it was used.");
                 }
 
-                return Permit("Actor may approve this entity by bypass (HR-4 route 3).");
+                // The conditions are evaluated even though the answer cannot change the outcome,
+                // because WHAT was waived is the whole value of the record. A bypass over a
+                // standing rejection and a bypass over nothing are different events, and without
+                // this they would leave identical audit trails — the first being precisely the
+                // one anybody would later go looking for.
+                ApprovalConditionsVerdict bypassedConditions = EvaluateConditions(
+                    policy,
+                    request.Reviews,
+                    request.Comments,
+                    request.ConfidenceScore);
+
+                return PermitByBypass(
+                    bypassedConditions.BlockReason,
+                    bypassedConditions.AreConditionsMet
+                        ? "Actor may approve this entity by bypass (HR-4 route 3), though the "
+                            + "conditions were already met — nothing was waived."
+                        : "Actor may approve this entity by bypass (HR-4 route 3), waiving: "
+                            + bypassedConditions.Explanation);
             }
 
             ApprovalConditionsVerdict conditions = EvaluateConditions(
@@ -402,6 +419,22 @@ namespace G2H.Security.Client.Services.Foundations.Access
             {
                 IsPermitted = true,
                 DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = explanation,
+            };
+
+        // Permitted, and the conditions were waived to get there. DenialReason stays None — this
+        // is a permission, and a caller checking `reason != None` must not see a refusal here.
+        private static AccessVerdict PermitByBypass(
+            AccessDenialReason bypassedBlockReason,
+            string explanation) =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = true,
+                BypassedBlockReason = bypassedBlockReason,
                 Explanation = explanation,
             };
 
@@ -410,6 +443,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
             {
                 IsPermitted = false,
                 DenialReason = reason,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
                 Explanation = explanation,
             };
     }

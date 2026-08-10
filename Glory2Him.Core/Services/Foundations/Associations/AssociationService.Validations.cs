@@ -573,6 +573,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         secondDateName: nameof(Association.PublishDate)),
                     Parameter: nameof(Association.PublishDate)),
 
+                // The bypass record is pinned hardest of all, because it is the only field here
+                // whose whole purpose is to be read back later as evidence. The approve operation
+                // derives it from the access decision and never accepts it; leaving it writable
+                // through modify would hand it back to the caller by the side door — someone who
+                // bypass-approved could then quietly clear the flag that says so.
+                (Rule: IsNotSame(
+                        first: inputAssociation.IsApprovedByBypass,
+                        second: storageAssociation.IsApprovedByBypass,
+                        secondName: nameof(Association.IsApprovedByBypass)),
+                    Parameter: nameof(Association.IsApprovedByBypass)),
+
+                // Coalesced because the column is nullable and "no reason recorded" is the same
+                // fact whether it is stored as null or as empty — a caller sending one for the
+                // other is not attempting a change worth refusing.
+                (Rule: IsNotSame(
+                        first: inputAssociation.ApprovedByBypassReason ?? string.Empty,
+                        second: storageAssociation.ApprovedByBypassReason ?? string.Empty,
+                        secondName: nameof(Association.ApprovedByBypassReason)),
+                    Parameter: nameof(Association.ApprovedByBypassReason)),
+
                 // Sorting, confidence, scope and the reacting user are not content either, and
                 // each has its own gated operation. Leaving them writable here routes straight
                 // around those gates: an author could score their own association through
