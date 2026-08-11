@@ -296,7 +296,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(contentItem => contentItem.IsDeleted).Use(false)
                 .OnProperty(contentItem => contentItem.CreatedBy).Use(userId)
-                .OnProperty(contentItem => contentItem.UpdatedBy).Use(userId);
+                .OnProperty(contentItem => contentItem.UpdatedBy).Use(userId)
+
+                // A contribution is unpublished and unapproved: add refuses a caller-supplied
+                // IsPublished, PublishDate or verdict status, and modify pins all three
+                // against storage. Drawing them would make every write test fail on the draw
+                // rather than on what it is testing. Tests about read visibility set them
+                // explicitly on the storage row.
+                .OnProperty(contentItem => contentItem.ApprovalStatus).Use(ApprovalStatus.Draft)
+                .OnProperty(contentItem => contentItem.IsPublished).Use(false)
+                .OnProperty(contentItem => contentItem.PublishDate).IgnoreIt();
 
             return filler;
         }

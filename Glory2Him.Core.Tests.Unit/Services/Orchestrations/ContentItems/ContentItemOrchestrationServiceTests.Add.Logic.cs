@@ -47,7 +47,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
-                PublishDate = inputContentItem.PublishDate,
+
+                // the caller's publish date does not ride in on the add — a fresh row has
+                // none until approve grants one, which is why it lands unpublished in Draft
+                PublishDate = null,
                 ContentHash = expectedContentHash,
                 ContentItemGroupId = contentItemGroupId,
                 Version = 1,
@@ -193,6 +196,89 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
             // then
             capturedContentItem!.ContentHash.Should().Be(expectedContentHash);
+        }
+
+        [Fact]
+        public async Task ShouldNotCarryPublishDateOnAddAsync()
+        {
+            // given: PublishDate is an IApproval member, so under §9.7.1 rule 2's subtraction
+            // rule it is not content — and the add surface may carry an ApprovalStatus of
+            // Draft or Submitted and nothing else: never IsPublished, never PublishDate. The
+            // new row already lands unpublished and in Draft; taking the caller's publish date
+            // as well would let them schedule their own publication on the way in, without
+            // ever meeting the approve gate that owns it.
+            ContentItem inputContentItem = CreateRandomContentItem();
+            inputContentItem.PublishDate = GetRandomDateTimeOffset();
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string expectedContentHash = ComputeContentHash(inputContentItem.Content);
+            Guid contentItemId = Guid.NewGuid();
+            Guid contentItemGroupId = Guid.NewGuid();
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: CreateAuthenticatedSecurityContext());
+
+            var expectedMappedContentItem = new ContentItem
+            {
+                Id = contentItemId,
+                ContentType = inputContentItem.ContentType,
+                Title = inputContentItem.Title,
+                Author = inputContentItem.Author,
+                Content = inputContentItem.Content,
+                PublishDate = null,
+                ContentHash = expectedContentHash,
+                ContentItemGroupId = contentItemGroupId,
+                Version = 1,
+                IsLatestVersion = true,
+                IsPublished = false,
+                ApprovalStatus = ApprovalStatus.Draft,
+                IsDeleted = false
+            };
+
+            ContentItem addedContentItem = expectedMappedContentItem.DeepClone();
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(expectedContentHash);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentType,
+                    expectedContentHash,
+                    null,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
+
+            this.identifierBrokerMock.SetupSequence(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(contentItemId)
+                    .ReturnsAsync(contentItemGroupId);
+
+            ContentItem? capturedContentItem = null;
+
+            this.contentItemServiceMock.Setup(service =>
+                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
+                    .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
+                        capturedContentItem = contentItem)
+                    .ReturnsAsync(addedContentItem);
+
+            SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: addedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Added);
+
+            // when
+            await this.contentItemOrchestrationService.AddContentItemAsync(
+                inputContentItem,
+                TestContext.Current.CancellationToken);
+
+            // then
+            capturedContentItem.Should().BeEquivalentTo(expectedMappedContentItem);
+            capturedContentItem!.PublishDate.Should().BeNull();
         }
 
         [Fact]
