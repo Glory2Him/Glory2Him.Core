@@ -227,6 +227,40 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     content: transitionedAssociation);
             });
 
+        public ValueTask<EventEnvelope<Association>?> OnBypassApprovingAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationEventEnvelope(envelope);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .AssociationOnBypassApprovingAssociationSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // The reason travels in the field the outcome is recorded in, because an
+                // envelope carries an entity and nothing else. A missing one is routed into
+                // the same required-field validation the direct path runs rather than
+                // dereferenced — the request is refused as invalid, naming the field, instead
+                // of failing as a null nobody can act on.
+                Association transitionedAssociation =
+                    await DoBypassApproveAssociationAsync(
+                        association: envelope.Content,
+                        bypassReason: envelope.Content.ApprovedByBypassReason ?? string.Empty,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: transitionedAssociation);
+            });
+
         public ValueTask<EventEnvelope<Association>?> OnSettingAssociationConfidenceAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default) =>

@@ -55,6 +55,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);
 
+        // The bypass reason rides on the envelope's entity, in the field the outcome is
+        // recorded in. That is not the field being accepted as input: what lands on the row is
+        // still derived from the verdict, and is cleared when the verdict waived nothing.
+        ValueTask<EventEnvelope<Association>?> OnBypassApprovingAssociationAsync(
+            EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
         ValueTask<EventEnvelope<Association>?> OnSettingAssociationConfidenceAsync(
             EventEnvelope<Association> envelope,
             CancellationToken cancellationToken = default);

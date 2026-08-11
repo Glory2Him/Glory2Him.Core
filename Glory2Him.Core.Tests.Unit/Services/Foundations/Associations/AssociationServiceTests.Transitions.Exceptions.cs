@@ -169,6 +169,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 "Approve" => this.associationService.ApproveAssociationAsync(
                     CreateApprovalDecision(storageAssociation.Id), cancellationToken),
 
+                // the bypass verb has its own arm for the same reason every other name does:
+                // without one it falls through to the default and this theory row would drive
+                // set-scope while claiming to cover the bypass
+                "BypassApprove" => this.associationService.BypassApproveAssociationAsync(
+                    CreateApprovalDecision(storageAssociation.Id),
+                    GetRandomString(),
+                    cancellationToken),
+
                 "Sort" => this.associationService.SortAssociationAsync(
                     new Association { Id = storageAssociation.Id },
                     new Association { Id = Guid.NewGuid() },

@@ -803,6 +803,19 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler: this.associationServiceMock.Object
                     .OnApprovingAssociationAsync);
 
+            // Bypass-approve has a request address of its own — a bypass is a different act,
+            // asked for deliberately, and a subscriber watching for bypass requests must be
+            // able to watch that address alone. It has no fact address: the outcome goes out
+            // on Association-Approved.
+            VerifyAssociationSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .AssociationOnBypassApprovingAssociationSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .AssociationOnBypassApprovingAssociationSubscriptionName,
+                expectedOperation: AssociationEventOperation.BypassApproving,
+                expectedHandler: this.associationServiceMock.Object
+                    .OnBypassApprovingAssociationAsync);
+
             VerifyAssociationSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers
                     .AssociationOnSettingAssociationConfidenceSubscriptionId,

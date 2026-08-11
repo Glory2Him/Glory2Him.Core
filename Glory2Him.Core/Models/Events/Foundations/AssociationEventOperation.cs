@@ -48,6 +48,15 @@ namespace Glory2Him.Core.Models.Events.Foundations
         // raw SortOrder value (which is the design the anchor exists to avoid), sort is
         // direct-call only and publishes its fact like the others.
         Approving,
+
+        // The bypass-approve verb of HR-4 route 3. It is a REQUEST operation only: there is
+        // no BypassApproved fact, because a bypass approval is an approval to every
+        // subscriber and the waiver itself travels on the row (IsApprovedByBypass and
+        // ApprovedByBypassReason). Inventing a second approval fact would split the audience
+        // for one outcome, and a consumer subscribed to Approved alone would silently miss
+        // exactly the approvals most worth seeing.
+        BypassApproving,
+
         SettingConfidence,
         SettingScope,
         // Approve carries the whole decision, so it publishes one of TWO facts. A rejection

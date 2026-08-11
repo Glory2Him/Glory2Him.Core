@@ -51,6 +51,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             Association submittableAssociation = CreateSubmittableStorageAssociation();
             Association approvableAssociation = CreateApprovableStorageAssociation();
+            Association bypassApprovableAssociation = CreateApprovableStorageAssociation();
             Association sortableAssociation = CreateSubmittableStorageAssociation();
             Association scorableAssociation = CreateSubmittableStorageAssociation();
             Association scopableAssociation = CreateSubmittableStorageAssociation();
@@ -60,8 +61,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // Admin (satisfied by Admin), and set-confidence REFUSES the owner outright
             foreach (Association association in new[]
                 {
-                    submittableAssociation, approvableAssociation, sortableAssociation,
-                    scorableAssociation, scopableAssociation, anchorAssociation
+                    submittableAssociation, approvableAssociation,
+                    bypassApprovableAssociation, sortableAssociation, scorableAssociation,
+                    scopableAssociation, anchorAssociation
                 })
             {
                 association.CreatedBy = GetRandomString();
@@ -83,8 +85,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             foreach (Association association in new[]
                 {
-                    submittableAssociation, approvableAssociation, sortableAssociation,
-                    scorableAssociation, scopableAssociation, anchorAssociation
+                    submittableAssociation, approvableAssociation,
+                    bypassApprovableAssociation, sortableAssociation, scorableAssociation,
+                    scopableAssociation, anchorAssociation
                 })
             {
                 Association captured = association;
@@ -120,10 +123,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             CancellationToken cancellationToken = TestContext.Current.CancellationToken;
 
-            // when: all four run
+            // when: all five run
 
             await this.associationService.ApproveAssociationAsync(
                 CreateApprovalDecision(approvableAssociation.Id), cancellationToken);
+
+            // the bypass is the one transition whose fact is NOT its own: it publishes the
+            // ordinary Approved, so the list below carries Approved twice
+            await this.associationService.BypassApproveAssociationAsync(
+                CreateApprovalDecision(bypassApprovableAssociation.Id),
+                GetRandomString(),
+                cancellationToken);
 
             await this.associationService.SortAssociationAsync(
                 new Association { Id = sortableAssociation.Id },
@@ -141,7 +151,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 cancellationToken);
 
             // then
-            publishedOperations.Should().HaveCount(4,
+            publishedOperations.Should().HaveCount(5,
                 because: "each transition publishes exactly one fact");
 
             publishedOperations.Should().NotContain(AssociationEventOperation.Modified,
@@ -150,6 +160,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             publishedOperations.Should().BeEquivalentTo(new[]
             {
+                AssociationEventOperation.Approved,
                 AssociationEventOperation.Approved,
                 AssociationEventOperation.Sorted,
                 AssociationEventOperation.ConfidenceSet,

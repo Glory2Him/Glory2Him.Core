@@ -15,6 +15,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -45,6 +46,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 {
                     "Approve",
                     EventBrokerIdentifiers.AssociationOnApprovingAssociationSubscriptionName
+                },
+                {
+                    "BypassApprove",
+                    EventBrokerIdentifiers
+                        .AssociationOnBypassApprovingAssociationSubscriptionName
                 },
                 {
                     "SetConfidence",
@@ -156,6 +162,84 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             VerifyTransitionStorageCalls(
                 requestEnvelope,
                 EventBrokerIdentifiers.AssociationOnApprovingAssociationSubscriptionName,
+                storageAssociation);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldBypassApproveAndReplyOnBypassApprovingAssociationEventAsync()
+        {
+            // given: the bypass reason rides on the envelope's entity, in the very field the
+            // outcome is recorded in — an envelope carries one entity and nothing else. That is
+            // not the field being accepted as input: what lands on the row still comes from the
+            // verdict, which is why the stored row is pinned to "no bypass" below and the
+            // request's own flag is left saying the same.
+            Association storageAssociation = CreateApprovableStorageAssociation();
+            storageAssociation.CreatedBy = GetRandomString();
+            storageAssociation.IsApprovedByBypass = false;
+            storageAssociation.ApprovedByBypassReason = null;
+
+            string bypassReason = $"argument-{Guid.NewGuid()}";
+
+            Association requestedDecision = CreateApprovalDecision(storageAssociation.Id);
+            requestedDecision.IsApprovedByBypass = false;
+            requestedDecision.ApprovedByBypassReason = bypassReason;
+
+            var requestEnvelope = new EventEnvelope<Association>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                Content = requestedDecision,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            SetupUnprocessedTransitionRequest(
+                requestEnvelope,
+                EventBrokerIdentifiers
+                    .AssociationOnBypassApprovingAssociationSubscriptionName);
+
+            SetupStorageRead(storageAssociation);
+            SetupTransitionWriteBrokers();
+            SetupAccessBrokerToPermitByBypass(AccessDenialReason.BlockedByRejection);
+
+            // when
+            EventEnvelope<Association>? actualReplyEnvelope =
+                await this.associationService.OnBypassApprovingAssociationAsync(
+                    requestEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualReplyEnvelope.Should().NotBeNull();
+
+            actualReplyEnvelope!.Content.ApprovalStatus.Should()
+                .Be(requestEnvelope.Content.ApprovalStatus);
+
+            actualReplyEnvelope.Content.IsPublished.Should()
+                .Be(requestEnvelope.Content.IsPublished);
+
+            // the waiver, derived from the verdict rather than from the request's flag
+            actualReplyEnvelope.Content.IsApprovedByBypass.Should().BeTrue();
+            actualReplyEnvelope.Content.ApprovedByBypassReason.Should().Be(bypassReason);
+
+            // the request's own security context decides, not an ambient one — there is no
+            // HttpContext on the event path
+            actualReplyEnvelope.SecurityContext.Should()
+                .BeSameAs(requestEnvelope.SecurityContext);
+
+            // Approved, not a fact of its own: a bypass approval IS an approval to every
+            // subscriber, and the waiver travels on the row
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    AssociationEventOperation.Approved),
+                Times.Once);
+
+            VerifyTransitionStorageCalls(
+                requestEnvelope,
+                EventBrokerIdentifiers
+                    .AssociationOnBypassApprovingAssociationSubscriptionName,
                 storageAssociation);
 
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -301,6 +385,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             {
                 "Approve" => this.associationService.OnApprovingAssociationAsync(
                     requestEnvelope, cancellationToken),
+
+                "BypassApprove" =>
+                    this.associationService.OnBypassApprovingAssociationAsync(
+                        requestEnvelope, cancellationToken),
 
                 "SetConfidence" =>
                     this.associationService.OnSettingAssociationConfidenceAsync(
