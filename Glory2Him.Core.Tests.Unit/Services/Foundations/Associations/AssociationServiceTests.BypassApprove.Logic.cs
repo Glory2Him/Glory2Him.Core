@@ -168,6 +168,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     broker.GetCurrentDateTimeOffsetAsync(),
                 Times.AtLeastOnce);
 
+            // the waiver's audit entry — which condition was overridden, server-side
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(It.Is<string>(message =>
+                    message.Contains(AccessDenialReason.BlockedByRejection.ToString()))),
+                Times.Once);
+
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

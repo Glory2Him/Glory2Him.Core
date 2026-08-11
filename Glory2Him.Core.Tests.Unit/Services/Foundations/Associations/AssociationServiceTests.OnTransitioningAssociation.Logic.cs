@@ -242,6 +242,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .AssociationOnBypassApprovingAssociationSubscriptionName,
                 storageAssociation);
 
+            // the event path reaches the same Do method, so it leaves the same audit entry —
+            // a bypass arriving by event is exactly as worth finding later as a direct one
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(It.Is<string>(message =>
+                    message.Contains(AccessDenialReason.BlockedByRejection.ToString()))),
+                Times.Once);
+
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();

@@ -234,6 +234,26 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
             ValidateStorageAssociationIsApprovable(storageAssociation);
 
+            // What the row keeps is THAT the conditions were waived; what it cannot keep is
+            // WHICH one, and that is the question an auditor actually asks — waiving a standing
+            // rejection and waiving a short approval count are the difference between an
+            // incident and a routine launch-day override. The verdict already knows, because
+            // the conditions are evaluated on the bypass path purely so it can report this.
+            //
+            // Server-side only (§14.5): the explanation names resolved policy values, so it
+            // must not travel outward on an exception or its Data. Guarded on IsBypassUsed for
+            // the same reason the derived pair below is — a bypass can be asked for and turn
+            // out to be unnecessary, and logging one then would record an event that never
+            // happened.
+            if (accessVerdict.IsBypassUsed)
+            {
+                await this.loggingBroker.LogInformationAsync(
+                    $"Association bypass approval granted for {storageAssociation.Id}. "
+                        + $"Waived {accessVerdict.BypassedBlockReason}. "
+                        + $"Reason given: \"{bypassReason}\". "
+                        + $"{accessVerdict.Explanation}");
+            }
+
             // the whole of IApproval, as one unit — the same three fields the ordinary approve
             // copies, because a bypass changes who may decide, not what a decision writes
             storageAssociation.ApprovalStatus = association.ApprovalStatus;
