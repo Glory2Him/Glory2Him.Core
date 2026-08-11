@@ -209,6 +209,22 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         secondName: nameof(ContentItem.CreatedBy)),
                     Parameter: nameof(ContentItem.UpdatedBy)),
 
+                // An item is contributed unpublished, and publication is the approve
+                // operation's to grant (design §9.7.1 rules 1 and 3). Without these three
+                // rules any authenticated caller can insert a row that is already Approved
+                // and IsPublished, which is public the moment it lands — the approval
+                // workflow is simply skipped rather than bypassed. The orchestration's add
+                // already forces the first two onto the new row, but it is not the gate:
+                // this operation has its own event address (§8.6.1, §14.6).
+                (Rule: IsSetOnAdd(contentItem.IsPublished),
+                    Parameter: nameof(ContentItem.IsPublished)),
+
+                (Rule: IsSetOnAdd(contentItem.PublishDate),
+                    Parameter: nameof(ContentItem.PublishDate)),
+
+                (Rule: IsNotContributableStatus(contentItem.ApprovalStatus),
+                    Parameter: nameof(ContentItem.ApprovalStatus)),
+
                 (Rule: await IsNotRecentAsync(contentItem.CreatedWhen),
                     Parameter: nameof(ContentItem.CreatedWhen)));
         }
@@ -528,6 +544,29 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         private static bool IsDraftOrSubmitted(ApprovalStatus approvalStatus) =>
             approvalStatus == ApprovalStatus.Draft
                 || approvalStatus == ApprovalStatus.Submitted;
+
+        private static dynamic IsSetOnAdd(bool value) => new
+        {
+            Condition = value,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(DateTimeOffset? date) => new
+        {
+            Condition = date is not null,
+            Message = "Date is not allowed on add"
+        };
+
+        // a caller may save work in progress or submit it for review; the remaining states
+        // are verdicts, and a verdict is the approval workflow's to record (design §9.7.1
+        // rule 1)
+        private static dynamic IsNotContributableStatus(ApprovalStatus approvalStatus) => new
+        {
+            Condition = IsDraftOrSubmitted(approvalStatus) is false,
+
+            Message = $"Value must be {nameof(ApprovalStatus.Draft)} " +
+                $"or {nameof(ApprovalStatus.Submitted)} on add"
+        };
 
         private static dynamic IsSame(
             DateTimeOffset firstDate,
