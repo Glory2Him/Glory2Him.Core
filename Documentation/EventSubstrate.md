@@ -467,12 +467,25 @@ The signature must cover:
 1. `SecurityContext`
 2. `RequestContext`
 3. A hash of `Content`
-4. `Metadata.EventId`
-5. The target address / operation
+4. `Metadata` — in full
+5. The **composed event name** (`$"{entityName}{operation}"`), supplied by the caller
+6. A **direction discriminator** — `request` or `reply`
 
-**Signing only `SecurityContext` and `RequestContext` does not work**, and an earlier revision of this document recommended exactly that. A signature over identity alone is a transplantable bearer token: capture any one legitimately signed envelope, lift its signed `SecurityContext` onto different `Content` at a different address, and it still verifies. The attacker then authors any request they like as that actor — which is the whole property the signature was supposed to deny them. Binding the content hash, the event id and the destination is what ties a signature to *one* request; without all three the control is decorative.
+**Signing only `SecurityContext` and `RequestContext` does not work**, and an earlier revision of this document recommended exactly that. A signature over identity alone is a transplantable bearer token: capture any one legitimately signed envelope, lift its signed `SecurityContext` onto different `Content` at a different destination, and it still verifies. The attacker then authors any request they like as that actor — which is the whole property the signature was supposed to deny them.
 
-`Metadata` as a whole stays outside the signature so the substrate can enrich it during retries and dispatch — `Metadata.RetryCount` in particular changes legitimately in flight. `Metadata.EventId` is pulled in individually because it is the replay key and is fixed at creation.
+Four things about the list above are easy to get wrong, and each has bitten a draft of this section.
+
+**The destination is the event NAME, not the address.** Addresses are deliberately many-to-one: `ContentItemEventOperation.Removed` and `HardRemoved` map to the same `ContentItemRemovedEventAddressId` on purpose, so consumers subscribe to one removal address and tell the two apart by the composed name. Bind the address and a signed soft delete is interchangeable with a signed hard delete — the destructive one — under the same signature. Bind `$"{entityName}{operation}"`, which is what `EventBroker` already composes and writes to `EventV2.EventName`.
+
+**Nothing on the envelope carries the destination, and nothing should.** `EventEnvelope<T>` is `Content` + `SecurityContext` + `RequestContext` + `Metadata` + `Integrity`; there is no destination field, and adding one would mean signing a value the attacker supplies — a self-check, worth nothing. The event name is therefore an **out-of-band parameter to both operations**: the publisher passes the name it is about to publish to, and the receiver passes the name it is subscribed to. The signature verifies only if the two agree. That is what makes it a binding rather than an assertion.
+
+This has a consequence for who can sign: the envelope factory (`CreateAsync` / `CreateNextAsync`) does not know the destination, so it cannot be the signer. Signing happens at publish, where the name is known.
+
+**`Metadata` is signed in full.** An earlier draft excluded it, on the stated grounds that the substrate enriches it during retries. That is false here: `EventMetadata` is sealed with every property `init`-only, and every construction site in the solution hard-codes `RetryCount = 0` — nothing increments it, and the substrate could not, because the envelope is an opaque JSON string inside `EventV2.Content` that EventHighway never parses. Excluding `Metadata` would leave `Version` — the schema selector — forgeable over hashed content, which is a downgrade attack against the hash itself. If a future substrate genuinely does enrich a field in flight, exclude *that field*, and say why.
+
+**Replies are envelopes too.** A handler's reply is serialized into the delivery row and read back through the same deserializer as an inbound request, carries the original caller's `SecurityContext` verbatim, and is minted with a fresh `EventId` that no dedupe table has seen. Without the direction discriminator, a signed reply is a structurally valid signed *request* for the same event name. Sign replies as `reply`, and refuse a `reply` where a `request` is expected.
+
+**Signing the `EventId` is necessary but not sufficient for replay.** It stops an attacker *changing* the id; it does not stop them re-submitting the bytes unchanged. That requires the receiver to check the id against `ProcessedEvents` — which the foundation substrate handlers do, and which the orchestration handlers and every read handler currently do not. A signature does not fix that, and must not be read as if it had.
 
 ```csharp
 public sealed class EnvelopeIntegrity
@@ -485,23 +498,39 @@ public sealed class EnvelopeIntegrity
 }
 ```
 
-Integrity should be handled by a broker:
+Integrity should be handled by a broker. Note that both operations take the **whole envelope** plus
+the two out-of-band bindings — an interface that accepts only the identity sections cannot express
+the scope above, and is the shape that produced the transplantable token:
 
 ```csharp
+public enum EnvelopeDirection
+{
+    Request = 0,
+    Reply = 1
+}
+
 public interface IEnvelopeIntegrityBroker
 {
-    ValueTask<EnvelopeIntegrity> SignAsync(
-        SecurityContext securityContext,
-        RequestContext requestContext,
+    ValueTask<EnvelopeIntegrity> SignAsync<T>(
+        EventEnvelope<T> envelope,
+        string eventName,
+        EnvelopeDirection direction,
         CancellationToken cancellationToken = default);
 
-    ValueTask<bool> VerifyAsync(
-        SecurityContext securityContext,
-        RequestContext requestContext,
-        EnvelopeIntegrity integrity,
+    // Returns false for a bad signature, a missing one, a name mismatch,
+    // or a direction mismatch. The caller supplies the name it expects and
+    // the direction it expects; neither is read off the envelope.
+    ValueTask<bool> VerifyAsync<T>(
+        EventEnvelope<T> envelope,
+        string expectedEventName,
+        EnvelopeDirection expectedDirection,
         CancellationToken cancellationToken = default);
 }
 ```
+
+The signed input must be canonical — a single, deterministic byte rendering agreed by signer and
+verifier. Do not sign "the JSON", because property order, culture and null handling are all free
+to vary between serializer versions; define the canonical form explicitly, and version it.
 
 ---
 
@@ -1805,12 +1834,9 @@ public sealed class EventEnvelopeFactory : IEventEnvelopeFactory
             await this.requestContextBroker.GetCurrentRequestContextAsync(
                 cancellationToken);
 
-        EnvelopeIntegrity integrity =
-            await this.integrityBroker.SignAsync(
-                securityContext,
-                requestContext,
-                cancellationToken);
-
+        // NOT signed here. Per §5.10 the signature binds the destination event name, and the
+        // factory does not know where this envelope will be published — it may not be
+        // published at all. Signing happens at publish, where the name is known.
         return new EventEnvelope<TEvent>
         {
             EventId = Guid.NewGuid(),
@@ -1821,7 +1847,6 @@ public sealed class EventEnvelopeFactory : IEventEnvelopeFactory
             OccurredDate = DateTimeOffset.UtcNow,
             SecurityContext = securityContext,
             RequestContext = requestContext,
-            Integrity = integrity,
             Content = content
         };
     }
@@ -1858,17 +1883,18 @@ public sealed class EventSubstrate : IEventSubstrate
         EventEnvelope<TEvent> envelope,
         CancellationToken cancellationToken = default)
     {
-        bool isValid = await this.integrityBroker.VerifyAsync(
-            envelope.SecurityContext,
-            envelope.RequestContext,
-            envelope.Integrity,
-            cancellationToken);
+        // Publish SIGNS; it does not verify. Verifying here would check a signature this
+        // process just produced, which proves nothing. The binding is created at the one
+        // point that knows the destination, and checked at the one point that receives
+        // from an untrusted store — the subscriber's deserialization (§5.10).
+        EnvelopeIntegrity integrity =
+            await this.integrityBroker.SignAsync(
+                envelope,
+                envelope.EventName,
+                EnvelopeDirection.Request,
+                cancellationToken);
 
-        if (!isValid)
-        {
-            throw new InvalidOperationException(
-                "Event envelope integrity verification failed.");
-        }
+        envelope = envelope with { Integrity = integrity };
 
         StoredEvent storedEvent = MapToStoredEvent(envelope);
 
@@ -2163,7 +2189,7 @@ await this.authorizationService.AuthorizeAsync(
     cancellationToken);
 ```
 
-Envelope integrity should protect the security and request context.
+Envelope integrity should protect the security context, the request context, a hash of the content, the metadata, and — as out-of-band bindings — the destination event name and the request/reply direction (§5.10). Protecting only the two contexts produces a transplantable bearer token.
 
 External fan-out should also consider:
 
