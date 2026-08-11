@@ -262,6 +262,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             savedAssociation.ApprovalStatus.Should().Be(inputAssociation.ApprovalStatus);
         }
 
+        [Theory]
+        [InlineData(AccessDenialReason.BlockedByUnresolvedComment)]
+        [InlineData(AccessDenialReason.BlockedByRejection)]
+        public async Task ShouldLogWhichConditionWasWaivedOnBypassApproveAsync(
+            AccessDenialReason bypassedBlockReason)
+        {
+            // given: the row records THAT the conditions were waived — IsApprovedByBypass plus
+            // the actor's free text — but not WHICH one, and that second question is the one an
+            // auditor asks: waiving a standing rejection and waiving a short approval count are
+            // the difference between an incident and a launch-day override. The verdict knows;
+            // it was simply discarded.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            Association storageAssociation = CreateApprovableStorageAssociation();
+            Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);
+            string bypassReason = $"argument-{Guid.NewGuid()}";
+
+            SetupAccessBrokerToPermitByBypass(bypassedBlockReason);
+
+            // when
+            await CaptureSavedAssociationOnBypassApproveAsync(
+                storageAssociation,
+                inputAssociation,
+                bypassReason);
+
+            // then: server-side only. The verdict's explanation names resolved policy values,
+            // so §14.5 keeps it out of anything that surfaces to a caller — a log is where it
+            // belongs, and where it can be found later.
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(It.Is<string>(message =>
+                    message.Contains(storageAssociation.Id.ToString())
+                        && message.Contains(bypassedBlockReason.ToString())
+                        && message.Contains(bypassReason))),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldNotLogAWaiverOnBypassApproveWhenTheDecisionWaivedNothingAsync()
+        {
+            // given: a bypass was ASKED for and the conditions turned out to be met, so nothing
+            // was waived. The row already refuses to record a bypass here; the log must agree,
+            // or the audit trail gains an entry for an event that never happened — the same
+            // failure as losing one, pointing the other way.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            Association storageAssociation = CreateApprovableStorageAssociation();
+            Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);
+            string bypassReason = $"argument-{Guid.NewGuid()}";
+
+            SetupAccessBrokerToPermit();
+
+            // when
+            await CaptureSavedAssociationOnBypassApproveAsync(
+                storageAssociation,
+                inputAssociation,
+                bypassReason);
+
+            // then
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogInformationAsync(It.IsAny<string>()),
+                Times.Never);
+        }
+
         // Runs a permitted bypass-approve end to end and hands back a snapshot of the row that
         // reached the storage broker. The snapshot is taken INSIDE the callback: the service
         // copies onto the instance the storage read handed it, so reading that instance after
