@@ -44,49 +44,69 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
             return ConvertToEventEnvelope(externalEventEnvelope);
         }
 
+        // EventEnvelope declares defaults for these three, but a property initializer does not
+        // survive an explicit null in JSON — and the inbound path is a bare
+        // JsonSerializer.Deserialize (EventBroker.DeserializeEnvelope), so a stored event
+        // carrying "SecurityContext": null really does produce one. The read handlers reach
+        // here with it: they short-circuit for a publicly-visible row before the security gate
+        // runs, then build a reply through CreateNextAsync.
+        //
+        // Restoring the declared default is fail-closed by construction: IsAuthenticated
+        // defaults to false, so a null context becomes an unauthenticated one and every gate
+        // refuses it exactly as it refuses an envelope that omitted the field.
         private static ExternalEventEnvelopes.EventEnvelope<T> ConvertToExternalEventEnvelope<T>(
-            EventEnvelope<T> eventEnvelope) =>
-            new ExternalEventEnvelopes.EventEnvelope<T>
+            EventEnvelope<T> eventEnvelope)
+        {
+            SecurityContext securityContext =
+                eventEnvelope.SecurityContext ?? new SecurityContext();
+
+            RequestContext requestContext =
+                eventEnvelope.RequestContext ?? new RequestContext();
+
+            EventMetadata metadata =
+                eventEnvelope.Metadata ?? new EventMetadata();
+
+            return new ExternalEventEnvelopes.EventEnvelope<T>
             {
                 Content = eventEnvelope.Content,
 
                 SecurityContext = new ExternalEventEnvelopes.EventSecurityContext
                 {
-                    SubjectId = eventEnvelope.SecurityContext.SubjectId,
-                    Username = eventEnvelope.SecurityContext.Username,
-                    TenantId = eventEnvelope.SecurityContext.TenantId,
-                    Roles = eventEnvelope.SecurityContext.Roles,
-                    Scopes = eventEnvelope.SecurityContext.Scopes,
-                    Permissions = eventEnvelope.SecurityContext.Permissions,
-                    IsAuthenticated = eventEnvelope.SecurityContext.IsAuthenticated,
+                    SubjectId = securityContext.SubjectId,
+                    Username = securityContext.Username,
+                    TenantId = securityContext.TenantId,
+                    Roles = securityContext.Roles,
+                    Scopes = securityContext.Scopes,
+                    Permissions = securityContext.Permissions,
+                    IsAuthenticated = securityContext.IsAuthenticated,
 
                     AuthenticationType =
                         (G2H.EventEnvelope.Client.Models.Securities.AuthenticationType)
-                            eventEnvelope.SecurityContext.AuthenticationType,
+                            securityContext.AuthenticationType,
 
-                    ClientId = eventEnvelope.SecurityContext.ClientId,
-                    ClientApplicationName = eventEnvelope.SecurityContext.ClientApplicationName,
-                    IsSystemIdentity = eventEnvelope.SecurityContext.IsSystemIdentity,
-                    DelegatedBySubjectId = eventEnvelope.SecurityContext.DelegatedBySubjectId
+                    ClientId = securityContext.ClientId,
+                    ClientApplicationName = securityContext.ClientApplicationName,
+                    IsSystemIdentity = securityContext.IsSystemIdentity,
+                    DelegatedBySubjectId = securityContext.DelegatedBySubjectId
                 },
 
                 RequestContext = new ExternalEventEnvelopes.EventRequestContext
                 {
-                    CorrelationId = eventEnvelope.RequestContext.CorrelationId,
-                    RequestedDate = eventEnvelope.RequestContext.RequestedDate,
-                    RequestId = eventEnvelope.RequestContext.RequestId,
-                    SourceSystem = eventEnvelope.RequestContext.SourceSystem,
-                    ClientApplicationId = eventEnvelope.RequestContext.ClientApplicationId
+                    CorrelationId = requestContext.CorrelationId,
+                    RequestedDate = requestContext.RequestedDate,
+                    RequestId = requestContext.RequestId,
+                    SourceSystem = requestContext.SourceSystem,
+                    ClientApplicationId = requestContext.ClientApplicationId
                 },
 
                 Metadata = new ExternalEventEnvelopes.EventMetadata
                 {
-                    EventId = eventEnvelope.Metadata.EventId,
-                    EventType = eventEnvelope.Metadata.EventType,
-                    Version = eventEnvelope.Metadata.Version,
-                    RetryCount = eventEnvelope.Metadata.RetryCount,
-                    CausationId = eventEnvelope.Metadata.CausationId,
-                    ParentCorrelationId = eventEnvelope.Metadata.ParentCorrelationId
+                    EventId = metadata.EventId,
+                    EventType = metadata.EventType,
+                    Version = metadata.Version,
+                    RetryCount = metadata.RetryCount,
+                    CausationId = metadata.CausationId,
+                    ParentCorrelationId = metadata.ParentCorrelationId
                 },
 
                 Integrity = eventEnvelope.Integrity is null
@@ -98,48 +118,65 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
                         SignedDate = eventEnvelope.Integrity.SignedDate
                     }
             };
+        }
 
+        // The inbound direction, and the one that matters most: this is where an envelope
+        // built elsewhere becomes a Core envelope. Same reasoning as above — restore the
+        // declared defaults rather than dereference whatever arrived.
         private static EventEnvelope<T> ConvertToEventEnvelope<T>(
-            ExternalEventEnvelopes.EventEnvelope<T> externalEventEnvelope) =>
-            new EventEnvelope<T>
+            ExternalEventEnvelopes.EventEnvelope<T> externalEventEnvelope)
+        {
+            ExternalEventEnvelopes.EventSecurityContext securityContext =
+                externalEventEnvelope.SecurityContext
+                    ?? new ExternalEventEnvelopes.EventSecurityContext();
+
+            ExternalEventEnvelopes.EventRequestContext requestContext =
+                externalEventEnvelope.RequestContext
+                    ?? new ExternalEventEnvelopes.EventRequestContext();
+
+            ExternalEventEnvelopes.EventMetadata metadata =
+                externalEventEnvelope.Metadata
+                    ?? new ExternalEventEnvelopes.EventMetadata();
+
+            return new EventEnvelope<T>
             {
                 Content = externalEventEnvelope.Content,
 
                 SecurityContext = new SecurityContext
                 {
-                    SubjectId = externalEventEnvelope.SecurityContext.SubjectId,
-                    Username = externalEventEnvelope.SecurityContext.Username,
-                    TenantId = externalEventEnvelope.SecurityContext.TenantId,
-                    Roles = externalEventEnvelope.SecurityContext.Roles,
-                    Scopes = externalEventEnvelope.SecurityContext.Scopes,
-                    Permissions = externalEventEnvelope.SecurityContext.Permissions,
-                    IsAuthenticated = externalEventEnvelope.SecurityContext.IsAuthenticated,
+                    SubjectId = securityContext.SubjectId,
+                    Username = securityContext.Username,
+                    TenantId = securityContext.TenantId,
+                    Roles = securityContext.Roles,
+                    Scopes = securityContext.Scopes,
+                    Permissions = securityContext.Permissions,
+                    IsAuthenticated = securityContext.IsAuthenticated,
                     AuthenticationType =
                         (Glory2Him.Core.Models.Events.AuthenticationType)
-                            externalEventEnvelope.SecurityContext.AuthenticationType,
-                    ClientId = externalEventEnvelope.SecurityContext.ClientId,
-                    ClientApplicationName = externalEventEnvelope.SecurityContext.ClientApplicationName,
-                    IsSystemIdentity = externalEventEnvelope.SecurityContext.IsSystemIdentity,
-                    DelegatedBySubjectId = externalEventEnvelope.SecurityContext.DelegatedBySubjectId
+                            securityContext.AuthenticationType,
+                    ClientId = securityContext.ClientId,
+                    ClientApplicationName = securityContext.ClientApplicationName,
+                    IsSystemIdentity = securityContext.IsSystemIdentity,
+                    DelegatedBySubjectId = securityContext.DelegatedBySubjectId
                 },
 
                 RequestContext = new RequestContext
                 {
-                    CorrelationId = externalEventEnvelope.RequestContext.CorrelationId,
-                    RequestedDate = externalEventEnvelope.RequestContext.RequestedDate,
-                    RequestId = externalEventEnvelope.RequestContext.RequestId,
-                    SourceSystem = externalEventEnvelope.RequestContext.SourceSystem,
-                    ClientApplicationId = externalEventEnvelope.RequestContext.ClientApplicationId
+                    CorrelationId = requestContext.CorrelationId,
+                    RequestedDate = requestContext.RequestedDate,
+                    RequestId = requestContext.RequestId,
+                    SourceSystem = requestContext.SourceSystem,
+                    ClientApplicationId = requestContext.ClientApplicationId
                 },
 
                 Metadata = new EventMetadata
                 {
-                    EventId = externalEventEnvelope.Metadata.EventId,
-                    EventType = externalEventEnvelope.Metadata.EventType,
-                    Version = externalEventEnvelope.Metadata.Version,
-                    RetryCount = externalEventEnvelope.Metadata.RetryCount,
-                    CausationId = externalEventEnvelope.Metadata.CausationId,
-                    ParentCorrelationId = externalEventEnvelope.Metadata.ParentCorrelationId
+                    EventId = metadata.EventId,
+                    EventType = metadata.EventType,
+                    Version = metadata.Version,
+                    RetryCount = metadata.RetryCount,
+                    CausationId = metadata.CausationId,
+                    ParentCorrelationId = metadata.ParentCorrelationId
                 },
 
                 Integrity = externalEventEnvelope.Integrity is null
@@ -151,5 +188,6 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
                         SignedDate = externalEventEnvelope.Integrity.SignedDate
                     }
             };
+        }
     }
 }
