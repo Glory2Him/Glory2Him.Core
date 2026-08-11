@@ -1,0 +1,516 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Force.DeepCloner;
+using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
+using Moq;
+
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
+{
+    public partial class ContentItemServiceTests
+    {
+        // ── The approval state is not a caller's to assert ───────────────────────────
+        //
+        // ContentItem is the entity the whole approval workflow exists for, and its general
+        // modify pinned only audit fields. Every test below fails if its rule is removed.
+
+        // Sets up the brokers a modify reaches before the pin rules run, for a caller whose
+        // write attempt is expected to be refused by ValidateAgainstStorageContentItemOnModify.
+        private void SetupFailingModifyPathBrokers(
+            ContentItem inputContentItem,
+            ContentItem storageContentItem,
+            string actorUserId,
+            DateTimeOffset currentDateTimeOffset)
+        {
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(
+                    inputContentItem.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputContentItem,
+                    storageContentItem))
+                        .ReturnsAsync(inputContentItem);
+        }
+
+        private async Task<ContentItemValidationException> AssertModifyIsRefusedAsync(
+            ContentItem invalidContentItem,
+            InvalidContentItemException invalidContentItemException)
+        {
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            ValueTask<ContentItem> modifyContentItemTask =
+                this.contentItemService.ModifyContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actual =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    modifyContentItemTask.AsTask);
+
+            actual.Should().BeEquivalentTo(expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<ContentItemEventOperation>()),
+                Times.Never);
+
+            return actual;
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStateWasChangedAndLogItAsync()
+        {
+            // given: the hole this suite exists to close. A Reviewer holds write permission on
+            // the row for content edits, and without these pins the same modify call would let
+            // them mark a stranger's draft approved and published — no review role check, no
+            // publisher tier, no access decision, no approval conditions.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string actorUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+
+            ContentItem invalidContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, actorUserId);
+
+            invalidContentItem.CreatedBy = ownerUserId;
+
+            ContentItem storageContentItem = invalidContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageContentItem.ApprovalStatus = ApprovalStatus.Draft;
+            storageContentItem.IsPublished = false;
+            storageContentItem.PublishDate = null;
+
+            invalidContentItem.ApprovalStatus = ApprovalStatus.Approved;
+            invalidContentItem.IsPublished = true;
+            invalidContentItem.PublishDate = randomDateTimeOffset;
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            // not the generic pin message: the status is guarded by the carve-out rule, which
+            // permits Draft <-> Submitted for an eligible caller and refuses everything else,
+            // so it reports against the STORED status rather than against a field name
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ApprovalStatus),
+                values: "Value is not the same as storage approval status");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.IsPublished),
+                values: $"Value is not the same as {nameof(ContentItem.IsPublished)}");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.PublishDate),
+                values: $"Date is not the same as {nameof(ContentItem.PublishDate)}");
+
+            SetupFailingModifyPathBrokers(
+                invalidContentItem, storageContentItem, actorUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        // The bypass record is pinned hardest of all, because it is the only field here whose
+        // whole purpose is to be read back later as evidence. Whoever bypass-approved a row
+        // could otherwise reopen it through modify and quietly clear the flag that says so.
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheBypassFlagWasChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string actorUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+
+            ContentItem invalidContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, actorUserId);
+
+            invalidContentItem.CreatedBy = ownerUserId;
+
+            ContentItem storageContentItem = invalidContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageContentItem.IsApprovedByBypass = true;
+
+            invalidContentItem.IsApprovedByBypass = false;
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.IsApprovedByBypass),
+                values: $"Value is not the same as {nameof(ContentItem.IsApprovedByBypass)}");
+
+            SetupFailingModifyPathBrokers(
+                invalidContentItem, storageContentItem, actorUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheBypassReasonWasChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string actorUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+
+            ContentItem invalidContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, actorUserId);
+
+            invalidContentItem.CreatedBy = ownerUserId;
+
+            ContentItem storageContentItem = invalidContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageContentItem.ApprovedByBypassReason = GetRandomString();
+
+            invalidContentItem.ApprovedByBypassReason = GetRandomString();
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ApprovedByBypassReason),
+                values: $"Text is not the same as {nameof(ContentItem.ApprovedByBypassReason)}");
+
+            SetupFailingModifyPathBrokers(
+                invalidContentItem, storageContentItem, actorUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        // "No reason recorded" is the same fact whether it is stored as null or as empty, so a
+        // caller sending one for the other is not attempting a change worth refusing.
+
+        [Fact]
+        public async Task ShouldAcceptANullForAnEmptyBypassReasonOnModifyAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string ownerUserId = GetRandomString();
+
+            ContentItem inputContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, ownerUserId);
+
+            inputContentItem.ApprovedByBypassReason = null;
+
+            ContentItem storageContentItem = inputContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageContentItem.ApprovedByBypassReason = string.Empty;
+
+            ContentItem updatedContentItem = inputContentItem.DeepClone();
+            ContentItem expectedContentItem = updatedContentItem.DeepClone();
+
+            SetupPassingModifyPathBrokers(
+                inputContentItem, storageContentItem, updatedContentItem, ownerUserId, randomDateTimeOffset);
+
+            // when
+            ContentItem actualContentItem =
+                await this.contentItemService.ModifyContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItem.Should().BeEquivalentTo(expectedContentItem);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(inputContentItem, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        // ── The version lineage is the workflow's, not the caller's ──────────────────
+        //
+        // Version, IsLatestVersion and ContentItemGroupId are how an approved item's history
+        // is read back. Left writable, a caller could detach an item from its group or crown
+        // an old version as latest, and the approved version anyone reviewed would be gone.
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheVersionLineageWasChangedAndLogItAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string ownerUserId = GetRandomString();
+
+            ContentItem invalidContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, ownerUserId);
+
+            invalidContentItem.Version = 2;
+            invalidContentItem.IsLatestVersion = false;
+
+            ContentItem storageContentItem = invalidContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            invalidContentItem.ContentItemGroupId = Guid.NewGuid();
+            invalidContentItem.Version = 7;
+            invalidContentItem.IsLatestVersion = true;
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ContentItemGroupId),
+                values: $"Id is not the same as {nameof(ContentItem.ContentItemGroupId)}");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.Version),
+                values: $"Value is not the same as {nameof(ContentItem.Version)}");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.IsLatestVersion),
+                values: $"Value is not the same as {nameof(ContentItem.IsLatestVersion)}");
+
+            SetupFailingModifyPathBrokers(
+                invalidContentItem, storageContentItem, ownerUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        // Design §12.4.1 rule 7a: the content type is create-only. Different content types
+        // carry different validation rules, so an item must not be relabelled into a type its
+        // content was never checked against — nor into one whose reviewers never saw it.
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheContentTypeWasChangedAndLogItAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string ownerUserId = GetRandomString();
+
+            ContentItem invalidContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, ownerUserId);
+
+            invalidContentItem.ContentType = ContentType.Quote;
+
+            ContentItem storageContentItem = invalidContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            invalidContentItem.ContentType = ContentType.Testimony;
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ContentType),
+                values: $"Value is not the same as {nameof(ContentItem.ContentType)}");
+
+            SetupFailingModifyPathBrokers(
+                invalidContentItem, storageContentItem, ownerUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        // ── The one carve-out: Draft <-> Submitted (design §9.2 rules 4-6) ───────────
+        //
+        // Submitting is inseparable from the edit that made the work ready, so the owner may
+        // move the status between those two states through modify. Everything else about the
+        // status stays pinned.
+
+        public static TheoryData<ApprovalStatus, ApprovalStatus> SubmissionTransitions() =>
+            new TheoryData<ApprovalStatus, ApprovalStatus>
+            {
+                { ApprovalStatus.Draft, ApprovalStatus.Submitted },
+                { ApprovalStatus.Submitted, ApprovalStatus.Draft }
+            };
+
+        [Theory]
+        [MemberData(nameof(SubmissionTransitions))]
+        public async Task ShouldWriteTheSubmissionStatusOnModifyWhenTheOwnerMovesItAsync(
+            ApprovalStatus storageStatus,
+            ApprovalStatus inputStatus)
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string ownerUserId = GetRandomString();
+
+            ContentItem inputContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, ownerUserId);
+
+            inputContentItem.ApprovalStatus = storageStatus;
+
+            ContentItem storageContentItem = inputContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputContentItem.ApprovalStatus = inputStatus;
+
+            ContentItem updatedContentItem = inputContentItem.DeepClone();
+            ContentItem expectedContentItem = updatedContentItem.DeepClone();
+
+            SetupPassingModifyPathBrokers(
+                inputContentItem, storageContentItem, updatedContentItem, ownerUserId, randomDateTimeOffset);
+
+            // when
+            ContentItem actualContentItem =
+                await this.contentItemService.ModifyContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItem.Should().BeEquivalentTo(expectedContentItem);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(inputContentItem, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        // A Reviewer passes the write gate and may amend content, and must still never move an
+        // approval status (design §8.6 HR-3). The carve-out is gated on ownership or the
+        // Publisher tier, not on write permission.
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfANonOwnerMovesTheSubmissionStatusAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string actorUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+
+            ContentItem invalidContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, actorUserId);
+
+            invalidContentItem.CreatedBy = ownerUserId;
+            invalidContentItem.ApprovalStatus = ApprovalStatus.Draft;
+
+            ContentItem storageContentItem = invalidContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            invalidContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ApprovalStatus),
+                values: "Value is not the same as storage approval status");
+
+            SetupFailingModifyPathBrokers(
+                invalidContentItem, storageContentItem, actorUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        // The Publisher tier may move the submission status on someone else's item — it is the
+        // tier the dedicated approve operation itself requires.
+
+        [Fact]
+        public async Task ShouldWriteTheSubmissionStatusOnModifyWhenAPublisherMovesItAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.ContentItemPublisher);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string actorUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+
+            ContentItem inputContentItem =
+                CreateRandomModifyContentItem(randomDateTimeOffset, actorUserId);
+
+            inputContentItem.CreatedBy = ownerUserId;
+            inputContentItem.ApprovalStatus = ApprovalStatus.Draft;
+
+            ContentItem storageContentItem = inputContentItem.DeepClone();
+            storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputContentItem.ApprovalStatus = ApprovalStatus.Submitted;
+
+            ContentItem updatedContentItem = inputContentItem.DeepClone();
+            ContentItem expectedContentItem = updatedContentItem.DeepClone();
+
+            SetupPassingModifyPathBrokers(
+                inputContentItem, storageContentItem, updatedContentItem, actorUserId, randomDateTimeOffset);
+
+            // when
+            ContentItem actualContentItem =
+                await this.contentItemService.ModifyContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItem.Should().BeEquivalentTo(expectedContentItem);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateContentItemAsync(inputContentItem, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        // Sets up every broker a modify touches on the happy path, for the cases above that
+        // are expected to be written rather than refused.
+        private void SetupPassingModifyPathBrokers(
+            ContentItem inputContentItem,
+            ContentItem storageContentItem,
+            ContentItem updatedContentItem,
+            string actorUserId,
+            DateTimeOffset currentDateTimeOffset)
+        {
+            SetupFailingModifyPathBrokers(
+                inputContentItem, storageContentItem, actorUserId, currentDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateContentItemAsync(inputContentItem, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedContentItem);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    ContentItemEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                            new EventPublishResult<ContentItem>()));
+        }
+    }
+}
