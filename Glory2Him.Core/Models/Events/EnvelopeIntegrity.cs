@@ -14,23 +14,29 @@ using System;
 namespace Glory2Him.Core.Models.Events
 {
     /// <summary>
-    /// The cryptographic integrity details of an <see cref="EventEnvelope{T}"/>.
-    ///
-    /// <para><b>Unimplemented contract.</b> This type describes the shape a signature would take;
-    /// no code populates it and no code checks it. An envelope carrying a populated
-    /// <c>Integrity</c> has still not been verified by anything, and one carrying <c>null</c> —
-    /// which is every envelope today — is not thereby suspect. Consumers must not treat this type
-    /// as proof of anything until a signer and a verifier exist (design §14.6 rule 4).</para>
+    /// The cryptographic integrity details of an <see cref="EventEnvelope{T}"/> — an HMAC over the
+    /// event name, direction, content, security context, request context and metadata, produced on
+    /// publish and checked on receive to detect tampering with a stored event.
     /// </summary>
     public sealed class EnvelopeIntegrity
     {
         /// <summary>
-        /// The name of the algorithm used to compute the signature.
+        /// The name of the algorithm used to compute the signature. Recorded for documentation only:
+        /// a verifier <b>never</b> reads this to decide how to check the signature — it uses its own
+        /// configured algorithm, so a forged <c>"none"</c> here cannot downgrade the check.
         /// </summary>
         public string Algorithm { get; init; } = "HMACSHA256";
 
         /// <summary>
-        /// The computed signature of the envelope's contents, used to detect tampering.
+        /// The identifier of the signing key (see <c>EventEnvelopeSigningKey</c>). Verification uses
+        /// it to select which key to check against, so historic events survive key rotation. Swapping
+        /// it to another key's id simply makes verification fail — the recomputed signature will not
+        /// match — so it does not need to be signed itself.
+        /// </summary>
+        public string KeyId { get; init; } = string.Empty;
+
+        /// <summary>
+        /// The computed signature of the envelope's signed portion, used to detect tampering.
         /// </summary>
         public string Signature { get; init; } = string.Empty;
 
