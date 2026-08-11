@@ -54,7 +54,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             expectedMappedContentItem.Title = inputContentItem.Title;
             expectedMappedContentItem.Author = inputContentItem.Author;
             expectedMappedContentItem.Content = inputContentItem.Content;
-            expectedMappedContentItem.PublishDate = inputContentItem.PublishDate;
             expectedMappedContentItem.ContentHash = expectedContentHash;
             ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
@@ -273,7 +272,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
-                PublishDate = inputContentItem.PublishDate,
+
+                // the fork is still the modify operation, so the caller's publish date does
+                // not ride in on it — a fresh draft has none until approve grants one
+                PublishDate = null,
                 ContentHash = expectedContentHash,
                 ContentItemGroupId = storageContentItem.ContentItemGroupId,
                 Version = storageContentItem.Version + 1,
