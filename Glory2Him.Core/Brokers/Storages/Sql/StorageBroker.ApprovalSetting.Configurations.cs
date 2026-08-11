@@ -63,6 +63,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(false);
 
+            model.Property(approvalSetting => approvalSetting.BlockOnZeroApprovalScore)
+                 .IsRequired()
+                 .HasDefaultValue(false);
+
             model.Property(approvalSetting => approvalSetting.RequireReapprovalOnChange)
                  .IsRequired()
                  .HasDefaultValue(true);
