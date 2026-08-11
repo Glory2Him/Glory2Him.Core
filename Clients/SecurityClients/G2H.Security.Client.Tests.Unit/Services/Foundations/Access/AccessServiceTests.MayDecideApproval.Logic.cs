@@ -483,13 +483,20 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.IsPermitted.Should().BeTrue();
             actualVerdict.IsBypassUsed.Should().BeTrue();
 
+            // and the flag agrees with the block it names. The two members move together — the
+            // flag is true exactly when there is a block to report — so pinning only the flag
+            // would leave it free to be hardcoded.
+            actualVerdict.BypassedBlockReason.Should()
+                .Be(AccessDenialReason.ApprovalThresholdNotMet);
+
             // THE member that must not move. Callers gate on `reason != None`, so a bypass
             // reported as a denial reason would refuse the approve this verdict permits.
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
         }
 
-        // Nothing was actually waived. The bypass still happened and is still recorded, but the
-        // record says so — this is the harmless case an auditor can skip past.
+        // Nothing was actually waived. The bypass route was taken and the approve went through,
+        // but no condition had to be lifted to get there — so the record says exactly that, and
+        // this is the harmless case an auditor can skip past.
         [Fact]
         public async Task ShouldReportNothingWaivedWhenABypassRanOverConditionsAlreadyMetAsync()
         {
@@ -507,12 +514,23 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             AccessVerdict actualVerdict =
                 await this.accessService.MayDecideApprovalAsync(decideApprovalRequest);
 
-            // then
+            // then: the approve is permitted along the bypass route, and DenialReason stays
+            // None because this is a permission
             actualVerdict.IsPermitted.Should().BeTrue();
-            actualVerdict.IsBypassUsed.Should().BeTrue();
-            actualVerdict.BypassedBlockReason.Should().Be(AccessDenialReason.None);
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
 
+            // IsBypassUsed reports whether anything was ACTUALLY waived, not which route the
+            // caller took. The caller writes this flag into the column that answers "what was
+            // published without meeting its conditions", so reporting true for a bypass that
+            // lifted nothing would enter a false positive into the one query that record exists
+            // to serve.
+            actualVerdict.IsBypassUsed.Should().BeFalse();
+
+            // and the pair stays consistent: nothing was waived, so there is no block to name
+            actualVerdict.BypassedBlockReason.Should().Be(AccessDenialReason.None);
+
+            // the explanation still says a bypass was ASKED for — the request happened and is
+            // worth reporting, it just cost nothing
             actualVerdict.Explanation.Should()
                 .Be("Actor may approve this entity by bypass (HR-4 route 3), though the "
                     + "conditions were already met — nothing was waived.");

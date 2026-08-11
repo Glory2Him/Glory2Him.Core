@@ -176,7 +176,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public static TheoryData<string> TransitionNames() =>
             new TheoryData<string>
             {
-                "Approve", "Sort", "SetConfidence", "SetScope"
+                "Approve", "BypassApprove", "Sort", "SetConfidence", "SetScope"
             };
 
         [Theory]
@@ -397,6 +397,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
                 "Approve" => this.associationService.ApproveAssociationAsync(
                     CreateApprovalDecision(storageAssociation.Id), cancellationToken),
+
+                // a bypass is a write like any other, so the global veto sits above it too —
+                // and above the reason, which is why a valid one is supplied here
+                "BypassApprove" => this.associationService.BypassApproveAssociationAsync(
+                    CreateApprovalDecision(storageAssociation.Id),
+                    GetRandomString(),
+                    cancellationToken),
 
                 "Sort" => this.associationService.SortAssociationAsync(
                     new Association { Id = storageAssociation.Id },

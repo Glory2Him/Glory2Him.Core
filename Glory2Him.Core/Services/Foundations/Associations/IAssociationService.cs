@@ -62,6 +62,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Association association,
             CancellationToken cancellationToken = default);
 
+        // Approving OVER unmet conditions, which is its own verb rather than a flag on the
+        // one above (§12.4.4 rule 11). A flag would make every ordinary approve a potential
+        // bypass, and the reason — the only thing that makes a bypass tolerable — would be an
+        // optional argument on the common path instead of a required one here.
+        //
+        // The reason is a parameter and not a field on the entity because it is an argument to
+        // the DECISION, not a value the caller may write: what lands on the row is derived
+        // from the verdict, and is cleared when the verdict waived nothing.
+        ValueTask<Association> BypassApproveAssociationAsync(
+            Association association,
+            string bypassReason,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Association> SortAssociationAsync(
             Association association,
             Association anchorAssociation,

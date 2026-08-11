@@ -68,6 +68,25 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<Association> BypassApproveAssociationAsync(
+            Association association,
+            string bypassReason,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateAssociationIsNotNull(association);
+
+                EventEnvelope<Association> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: association);
+
+                return await DoBypassApproveAssociationAsync(
+                    association: association,
+                    bypassReason: bypassReason,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
         public ValueTask<Association> SortAssociationAsync(
             Association association,
             Association anchorAssociation,
@@ -185,6 +204,66 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 operation: decision,
                 receiverName: EventBrokerIdentifiers
                     .AssociationOnApprovingAssociationSubscriptionName,
+                cancellationToken: cancellationToken);
+        }
+
+        private async ValueTask<Association> DoBypassApproveAssociationAsync(
+            Association association,
+            string bypassReason,
+            EventEnvelope<Association> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
+            ValidateOnBypassApproveAssociation(association, bypassReason);
+
+            Association storageAssociation =
+                await LoadTransitionTargetAsync(
+                    associationId: association.Id,
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
+
+            // decided against the STORED endpoints, for the same reason the ordinary approve
+            // is: a caller-supplied endpoint content type would be self-certification, and a
+            // bypass is the last place to accept one.
+            AccessVerdict accessVerdict =
+                await ValidateUserCanBypassApproveStorageAssociationAsync(
+                    storageAssociation: storageAssociation,
+                    bypassReason: bypassReason,
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageAssociationIsApprovable(storageAssociation);
+
+            // the whole of IApproval, as one unit — the same three fields the ordinary approve
+            // copies, because a bypass changes who may decide, not what a decision writes
+            storageAssociation.ApprovalStatus = association.ApprovalStatus;
+            storageAssociation.IsPublished = association.IsPublished;
+            storageAssociation.PublishDate = association.PublishDate;
+
+            // The two exceptions, DERIVED from the verdict and never read off the caller's
+            // entity. That is the whole point of the pair: they record that the conditions
+            // were waived, and a caller able to write them is equally able to clear them.
+            //
+            // The verdict can legitimately come back IsBypassUsed = false here even though a
+            // bypass was requested — if the conditions happened to be met, the decision
+            // permits without waiving anything — and in that case the row must record no
+            // bypass at all. Hardcoding true would manufacture an audit entry for a waiver
+            // that never happened, which is as misleading as losing one.
+            storageAssociation.IsApprovedByBypass = accessVerdict.IsBypassUsed;
+
+            storageAssociation.ApprovedByBypassReason =
+                accessVerdict.IsBypassUsed ? bypassReason : null;
+
+            // Approved, not a fact of its own. A bypass approval IS an approval to every
+            // subscriber, and the waiver travels on the row — a second fact would split the
+            // audience for one outcome and leave a consumer subscribed to Approved alone
+            // silently missing exactly the approvals most worth seeing.
+            return await SaveTransitionAsync(
+                association: storageAssociation,
+                inboundEnvelope: inboundEnvelope,
+                operation: AssociationEventOperation.Approved,
+                receiverName: EventBrokerIdentifiers
+                    .AssociationOnBypassApprovingAssociationSubscriptionName,
                 cancellationToken: cancellationToken);
         }
 
