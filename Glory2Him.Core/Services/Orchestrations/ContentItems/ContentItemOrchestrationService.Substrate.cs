@@ -12,6 +12,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Orchestrations.ContentItems
@@ -24,7 +25,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemOrchestrationEventOperation.Adding);
 
                 ContentItem addedContentItem =
                     await DoAddContentItemAsync(
@@ -43,7 +45,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemOrchestrationEventOperation.Modifying);
 
                 ContentItem modifiedContentItem =
                     await DoModifyContentItemAsync(
@@ -62,7 +65,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemOrchestrationEventOperation.RemovingById);
 
                 ContentItem removedContentItem =
                     await DoRemoveContentItemByIdAsync(
@@ -82,7 +86,8 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemOrchestrationEventOperation.RetrievingById);
 
                 // read-only: naturally idempotent and publishes no completion fact — the
                 // reply envelope is the whole outcome

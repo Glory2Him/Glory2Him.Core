@@ -189,34 +189,5 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
                 },
                 cancellationToken: cancellationToken);
-
-        // Null-check first (a malformed event), then verify the integrity signature against the
-        // event name this handler serves and the request direction. The signature is what makes
-        // the envelope's SecurityContext trustworthy on the event path: without it a caller who can
-        // put a message on this address states their own identity and roles and is believed
-        // (design §14.6 rule 4). Verification sits in the receiver, not the transport, because a
-        // handler is reachable without going through the broker.
-        private async ValueTask ValidateContentItemEventEnvelopeAsync(
-            EventEnvelope<ContentItem> envelope,
-            ContentItemEventOperation operation)
-        {
-            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
-            {
-                throw new InvalidContentItemEventException(
-                    message: "Invalid content item event. " +
-                        "The event envelope, its content and metadata are required.");
-            }
-
-            string eventName = $"{nameof(ContentItem)}{operation}";
-
-            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
-                envelope, eventName, EnvelopeDirection.Request);
-
-            if (isSignatureValid is false)
-            {
-                throw new InvalidContentItemEventException(
-                    message: "Invalid content item event. Integrity verification failed.");
-            }
-        }
     }
 }
