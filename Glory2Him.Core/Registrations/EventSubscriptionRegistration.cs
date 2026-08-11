@@ -40,6 +40,10 @@ namespace Glory2Him.Core.Registrations
     /// <remarks>
     /// Wire-up at application startup:
     /// <code>
+    /// // EventBroker signs on publish and every foundation service verifies on receive,
+    /// // so the integrity broker must be registered alongside them. Its keys come from the
+    /// // EventEnvelopeSigning configuration section.
+    /// services.AddSingleton&lt;IEnvelopeIntegrityBroker, EnvelopeIntegrityBroker&gt;();
     /// services.AddSingleton&lt;IEventBroker, EventBroker&gt;();
     /// services.AddSingleton&lt;IEventEnvelopeFactory, EventEnvelopeFactory&gt;();
     /// services.AddSingleton&lt;IEventSubscriptionRegistration, EventSubscriptionRegistration&gt;();

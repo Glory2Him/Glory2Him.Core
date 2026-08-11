@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -252,6 +253,71 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     SameExceptionAs(expectedContentItemOrchestrationValidationException))),
                 Times.Once);
 
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.hashBrokerMock.VerifyNoOtherCalls();
+            this.contentItemServiceMock.VerifyNoOtherCalls();
+            this.identifierBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemEventWhenIntegrityVerificationFailsAndLogItAsync()
+        {
+            // given
+            var forgedEnvelope = new EventEnvelope<ContentItem>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new ContentItem { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"ContentItemOrchestration{ContentItemOrchestrationEventOperation.Adding}";
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidContentItemOrchestrationEventException =
+                new InvalidContentItemOrchestrationEventException(
+                    message: "Invalid content item orchestration event. " +
+                        "Integrity verification failed.");
+
+            var expectedContentItemOrchestrationValidationException =
+                new ContentItemOrchestrationValidationException(
+                    message: "Content item orchestration validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemOrchestrationEventException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItem>?> onAddingTask =
+                this.contentItemOrchestrationService.OnAddingContentItemAsync(
+                    forgedEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
+                await Assert.ThrowsAsync<ContentItemOrchestrationValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualContentItemOrchestrationValidationException.Should().BeEquivalentTo(
+                expectedContentItemOrchestrationValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemOrchestrationValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();

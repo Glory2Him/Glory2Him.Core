@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Moq;
@@ -146,6 +147,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     SameExceptionAs(expectedApprovalReviewValidationException))),
                 Times.Once);
 
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingApprovalReviewEventWhenIntegrityVerificationFailsAsync()
+        {
+            // given
+            var forgedEnvelope = new EventEnvelope<ApprovalReview>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new ApprovalReview { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"{nameof(ApprovalReview)}{ApprovalReviewEventOperation.Adding}";
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidApprovalReviewEventException =
+                new InvalidApprovalReviewEventException(
+                    message: "Invalid approval review event. Integrity verification failed.");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalReviewEventException);
+
+            // when
+            ValueTask<EventEnvelope<ApprovalReview>?> onAddingTask =
+                this.approvalReviewService.OnAddingApprovalReviewAsync(
+                    forgedEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();

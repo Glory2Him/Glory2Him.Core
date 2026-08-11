@@ -18,6 +18,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -38,6 +39,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly IEventBroker eventBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ContentItemOrchestrationService(
@@ -48,6 +50,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             IEventEnvelopeBroker eventEnvelopeBroker,
             IEventBroker eventBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.contentItemService = contentItemService;
@@ -57,6 +60,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.eventBroker = eventBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 

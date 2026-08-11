@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -135,13 +136,32 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                     Parameter: nameof(ContentItemSetting.UpdatedWhen)));
         }
 
-        private static void ValidateContentItemSettingEventEnvelope(EventEnvelope<ContentItemSetting> envelope)
+        // Null-check first (a malformed event), then verify the integrity signature against the
+        // event name this handler serves and the request direction. The signature is what makes
+        // the envelope's SecurityContext trustworthy on the event path: without it a caller who can
+        // put a message on this address states their own identity and roles and is believed
+        // (design §14.6 rule 4). Verification sits in the receiver, not the transport, because a
+        // handler is reachable without going through the broker.
+        private async ValueTask ValidateContentItemSettingEventEnvelopeAsync(
+            EventEnvelope<ContentItemSetting> envelope,
+            ContentItemSettingEventOperation operation)
         {
             if (envelope is null || envelope.Content is null || envelope.Metadata is null)
             {
                 throw new InvalidContentItemSettingEventException(
                     message: "Invalid content item setting event. " +
                         "The event envelope, its content and metadata are required.");
+            }
+
+            string eventName = $"{nameof(ContentItemSetting)}{operation}";
+
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidContentItemSettingEventException(
+                    message: "Invalid content item setting event. Integrity verification failed.");
             }
         }
 

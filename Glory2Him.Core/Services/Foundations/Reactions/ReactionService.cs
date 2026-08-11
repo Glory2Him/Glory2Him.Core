@@ -17,6 +17,7 @@ using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -49,6 +50,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         private readonly IEventBroker eventBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ReactionService(
@@ -58,6 +60,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             IEventBroker eventBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.storageBroker = storageBroker;
@@ -66,6 +69,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             this.eventBroker = eventBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 

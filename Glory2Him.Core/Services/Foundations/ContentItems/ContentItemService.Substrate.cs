@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
@@ -41,7 +42,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemEventOperation.Adding);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -67,7 +69,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemEventOperation.Modifying);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -93,7 +96,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemEventOperation.RemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -120,7 +124,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemEventOperation.HardRemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -146,7 +151,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemEventEnvelope(envelope);
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemEventOperation.RetrievingById);
 
                 // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
                 // shared do-work runs the visibility posture against the REQUEST envelope's
@@ -183,15 +189,5 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     ProcessedAt = await this.dateTimeBroker.GetCurrentDateTimeOffsetAsync()
                 },
                 cancellationToken: cancellationToken);
-
-        private static void ValidateContentItemEventEnvelope(EventEnvelope<ContentItem> envelope)
-        {
-            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
-            {
-                throw new InvalidContentItemEventException(
-                    message: "Invalid content item event. " +
-                        "The event envelope, its content and metadata are required.");
-            }
-        }
     }
 }

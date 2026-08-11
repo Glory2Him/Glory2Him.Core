@@ -17,6 +17,7 @@ using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -50,6 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
         private readonly IAccessBroker accessBroker;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
         public ApprovalReviewService(
@@ -60,6 +62,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
             IAccessBroker accessBroker,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
             this.storageBroker = storageBroker;
@@ -69,6 +72,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
             this.accessBroker = accessBroker;
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
 

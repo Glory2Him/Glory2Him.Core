@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Orchestrations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Orchestrations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -214,13 +215,34 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             }
         }
 
-        private static void ValidateContentItemEventEnvelope(EventEnvelope<ContentItem> envelope)
+        // Null-check first (a malformed event), then verify the integrity signature against the
+        // event name this handler serves and the request direction. The orchestration is an event
+        // receiver too: it front-loads the contribution / owner / Admin decision against the
+        // inbound envelope's SecurityContext, so without this check a caller who can put a message
+        // on a ContentItemOrchestration address states their own roles and is believed (design
+        // §14.6 rule 4). Verification sits in the receiver, not the transport, because a handler is
+        // reachable without going through the broker.
+        private async ValueTask ValidateContentItemEventEnvelopeAsync(
+            EventEnvelope<ContentItem> envelope,
+            ContentItemOrchestrationEventOperation operation)
         {
             if (envelope is null || envelope.Content is null || envelope.Metadata is null)
             {
                 throw new InvalidContentItemOrchestrationEventException(
                     message: "Invalid content item orchestration event. " +
                         "The event envelope, its content and metadata are required.");
+            }
+
+            string eventName = $"ContentItemOrchestration{operation}";
+
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidContentItemOrchestrationEventException(
+                    message: "Invalid content item orchestration event. " +
+                        "Integrity verification failed.");
             }
         }
 

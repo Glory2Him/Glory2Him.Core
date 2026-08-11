@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -149,6 +150,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                     SameExceptionAs(expectedContentItemSettingValidationException))),
                 Times.Once);
 
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingContentItemSettingEventWhenIntegrityVerificationFailsAsync()
+        {
+            // given
+            var forgedEnvelope = new EventEnvelope<ContentItemSetting>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new ContentItemSetting { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"{nameof(ContentItemSetting)}{ContentItemSettingEventOperation.Adding}";
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidContentItemSettingEventException =
+                new InvalidContentItemSettingEventException(
+                    message: "Invalid content item setting event. Integrity verification failed.");
+
+            var expectedContentItemSettingValidationException =
+                new ContentItemSettingValidationException(
+                    message: "Content item setting validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemSettingEventException);
+
+            // when
+            ValueTask<EventEnvelope<ContentItemSetting>?> onAddingTask =
+                this.contentItemSettingService.OnAddingContentItemSettingAsync(
+                    forgedEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();

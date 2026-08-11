@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
 using Moq;
@@ -148,6 +149,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     SameExceptionAs(expectedBibleReferenceValidationException))),
                 Times.Once);
 
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingBibleReferenceEventWhenIntegrityVerificationFailsAsync()
+        {
+            // given
+            var forgedEnvelope = new EventEnvelope<BibleReference>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new BibleReference { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"{nameof(BibleReference)}{BibleReferenceEventOperation.Adding}";
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidBibleReferenceEventException =
+                new InvalidBibleReferenceEventException(
+                    message: "Invalid bible reference event. Integrity verification failed.");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: invalidBibleReferenceEventException);
+
+            // when
+            ValueTask<EventEnvelope<BibleReference>?> onAddingTask =
+                this.bibleReferenceService.OnAddingBibleReferenceAsync(
+                    forgedEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();

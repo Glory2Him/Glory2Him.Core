@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings.Exceptions;
 using Moq;
@@ -146,6 +147,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
                     SameExceptionAs(expectedApprovalSettingValidationException))),
                 Times.Once);
 
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingApprovalSettingEventWhenIntegrityVerificationFailsAsync()
+        {
+            // given
+            var forgedEnvelope = new EventEnvelope<ApprovalSetting>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new ApprovalSetting { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"{nameof(ApprovalSetting)}{ApprovalSettingEventOperation.Adding}";
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidApprovalSettingEventException =
+                new InvalidApprovalSettingEventException(
+                    message: "Invalid approval setting event. Integrity verification failed.");
+
+            var expectedApprovalSettingValidationException =
+                new ApprovalSettingValidationException(
+                    message: "Approval setting validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalSettingEventException);
+
+            // when
+            ValueTask<EventEnvelope<ApprovalSetting>?> onAddingTask =
+                this.approvalSettingService.OnAddingApprovalSettingAsync(
+                    forgedEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingValidationException actualApprovalSettingValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualApprovalSettingValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();

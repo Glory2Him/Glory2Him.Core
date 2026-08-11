@@ -18,6 +18,7 @@ using System.Text.RegularExpressions;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
@@ -44,6 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
+        private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IContentItemOrchestrationService contentItemOrchestrationService;
 
@@ -56,7 +58,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
+            this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(true);
 
             this.contentItemOrchestrationService = new ContentItemOrchestrationService(
                 contentItemService: this.contentItemServiceMock.Object,
@@ -66,6 +76,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 eventBroker: this.eventBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
+                envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 

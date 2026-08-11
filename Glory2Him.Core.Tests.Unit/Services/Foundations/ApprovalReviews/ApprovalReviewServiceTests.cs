@@ -20,6 +20,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -47,6 +48,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
+        private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalReviewService approvalReviewService;
         private SecurityContext ambientSecurityContext;
@@ -60,6 +62,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
             this.accessBrokerMock = new Mock<IAccessBroker>();
+            this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             // the cross-entity review decision defaults to permitted so a test about
@@ -96,6 +99,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                                     Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                                 }));
 
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(true);
+
             this.approvalReviewService = new ApprovalReviewService(
                 storageBroker: this.storageBrokerMock.Object,
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
@@ -104,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
+                envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 

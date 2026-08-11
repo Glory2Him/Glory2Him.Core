@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
 using Moq;
@@ -148,6 +149,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     SameExceptionAs(expectedReactionValidationException))),
                 Times.Once);
 
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingReactionEventWhenIntegrityVerificationFailsAsync()
+        {
+            // given
+            var forgedEnvelope = new EventEnvelope<Reaction>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new Reaction { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"{nameof(Reaction)}{ReactionEventOperation.Adding}";
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidReactionEventException =
+                new InvalidReactionEventException(
+                    message: "Invalid reaction event. Integrity verification failed.");
+
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: invalidReactionEventException);
+
+            // when
+            ValueTask<EventEnvelope<Reaction>?> onAddingTask =
+                this.reactionService.OnAddingReactionAsync(
+                    forgedEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ReactionValidationException actualReactionValidationException =
+                await Assert.ThrowsAsync<ReactionValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualReactionValidationException.Should().BeEquivalentTo(
+                expectedReactionValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();

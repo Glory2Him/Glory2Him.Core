@@ -12,6 +12,7 @@
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -33,6 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             services.AddSingleton(new Mock<IEventEnvelopeBroker>().Object);
             services.AddSingleton(new Mock<ISecurityAuditBroker>().Object);
             services.AddSingleton(new Mock<IAccessBroker>().Object);
+            services.AddSingleton(new Mock<IEnvelopeIntegrityBroker>().Object);
             services.AddSingleton(new Mock<ILoggingBroker>().Object);
 
             return services;

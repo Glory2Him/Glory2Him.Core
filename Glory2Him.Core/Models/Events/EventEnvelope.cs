@@ -42,14 +42,15 @@ namespace Glory2Him.Core.Models.Events
         public EventMetadata Metadata { get; init; } = new EventMetadata();
 
         /// <summary>
-        /// The cryptographic signature details for the envelope.
+        /// The HMAC integrity signature for the envelope, computed on publish over the event name,
+        /// direction, content, security context, request context, and metadata.
         ///
-        /// <para><b>Not implemented — this is a declared contract, not a guarantee.</b> Nothing in
-        /// the repository writes this property and nothing verifies it, so it is <c>null</c> on
-        /// every envelope built today. Do not read it as evidence that an envelope is authentic:
-        /// on the event path the <see cref="SecurityContext"/> is deserialized from stored event
-        /// content and believed as-is (design §14.6 rule 4). Signing and verification are
-        /// specified in <c>Documentation/EventSubstrate.md</c> and remain unbuilt.</para>
+        /// <para><b>On the event path a populated, verifying signature is what makes the
+        /// <see cref="SecurityContext"/> trustworthy.</b> <c>EventBroker</c> signs every published
+        /// envelope, and each foundation and orchestration receiver rejects a delivery whose
+        /// signature does not verify against the event name it serves and the request direction
+        /// (design §14.6 rule 4). An envelope arriving with a missing or tampered
+        /// <see cref="Integrity"/> is refused, not believed.</para>
         /// </summary>
         public EnvelopeIntegrity Integrity { get; init; }
     }

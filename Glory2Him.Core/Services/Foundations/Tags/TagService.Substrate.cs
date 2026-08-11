@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Foundations.Tags;
 
@@ -40,7 +41,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateTagEventEnvelope(envelope);
+                await ValidateTagEventEnvelopeAsync(
+                    envelope, TagEventOperation.Adding);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -66,7 +68,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateTagEventEnvelope(envelope);
+                await ValidateTagEventEnvelopeAsync(
+                    envelope, TagEventOperation.Modifying);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -92,7 +95,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateTagEventEnvelope(envelope);
+                await ValidateTagEventEnvelopeAsync(
+                    envelope, TagEventOperation.RemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -119,7 +123,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateTagEventEnvelope(envelope);
+                await ValidateTagEventEnvelopeAsync(
+                    envelope, TagEventOperation.HardRemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -145,7 +150,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateTagEventEnvelope(envelope);
+                await ValidateTagEventEnvelopeAsync(
+                    envelope, TagEventOperation.RetrievingById);
 
                 // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
                 // shared do-work runs the visibility posture against the REQUEST envelope's

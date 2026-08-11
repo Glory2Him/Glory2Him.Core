@@ -17,9 +17,9 @@ namespace G2H.EventEnvelope.Client.Models.Foundations
     /// The cryptographic integrity details of an <see cref="EventEnvelope{T}"/>.
     ///
     /// <para><b>Unimplemented contract.</b> This type describes the shape a signature would take;
-    /// this client neither populates nor checks it. A populated <c>Integrity</c> has still not
-    /// been verified by anything, and <c>null</c> — which is every envelope today — is not
-    /// thereby suspect.</para>
+    /// this client neither populates nor checks it — it is a carrier only. A host may sign and
+    /// verify envelopes around this client (Glory2Him.Core does); the client itself asserts
+    /// nothing about a populated or absent <c>Integrity</c>.</para>
     /// </summary>
     public sealed class EventEnvelopeIntegrity
     {
@@ -27,6 +27,11 @@ namespace G2H.EventEnvelope.Client.Models.Foundations
         /// The name of the algorithm used to compute the signature.
         /// </summary>
         public string Algorithm { get; init; } = "HMACSHA256";
+
+        /// <summary>
+        /// The identifier of the signing key, so a verifier can select which key to check against.
+        /// </summary>
+        public string KeyId { get; init; } = string.Empty;
 
         /// <summary>
         /// The computed signature of the envelope's contents, used to detect tampering.

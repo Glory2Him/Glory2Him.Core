@@ -114,6 +114,7 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
                     : new ExternalEventEnvelopes.EventEnvelopeIntegrity
                     {
                         Algorithm = eventEnvelope.Integrity.Algorithm,
+                        KeyId = eventEnvelope.Integrity.KeyId,
                         Signature = eventEnvelope.Integrity.Signature,
                         SignedDate = eventEnvelope.Integrity.SignedDate
                     }
@@ -184,6 +185,7 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
                     : new EnvelopeIntegrity
                     {
                         Algorithm = externalEventEnvelope.Integrity.Algorithm,
+                        KeyId = externalEventEnvelope.Integrity.KeyId,
                         Signature = externalEventEnvelope.Integrity.Signature,
                         SignedDate = externalEventEnvelope.Integrity.SignedDate
                     }

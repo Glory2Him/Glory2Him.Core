@@ -18,6 +18,7 @@ using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
@@ -67,6 +68,10 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 // left bare: this fixture only exercises the collection read, which never
                 // asks for an approval decision
                 accessBroker: new Mock<IAccessBroker>().Object,
+
+                // left bare: the collection read is a direct-path call, so it never reaches
+                // the substrate signature check
+                envelopeIntegrityBroker: new Mock<IEnvelopeIntegrityBroker>().Object,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
         }
 
