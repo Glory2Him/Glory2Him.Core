@@ -46,7 +46,7 @@ browser (they cross-link and share the same data and interactions):
   DateTime / Identifier / Logging / Hash broker copies that are hidden by
   default for readability.
 
-## Current truths captured in the data (2026-08-11)
+## Current truths captured in the data (scanned 2026-08-11)
 
 - **Glory2Him.WebApp is standalone** — it has no project reference to
   Glory2Him.Core. Its minimal-API endpoint groups use its own view services,
@@ -59,7 +59,15 @@ browser (they cross-link and share the same data and interactions):
   DbContext) and passes **itself** into G2H.StorageClient's `EFCoreClient`.
 - `EventBroker` wraps EventHighway (SQL Server): one
   `Publish<Entity>Async` / `SubscribeTo<Entity>EventAsync` pair per entity;
-  the operation enum selects the event address GUID.
+  the operation enum selects the event address GUID. 68 subscriptions are
+  wired in total.
+- Approval policy is a pure decision function: `AccessClient`
+  (`ISecurityClient.Access`) decides, and Core's `AccessBroker` does all the
+  gathering from storage. `AssociationService`'s approval verdicts and
+  `ApprovalReviewService` are its only consumers.
+- `AssociationService` carries five approval state-transition verbs
+  (approve, bypass-approve, sort, set-confidence, set-scope), each
+  publishing its own fact; `Sort` is call-only with no request event.
 
 ## Updating the graph
 

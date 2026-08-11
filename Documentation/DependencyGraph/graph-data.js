@@ -2,7 +2,7 @@
    Glory2Him solution dependency data — consumed by index.html.
 
    Hand-maintained model of the solution's components and flows,
-   generated from the actual source (2026-08-11). The 14 foundation
+   generated from the actual source (2026-08-11). The 12 foundation
    services follow one template, so they are expanded from the entity
    configs below instead of being written out by hand.
 
@@ -306,6 +306,9 @@
   C({ id: "SecurityAuditBroker", name: "SecurityAuditBroker", project: "core", layer: "broker", col: 6,
       methods: ["ApplyAddAuditValuesAsync", "ApplyModifyAuditValuesAsync", "ApplyRemoveAuditValuesAsync", "EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync", "GetUserIdAsync"],
       description: "Wraps G2H.Security.Client's AuditClient (ISecurityClient.Audits); each method also has a SecurityContext overload used during event replay." });
+  C({ id: "AccessBroker", name: "AccessBroker", project: "core", layer: "broker", col: 6,
+      methods: ["MayDecideApprovalAsync", "MayRecordApprovalReviewAsync"],
+      description: "Gathers what an approval decision needs (the approval, its reviews, comments and settings, plus the target entity) from storage, then asks G2H.Security.Client's AccessClient — the pure policy decision function — for the verdict. Consumed by AssociationService's transition validations and ApprovalReviewService." });
   C({ id: "SecurityBroker", name: "SecurityBroker", project: "core", layer: "broker", col: 6,
       methods: ["GetCurrentUserAsync", "IsCurrentUserAuthenticatedAsync", "IsInRoleAsync", "UserHasClaimAsync", "GetCurrentSecurityContextAsync"],
       description: "Wraps G2H.Security.Client's UserClient (ISecurityClient.Users); resolves the ClaimsPrincipal from IHttpContextAccessor or a JWT access token. Not yet consumed by any Core service." });
@@ -332,6 +335,18 @@
   D(["EventEnvelopeBroker", "CreateNextAsync"], ["EEC.Client", "CreateNextAsync"]);
   for (const m of ["ApplyAddAuditValuesAsync", "ApplyModifyAuditValuesAsync", "ApplyRemoveAuditValuesAsync", "EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync", "GetUserIdAsync"])
     D(["SecurityAuditBroker", m], ["SC.AuditClient", m]);
+  // AccessBroker gathers from storage, then calls the policy decision function
+  for (const m of ["MayDecideApprovalAsync", "MayRecordApprovalReviewAsync"]) {
+    D(["AccessBroker", m], ["SC.AccessClient", m]);
+    D(["AccessBroker", m], ["SC.AuditClient", "GetUserIdAsync"]);
+    for (const sel of ["SelectApprovalByIdAsync", "SelectAllApprovalsAsync", "SelectAllApprovalReviewsAsync",
+                       "SelectAllApprovalCommentsAsync", "SelectAllApprovalSettingsAsync", "SelectAssociationByIdAsync"])
+      D(["AccessBroker", m], ["StorageBroker", sel]);
+  }
+  for (const sel of ["SelectContentItemByIdAsync", "SelectTagByIdAsync", "SelectReactionByIdAsync",
+                     "SelectBibleReferenceByIdAsync", "SelectCommentByIdAsync", "SelectLinkByIdAsync"])
+    D(["AccessBroker", "MayDecideApprovalAsync"], ["StorageBroker", sel]);
+
   D(["SecurityBroker", "GetCurrentUserAsync"], ["SC.UserClient", "GetUserAsync"]);
   D(["SecurityBroker", "IsCurrentUserAuthenticatedAsync"], ["SC.UserClient", "IsUserAuthenticatedAsync"]);
   D(["SecurityBroker", "IsInRoleAsync"], ["SC.UserClient", "IsUserInRoleAsync"]);
@@ -344,9 +359,21 @@
        B: reads check ownership only (GetUserId)
        C: admin-gated settings — reads are storage-only (+ denial logging)
        D: fully public reads — no envelope, no security context on reads   */
+  /* Association's approval state-transition verbs, verified against
+     AssociationService.Transitions.cs and EventSubscriptionRegistration:
+     each has a request event + handler (except Sort, which has no
+     subscription) and publishes its own fact operation. */
+  const ASSOCIATION_TRANSITIONS = [
+    { method: "ApproveAssociationAsync", request: "Approving", handler: "OnApprovingAssociationAsync", facts: ["Approved", "Rejected"], gated: true },
+    { method: "BypassApproveAssociationAsync", request: "BypassApproving", handler: "OnBypassApprovingAssociationAsync", facts: ["Approved"], gated: true },
+    { method: "SortAssociationAsync", request: null, handler: null, facts: ["Sorted"] },
+    { method: "SetAssociationConfidenceAsync", request: "SettingConfidence", handler: "OnSettingAssociationConfidenceAsync", facts: ["ConfidenceSet"] },
+    { method: "SetAssociationScopeAsync", request: "SettingScope", handler: "OnSettingAssociationScopeAsync", facts: ["Scoped"] },
+  ];
+
   const entities = [
     { e: "ContentItem", variant: "A", extraCheck: true },
-    { e: "Association", variant: "A" },
+    { e: "Association", variant: "A", transitions: ASSOCIATION_TRANSITIONS },
     { e: "BibleReference", variant: "A" },
     { e: "Comment", variant: "A" },
     { e: "Link", variant: "A" },
@@ -354,18 +381,16 @@
     { e: "Tag", variant: "A" },
     { e: "Approval", variant: "B" },
     { e: "ApprovalComment", variant: "B" },
-    { e: "ApprovalReview", variant: "B" },
+    { e: "ApprovalReview", variant: "B", accessGated: true },
     { e: "ApprovalSetting", variant: "C" },
-    { e: "ApprovalSettingPublisherRole", variant: "C" },
-    { e: "ApprovalSettingReviewerRole", variant: "C" },
     { e: "ContentItemSetting", variant: "D" },
   ];
 
   const REQUEST_OPS = ["Adding", "Modifying", "RemovingById", "HardRemovingById", "RetrievingById"];
   const FACT_OPS = ["Added", "Modified", "Removed", "HardRemoved"];
 
-  function defineEntityEvents(entity) {
-    for (const op of REQUEST_OPS.concat(FACT_OPS)) {
+  function defineEntityEvents(entity, extraOps) {
+    for (const op of REQUEST_OPS.concat(FACT_OPS, extraOps || [])) {
       events.push({
         id: entity + "." + op,
         publish: "Publish" + entity + "Async",
@@ -381,16 +406,20 @@
   for (const cfg of entities) {
     const e = cfg.e, v = cfg.variant, plural = e + "s";
     const svc = "FS." + e;
-    defineEntityEvents(e);
+    const transitionOps = (cfg.transitions || []).flatMap(t => [t.request, ...t.facts]).filter(Boolean);
+    defineEntityEvents(e, transitionOps);
 
     const add = `Add${e}Async`, retAll = `RetrieveAll${plural}Async`, retById = `Retrieve${e}ByIdAsync`;
     const modify = `Modify${e}Async`, remove = `Remove${e}ByIdAsync`, hardRemove = `HardRemove${e}ByIdAsync`;
     const onAdd = `OnAdding${e}Async`, onModify = `OnModifying${e}Async`, onRemove = `OnRemoving${e}ByIdAsync`;
     const onHardRemove = `OnHardRemoving${e}ByIdAsync`, onRetrieve = `OnRetrieving${e}ByIdAsync`;
 
+    const transitions = cfg.transitions || [];
     const methods = [add, retAll, retById, modify, remove, hardRemove];
     if (cfg.extraCheck) methods.splice(1, 0, `Check${e}ContentExistsAsync`);
+    methods.push(...transitions.map(t => t.method));
     methods.push(onAdd, onModify, onRemove, onHardRemove, onRetrieve);
+    methods.push(...transitions.filter(t => t.handler).map(t => t.handler));
 
     const variantNote = {
       A: "Reads apply publish-date visibility + ownership checks.",
@@ -398,8 +427,14 @@
       C: "Admin-gated settings entity — reads are storage-only with denial logging.",
       D: "Fully public reads — read paths take no security context and mint no envelope.",
     }[v];
+    const transitionNote = transitions.length
+      ? ` Also exposes ${transitions.length} approval state-transition verbs, each publishing its own fact (Approved/Rejected/Sorted/ConfidenceSet/Scoped); the approval verdicts ask IAccessBroker for the decision. Sort has no request event — it is call-only.`
+      : "";
+    const accessNote = cfg.accessGated
+      ? " Its validations ask IAccessBroker whether the actor may record the review."
+      : "";
     C({ id: svc, name: e + "Service", project: "core", layer: "foundation", col: 5, methods,
-        description: `Foundation CRUD for ${e}. ${variantNote} The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope).` });
+        description: `Foundation CRUD for ${e}. ${variantNote}${transitionNote}${accessNote} The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope).` });
 
     const st = (m) => D([svc, m[0]], ["StorageBroker", m[1]]);
     const sa = (from, to) => D([svc, from], ["SecurityAuditBroker", to]);
@@ -471,6 +506,24 @@
     st([hardRemove, "InsertProcessedEventAsync"]);
     ee(hardRemove, "CreateNextAsync");
     P(svc, hardRemove, e + ".HardRemoved");
+
+    // -- approval-policy gates (IAccessBroker) on the services that have them
+    if (cfg.accessGated) D([svc, add], ["AccessBroker", "MayRecordApprovalReviewAsync"]);
+
+    // -- state-transition verbs: read, gate, write, publish their own fact
+    for (const t of transitions) {
+      D([svc, t.method], ["EventEnvelopeBroker", "CreateAsync"]);
+      D([svc, t.method], ["StorageBroker", `Select${e}ByIdAsync`]);
+      if (t.gated) D([svc, t.method], ["AccessBroker", "MayDecideApprovalAsync"]);
+      D([svc, t.method], ["SecurityAuditBroker", "ApplyModifyAuditValuesAsync"]);
+      D([svc, t.method], ["StorageBroker", `Update${e}Async`]);
+      D([svc, t.method], ["EventEnvelopeBroker", "CreateNextAsync"]);
+      for (const fact of t.facts) P(svc, t.method, e + "." + fact);
+      if (t.request && t.handler) {
+        st([t.handler, "SelectProcessedEventExistsAsync"]);
+        S(e + "." + t.request, svc, t.handler);
+      }
+    }
 
     // -- StorageBroker's per-entity partial rides on the shared EFCoreClient
     D(["StorageBroker", `Insert${e}Async`], ["STC.EFCoreClient", "InsertAsync"]);
@@ -557,6 +610,14 @@
   C({ id: "SC.UserClient", name: "UserClient (ISecurityClient.Users)", project: "security-client", layer: "exposer", col: 7, shared: true,
       methods: ["GetUserAsync", "GetUserIdAsync", "IsUserAuthenticatedAsync", "IsUserInRoleAsync", "UserHasClaimAsync", "GetUserClaimValueAsync", "GetUserClaimValuesAsync"],
       description: "Public user/claims surface of G2H.Security.Client. Shown once — every consumer links to this copy." });
+  C({ id: "SC.AccessClient", name: "AccessClient (ISecurityClient.Access)", project: "security-client", layer: "exposer", col: 7, shared: true,
+      methods: ["EvaluateApprovalConditionsAsync", "MayRecordApprovalReviewAsync", "MayDecideApprovalAsync"],
+      description: "The approval-policy decision function: a pure verdict over the state its caller gathers — it reads nothing itself. Core's AccessBroker does the gathering." });
+  C({ id: "SC.AccessService", name: "AccessService", project: "security-client", layer: "foundation", col: 9,
+      methods: ["EvaluateApprovalConditionsAsync", "MayRecordApprovalReviewAsync", "MayDecideApprovalAsync"] });
+  for (const m of ["EvaluateApprovalConditionsAsync", "MayRecordApprovalReviewAsync", "MayDecideApprovalAsync"])
+    D(["SC.AccessClient", m], ["SC.AccessService", m]);
+
   C({ id: "SC.AuditClient", name: "AuditClient (ISecurityClient.Audits)", project: "security-client", layer: "exposer", col: 7, shared: true,
       methods: ["ApplyAddAuditValuesAsync", "ApplyModifyAuditValuesAsync", "ApplyRemoveAuditValuesAsync", "EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync", "EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync", "GetUserIdAsync"],
       description: "Public audit-stamping surface of G2H.Security.Client." });
@@ -667,10 +728,10 @@
     "WA.UserAdminApi", "WA.AccountApi", "WA.PasskeyApi", "WA.ManageAccountApi",
     "WA.FrontendConfigApi", "WA.CartService",
     // Glory2Him.Core
-    "CIO", "ESR", "SecurityBroker",
+    "CIO", "ESR", "SecurityBroker", "AccessBroker",
     ...entities.map(c => "FS." + c.e),
     // client libraries (single shared copies + their internals)
-    "SC.UserClient", "SC.AuditClient",
+    "SC.UserClient", "SC.AuditClient", "SC.AccessClient",
     "STC.EFCoreClient", "STC.StorageBroker",
     "EEC.Client", "EEC.SecurityAuditBroker",
     // externals
