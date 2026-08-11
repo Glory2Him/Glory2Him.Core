@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 
@@ -40,7 +41,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemSettingEventEnvelope(envelope);
+                await ValidateContentItemSettingEventEnvelopeAsync(
+                    envelope, ContentItemSettingEventOperation.Adding);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -66,7 +68,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemSettingEventEnvelope(envelope);
+                await ValidateContentItemSettingEventEnvelopeAsync(
+                    envelope, ContentItemSettingEventOperation.Modifying);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -93,7 +96,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemSettingEventEnvelope(envelope);
+                await ValidateContentItemSettingEventEnvelopeAsync(
+                    envelope, ContentItemSettingEventOperation.RemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -121,7 +125,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemSettingEventEnvelope(envelope);
+                await ValidateContentItemSettingEventEnvelopeAsync(
+                    envelope, ContentItemSettingEventOperation.HardRemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -148,7 +153,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateContentItemSettingEventEnvelope(envelope);
+                await ValidateContentItemSettingEventEnvelopeAsync(
+                    envelope, ContentItemSettingEventOperation.RetrievingById);
 
                 // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
                 // shared do-work runs the visibility posture, so the event path cannot

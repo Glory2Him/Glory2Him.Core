@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 
@@ -40,7 +41,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateApprovalCommentEventEnvelope(envelope);
+                await ValidateApprovalCommentEventEnvelopeAsync(
+                    envelope, ApprovalCommentEventOperation.Adding);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -66,7 +68,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateApprovalCommentEventEnvelope(envelope);
+                await ValidateApprovalCommentEventEnvelopeAsync(
+                    envelope, ApprovalCommentEventOperation.Modifying);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -92,7 +95,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateApprovalCommentEventEnvelope(envelope);
+                await ValidateApprovalCommentEventEnvelopeAsync(
+                    envelope, ApprovalCommentEventOperation.RemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -119,7 +123,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateApprovalCommentEventEnvelope(envelope);
+                await ValidateApprovalCommentEventEnvelopeAsync(
+                    envelope, ApprovalCommentEventOperation.HardRemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -146,7 +151,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateApprovalCommentEventEnvelope(envelope);
+                await ValidateApprovalCommentEventEnvelopeAsync(
+                    envelope, ApprovalCommentEventOperation.RetrievingById);
 
                 // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
                 // shared do-work runs the visibility posture against the REQUEST envelope's

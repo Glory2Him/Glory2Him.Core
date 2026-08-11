@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 
@@ -40,7 +41,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.Adding);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -67,7 +69,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.Modifying);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -95,7 +98,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.RemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -124,7 +128,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.HardRemovingById);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -152,7 +157,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.RetrievingById);
 
                 // read-only: naturally idempotent, so no ProcessedEvents bookkeeping; the
                 // shared do-work runs the visibility posture against the REQUEST envelope's
@@ -205,7 +211,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.Approving);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -233,7 +240,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.BypassApproving);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -267,7 +275,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.SettingConfidence);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,
@@ -295,7 +304,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             TryCatchSubstrate(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationEventEnvelope(envelope);
+                await ValidateAssociationEventEnvelopeAsync(
+                    envelope, AssociationEventOperation.SettingScope);
 
                 bool alreadyProcessed = await AlreadyProcessedAsync(
                     envelope: envelope,

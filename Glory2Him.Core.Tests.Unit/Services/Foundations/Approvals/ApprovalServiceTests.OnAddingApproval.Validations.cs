@@ -13,6 +13,7 @@ using System;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 using Moq;
@@ -148,6 +149,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     SameExceptionAs(expectedApprovalValidationException))),
                 Times.Once);
 
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddingApprovalEventWhenIntegrityVerificationFailsAsync()
+        {
+            // given
+            var forgedEnvelope = new EventEnvelope<Approval>
+            {
+                SecurityContext = CreateAuthenticatedSecurityContext(),
+                Content = new Approval { Id = Guid.NewGuid() },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            string expectedEventName =
+                $"{nameof(Approval)}{ApprovalEventOperation.Adding}";
+
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request))
+                        .ReturnsAsync(false);
+
+            var invalidApprovalEventException =
+                new InvalidApprovalEventException(
+                    message: "Invalid approval event. Integrity verification failed.");
+
+            var expectedApprovalValidationException =
+                new ApprovalValidationException(
+                    message: "Approval validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalEventException);
+
+            // when
+            ValueTask<EventEnvelope<Approval>?> onAddingTask =
+                this.approvalService.OnAddingApprovalAsync(
+                    forgedEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    onAddingTask.AsTask);
+
+            // then
+            actualApprovalValidationException.Should().BeEquivalentTo(
+                expectedApprovalValidationException);
+
+            this.envelopeIntegrityBrokerMock.Verify(broker =>
+                broker.VerifyAsync(
+                    forgedEnvelope,
+                    expectedEventName,
+                    EnvelopeDirection.Request),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalValidationException))),
+                Times.Once);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
