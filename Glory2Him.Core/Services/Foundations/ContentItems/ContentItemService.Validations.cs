@@ -45,24 +45,56 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
-        // the moderation roles that may act on and read non-public versions for review and
-        // audit (Reviewer, Publisher, Admin — global or ContentItem-scoped, §16.6)
-        private static bool HasReviewRole(SecurityContext securityContext) =>
+        // ContentItem is the one entity type with three role tiers rather than two, because
+        // it is the only one carrying a ContentType (design §18.6 rule 5). The tiers widen
+        // from narrow to broad — ContentItem-Story-Reviewer ⊂ ContentItem-Reviewer ⊂ Reviewer
+        // — and rule 4 binds both directions: holding ANY of them satisfies a check for that
+        // content type, and the narrow role NEVER satisfies a check for a different one. Both
+        // halves are load-bearing, so the checks below are always asked about a content type.
+
+        // the broad tiers, which cover every content type at once and so need no per-row
+        // question asked of them
+        private static bool HasBroadReviewRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Reviewer)
                 || securityContext.Roles.Contains(Roles.ContentItemReviewer)
                 || securityContext.Roles.Contains(Roles.Publisher)
                 || securityContext.Roles.Contains(Roles.ContentItemPublisher)
                 || securityContext.Roles.Contains(Roles.Admin);
 
+        // the narrow tier: authority over one content type and never over another
+        private static bool HasContentTypeReviewRole(
+            SecurityContext securityContext,
+            ContentType contentType) =>
+            securityContext.Roles.Contains(
+                    Roles.ReviewerFor(EntityType.ContentItem, contentType))
+                || securityContext.Roles.Contains(
+                    Roles.PublisherFor(EntityType.ContentItem, contentType));
+
+        // the moderation roles that may act on and read non-public versions of THIS content
+        // type for review and audit (§16.6, §18.6)
+        private static bool HasReviewRole(
+            SecurityContext securityContext,
+            ContentType contentType) =>
+            HasBroadReviewRole(securityContext)
+                || HasContentTypeReviewRole(securityContext, contentType);
+
+        // The content types a narrow-tier caller may review. A collection filter is a
+        // queryable predicate and cannot call a role check per row, so the caller's narrow
+        // grants are resolved once, here, into a set the predicate can test membership of.
+        private static ContentType[] ReviewableContentTypes(SecurityContext securityContext) =>
+            Enum.GetValues<ContentType>()
+                .Where(contentType => HasContentTypeReviewRole(securityContext, contentType))
+                .ToArray();
+
         // the publisher tier: the roles the dedicated approve operation itself requires, and
-        // the only ones besides the owner that may move a submission status through modify
-        // (§16.6, §18.6 — the narrow content-type tier only exists for ContentItem)
+        // the only ones besides the owner that may move a submission status through modify.
+        // Strictly narrower than the review tier — a Reviewer is absent by design (§8.6 HR-3).
         private static bool HasPublisherRole(
             SecurityContext securityContext,
             ContentType contentType) =>
             securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
                 || securityContext.Roles.Contains(Roles.ContentItemPublisher)
+                || securityContext.Roles.Contains(Roles.Admin)
                 || securityContext.Roles.Contains(
                     Roles.PublisherFor(EntityType.ContentItem, contentType));
 
@@ -89,7 +121,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageContentItem.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            if (isOwner is false
+                && HasReviewRole(securityContext, storageContentItem.ContentType) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to modify this content item.");
