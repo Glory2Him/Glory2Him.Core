@@ -25,6 +25,7 @@ using EventHighway.Core.Models.Services.Foundations.Events.V2;
 using EventHighway.Core.Models.Services.Foundations.ListenerEvents.V2;
 using EventHighway.EventHandlers;
 using EventHighway.SqlServer;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Microsoft.Extensions.Configuration;
@@ -34,8 +35,11 @@ namespace Glory2Him.Core.Brokers.Events
     internal partial class EventBroker : IEventBroker
     {
         private readonly EventHighwayClient eventHighwayClient;
+        private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
 
-        public EventBroker(IConfiguration configuration)
+        public EventBroker(
+            IConfiguration configuration,
+            IEnvelopeIntegrityBroker envelopeIntegrityBroker)
         {
             string connectionString = configuration
                 .GetConnectionString(name: "EventHighwayConnectionString") ?? string.Empty;
@@ -44,6 +48,8 @@ namespace Glory2Him.Core.Brokers.Events
                 new EventHighwayClient(
                     new SqlServerStorageBrokerProvider(connectionString),
                     new EventHighwayConfiguration());
+
+            this.envelopeIntegrityBroker = envelopeIntegrityBroker;
         }
 
         public async ValueTask RegisterEventParticipantAsync(
@@ -104,10 +110,25 @@ namespace Glory2Him.Core.Brokers.Events
             string eventName = $"{entityName}{operation}";
             DateTimeOffset now = DateTimeOffset.UtcNow;
 
+            // Signed here, at the one point that knows the destination — the composed event name
+            // and the request direction are bound into the signature, so the stored event is
+            // tamper-evident and cannot be lifted onto another address or replayed as a reply.
+            EnvelopeIntegrity integrity = await this.envelopeIntegrityBroker.SignAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            var signedEnvelope = new EventEnvelope<T>
+            {
+                Content = envelope.Content,
+                SecurityContext = envelope.SecurityContext,
+                RequestContext = envelope.RequestContext,
+                Metadata = envelope.Metadata,
+                Integrity = integrity
+            };
+
             var eventV2 = new EventV2
             {
                 Id = Guid.CreateVersion7(),
-                Content = JsonSerializer.Serialize(envelope),
+                Content = JsonSerializer.Serialize(signedEnvelope),
                 EventName = eventName,
                 EventAddressV2Id = eventAddressId,
                 EventParticipantV2Id = EventBrokerIdentifiers.Glory2HimParticipantId,
