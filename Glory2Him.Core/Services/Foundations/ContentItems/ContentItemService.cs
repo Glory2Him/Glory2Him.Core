@@ -284,7 +284,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && maybeContentItem.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            if (isOwner is false
+                && HasReviewRole(securityContext, maybeContentItem.ContentType) is false)
             {
                 await this.loggingBroker.LogWarningAsync(
                     message: $"Content item read denied. Content item {contentItemId} " +
@@ -311,7 +312,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             bool isAuthenticated =
                 securityContext is not null && securityContext.IsAuthenticated;
 
-            if (isAuthenticated && HasReviewRole(securityContext!))
+            if (isAuthenticated && HasBroadReviewRole(securityContext!))
             {
                 return visibleContentItems;
             }
@@ -324,12 +325,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             bool includeOwnContentItems = string.IsNullOrWhiteSpace(actorUserId) is false;
 
+            // a narrow-tier caller audits the content types they hold and no others (§18.6
+            // rule 4) — the broad branch above already returned for anyone holding a role
+            // that spans every type, so this set is only ever the narrow grants
+            ContentType[] reviewableContentTypes = isAuthenticated
+                ? ReviewableContentTypes(securityContext!)
+                : Array.Empty<ContentType>();
+
             return visibleContentItems.Where(contentItem =>
                 (contentItem.ApprovalStatus == ApprovalStatus.Approved
                     && contentItem.IsPublished
                     && (contentItem.PublishDate == null
                         || contentItem.PublishDate <= currentDateTime))
-                || (includeOwnContentItems && contentItem.CreatedBy == actorUserId));
+                || (includeOwnContentItems && contentItem.CreatedBy == actorUserId)
+                || reviewableContentTypes.Contains(contentItem.ContentType));
         }
 
         private async ValueTask<ContentItem> DoAddContentItemAsync(
@@ -389,7 +398,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             ValidateStorageContentItem(maybeContentItem, contentItem.Id);
 
-            await ValidateUserCanModifyStorageContentItemAsync(
+            bool mayTransitionApprovalStatus = await ValidateUserCanModifyStorageContentItemAsync(
                 storageContentItem: maybeContentItem,
                 securityContext: inboundEnvelope.SecurityContext);
 
@@ -399,7 +408,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             ValidateAgainstStorageContentItemOnModify(
                 inputContentItem: contentItem,
-                storageContentItem: maybeContentItem);
+                storageContentItem: maybeContentItem,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             ContentItem updatedContentItem = await this.storageBroker.UpdateContentItemAsync(
                 contentItem: contentItem,

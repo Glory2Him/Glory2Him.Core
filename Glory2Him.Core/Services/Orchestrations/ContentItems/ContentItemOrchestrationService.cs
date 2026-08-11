@@ -570,10 +570,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             bool isAuthenticated =
                 securityContext is not null && securityContext.IsAuthenticated;
 
-            // a review-role caller audits the whole pipeline: every non-deleted row,
+            // a broad review-role caller audits the whole pipeline: every non-deleted row,
             // including drafts and future-scheduled rows — the clock and the caller's
             // identity are never consulted
-            if (isAuthenticated && HasReviewRole(securityContext!))
+            if (isAuthenticated && HasBroadReviewRole(securityContext!))
             {
                 return visibleContentItems;
             }
@@ -589,12 +589,20 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             // identity cannot be resolved) sees the public set alone
             bool includeOwnContentItems = string.IsNullOrWhiteSpace(actorUserId) is false;
 
+            // a narrow-tier caller audits the content types they hold and no others (§18.6
+            // rule 4) — the broad branch above already returned for anyone holding a role
+            // that spans every type, so this set is only ever the narrow grants
+            ContentType[] reviewableContentTypes = isAuthenticated
+                ? ReviewableContentTypes(securityContext!)
+                : Array.Empty<ContentType>();
+
             return visibleContentItems.Where(contentItem =>
                 (contentItem.ApprovalStatus == ApprovalStatus.Approved
                     && contentItem.IsPublished
                     && (contentItem.PublishDate == null
                         || contentItem.PublishDate <= currentDateTime))
-                || (includeOwnContentItems && contentItem.CreatedBy == actorUserId));
+                || (includeOwnContentItems && contentItem.CreatedBy == actorUserId)
+                || reviewableContentTypes.Contains(contentItem.ContentType));
         }
 
         // the orchestration's own completion fact, distinct from the foundation's entity
