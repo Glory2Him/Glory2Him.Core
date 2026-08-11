@@ -460,12 +460,19 @@ Metadata should not be covered by the envelope integrity signature if you want t
 
 The integrity section protects the parts of the envelope that should not be tampered with.
 
-The recommended approach is to protect only:
+**Not implemented.** No signer and no verifier exists in the repository; `Integrity` is `null` on every envelope built today. What follows is the specification, not a description of current behaviour.
+
+The signature must cover:
 
 1. `SecurityContext`
 2. `RequestContext`
+3. A hash of `Content`
+4. `Metadata.EventId`
+5. The target address / operation
 
-This allows the substrate to enrich metadata while still detecting tampering of sensitive identity and request context data.
+**Signing only `SecurityContext` and `RequestContext` does not work**, and an earlier revision of this document recommended exactly that. A signature over identity alone is a transplantable bearer token: capture any one legitimately signed envelope, lift its signed `SecurityContext` onto different `Content` at a different address, and it still verifies. The attacker then authors any request they like as that actor — which is the whole property the signature was supposed to deny them. Binding the content hash, the event id and the destination is what ties a signature to *one* request; without all three the control is decorative.
+
+`Metadata` as a whole stays outside the signature so the substrate can enrich it during retries and dispatch — `Metadata.RetryCount` in particular changes legitimately in flight. `Metadata.EventId` is pulled in individually because it is the replay key and is fixed at creation.
 
 ```csharp
 public sealed class EnvelopeIntegrity

@@ -14,8 +14,12 @@ using System;
 namespace G2H.EventEnvelope.Client.Models.Foundations
 {
     /// <summary>
-    /// The cryptographic integrity details of an <see cref="EventEnvelope{T}"/>, allowing consumers
-    /// to verify that the envelope's contents have not been tampered with since it was signed.
+    /// The cryptographic integrity details of an <see cref="EventEnvelope{T}"/>.
+    ///
+    /// <para><b>Unimplemented contract.</b> This type describes the shape a signature would take;
+    /// this client neither populates nor checks it. A populated <c>Integrity</c> has still not
+    /// been verified by anything, and <c>null</c> — which is every envelope today — is not
+    /// thereby suspect.</para>
     /// </summary>
     public sealed class EventEnvelopeIntegrity
     {

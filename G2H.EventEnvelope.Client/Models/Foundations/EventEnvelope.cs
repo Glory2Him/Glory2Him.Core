@@ -42,7 +42,12 @@ namespace G2H.EventEnvelope.Client.Models.Foundations
         public EventMetadata Metadata { get; init; } = new EventMetadata();
 
         /// <summary>
-        /// The cryptographic signature details proving the envelope has not been tampered with since it was created.
+        /// The cryptographic signature details for the envelope.
+        ///
+        /// <para><b>Not implemented — this is a declared contract, not a guarantee.</b> Neither
+        /// <c>CreateAsync</c> nor <c>CreateNextAsync</c> populates this property, and nothing
+        /// verifies it, so it is <c>null</c> on every envelope this client produces. Do not read
+        /// it as evidence that an envelope is authentic.</para>
         /// </summary>
         public EventEnvelopeIntegrity Integrity { get; init; }
     }
