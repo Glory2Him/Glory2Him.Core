@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -74,9 +75,26 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.HasIndex(approvalReviews => new { approvalReviews.ApprovalId, approvalReviews.StatusId })
                 .HasDatabaseName("IX_ApprovalReviews_ApprovalId_StatusId");
 
-            // Ensure each reviewer can only have one review per approval
+            // Ensure each reviewer can only have one ACTIVE review per approval.
+            //
+            // The filter is the whole point. §7.7 rule 1 bars a second *active* review, not a
+            // second review ever — and unfiltered, this index reserved the
+            // (ApprovalId, ReviewerId) slot permanently. Withdrawal is a soft delete, so the row
+            // stays; dismissal retains the row for audit by design (§9.5). So §7.7 rule 7's
+            // "file a new review once yours has been dismissed" had no route at all: rule 1
+            // forbids superseding the dismissed row in place, and amending it is refused outright
+            // because a dismissal is precisely the record that the verdict no longer describes
+            // the current content.
+            //
+            // While ReviewerId was free text a reviewer could sidestep this by inventing a second
+            // id. That was never a feature — it was the hole that let one reviewer meet a
+            // three-approval threshold alone — and binding the field to the acting user closed
+            // it, which is what turned a latent oddity into a dead end.
             model.HasIndex(approvalReviews => new { approvalReviews.ApprovalId, approvalReviews.ReviewerId })
                 .IsUnique()
+                .HasFilter(
+                    $"[{nameof(ApprovalReview.StatusId)}] <> {(int)ApprovalStatus.Dismissed} " +
+                        $"AND [{nameof(ApprovalReview.IsDeleted)}] = 0")
                 .HasDatabaseName("UX_ApprovalReviews_ApprovalId_ReviewerId");
 
             // Relationship: many ApprovalReviews to one Approval
