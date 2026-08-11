@@ -54,11 +54,32 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 || securityContext.Roles.Contains(Roles.ContentItemPublisher)
                 || securityContext.Roles.Contains(Roles.Admin);
 
+        // the publisher tier: the roles the dedicated approve operation itself requires, and
+        // the only ones besides the owner that may move a submission status through modify
+        // (§16.6, §18.6 — the narrow content-type tier only exists for ContentItem)
+        private static bool HasPublisherRole(
+            SecurityContext securityContext,
+            ContentType contentType) =>
+            securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.Admin)
+                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
+                || securityContext.Roles.Contains(
+                    Roles.PublisherFor(EntityType.ContentItem, contentType));
+
         // row-level write permission: the owner or a review role may write the row — the
         // narrower process rules (approved items fork, only the latest version is amended)
         // stay in the orchestration, which needs owner writes to approved rows for the
         // version fork and role writes for the publish flip
-        private async ValueTask ValidateUserCanModifyStorageContentItemAsync(
+        //
+        // Returns whether the caller may also use the Draft <-> Submitted carve-out (design
+        // §9.2 rules 4-6). The answer falls out of the ownership check this method already
+        // performs, so it is returned rather than recomputed - a second GetUserIdAsync would
+        // be a wasted call and a second chance for the two answers to disagree.
+        //
+        // Note what the carve-out is NOT gated on: write permission. A Reviewer passes the
+        // check below and may amend content, and must still never move an approval status
+        // (§8.6 HR-3).
+        private async ValueTask<bool> ValidateUserCanModifyStorageContentItemAsync(
             ContentItem storageContentItem,
             SecurityContext securityContext)
         {
@@ -73,6 +94,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to modify this content item.");
             }
+
+            return isOwner
+                || HasPublisherRole(securityContext, storageContentItem.ContentType);
         }
 
         // removing content is a takedown, not a moderation step — the owner may remove
@@ -229,7 +253,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         private static void ValidateAgainstStorageContentItemOnModify(
             ContentItem inputContentItem,
-            ContentItem storageContentItem)
+            ContentItem storageContentItem,
+            bool mayTransitionApprovalStatus)
         {
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
@@ -245,6 +270,86 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         second: storageContentItem.CreatedBy,
                         secondName: nameof(ContentItem.CreatedBy)),
                     Parameter: nameof(ContentItem.CreatedBy)),
+
+                // The content type is create-only (design §12.4.1 rule 7a). Each type carries
+                // its own validation rules and composes content-type-scoped role names
+                // (§18.6), so relabelling would move an item into a type its content was never
+                // checked against and whose reviewers never saw it.
+                (Rule: IsNotSame(
+                        first: inputContentItem.ContentType,
+                        second: storageContentItem.ContentType,
+                        secondName: nameof(ContentItem.ContentType)),
+                    Parameter: nameof(ContentItem.ContentType)),
+
+                // The version lineage is how an approved item's history is read back. Left
+                // writable, a caller could detach an item from its group or crown an older
+                // version as latest, and the version anyone actually reviewed would be gone.
+                // The orchestration mints these on the fork; modify never carries them.
+                (Rule: IsNotSame(
+                        first: inputContentItem.ContentItemGroupId,
+                        second: storageContentItem.ContentItemGroupId,
+                        secondName: nameof(ContentItem.ContentItemGroupId)),
+                    Parameter: nameof(ContentItem.ContentItemGroupId)),
+
+                (Rule: IsNotSame(
+                        first: inputContentItem.Version,
+                        second: storageContentItem.Version,
+                        secondName: nameof(ContentItem.Version)),
+                    Parameter: nameof(ContentItem.Version)),
+
+                (Rule: IsNotSame(
+                        first: inputContentItem.IsLatestVersion,
+                        second: storageContentItem.IsLatestVersion,
+                        secondName: nameof(ContentItem.IsLatestVersion)),
+                    Parameter: nameof(ContentItem.IsLatestVersion)),
+
+                // The general modify is for content only. Every IApproval member belongs to the
+                // approve operation (design §9.7.1 rules 2 and 3), so they are pinned here
+                // rather than carried — otherwise reaching approved and published on the
+                // primary content entity would need no review role, no publisher tier, no
+                // access decision and no approval conditions, only write permission on the row.
+                //
+                // Pinning is by comparison against storage, not by omission (§9.7.1): default
+                // is a legal value for most of these — Draft is 0, false is the default for
+                // both flags — so a rule that trusted absence could not tell "not supplied"
+                // from "set to the dangerous value".
+                (Rule: IsNotAPermittedStatusChangeOnModify(
+                        inputStatus: inputContentItem.ApprovalStatus,
+                        storageStatus: storageContentItem.ApprovalStatus,
+                        mayTransition: mayTransitionApprovalStatus),
+                    Parameter: nameof(ContentItem.ApprovalStatus)),
+
+                (Rule: IsNotSame(
+                        first: inputContentItem.IsPublished,
+                        second: storageContentItem.IsPublished,
+                        secondName: nameof(ContentItem.IsPublished)),
+                    Parameter: nameof(ContentItem.IsPublished)),
+
+                (Rule: IsNotSame(
+                        firstDate: inputContentItem.PublishDate,
+                        secondDate: storageContentItem.PublishDate,
+                        secondDateName: nameof(ContentItem.PublishDate)),
+                    Parameter: nameof(ContentItem.PublishDate)),
+
+                // The bypass record is pinned hardest of all, because it is the only field here
+                // whose whole purpose is to be read back later as evidence. The approve
+                // operation derives it from the access decision and never accepts it; leaving
+                // it writable through modify would hand it back to the caller by the side door
+                // — someone who bypass-approved could then quietly clear the flag that says so.
+                (Rule: IsNotSame(
+                        first: inputContentItem.IsApprovedByBypass,
+                        second: storageContentItem.IsApprovedByBypass,
+                        secondName: nameof(ContentItem.IsApprovedByBypass)),
+                    Parameter: nameof(ContentItem.IsApprovedByBypass)),
+
+                // Coalesced because the column is nullable and "no reason recorded" is the same
+                // fact whether it is stored as null or as empty — a caller sending one for the
+                // other is not attempting a change worth refusing.
+                (Rule: IsNotSame(
+                        first: inputContentItem.ApprovedByBypassReason ?? string.Empty,
+                        second: storageContentItem.ApprovedByBypassReason ?? string.Empty,
+                        secondName: nameof(ContentItem.ApprovedByBypassReason)),
+                    Parameter: nameof(ContentItem.ApprovedByBypassReason)),
 
                 (Rule: IsSame(
                         firstDate: inputContentItem.UpdatedWhen,
@@ -322,6 +427,74 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 Condition = first != second,
                 Message = $"Text is not the same as {secondName}"
             };
+
+        private static dynamic IsNotSame(
+            DateTimeOffset? firstDate,
+            DateTimeOffset? secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate != secondDate,
+                Message = $"Date is not the same as {secondDateName}"
+            };
+
+        private static dynamic IsNotSame(
+            Guid first,
+            Guid second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Id is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            bool first,
+            bool second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            int first,
+            int second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            ContentType first,
+            ContentType second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        // The one carve-out on modify (design §9.2 rules 4-6): an eligible caller may move the
+        // status between Draft and Submitted, because submitting is inseparable from the edit
+        // that made the work ready. Everything else about the status stays pinned, and the
+        // caller must have been found eligible before this is reached — a Reviewer holds write
+        // permission on the row and must still never move the status (§8.6 HR-3).
+        private static dynamic IsNotAPermittedStatusChangeOnModify(
+            ApprovalStatus inputStatus,
+            ApprovalStatus storageStatus,
+            bool mayTransition) => new
+            {
+                Condition =
+                    inputStatus != storageStatus
+                        && (mayTransition is false
+                            || IsDraftOrSubmitted(inputStatus) is false
+                            || IsDraftOrSubmitted(storageStatus) is false),
+
+                Message = "Value is not the same as storage approval status"
+            };
+
+        private static bool IsDraftOrSubmitted(ApprovalStatus approvalStatus) =>
+            approvalStatus == ApprovalStatus.Draft
+                || approvalStatus == ApprovalStatus.Submitted;
 
         private static dynamic IsSame(
             DateTimeOffset firstDate,

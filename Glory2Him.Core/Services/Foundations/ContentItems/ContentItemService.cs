@@ -389,7 +389,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             ValidateStorageContentItem(maybeContentItem, contentItem.Id);
 
-            await ValidateUserCanModifyStorageContentItemAsync(
+            bool mayTransitionApprovalStatus = await ValidateUserCanModifyStorageContentItemAsync(
                 storageContentItem: maybeContentItem,
                 securityContext: inboundEnvelope.SecurityContext);
 
@@ -399,7 +399,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             ValidateAgainstStorageContentItemOnModify(
                 inputContentItem: contentItem,
-                storageContentItem: maybeContentItem);
+                storageContentItem: maybeContentItem,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             ContentItem updatedContentItem = await this.storageBroker.UpdateContentItemAsync(
                 contentItem: contentItem,
