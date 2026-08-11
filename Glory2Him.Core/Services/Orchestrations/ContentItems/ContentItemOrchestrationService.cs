@@ -249,6 +249,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                     message: "A content item already exists with the same content.");
             }
 
+            // PublishDate is deliberately absent, for the same reason it is absent from the
+            // version fork below. It is an IApproval member (§9.7.1 rule 2), and the add
+            // surface may carry an ApprovalStatus of Draft or Submitted and nothing else —
+            // never IsPublished, never PublishDate (rule 1). Taking it from the caller here
+            // would let them schedule their own publication on the way in, on a row that is
+            // otherwise landed unpublished and in Draft precisely so it cannot.
             ContentItem newContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
@@ -256,7 +262,6 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 Title = contentItem.Title,
                 Author = contentItem.Author,
                 Content = contentItem.Content,
-                PublishDate = contentItem.PublishDate,
                 ContentHash = contentHash,
                 ContentItemGroupId = await this.identifierBroker.GetIdentifierAsync(),
                 Version = 1,

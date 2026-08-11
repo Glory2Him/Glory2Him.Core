@@ -47,7 +47,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
-                PublishDate = inputContentItem.PublishDate,
+
+                // the caller's publish date does not ride in on the add — a fresh row has
+                // none until approve grants one, which is why it lands unpublished in Draft
+                PublishDate = null,
                 ContentHash = expectedContentHash,
                 ContentItemGroupId = contentItemGroupId,
                 Version = 1,
