@@ -14,8 +14,13 @@ using System;
 namespace Glory2Him.Core.Models.Events
 {
     /// <summary>
-    /// The cryptographic integrity details of an <see cref="EventEnvelope{T}"/>, allowing consumers
-    /// to verify that the envelope's contents have not been tampered with since it was signed.
+    /// The cryptographic integrity details of an <see cref="EventEnvelope{T}"/>.
+    ///
+    /// <para><b>Unimplemented contract.</b> This type describes the shape a signature would take;
+    /// no code populates it and no code checks it. An envelope carrying a populated
+    /// <c>Integrity</c> has still not been verified by anything, and one carrying <c>null</c> —
+    /// which is every envelope today — is not thereby suspect. Consumers must not treat this type
+    /// as proof of anything until a signer and a verifier exist (design §14.6 rule 4).</para>
     /// </summary>
     public sealed class EnvelopeIntegrity
     {
