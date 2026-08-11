@@ -644,6 +644,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             string contentHash,
             CancellationToken cancellationToken)
         {
+            // PublishDate is deliberately absent, so the new version starts with none. It is
+            // an IApproval member (§9.7.1 rule 2) and the fork is still the modify operation,
+            // so taking it from the caller here would simply reopen the door MapPermittedFields
+            // just closed: edit an approved item and your publish date rides in on the fork.
+            // A fresh draft has no publish date until the approve operation grants one, which
+            // is the same reason IsPublished starts false and the status starts Draft.
             var newVersionContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
@@ -651,7 +657,6 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 Title = contentItem.Title,
                 Author = contentItem.Author,
                 Content = contentItem.Content,
-                PublishDate = contentItem.PublishDate,
                 ContentHash = contentHash,
                 ContentItemGroupId = currentContentItem.ContentItemGroupId,
                 Version = currentContentItem.Version + 1,
@@ -677,6 +682,13 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 cancellationToken: cancellationToken);
         }
 
+        // The content fields, and only those. Under §9.7.1 rule 2's subtraction rule every
+        // IApproval member — ApprovalStatus, IsPublished and PublishDate — belongs to the
+        // approve operation as one unit, so none of them is carried here. PublishDate is the
+        // one that looks like content and is not: a caller who could set it through the
+        // general modify would schedule their own publication without ever meeting the gate
+        // that owns it. The foundation pins all three against storage as well (§8.6.1 — a
+        // rule enforced only at orchestration is not enforced).
         private static void MapPermittedFields(
             ContentItem targetContentItem,
             ContentItem sourceContentItem,
@@ -686,7 +698,6 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             targetContentItem.Title = sourceContentItem.Title;
             targetContentItem.Author = sourceContentItem.Author;
             targetContentItem.Content = sourceContentItem.Content;
-            targetContentItem.PublishDate = sourceContentItem.PublishDate;
             targetContentItem.ContentHash = contentHash;
         }
 

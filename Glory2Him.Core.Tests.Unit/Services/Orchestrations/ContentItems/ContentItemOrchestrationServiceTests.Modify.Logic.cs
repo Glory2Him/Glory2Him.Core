@@ -54,7 +54,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             expectedMappedContentItem.Title = inputContentItem.Title;
             expectedMappedContentItem.Author = inputContentItem.Author;
             expectedMappedContentItem.Content = inputContentItem.Content;
-            expectedMappedContentItem.PublishDate = inputContentItem.PublishDate;
             expectedMappedContentItem.ContentHash = expectedContentHash;
             ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
@@ -161,6 +160,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
+        public async Task ShouldNotCarryPublishDateOnModifyInPlaceAsync()
+        {
+            // given: PublishDate is an IApproval member, so under §9.7.1 rule 2's
+            // subtraction rule it is not content and the general modify must never carry
+            // it — it belongs solely to the approve operation, which owns ApprovalStatus,
+            // IsPublished and PublishDate as one unit. A caller who could set it through
+            // modify would schedule their own publication without ever meeting that gate.
+            ContentItem inputContentItem = CreateRandomContentItem();
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string expectedContentHash = ComputeContentHash(inputContentItem.Content);
+            string actorUserId = GetRandomString();
+
+            ContentItem storageContentItem = CreateRandomStorageContentItem(
+                contentItemId: inputContentItem.Id,
+                approvalStatus: ApprovalStatus.Draft,
+                createdBy: actorUserId);
+
+            DateTimeOffset storedPublishDate = GetRandomDateTimeOffset();
+            storageContentItem.PublishDate = storedPublishDate;
+            inputContentItem.PublishDate = storedPublishDate.AddDays(GetRandomNumber());
+
+            // the mapped row keeps storage's publish date, not the caller's
+            ContentItem expectedMappedContentItem = storageContentItem.DeepClone();
+            expectedMappedContentItem.ContentType = inputContentItem.ContentType;
+            expectedMappedContentItem.Title = inputContentItem.Title;
+            expectedMappedContentItem.Author = inputContentItem.Author;
+            expectedMappedContentItem.Content = inputContentItem.Content;
+            expectedMappedContentItem.ContentHash = expectedContentHash;
+            ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
+
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: securityContext);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(actorUserId);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(expectedContentHash);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentType,
+                    expectedContentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
+
+            ContentItem? capturedContentItem = null;
+
+            this.contentItemServiceMock.Setup(service =>
+                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
+                    .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
+                        capturedContentItem = contentItem)
+                    .ReturnsAsync(updatedContentItem);
+
+            SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: updatedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Modified);
+
+            // when
+            await this.contentItemOrchestrationService.ModifyContentItemAsync(
+                inputContentItem,
+                TestContext.Current.CancellationToken);
+
+            // then
+            capturedContentItem.Should().BeEquivalentTo(expectedMappedContentItem);
+            capturedContentItem!.PublishDate.Should().Be(storedPublishDate);
+        }
+
+        [Fact]
         public async Task ShouldForkNewVersionOnModifyIfApprovedItemIsModifiedByOwnerAsync()
         {
             // given: an approved item is immutable to its owner — the edit forks a new row
@@ -189,7 +272,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
-                PublishDate = inputContentItem.PublishDate,
+
+                // the fork is still the modify operation, so the caller's publish date does
+                // not ride in on it — a fresh draft has none until approve grants one
+                PublishDate = null,
                 ContentHash = expectedContentHash,
                 ContentItemGroupId = storageContentItem.ContentItemGroupId,
                 Version = storageContentItem.Version + 1,
