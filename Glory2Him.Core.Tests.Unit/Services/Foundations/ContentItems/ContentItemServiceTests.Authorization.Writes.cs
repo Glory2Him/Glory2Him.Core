@@ -512,5 +512,208 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .Returns(new ValueTask<EventPublishResult<ContentItem>>(
                             new EventPublishResult<ContentItem>()));
         }
+
+        // ── Nor is it a caller's to assert on the way in ─────────────────────────────
+        //
+        // The pins above are worth nothing on their own if a row can simply arrive already
+        // approved. Design §9.7.1's write surface bounds add to an ApprovalStatus of Draft
+        // or Submitted and nothing else — never IsPublished, never PublishDate — because
+        // publication is the approve operation's to grant (rules 1 and 3).
+
+        // Sets up the brokers an add reaches before the rules run, for a caller whose write
+        // is expected to be refused by ValidateOnAddContentItem.
+        private void SetupFailingAddPathBrokers(
+            ContentItem inputContentItem,
+            string actorUserId,
+            DateTimeOffset currentDateTimeOffset)
+        {
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTimeOffset);
+        }
+
+        private async Task<ContentItemValidationException> AssertAddIsRefusedAsync(
+            ContentItem invalidContentItem,
+            InvalidContentItemException invalidContentItemException)
+        {
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            ValueTask<ContentItem> addContentItemTask =
+                this.contentItemService.AddContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actual =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    addContentItemTask.AsTask);
+
+            actual.Should().BeEquivalentTo(expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<ContentItemEventOperation>()),
+                Times.Never);
+
+            return actual;
+        }
+
+        public static TheoryData<ApprovalStatus> VerdictApprovalStatuses() =>
+            new TheoryData<ApprovalStatus>
+            {
+                ApprovalStatus.Approved,
+                ApprovalStatus.Rejected,
+                ApprovalStatus.Dismissed
+            };
+
+        [Theory]
+        [MemberData(nameof(VerdictApprovalStatuses))]
+        public async Task ShouldThrowValidationExceptionOnAddIfApprovalStatusIsAVerdictAndLogItAsync(
+            ApprovalStatus verdictStatus)
+        {
+            // given: a verdict is the approval workflow's to record. Without this rule any
+            // authenticated caller — no roles at all — could insert a content item that is
+            // already Approved, skipping the workflow rather than bypassing it.
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem invalidContentItem =
+                CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidContentItem.ApprovalStatus = verdictStatus;
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ApprovalStatus),
+                values: $"Value must be {nameof(ApprovalStatus.Draft)} " +
+                    $"or {nameof(ApprovalStatus.Submitted)} on add");
+
+            SetupFailingAddPathBrokers(invalidContentItem, randomUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertAddIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfPublicationWasAssertedAndLogItAsync()
+        {
+            // given: a role-less caller publishing their own content item on the way in —
+            // public the moment it lands, with no review role, no publisher tier, no access
+            // decision and no approval conditions between them and the front page.
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem invalidContentItem =
+                CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidContentItem.IsPublished = true;
+            invalidContentItem.PublishDate = randomDateTimeOffset;
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.IsPublished),
+                values: "Value is not allowed on add");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.PublishDate),
+                values: "Date is not allowed on add");
+
+            SetupFailingAddPathBrokers(invalidContentItem, randomUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertAddIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        // A future publish date is the subtler half of the same rule: the row is not public
+        // yet, so nothing looks wrong until the clock passes the date the caller chose.
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfPublicationWasScheduledAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem invalidContentItem =
+                CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidContentItem.PublishDate = randomDateTimeOffset.AddDays(GetRandomNumber());
+
+            var invalidContentItemException = new InvalidContentItemException(
+                message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.PublishDate),
+                values: "Date is not allowed on add");
+
+            SetupFailingAddPathBrokers(invalidContentItem, randomUserId, randomDateTimeOffset);
+
+            // when . then
+            await AssertAddIsRefusedAsync(invalidContentItem, invalidContentItemException);
+        }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Submitted)]
+        public async Task ShouldAcceptAContributableApprovalStatusOnAddAsync(
+            ApprovalStatus contributableStatus)
+        {
+            // given: the positive half of the rule. Design §9.7.1 rule 1 says a row is written
+            // with "the ApprovalStatus the caller asked for — Submitted on the common path,
+            // Draft when saving work in progress", so narrowing the rule to Draft-only would
+            // break the documented common path. Without this test that narrowing is invisible.
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem inputContentItem =
+                CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+
+            inputContentItem.ApprovalStatus = contributableStatus;
+            ContentItem storageContentItem = inputContentItem.DeepClone();
+            SetupFailingAddPathBrokers(inputContentItem, randomUserId, randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertContentItemAsync(inputContentItem, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageContentItem);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    ContentItemEventOperation.Added))
+                        .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                            new EventPublishResult<ContentItem>()));
+
+            // when
+            ContentItem actualContentItem =
+                await this.contentItemService.AddContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItem.ApprovalStatus.Should().Be(contributableStatus);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertContentItemAsync(inputContentItem, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
     }
 }
