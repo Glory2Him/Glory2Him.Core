@@ -424,8 +424,15 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 Explanation = explanation,
             };
 
-        // Permitted, and the conditions were waived to get there. DenialReason stays None — this
-        // is a permission, and a caller checking `reason != None` must not see a refusal here.
+        // Permitted along the bypass route. DenialReason stays None — this is a permission, and a
+        // caller checking `reason != None` must not see a refusal here.
+        //
+        // IsBypassUsed reports whether anything was ACTUALLY waived, not whether the bypass route
+        // was taken. Requesting a bypass over an approval whose conditions were already met waives
+        // nothing, and the caller writes this flag into a column whose entire purpose is answering
+        // "what was published without meeting its conditions" — so reporting true there would
+        // enter a false positive into the one query the record exists to serve. That reading is
+        // also what IsBypassUsed documents about itself.
         private static AccessVerdict PermitByBypass(
             AccessDenialReason bypassedBlockReason,
             string explanation) =>
@@ -433,7 +440,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             {
                 IsPermitted = true,
                 DenialReason = AccessDenialReason.None,
-                IsBypassUsed = true,
+                IsBypassUsed = bypassedBlockReason != AccessDenialReason.None,
                 BypassedBlockReason = bypassedBlockReason,
                 Explanation = explanation,
             };
