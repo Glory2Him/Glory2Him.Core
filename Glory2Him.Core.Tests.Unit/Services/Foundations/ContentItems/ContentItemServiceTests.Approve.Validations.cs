@@ -110,6 +110,113 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnApproveIfPublishedWithoutApprovalAsync()
+        {
+            // given: publication is a consequence of approval — a row cannot be published while
+            // being rejected. The rule is the ONLY guard on this pair (DoApprove copies
+            // IsPublished straight from the caller), and it must fire before the row is read, so
+            // a rejected-but-published payload never touches storage.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            ContentItem inputContentItem = CreateRejectionDecision(Guid.NewGuid());
+            inputContentItem.IsPublished = true;
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.UpsertDataList(
+                key: nameof(ContentItem.IsPublished),
+                value: "Is published requires an approved content item.");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            // when
+            ValueTask<ContentItem> approveTask =
+                this.contentItemService.ApproveContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(approveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedContentItemValidationException);
+
+            // rejected-but-published never reached storage and never announced anything
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectContentItemByIdAsync(
+                        It.IsAny<Guid>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateContentItemAsync(
+                        It.IsAny<ContentItem>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                    broker.PublishContentItemAsync(
+                        It.IsAny<EventEnvelope<ContentItem>>(),
+                        It.IsAny<ContentItemEventOperation>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnApproveIfPublishDateWithoutPublicationAsync()
+        {
+            // given: a publish date without publication is a date nothing reads. DoApprove copies
+            // PublishDate straight from the caller, so this rule is the only thing stopping a
+            // phantom publish date landing on an unpublished row.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            ContentItem inputContentItem = CreateRejectionDecision(Guid.NewGuid());
+            inputContentItem.IsPublished = false;
+            inputContentItem.PublishDate = GetRandomDateTimeOffset();
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.UpsertDataList(
+                key: nameof(ContentItem.PublishDate),
+                value: "Publish date requires a published content item.");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            // when
+            ValueTask<ContentItem> approveTask =
+                this.contentItemService.ApproveContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(approveTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectContentItemByIdAsync(
+                        It.IsAny<Guid>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateContentItemAsync(
+                        It.IsAny<ContentItem>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task ShouldThrowNotFoundOnApproveIfTheRowIsMissingAsync()
         {
             // given
