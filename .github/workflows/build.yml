@@ -43,6 +43,35 @@ jobs:
           Write-Host "Running tests for: $($project.FullName)"
           dotnet test $project.FullName --no-build --verbosity normal
         }
+    - name: Run Integration Tests
+      shell: pwsh
+      run: |
+        # windows-latest ships SQL Server LocalDB; the fixtures connect to
+        # (localdb)\MSSQLLocalDB and create one database per process id.
+        sqllocaldb start MSSQLLocalDB
+        $projects = Get-ChildItem -Path . -Filter "*Tests.Integration*.csproj" -Recurse
+        foreach ($project in $projects) {
+          Write-Host "Running integration tests for: $($project.FullName)"
+          dotnet test $project.FullName --no-build --verbosity normal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
+    - name: Verify migration script applies under sqlcmd defaults
+      shell: pwsh
+      run: |
+        # Regression guard for the QUOTED_IDENTIFIER fix: the generated script must
+        # carry its own SET options so it applies under sqlcmd's default
+        # QUOTED_IDENTIFIER OFF. We regenerate via the tool and apply WITHOUT -I; a
+        # broken header fails the very first CREATE INDEX with Msg 1934.
+        dotnet tool install --global dotnet-ef --version 10.0.10 `
+          || dotnet tool update --global dotnet-ef --version 10.0.10
+        bash Tools/new-database-script.sh Glory2Him.Core.Database.sql
+        if ($LASTEXITCODE -ne 0) { throw "migration script generation failed" }
+        sqllocaldb start MSSQLLocalDB
+        sqlcmd -S "(localdb)\MSSQLLocalDB" -b -Q "IF DB_ID('G2H_MigrationCheck') IS NOT NULL DROP DATABASE [G2H_MigrationCheck]; CREATE DATABASE [G2H_MigrationCheck];"
+        if ($LASTEXITCODE -ne 0) { throw "could not create the check database" }
+        sqlcmd -S "(localdb)\MSSQLLocalDB" -d "G2H_MigrationCheck" -i "Glory2Him.Core.Database.sql" -b
+        if ($LASTEXITCODE -ne 0) { throw "migration script failed under sqlcmd defaults (QUOTED_IDENTIFIER)" }
+        sqlcmd -S "(localdb)\MSSQLLocalDB" -b -Q "DROP DATABASE [G2H_MigrationCheck];"
     env: {}
   add_tag:
     name: Tag and Release
