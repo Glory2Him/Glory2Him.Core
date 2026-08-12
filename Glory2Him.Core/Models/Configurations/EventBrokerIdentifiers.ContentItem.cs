@@ -41,6 +41,21 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ContentItemRemovedEventAddressId =
             new Guid("019f814e-89c1-7f9e-977e-873e2c2b36e0");
 
+        public static readonly Guid ContentItemSubmittingEventAddressId =
+            new Guid("753fe6cb-6c0f-4a9d-8b0c-9584c9a257af");
+
+        public static readonly Guid ContentItemApprovingEventAddressId =
+            new Guid("528e08fb-b2da-4c6b-95a2-2d3737dc0673");
+
+        public static readonly Guid ContentItemSubmittedEventAddressId =
+            new Guid("248329d6-6809-46e8-970d-d851fbd43ee3");
+
+        public static readonly Guid ContentItemApprovedEventAddressId =
+            new Guid("f7297161-3e6f-46d3-9cba-9e08d48c5d2c");
+
+        public static readonly Guid ContentItemRejectedEventAddressId =
+            new Guid("c9c78e35-b357-42dd-aeab-697bc05a8b7a");
+
         internal static readonly IReadOnlyDictionary<ContentItemEventOperation, Guid>
             ContentItemEventAddressIds = new Dictionary<ContentItemEventOperation, Guid>
             {
@@ -49,6 +64,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemEventOperation.RemovingById, ContentItemRemovingByIdEventAddressId },
                 { ContentItemEventOperation.HardRemovingById, ContentItemHardRemovingByIdEventAddressId },
                 { ContentItemEventOperation.RetrievingById, ContentItemRetrievingByIdEventAddressId },
+                { ContentItemEventOperation.Submitting, ContentItemSubmittingEventAddressId },
+                { ContentItemEventOperation.Approving, ContentItemApprovingEventAddressId },
                 { ContentItemEventOperation.Added, ContentItemAddedEventAddressId },
                 { ContentItemEventOperation.Modified, ContentItemModifiedEventAddressId },
 
@@ -56,7 +73,11 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("ContentItemHardRemoved" vs "ContentItemRemoved").
                 { ContentItemEventOperation.Removed, ContentItemRemovedEventAddressId },
-                { ContentItemEventOperation.HardRemoved, ContentItemRemovedEventAddressId }
+                { ContentItemEventOperation.HardRemoved, ContentItemRemovedEventAddressId },
+
+                { ContentItemEventOperation.Submitted, ContentItemSubmittedEventAddressId },
+                { ContentItemEventOperation.Approved, ContentItemApprovedEventAddressId },
+                { ContentItemEventOperation.Rejected, ContentItemRejectedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentItemEventAddresses =
@@ -67,9 +88,14 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemRemovingByIdEventAddressId, "ContentItem-RemovingById" },
                 { ContentItemHardRemovingByIdEventAddressId, "ContentItem-HardRemovingById" },
                 { ContentItemRetrievingByIdEventAddressId, "ContentItem-RetrievingById" },
+                { ContentItemSubmittingEventAddressId, "ContentItem-Submitting" },
+                { ContentItemApprovingEventAddressId, "ContentItem-Approving" },
                 { ContentItemAddedEventAddressId, "ContentItem-Added" },
                 { ContentItemModifiedEventAddressId, "ContentItem-Modified" },
-                { ContentItemRemovedEventAddressId, "ContentItem-Removed" }
+                { ContentItemRemovedEventAddressId, "ContentItem-Removed" },
+                { ContentItemSubmittedEventAddressId, "ContentItem-Submitted" },
+                { ContentItemApprovedEventAddressId, "ContentItem-Approved" },
+                { ContentItemRejectedEventAddressId, "ContentItem-Rejected" }
             };
 
         public static readonly Guid ContentItemOnAddingContentItemSubscriptionId =
@@ -98,5 +124,17 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ContentItemOnRetrievingContentItemByIdSubscriptionName =
             "ContentItemService.OnRetrievingContentItemById";
+
+        public static readonly Guid ContentItemOnSubmittingContentItemSubscriptionId =
+            new Guid("ab43cac6-55c6-4224-aeff-1aeb0666b852");
+
+        public const string ContentItemOnSubmittingContentItemSubscriptionName =
+            "ContentItemService.OnSubmittingContentItem";
+
+        public static readonly Guid ContentItemOnApprovingContentItemSubscriptionId =
+            new Guid("f7621b20-132e-498d-b095-b5f9468d8f3a");
+
+        public const string ContentItemOnApprovingContentItemSubscriptionName =
+            "ContentItemService.OnApprovingContentItem";
     }
 }

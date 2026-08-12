@@ -29,9 +29,24 @@ namespace Glory2Him.Core.Models.Events.Foundations
         RemovingById,
         HardRemovingById,
         RetrievingById,
+
+        // The narrow state-transition requests (design §9.7.1). Each moves one field group
+        // the general modify does not own — Submitting moves the approval status Draft →
+        // Submitted, Approving decides a submission — and each answers on its own event
+        // address so it can be authorized in its own right (§8.6.1, §14.6).
+        Submitting,
+        Approving,
         Added,
         Modified,
         Removed,
-        HardRemoved
+        HardRemoved,
+
+        // The facts the transitions publish. Submitted and Approved follow the operation;
+        // Rejected follows the DECISION — an approve that rejects publishes Rejected, not
+        // Approved, so a subscriber keying on the fact name is never told the opposite of
+        // what happened.
+        Submitted,
+        Approved,
+        Rejected
     }
 }

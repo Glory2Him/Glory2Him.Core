@@ -411,6 +411,22 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ContentItemEventOperation.RetrievingById,
                 expectedHandler: this.contentItemServiceMock.Object.OnRetrievingContentItemByIdAsync);
 
+            VerifyContentItemSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemOnSubmittingContentItemSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemOnSubmittingContentItemSubscriptionName,
+                expectedOperation: ContentItemEventOperation.Submitting,
+                expectedHandler: this.contentItemServiceMock.Object.OnSubmittingContentItemAsync);
+
+            VerifyContentItemSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemOnApprovingContentItemSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemOnApprovingContentItemSubscriptionName,
+                expectedOperation: ContentItemEventOperation.Approving,
+                expectedHandler: this.contentItemServiceMock.Object.OnApprovingContentItemAsync);
+
             VerifyApprovalSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers.ApprovalOnAddingApprovalSubscriptionId,
                 expectedSubscriptionName: EventBrokerIdentifiers.ApprovalOnAddingApprovalSubscriptionName,

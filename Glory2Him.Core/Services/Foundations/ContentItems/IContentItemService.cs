@@ -59,5 +59,28 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         ValueTask<ContentItem> HardRemoveContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Moves a content item's approval status Draft → Submitted (design §9.7.1). A narrow
+        /// transition owning only <c>ApprovalStatus</c>: it decides against the STORED row,
+        /// admits the owner or the publisher tier (the same set the §9.2 modify carve-out
+        /// admits), refuses a row that is not in Draft, and publishes <c>ContentItem-Submitted</c>
+        /// — never <c>ContentItem-Modified</c>, which the approval workflow subscribes to.
+        /// </summary>
+        ValueTask<ContentItem> SubmitContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Decides a submitted content item (design §9.7.1, §8.6). The publisher-tier gate and
+        /// the <c>IAccessBroker</c> decision — no self-approval (HR-2), never a Reviewer (HR-3)
+        /// — are taken against the STORED row; the caller's copy carries only the outcome
+        /// (<c>Approved</c> or <c>Rejected</c>) and its publication fields. The two bypass
+        /// members are derived from the decision, never accepted. Publishes the fact the
+        /// DECISION names: <c>ContentItem-Approved</c> or <c>ContentItem-Rejected</c>.
+        /// </summary>
+        ValueTask<ContentItem> ApproveContentItemAsync(
+            ContentItem contentItem,
+            CancellationToken cancellationToken = default);
     }
 }

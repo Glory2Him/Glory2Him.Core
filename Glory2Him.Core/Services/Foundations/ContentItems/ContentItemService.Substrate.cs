@@ -167,6 +167,66 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     content: retrievedContentItem);
             });
 
+        public ValueTask<EventEnvelope<ContentItem>?> OnSubmittingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemEventOperation.Submitting);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .ContentItemOnSubmittingContentItemSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Submit owns only the status, so the id is the whole request; the envelope's
+                // other fields are the caller's copy and never trusted by the do-work.
+                ContentItem submittedContentItem =
+                    await DoSubmitContentItemAsync(
+                        contentItemId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: submittedContentItem);
+            });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnApprovingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemEventOperation.Approving);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .ContentItemOnApprovingContentItemSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                ContentItem approvedContentItem =
+                    await DoApproveContentItemAsync(
+                        contentItem: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: approvedContentItem);
+            });
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<ContentItem> envelope,
             string receiverName,

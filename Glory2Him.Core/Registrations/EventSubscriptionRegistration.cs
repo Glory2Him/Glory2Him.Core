@@ -197,6 +197,34 @@ namespace Glory2Him.Core.Registrations
                 contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToContentItemEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemOnSubmittingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOnSubmittingContentItemSubscriptionName,
+
+                    Description = "Handles submit requests: moves a content item Draft -> " +
+                        "Submitted, publishes ContentItem-Submitted, and replies with the " +
+                        "updated entity."
+                },
+                operation: ContentItemEventOperation.Submitting,
+                contentItemEventHandler: this.contentItemService.OnSubmittingContentItemAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemOnApprovingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemOnApprovingContentItemSubscriptionName,
+
+                    Description = "Handles approve requests: decides a submitted content item, " +
+                        "publishes ContentItem-Approved or ContentItem-Rejected per the " +
+                        "decision, and replies with the updated entity."
+                },
+                operation: ContentItemEventOperation.Approving,
+                contentItemEventHandler: this.contentItemService.OnApprovingContentItemAsync,
+                cancellationToken: cancellationToken);
+
             // ── ContentItem orchestration request handlers ───────────────────────
             await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
                 subscription: new EventSubscription

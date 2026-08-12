@@ -45,5 +45,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<ContentItem>?> OnSubmittingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<ContentItem>?> OnApprovingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
     }
 }
