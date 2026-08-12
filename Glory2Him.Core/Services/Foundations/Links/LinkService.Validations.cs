@@ -120,6 +120,13 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     message: "The current user is not authenticated.");
             }
 
+            if (securityContext.Roles.Contains(Roles.ReadOnly)
+                || securityContext.Roles.Contains(Roles.LinkReadOnly))
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is blocked from contributing links.");
+            }
+
             if (securityContext.Roles.Contains(Roles.Admin) is false)
             {
                 throw new UnauthorizedLinkException(

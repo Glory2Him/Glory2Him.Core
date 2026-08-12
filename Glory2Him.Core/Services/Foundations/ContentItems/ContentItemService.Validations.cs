@@ -191,6 +191,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     message: "The current user is not authenticated.");
             }
 
+            if (securityContext.Roles.Contains(Roles.ReadOnly)
+                || securityContext.Roles.Contains(Roles.ContentItemReadOnly))
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is blocked from contributing content items.");
+            }
+
             if (securityContext.Roles.Contains(Roles.Admin) is false)
             {
                 throw new UnauthorizedContentItemException(

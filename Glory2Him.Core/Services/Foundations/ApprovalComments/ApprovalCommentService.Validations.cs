@@ -112,6 +112,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     message: "The current user is not authenticated.");
             }
 
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedApprovalCommentException(
+                    message: "The current user is blocked from contributing approval comments.");
+            }
+
             if (securityContext.Roles.Contains(Roles.Admin) is false)
             {
                 throw new UnauthorizedApprovalCommentException(

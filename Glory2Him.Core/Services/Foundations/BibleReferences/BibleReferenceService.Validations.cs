@@ -120,6 +120,13 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     message: "The current user is not authenticated.");
             }
 
+            if (securityContext.Roles.Contains(Roles.ReadOnly)
+                || securityContext.Roles.Contains(Roles.BibleReferenceReadOnly))
+            {
+                throw new UnauthorizedBibleReferenceException(
+                    message: "The current user is blocked from contributing bible references.");
+            }
+
             if (securityContext.Roles.Contains(Roles.Admin) is false)
             {
                 throw new UnauthorizedBibleReferenceException(

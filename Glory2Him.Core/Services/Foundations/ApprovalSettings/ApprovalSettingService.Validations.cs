@@ -37,6 +37,14 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                     message: "The current user is not authenticated.");
             }
 
+            // the global ReadOnly ban precedes the Admin check, so a banned Admin cannot reach
+            // past it — this gate is every approval setting write, hard remove included.
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedApprovalSettingException(
+                    message: "The current user is blocked from administering approval settings.");
+            }
+
             if (securityContext.Roles.Contains(Roles.Admin) is false)
             {
                 throw new UnauthorizedApprovalSettingException(
