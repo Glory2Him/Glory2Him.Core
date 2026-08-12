@@ -495,6 +495,33 @@ namespace Glory2Him.Core.Registrations
                 tagEventHandler: this.tagService.OnRetrievingTagByIdAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnSubmittingTagSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnSubmittingTagSubscriptionName,
+
+                    Description = "Handles submit requests: moves a tag Draft -> Submitted, " +
+                        "publishes Tag-Submitted, and replies with the updated entity."
+                },
+                operation: TagEventOperation.Submitting,
+                tagEventHandler: this.tagService.OnSubmittingTagAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.TagOnApprovingTagSubscriptionId,
+                    Name = EventBrokerIdentifiers.TagOnApprovingTagSubscriptionName,
+
+                    Description = "Handles approve requests: decides a submitted tag, " +
+                        "publishes Tag-Approved or Tag-Rejected per the decision, and replies " +
+                        "with the updated entity."
+                },
+                operation: TagEventOperation.Approving,
+                tagEventHandler: this.tagService.OnApprovingTagAsync,
+                cancellationToken: cancellationToken);
+
             // ── Link request handlers ─────────────────────────────────────
             await this.eventBroker.SubscribeToLinkEventAsync(
                 subscription: new EventSubscription

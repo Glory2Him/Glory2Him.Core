@@ -537,6 +537,22 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: TagEventOperation.RetrievingById,
                 expectedHandler: this.tagServiceMock.Object.OnRetrievingTagByIdAsync);
 
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.TagOnSubmittingTagSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.TagOnSubmittingTagSubscriptionName,
+                expectedOperation: TagEventOperation.Submitting,
+                expectedHandler: this.tagServiceMock.Object.OnSubmittingTagAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.TagOnApprovingTagSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.TagOnApprovingTagSubscriptionName,
+                expectedOperation: TagEventOperation.Approving,
+                expectedHandler: this.tagServiceMock.Object.OnApprovingTagAsync);
+
             VerifyLinkSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionId,
                 expectedSubscriptionName: EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionName,
