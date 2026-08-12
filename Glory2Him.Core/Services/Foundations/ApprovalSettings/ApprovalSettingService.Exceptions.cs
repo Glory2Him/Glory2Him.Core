@@ -115,6 +115,21 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsApprovalSettingException);
             }
+            // A unique-INDEX violation (EF's HasIndex().IsUnique(), and the ProcessedEvents
+            // dedup index) arrives as a type that does NOT derive from DuplicateKeyException,
+            // so the clause above misses it; without this it falls through to the general
+            // handler and mis-reports a business-key collision as "our code is broken".
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsApprovalSettingException = new AlreadyExistsApprovalSettingException(
+                    message: "Approval setting already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsApprovalSettingException);
+            }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
                 var invalidApprovalSettingReferenceException = new InvalidApprovalSettingReferenceException(
@@ -212,6 +227,21 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                     data: duplicateKeyException.Data);
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsApprovalSettingException);
+            }
+            // A unique-INDEX violation (EF's HasIndex().IsUnique(), and the ProcessedEvents
+            // dedup index) arrives as a type that does NOT derive from DuplicateKeyException,
+            // so the clause above misses it; without this it falls through to the general
+            // handler and mis-reports a business-key collision as "our code is broken".
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsApprovalSettingException = new AlreadyExistsApprovalSettingException(
+                    message: "Approval setting already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsApprovalSettingException);
             }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
