@@ -359,9 +359,10 @@ namespace Glory2Him.Core.Services.Foundations.Links
 
             ValidateStorageLink(maybeLink, linkId: link.Id);
 
-            await ValidateUserCanModifyStorageLinkAsync(
-                storageLink: maybeLink,
-                securityContext: inboundEnvelope.SecurityContext);
+            bool mayTransitionApprovalStatus =
+                await ValidateUserCanModifyStorageLinkAsync(
+                    storageLink: maybeLink,
+                    securityContext: inboundEnvelope.SecurityContext);
 
             link = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -370,7 +371,8 @@ namespace Glory2Him.Core.Services.Foundations.Links
 
             ValidateAgainstStorageLinkOnModify(
                 inputLink: link,
-                storageLink: maybeLink);
+                storageLink: maybeLink,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             Link updatedLink =
                 await this.storageBroker.UpdateLinkAsync(link, cancellationToken);

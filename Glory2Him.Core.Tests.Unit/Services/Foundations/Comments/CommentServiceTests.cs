@@ -23,6 +23,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
@@ -294,7 +295,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(comment => comment.IsDeleted).Use(false)
                 .OnProperty(comment => comment.CreatedBy).Use(userId)
-                .OnProperty(comment => comment.UpdatedBy).Use(userId);
+                .OnProperty(comment => comment.UpdatedBy).Use(userId)
+
+                // A contribution is unpublished and unapproved: add refuses a caller-supplied IsPublished,
+                // PublishDate or verdict status, and modify pins all three against storage. Drawing them
+                // would make every write test fail on the draw rather than on what it is testing.
+                .OnProperty(comment => comment.ApprovalStatus).Use(ApprovalStatus.Draft)
+                .OnProperty(comment => comment.IsPublished).Use(false)
+                .OnProperty(comment => comment.PublishDate).IgnoreIt();
 
             return filler;
         }

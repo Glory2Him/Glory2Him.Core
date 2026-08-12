@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
@@ -620,6 +621,225 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // then
             actualCommentValidationException.Should().BeEquivalentTo(
                 expectedCommentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfIsPublishedIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Comment randomComment = CreateCommentFiller(randomDateTimeOffset, randomUserId).Create();
+            Comment invalidComment = randomComment;
+            invalidComment.IsPublished = true;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.IsPublished),
+                values: "Value is not allowed on add");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Comment> addCommentTask =
+                this.commentService.AddCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    addCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfPublishDateIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Comment randomComment = CreateCommentFiller(randomDateTimeOffset, randomUserId).Create();
+            Comment invalidComment = randomComment;
+            invalidComment.PublishDate = randomDateTimeOffset;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.PublishDate),
+                values: "Date is not allowed on add");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Comment> addCommentTask =
+                this.commentService.AddCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    addCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfApprovalStatusIsAVerdictAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Comment randomComment = CreateCommentFiller(randomDateTimeOffset, randomUserId).Create();
+            Comment invalidComment = randomComment;
+            invalidComment.ApprovalStatus = ApprovalStatus.Approved;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.ApprovalStatus),
+                values: "Value must be Draft or Submitted on add");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Comment> addCommentTask =
+                this.commentService.AddCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    addCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

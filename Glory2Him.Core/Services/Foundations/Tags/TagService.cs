@@ -359,9 +359,10 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
             ValidateStorageTag(maybeTag, tagId: tag.Id);
 
-            await ValidateUserCanModifyStorageTagAsync(
-                storageTag: maybeTag,
-                securityContext: inboundEnvelope.SecurityContext);
+            bool mayTransitionApprovalStatus =
+                await ValidateUserCanModifyStorageTagAsync(
+                    storageTag: maybeTag,
+                    securityContext: inboundEnvelope.SecurityContext);
 
             tag = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -370,7 +371,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
             ValidateAgainstStorageTagOnModify(
                 inputTag: tag,
-                storageTag: maybeTag);
+                storageTag: maybeTag,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             Tag updatedTag =
                 await this.storageBroker.UpdateTagAsync(tag, cancellationToken);

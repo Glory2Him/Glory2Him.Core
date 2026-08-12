@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Tags;
@@ -54,9 +55,22 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 || securityContext.Roles.Contains(Roles.TagPublisher)
                 || securityContext.Roles.Contains(Roles.Admin);
 
+        // the publisher tier: the roles the approve operation itself requires, and the only ones
+        // besides the owner that may move a submission status through the general modify. Strictly
+        // narrower than the review tier — a Reviewer is absent by design (§8.6 HR-3).
+        private static bool HasPublisherRole(SecurityContext securityContext) =>
+            securityContext.Roles.Contains(Roles.Publisher)
+                || securityContext.Roles.Contains(Roles.TagPublisher)
+                || securityContext.Roles.Contains(Roles.Admin);
+
         // row-level write permission: the owner or a review role may write the row — the
-        // narrower process rules stay in the orchestration (§14.6 altitude split)
-        private async ValueTask ValidateUserCanModifyStorageTagAsync(
+        // narrower process rules stay in the orchestration (§14.6 altitude split).
+        //
+        // Returns whether the caller may also use the Draft <-> Submitted carve-out (§9.2): the
+        // owner or the Publisher tier. It falls out of the ownership check already performed, so
+        // it is returned rather than recomputed. A Reviewer holds write permission but is NOT in
+        // the publisher tier, so it may amend content and still never move the status (HR-3).
+        private async ValueTask<bool> ValidateUserCanModifyStorageTagAsync(
             Tag storageTag,
             SecurityContext securityContext)
         {
@@ -71,6 +85,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 throw new UnauthorizedTagException(
                     message: "The current user is not allowed to modify this tag.");
             }
+
+            return isOwner || HasPublisherRole(securityContext);
         }
 
         // removing a tag is a takedown, not a moderation step — the owner may remove
@@ -151,6 +167,19 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                         secondName: nameof(Tag.CreatedBy)),
                     Parameter: nameof(Tag.UpdatedBy)),
 
+                // A row is contributed unpublished, and publication is the approve operation's to
+                // grant (design §9.7.1 rules 1 and 3). Without these three rules any authenticated
+                // caller can insert a row that is already Approved and IsPublished, which is public
+                // the moment it lands — the approval workflow is simply skipped rather than bypassed.
+                (Rule: IsSetOnAdd(tag.IsPublished),
+                    Parameter: nameof(Tag.IsPublished)),
+
+                (Rule: IsSetOnAdd(tag.PublishDate),
+                    Parameter: nameof(Tag.PublishDate)),
+
+                (Rule: IsNotContributableStatus(tag.ApprovalStatus),
+                    Parameter: nameof(Tag.ApprovalStatus)),
+
                 (Rule: await IsNotRecentAsync(tag.CreatedWhen),
                     Parameter: nameof(Tag.CreatedWhen)));
         }
@@ -226,7 +255,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
 
         private static void ValidateAgainstStorageTagOnModify(
             Tag inputTag,
-            Tag storageTag)
+            Tag storageTag,
+            bool mayTransitionApprovalStatus)
         {
             Validate(
                 message: "Tag is invalid, fix the errors and try again.",
@@ -244,7 +274,31 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                         firstDate: inputTag.UpdatedWhen,
                         secondDate: storageTag.UpdatedWhen,
                         secondDateName: nameof(Tag.UpdatedWhen)),
-                    Parameter: nameof(Tag.UpdatedWhen)));
+                    Parameter: nameof(Tag.UpdatedWhen)),
+
+                // The general modify is for content only. Every IApproval member belongs to the
+                // approve operation (design §9.7.1 rules 2 and 3), so all three are pinned against
+                // storage here — except the one carve-out: the owner or Publisher tier may move
+                // the status between Draft and Submitted (§9.2). Without these pins any caller with
+                // write permission could take a pending row and publish it through the general
+                // modify, approving content nobody with authority over it ever looked at.
+                (Rule: IsNotAPermittedStatusChangeOnModify(
+                        inputStatus: inputTag.ApprovalStatus,
+                        storageStatus: storageTag.ApprovalStatus,
+                        mayTransition: mayTransitionApprovalStatus),
+                    Parameter: nameof(Tag.ApprovalStatus)),
+
+                (Rule: IsNotSame(
+                        first: inputTag.IsPublished,
+                        second: storageTag.IsPublished,
+                        secondName: nameof(Tag.IsPublished)),
+                    Parameter: nameof(Tag.IsPublished)),
+
+                (Rule: IsNotSame(
+                        firstDate: inputTag.PublishDate,
+                        secondDate: storageTag.PublishDate,
+                        secondDateName: nameof(Tag.PublishDate)),
+                    Parameter: nameof(Tag.PublishDate)));
         }
 
         private static void ValidateOnRetrieveTagById(Guid tagId) =>
@@ -337,6 +391,70 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 Condition = firstDate == secondDate,
                 Message = $"Date is the same as {secondDateName}"
             };
+
+        private static dynamic IsNotSame(
+            bool first,
+            bool second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            DateTimeOffset? firstDate,
+            DateTimeOffset? secondDate,
+            string secondDateName) => new
+            {
+                Condition = firstDate != secondDate,
+                Message = $"Date is not the same as {secondDateName}"
+            };
+
+        private static dynamic IsSetOnAdd(bool value) => new
+        {
+            Condition = value,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(DateTimeOffset? date) => new
+        {
+            Condition = date is not null,
+            Message = "Date is not allowed on add"
+        };
+
+        // a caller may save work in progress or submit it for review; the remaining states are
+        // verdicts, and a verdict is the approval workflow's to record (design §9.7.1 rule 1)
+        private static dynamic IsNotContributableStatus(ApprovalStatus approvalStatus) => new
+        {
+            Condition = approvalStatus != ApprovalStatus.Draft
+                && approvalStatus != ApprovalStatus.Submitted,
+
+            Message = $"Value must be {nameof(ApprovalStatus.Draft)} " +
+                $"or {nameof(ApprovalStatus.Submitted)} on add"
+        };
+
+        // The one carve-out on modify (design §9.2 rules 4-6): the owner or Publisher tier may
+        // move the status between Draft and Submitted, because submitting is inseparable from the
+        // edit that made the work ready. Everything else about the status stays pinned, and the
+        // caller must have been found eligible before this is reached — a Reviewer holds write
+        // permission on the row and must still never move the status (HR-3).
+        private static dynamic IsNotAPermittedStatusChangeOnModify(
+            ApprovalStatus inputStatus,
+            ApprovalStatus storageStatus,
+            bool mayTransition) => new
+            {
+                Condition =
+                    inputStatus != storageStatus
+                        && (mayTransition is false
+                            || IsDraftOrSubmitted(inputStatus) is false
+                            || IsDraftOrSubmitted(storageStatus) is false),
+
+                Message = "Value is not the same as storage approval status"
+            };
+
+        private static bool IsDraftOrSubmitted(ApprovalStatus approvalStatus) =>
+            approvalStatus == ApprovalStatus.Draft
+                || approvalStatus == ApprovalStatus.Submitted;
 
         private async ValueTask<dynamic> IsNotRecentAsync(DateTimeOffset date)
         {

@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
@@ -1021,6 +1022,309 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     It.IsAny<Reaction>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusChangedByNonPublisherAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
+            Reaction invalidReaction = randomReaction;
+            Reaction storageReaction = randomReaction.DeepClone();
+            invalidReaction.ApprovalStatus = ApprovalStatus.Approved;
+            storageReaction.ApprovalStatus = ApprovalStatus.Draft;
+            storageReaction.UpdatedWhen = storageReaction.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var invalidReactionException =
+                new InvalidReactionException(
+                    message: "Reaction is invalid, fix the errors and try again.");
+
+            invalidReactionException.AddData(
+                key: nameof(Reaction.ApprovalStatus),
+                values: "Value is not the same as storage approval status");
+
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: invalidReactionException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidReaction, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    invalidReaction.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidReaction,
+                    storageReaction))
+                        .ReturnsAsync(invalidReaction);
+
+            // when
+            ValueTask<Reaction> modifyReactionTask =
+                this.reactionService.ModifyReactionAsync(
+                    invalidReaction,
+                    TestContext.Current.CancellationToken);
+
+            ReactionValidationException actualReactionValidationException =
+                await Assert.ThrowsAsync<ReactionValidationException>(
+                    modifyReactionTask.AsTask);
+
+            // then
+            actualReactionValidationException.Should().BeEquivalentTo(
+                expectedReactionValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidReaction, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    invalidReaction.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidReaction,
+                    storageReaction),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfIsPublishedChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
+            Reaction invalidReaction = randomReaction;
+            Reaction storageReaction = randomReaction.DeepClone();
+            invalidReaction.IsPublished = true;
+            storageReaction.IsPublished = false;
+            storageReaction.UpdatedWhen = storageReaction.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var invalidReactionException =
+                new InvalidReactionException(
+                    message: "Reaction is invalid, fix the errors and try again.");
+
+            invalidReactionException.AddData(
+                key: nameof(Reaction.IsPublished),
+                values: "Value is not the same as IsPublished");
+
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: invalidReactionException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidReaction, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    invalidReaction.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidReaction,
+                    storageReaction))
+                        .ReturnsAsync(invalidReaction);
+
+            // when
+            ValueTask<Reaction> modifyReactionTask =
+                this.reactionService.ModifyReactionAsync(
+                    invalidReaction,
+                    TestContext.Current.CancellationToken);
+
+            ReactionValidationException actualReactionValidationException =
+                await Assert.ThrowsAsync<ReactionValidationException>(
+                    modifyReactionTask.AsTask);
+
+            // then
+            actualReactionValidationException.Should().BeEquivalentTo(
+                expectedReactionValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidReaction, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    invalidReaction.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidReaction,
+                    storageReaction),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfPublishDateChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
+            Reaction invalidReaction = randomReaction;
+            Reaction storageReaction = randomReaction.DeepClone();
+            invalidReaction.PublishDate = randomDateTimeOffset;
+            storageReaction.PublishDate = null;
+            storageReaction.UpdatedWhen = storageReaction.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            var invalidReactionException =
+                new InvalidReactionException(
+                    message: "Reaction is invalid, fix the errors and try again.");
+
+            invalidReactionException.AddData(
+                key: nameof(Reaction.PublishDate),
+                values: "Date is not the same as PublishDate");
+
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: invalidReactionException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidReaction, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectReactionByIdAsync(
+                    invalidReaction.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageReaction);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidReaction,
+                    storageReaction))
+                        .ReturnsAsync(invalidReaction);
+
+            // when
+            ValueTask<Reaction> modifyReactionTask =
+                this.reactionService.ModifyReactionAsync(
+                    invalidReaction,
+                    TestContext.Current.CancellationToken);
+
+            ReactionValidationException actualReactionValidationException =
+                await Assert.ThrowsAsync<ReactionValidationException>(
+                    modifyReactionTask.AsTask);
+
+            // then
+            actualReactionValidationException.Should().BeEquivalentTo(
+                expectedReactionValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidReaction, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    invalidReaction.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidReaction,
+                    storageReaction),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
