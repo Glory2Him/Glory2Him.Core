@@ -114,6 +114,21 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsApprovalException);
             }
+            // A unique-INDEX violation (EF's HasIndex().IsUnique(), and the ProcessedEvents
+            // dedup index) arrives as a type that does NOT derive from DuplicateKeyException,
+            // so the clause above misses it; without this it falls through to the general
+            // handler and mis-reports a business-key collision as "our code is broken".
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsApprovalException = new AlreadyExistsApprovalException(
+                    message: "Approval already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsApprovalException);
+            }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
                 var invalidApprovalReferenceException = new InvalidApprovalReferenceException(
@@ -209,6 +224,21 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     data: duplicateKeyException.Data);
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsApprovalException);
+            }
+            // A unique-INDEX violation (EF's HasIndex().IsUnique(), and the ProcessedEvents
+            // dedup index) arrives as a type that does NOT derive from DuplicateKeyException,
+            // so the clause above misses it; without this it falls through to the general
+            // handler and mis-reports a business-key collision as "our code is broken".
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsApprovalException = new AlreadyExistsApprovalException(
+                    message: "Approval already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsApprovalException);
             }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {

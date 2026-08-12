@@ -115,6 +115,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsContentItemSettingException);
             }
+            // A unique-INDEX violation (EF's HasIndex().IsUnique(), and the ProcessedEvents
+            // dedup index) arrives as a type that does NOT derive from DuplicateKeyException,
+            // so the clause above misses it; without this it falls through to the general
+            // handler and mis-reports a business-key collision as "our code is broken".
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsContentItemSettingException = new AlreadyExistsContentItemSettingException(
+                    message: "Content item setting already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsContentItemSettingException);
+            }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {
                 var invalidContentItemSettingReferenceException = new InvalidContentItemSettingReferenceException(
@@ -212,6 +227,21 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                     data: duplicateKeyException.Data);
 
                 throw await CreateAndLogDependencyValidationExceptionAsync(alreadyExistsContentItemSettingException);
+            }
+            // A unique-INDEX violation (EF's HasIndex().IsUnique(), and the ProcessedEvents
+            // dedup index) arrives as a type that does NOT derive from DuplicateKeyException,
+            // so the clause above misses it; without this it falls through to the general
+            // handler and mis-reports a business-key collision as "our code is broken".
+            catch (DuplicateKeyWithUniqueIndexException duplicateKeyWithUniqueIndexException)
+            {
+                var alreadyExistsContentItemSettingException = new AlreadyExistsContentItemSettingException(
+                    message: "Content item setting already exists, "
+                        + "a uniqueness rule rejected the write.",
+                    innerException: duplicateKeyWithUniqueIndexException,
+                    data: duplicateKeyWithUniqueIndexException.Data);
+
+                throw await CreateAndLogDependencyValidationExceptionAsync(
+                    alreadyExistsContentItemSettingException);
             }
             catch (ForeignKeyConstraintConflictException foreignKeyConstraintConflictException)
             {

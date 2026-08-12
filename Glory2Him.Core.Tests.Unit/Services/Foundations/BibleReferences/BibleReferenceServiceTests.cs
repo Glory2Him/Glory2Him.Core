@@ -195,6 +195,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             string someMessage = GetRandomString();
             var duplicateKeyException = new DuplicateKeyException(someMessage);
             var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(someMessage);
 
             return new TheoryData<Exception, Xeption>
             {
@@ -211,6 +213,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                         message: "Invalid bible reference reference error occurred.",
                         innerException: foreignKeyConstraintConflictException,
                         data: foreignKeyConstraintConflictException.Data)
+                },
+                {
+                    duplicateKeyWithUniqueIndexException,
+                    new AlreadyExistsBibleReferenceException(
+                        message: "Bible reference already exists, " +
+                            "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data)
                 }
             };
         }
@@ -220,6 +230,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             string someMessage = GetRandomString();
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
             var foreignKeyConstraintConflictException = new ForeignKeyConstraintConflictException(someMessage);
+            var duplicateKeyWithUniqueIndexException =
+                new DuplicateKeyWithUniqueIndexException(someMessage);
 
             return new TheoryData<Exception, Xeption>
             {
@@ -236,6 +248,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                         message: "Invalid bible reference reference error occurred.",
                         innerException: foreignKeyConstraintConflictException,
                         data: foreignKeyConstraintConflictException.Data)
+                },
+                {
+                    duplicateKeyWithUniqueIndexException,
+                    new AlreadyExistsBibleReferenceException(
+                        message: "Bible reference already exists, " +
+                            "a uniqueness rule rejected the write.",
+                        innerException: duplicateKeyWithUniqueIndexException,
+                        data: duplicateKeyWithUniqueIndexException.Data)
                 }
             };
         }
