@@ -285,7 +285,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     Parameter: nameof(Reaction.UpdatedWhen)),
 
                 // The general modify is for content only. Every IApproval member belongs to the
-                // approve operation (design §9.7.1 rules 2 and 3), so all three are pinned against
+                // approve operation (design §9.7.1 rules 2 and 3), so all five are pinned against
                 // storage here — except the one carve-out: the owner or Publisher tier may move
                 // the status between Draft and Submitted (§9.2). Without these pins any caller with
                 // write permission could take a pending row and publish it through the general
@@ -306,7 +306,23 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                         firstDate: inputReaction.PublishDate,
                         secondDate: storageReaction.PublishDate,
                         secondDateName: nameof(Reaction.PublishDate)),
-                    Parameter: nameof(Reaction.PublishDate)));
+                    Parameter: nameof(Reaction.PublishDate)),
+
+                // The bypass fields are derived on write and never carried on a general
+                // modify: someone who bypass-approved could otherwise quietly clear the flag
+                // that records it (design 9.7.1 rule 3). The reason is coalesced because a
+                // null and an empty string are the same "no reason recorded".
+                (Rule: IsNotSame(
+                        first: inputReaction.IsApprovedByBypass,
+                        second: storageReaction.IsApprovedByBypass,
+                        secondName: nameof(Reaction.IsApprovedByBypass)),
+                    Parameter: nameof(Reaction.IsApprovedByBypass)),
+
+                (Rule: IsNotSame(
+                        first: inputReaction.ApprovedByBypassReason ?? string.Empty,
+                        second: storageReaction.ApprovedByBypassReason ?? string.Empty,
+                        secondName: nameof(Reaction.ApprovedByBypassReason)),
+                    Parameter: nameof(Reaction.ApprovedByBypassReason)));
         }
 
         private static void ValidateOnRetrieveReactionById(Guid reactionId) =>

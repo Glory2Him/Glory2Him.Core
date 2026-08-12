@@ -304,7 +304,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     Parameter: nameof(BibleReference.UpdatedWhen)),
 
                 // The general modify is for content only. Every IApproval member belongs to the
-                // approve operation (design §9.7.1 rules 2 and 3), so all three are pinned against
+                // approve operation (design §9.7.1 rules 2 and 3), so all five are pinned against
                 // storage here — except the one carve-out: the owner or Publisher tier may move
                 // the status between Draft and Submitted (§9.2). Without these pins any caller with
                 // write permission could take a pending row and publish it through the general
@@ -325,7 +325,23 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                         firstDate: inputBibleReference.PublishDate,
                         secondDate: storageBibleReference.PublishDate,
                         secondDateName: nameof(BibleReference.PublishDate)),
-                    Parameter: nameof(BibleReference.PublishDate)));
+                    Parameter: nameof(BibleReference.PublishDate)),
+
+                // The bypass fields are derived on write and never carried on a general
+                // modify: someone who bypass-approved could otherwise quietly clear the flag
+                // that records it (design 9.7.1 rule 3). The reason is coalesced because a
+                // null and an empty string are the same "no reason recorded".
+                (Rule: IsNotSame(
+                        first: inputBibleReference.IsApprovedByBypass,
+                        second: storageBibleReference.IsApprovedByBypass,
+                        secondName: nameof(BibleReference.IsApprovedByBypass)),
+                    Parameter: nameof(BibleReference.IsApprovedByBypass)),
+
+                (Rule: IsNotSame(
+                        first: inputBibleReference.ApprovedByBypassReason ?? string.Empty,
+                        second: storageBibleReference.ApprovedByBypassReason ?? string.Empty,
+                        secondName: nameof(BibleReference.ApprovedByBypassReason)),
+                    Parameter: nameof(BibleReference.ApprovedByBypassReason)));
         }
 
         private static void ValidateOnRetrieveBibleReferenceById(Guid bibleReferenceId) =>

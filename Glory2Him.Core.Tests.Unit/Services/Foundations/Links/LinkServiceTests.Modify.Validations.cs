@@ -1049,14 +1049,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusChangedByNonPublisherAndLogItAsync()
         {
             // given
+            // a Reviewer holds write permission but is neither the owner nor in the Publisher
+            // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
+            // the owner or a Publisher WOULD be allowed — so the refusal comes from the carve-out
+            // gate, not from the status being a verdict.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
-            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
-            Link invalidLink = randomLink;
-            Link storageLink = randomLink.DeepClone();
+            string ownerUserId = GetRandomString();
+            Link invalidLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            invalidLink.CreatedBy = ownerUserId;
+            invalidLink.ApprovalStatus = ApprovalStatus.Draft;
+            Link storageLink = invalidLink.DeepClone();
             storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
-            invalidLink.ApprovalStatus = ApprovalStatus.Approved;
+            invalidLink.ApprovalStatus = ApprovalStatus.Submitted;
 
             var invalidLinkException =
                 new InvalidLinkException(
@@ -1165,6 +1171,207 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             invalidLinkException.AddData(
                 key: nameof(Link.IsPublished),
                 values: "Value is not the same as IsPublished");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    invalidLink.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidLink,
+                    storageLink))
+                        .ReturnsAsync(invalidLink);
+
+            // when
+            ValueTask<Link> modifyLinkTask =
+                this.linkService.ModifyLinkAsync(
+                    invalidLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    modifyLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    invalidLink.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidLink,
+                    storageLink),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfIsApprovedByBypassChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            Link invalidLink = randomLink;
+            Link storageLink = randomLink.DeepClone();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            invalidLink.IsApprovedByBypass = !storageLink.IsApprovedByBypass;
+
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link is invalid, fix the errors and try again.");
+
+            invalidLinkException.AddData(
+                key: nameof(Link.IsApprovedByBypass),
+                values: "Value is not the same as IsApprovedByBypass");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    invalidLink.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidLink,
+                    storageLink))
+                        .ReturnsAsync(invalidLink);
+
+            // when
+            ValueTask<Link> modifyLinkTask =
+                this.linkService.ModifyLinkAsync(
+                    invalidLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    modifyLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    invalidLink.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidLink,
+                    storageLink),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovedByBypassReasonChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            Link invalidLink = randomLink;
+            Link storageLink = randomLink.DeepClone();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageLink.ApprovedByBypassReason = GetRandomString();
+            invalidLink.ApprovedByBypassReason = GetRandomString();
+
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link is invalid, fix the errors and try again.");
+
+            invalidLinkException.AddData(
+                key: nameof(Link.ApprovedByBypassReason),
+                values: "Text is not the same as ApprovedByBypassReason");
 
             var expectedLinkValidationException =
                 new LinkValidationException(

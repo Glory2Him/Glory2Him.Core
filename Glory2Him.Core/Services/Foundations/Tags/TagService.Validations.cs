@@ -277,7 +277,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     Parameter: nameof(Tag.UpdatedWhen)),
 
                 // The general modify is for content only. Every IApproval member belongs to the
-                // approve operation (design §9.7.1 rules 2 and 3), so all three are pinned against
+                // approve operation (design §9.7.1 rules 2 and 3), so all five are pinned against
                 // storage here — except the one carve-out: the owner or Publisher tier may move
                 // the status between Draft and Submitted (§9.2). Without these pins any caller with
                 // write permission could take a pending row and publish it through the general
@@ -298,7 +298,23 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                         firstDate: inputTag.PublishDate,
                         secondDate: storageTag.PublishDate,
                         secondDateName: nameof(Tag.PublishDate)),
-                    Parameter: nameof(Tag.PublishDate)));
+                    Parameter: nameof(Tag.PublishDate)),
+
+                // The bypass fields are derived on write and never carried on a general
+                // modify: someone who bypass-approved could otherwise quietly clear the flag
+                // that records it (design 9.7.1 rule 3). The reason is coalesced because a
+                // null and an empty string are the same "no reason recorded".
+                (Rule: IsNotSame(
+                        first: inputTag.IsApprovedByBypass,
+                        second: storageTag.IsApprovedByBypass,
+                        secondName: nameof(Tag.IsApprovedByBypass)),
+                    Parameter: nameof(Tag.IsApprovedByBypass)),
+
+                (Rule: IsNotSame(
+                        first: inputTag.ApprovedByBypassReason ?? string.Empty,
+                        second: storageTag.ApprovedByBypassReason ?? string.Empty,
+                        secondName: nameof(Tag.ApprovedByBypassReason)),
+                    Parameter: nameof(Tag.ApprovedByBypassReason)));
         }
 
         private static void ValidateOnRetrieveTagById(Guid tagId) =>

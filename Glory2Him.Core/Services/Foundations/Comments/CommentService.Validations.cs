@@ -272,7 +272,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                     Parameter: nameof(Comment.UpdatedWhen)),
 
                 // The general modify is for content only. Every IApproval member belongs to the
-                // approve operation (design §9.7.1 rules 2 and 3), so all three are pinned against
+                // approve operation (design §9.7.1 rules 2 and 3), so all five are pinned against
                 // storage here — except the one carve-out: the owner or Publisher tier may move
                 // the status between Draft and Submitted (§9.2). Without these pins any caller with
                 // write permission could take a pending row and publish it through the general
@@ -293,7 +293,23 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                         firstDate: inputComment.PublishDate,
                         secondDate: storageComment.PublishDate,
                         secondDateName: nameof(Comment.PublishDate)),
-                    Parameter: nameof(Comment.PublishDate)));
+                    Parameter: nameof(Comment.PublishDate)),
+
+                // The bypass fields are derived on write and never carried on a general
+                // modify: someone who bypass-approved could otherwise quietly clear the flag
+                // that records it (design 9.7.1 rule 3). The reason is coalesced because a
+                // null and an empty string are the same "no reason recorded".
+                (Rule: IsNotSame(
+                        first: inputComment.IsApprovedByBypass,
+                        second: storageComment.IsApprovedByBypass,
+                        secondName: nameof(Comment.IsApprovedByBypass)),
+                    Parameter: nameof(Comment.IsApprovedByBypass)),
+
+                (Rule: IsNotSame(
+                        first: inputComment.ApprovedByBypassReason ?? string.Empty,
+                        second: storageComment.ApprovedByBypassReason ?? string.Empty,
+                        secondName: nameof(Comment.ApprovedByBypassReason)),
+                    Parameter: nameof(Comment.ApprovedByBypassReason)));
         }
 
         private static void ValidateOnRetrieveCommentById(Guid commentId) =>
