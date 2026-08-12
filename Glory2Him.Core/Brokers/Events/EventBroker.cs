@@ -116,14 +116,7 @@ namespace Glory2Him.Core.Brokers.Events
             EnvelopeIntegrity integrity = await this.envelopeIntegrityBroker.SignAsync(
                 envelope, eventName, EnvelopeDirection.Request);
 
-            var signedEnvelope = new EventEnvelope<T>
-            {
-                Content = envelope.Content,
-                SecurityContext = envelope.SecurityContext,
-                RequestContext = envelope.RequestContext,
-                Metadata = envelope.Metadata,
-                Integrity = integrity
-            };
+            EventEnvelope<T> signedEnvelope = WithIntegrity(envelope, integrity);
 
             var eventV2 = new EventV2
             {
@@ -139,33 +132,88 @@ namespace Glory2Him.Core.Brokers.Events
             EventV2 submittedEventV2 = await this.eventHighwayClient.V2.EventV2Client
                 .SubmitEventV2Async(eventV2, CancellationToken.None);
 
+            // The reply the receiver signed is bound to the same event name as this request plus
+            // the Reply direction, so it is verified against exactly the name it answers.
+            var deliveries = new List<EventDelivery<T>>();
+
+            foreach (ListenerEventV2 listenerEventV2 in
+                submittedEventV2.ListenerEventV2s ?? Enumerable.Empty<ListenerEventV2>())
+            {
+                deliveries.Add(new EventDelivery<T>
+                {
+                    SubscriptionId = listenerEventV2.EventListenerV2Id,
+                    IsSuccess = listenerEventV2.Status == ListenerEventStatusV2.Success,
+                    Status = listenerEventV2.Status.ToString(),
+                    ResponseCode = listenerEventV2.ResponseCode,
+                    ResponseMessage = listenerEventV2.ResponseMessage,
+
+                    // A failed delivery's Response holds diagnostic text, not a reply envelope —
+                    // only a successful delivery carries a deserializable reply, and it is trusted
+                    // only if its signature verifies against this operation and the Reply direction.
+                    // A reply that fails verification (tampered in storage, or a replayed request)
+                    // is dropped to null rather than handed back as authentic.
+                    Response = await VerifiedReplyOrNullAsync<T>(listenerEventV2, eventName)
+                });
+            }
+
             return new EventPublishResult<T>
             {
                 EventId = submittedEventV2.Id,
-
-                Deliveries =
-                    (submittedEventV2.ListenerEventV2s ?? Enumerable.Empty<ListenerEventV2>())
-                        .Select(listenerEventV2 => new EventDelivery<T>
-                        {
-                            SubscriptionId = listenerEventV2.EventListenerV2Id,
-                            IsSuccess = listenerEventV2.Status == ListenerEventStatusV2.Success,
-                            Status = listenerEventV2.Status.ToString(),
-                            ResponseCode = listenerEventV2.ResponseCode,
-                            ResponseMessage = listenerEventV2.ResponseMessage,
-
-                            // A failed delivery's Response holds diagnostic text, not a reply
-                            // envelope — only successful deliveries carry a deserializable reply.
-                            Response = listenerEventV2.Status == ListenerEventStatusV2.Success
-                                    && !string.IsNullOrWhiteSpace(listenerEventV2.Response)
-                                ? DeserializeEnvelope<T>(listenerEventV2.Response)
-                                : null
-                        })
-                        .ToList()
+                Deliveries = deliveries
             };
         }
 
+        private async ValueTask<EventEnvelope<T>?> VerifiedReplyOrNullAsync<T>(
+            ListenerEventV2 listenerEventV2,
+            string replyEventName)
+        {
+            bool hasReply =
+                listenerEventV2.Status == ListenerEventStatusV2.Success
+                    && !string.IsNullOrWhiteSpace(listenerEventV2.Response);
+
+            if (hasReply is false)
+            {
+                return null;
+            }
+
+            EventEnvelope<T> replyEnvelope = DeserializeEnvelope<T>(listenerEventV2.Response);
+
+            bool isReplyValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                replyEnvelope, replyEventName, EnvelopeDirection.Reply);
+
+            return isReplyValid ? replyEnvelope : null;
+        }
+
+        private async ValueTask<EventEnvelope<T>> SignReplyAsync<T>(
+            EventEnvelope<T> replyEnvelope,
+            string replyEventName)
+        {
+            EnvelopeIntegrity integrity = await this.envelopeIntegrityBroker.SignAsync(
+                replyEnvelope, replyEventName, EnvelopeDirection.Reply);
+
+            return WithIntegrity(replyEnvelope, integrity);
+        }
+
+        // Copies an envelope with a freshly computed signature swapped in. Both signing paths —
+        // the request in PublishEventAsync and the reply here — rebuild through this one method so
+        // a field added to EventEnvelope only has to be carried in one place; a copy that dropped
+        // a field on one side would make the receiver recompute a different HMAC and reject a
+        // genuine envelope.
+        private static EventEnvelope<T> WithIntegrity<T>(
+            EventEnvelope<T> envelope,
+            EnvelopeIntegrity integrity) =>
+            new EventEnvelope<T>
+            {
+                Content = envelope.Content,
+                SecurityContext = envelope.SecurityContext,
+                RequestContext = envelope.RequestContext,
+                Metadata = envelope.Metadata,
+                Integrity = integrity
+            };
+
         private ValueTask SubscribeToEventAsync<T, TOperation>(
             IReadOnlyDictionary<TOperation, Guid> eventAddressIds,
+            string entityName,
             EventSubscription subscription,
             TOperation operation,
             Func<EventEnvelope<T>, CancellationToken, ValueTask> eventHandler,
@@ -174,6 +222,7 @@ namespace Glory2Him.Core.Brokers.Events
         {
             return SubscribeToEventAsync(
                 eventAddressIds: eventAddressIds,
+                entityName: entityName,
                 subscription: subscription,
                 operation: operation,
                 eventHandler: async (EventEnvelope<T> envelope, CancellationToken handlerCancellationToken) =>
@@ -187,6 +236,7 @@ namespace Glory2Him.Core.Brokers.Events
 
         private async ValueTask SubscribeToEventAsync<T, TOperation>(
             IReadOnlyDictionary<TOperation, Guid> eventAddressIds,
+            string entityName,
             EventSubscription subscription,
             TOperation operation,
             Func<EventEnvelope<T>, CancellationToken, ValueTask<EventEnvelope<T>?>> eventHandler,
@@ -194,6 +244,13 @@ namespace Glory2Him.Core.Brokers.Events
             where TOperation : struct, Enum
         {
             Guid eventAddressId = eventAddressIds[operation];
+
+            // The reply is bound to the SAME event name as the request it answers — composed from
+            // the caller-supplied entityName, not typeof(T).Name, so a foundation reply and an
+            // orchestration reply over the same content type cannot share a signature — plus the
+            // Reply direction. The publisher rebuilds the identical name from the entityName and
+            // operation it published with.
+            string replyEventName = $"{entityName}{operation}";
 
             var delegateEventHandler = new DelegateEventHandler(
                 subscription.Id,
@@ -213,9 +270,14 @@ namespace Glory2Him.Core.Brokers.Events
                         ResponseCode = "OK",
                         ResponseMessage = $"{subscription.Name} handled the event.",
 
+                        // Sign the reply so the publisher reading it back can tell an authentic
+                        // reply from one tampered in storage or replayed. The Reply direction is
+                        // what stops a signed reply being lifted onto a request address and
+                        // believed as an inbound command.
                         Response = responseEnvelope is null
                             ? null
-                            : JsonSerializer.Serialize(responseEnvelope)
+                            : JsonSerializer.Serialize(
+                                await SignReplyAsync(responseEnvelope, replyEventName))
                     };
                 },
                 subscription.Name);

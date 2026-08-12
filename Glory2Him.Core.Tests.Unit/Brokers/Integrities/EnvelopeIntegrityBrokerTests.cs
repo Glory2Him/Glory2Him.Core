@@ -138,6 +138,54 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         }
 
         [Fact]
+        public async Task ShouldSignThenVerifyAReplyAsync()
+        {
+            // given: the fire-and-observe path — a handler's reply is signed with the Reply
+            // direction, and the publisher reading it back verifies it under the same direction.
+            // It must verify as a reply and never as a request, so a reply can never be lifted
+            // back onto a request address and believed as an inbound command.
+            IEnvelopeIntegrityBroker broker = BrokerWith(ActiveKey("key-a"));
+
+            EnvelopeIntegrity integrity = await broker.SignAsync(
+                Envelope(), EventName, EnvelopeDirection.Reply);
+
+            EventEnvelope<string> signedReply = Envelope(integrity: integrity);
+
+            // when
+            bool verifiesAsReply =
+                await broker.VerifyAsync(signedReply, EventName, EnvelopeDirection.Reply);
+
+            bool verifiesAsRequest =
+                await broker.VerifyAsync(signedReply, EventName, EnvelopeDirection.Request);
+
+            // then
+            verifiesAsReply.Should().BeTrue();
+            verifiesAsRequest.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ShouldRejectAReplyLiftedOntoADifferentAddressAsync()
+        {
+            // given: the foundation and orchestration both reply over the same content type, so a
+            // reply must bind the address name ("ContentItem..." vs "ContentItemOrchestration...")
+            // and not merely the type — otherwise a foundation reply could be lifted into an
+            // orchestration delivery slot and verify.
+            IEnvelopeIntegrityBroker broker = BrokerWith(ActiveKey("key-a"));
+
+            EnvelopeIntegrity integrity = await broker.SignAsync(
+                Envelope(), "ContentItemRetrievingById", EnvelopeDirection.Reply);
+
+            EventEnvelope<string> foundationReply = Envelope(integrity: integrity);
+
+            // when
+            bool verifiesAsOrchestrationReply = await broker.VerifyAsync(
+                foundationReply, "ContentItemOrchestrationRetrievingById", EnvelopeDirection.Reply);
+
+            // then
+            verifiesAsOrchestrationReply.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task ShouldRejectWhenTheKeyIdIsUnknownAsync()
         {
             // given

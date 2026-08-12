@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Brokers.Events
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
                     eventAddressIds: EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
+                    entityName: nameof(ApprovalReview),
                     subscription: subscription,
                     operation: operation,
                     eventHandler: approvalReviewEventHandler,
@@ -51,6 +52,7 @@ namespace Glory2Him.Core.Brokers.Events
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
                     eventAddressIds: EventBrokerIdentifiers.ApprovalReviewEventAddressIds,
+                    entityName: nameof(ApprovalReview),
                     subscription: subscription,
                     operation: operation,
                     eventHandler: approvalReviewEventHandler,
