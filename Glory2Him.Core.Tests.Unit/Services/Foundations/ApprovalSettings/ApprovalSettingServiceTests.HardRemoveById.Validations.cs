@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
@@ -195,6 +196,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedApprovalSettingValidationException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
+        {
+            // given: a banned caller who also holds Admin must be refused the irreversible hard
+            // remove before the row is even read — blocking the reversible takedown but not the
+            // destructive one would be the wrong way round.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+
+            Guid someApprovalSettingId = Guid.NewGuid();
+
+            var unauthorizedApprovalSettingException = new UnauthorizedApprovalSettingException(
+                message: "The current user is blocked from administering approval settings.");
+
+            var expectedApprovalSettingValidationException = new ApprovalSettingValidationException(
+                message: "Approval setting validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalSettingException);
+
+            // when
+            ValueTask<ApprovalSetting> hardRemoveApprovalSettingByIdTask =
+                this.approvalSettingService.HardRemoveApprovalSettingByIdAsync(
+                    someApprovalSettingId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalSettingValidationException actualApprovalSettingValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingValidationException>(
+                    hardRemoveApprovalSettingByIdTask.AsTask);
+
+            // then
+            actualApprovalSettingValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalSettingByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteApprovalSettingAsync(
+                    It.IsAny<ApprovalSetting>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

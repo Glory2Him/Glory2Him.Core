@@ -271,5 +271,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsScopedReadOnlyAndLogItAsync()
+        {
+            // given: a banned caller who also holds Admin must be refused the irreversible hard
+            // remove before the row is even read — blocking the reversible takedown but not the
+            // destructive one would be the wrong way round.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReactionReadOnly);
+
+            Guid someReactionId = Guid.NewGuid();
+
+            var unauthorizedReactionException = new UnauthorizedReactionException(
+                message: "The current user is blocked from contributing reactions.");
+
+            var expectedReactionValidationException = new ReactionValidationException(
+                message: "Reaction validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedReactionException);
+
+            // when
+            ValueTask<Reaction> hardRemoveReactionByIdTask =
+                this.reactionService.HardRemoveReactionByIdAsync(
+                    someReactionId,
+                    TestContext.Current.CancellationToken);
+
+            ReactionValidationException actualReactionValidationException =
+                await Assert.ThrowsAsync<ReactionValidationException>(
+                    hardRemoveReactionByIdTask.AsTask);
+
+            // then
+            actualReactionValidationException.Should().BeEquivalentTo(
+                expectedReactionValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectReactionByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteReactionAsync(
+                    It.IsAny<Reaction>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

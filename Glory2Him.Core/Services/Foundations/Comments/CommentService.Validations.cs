@@ -119,7 +119,8 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                     message: "The current user is not authenticated.");
             }
 
-            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            if (securityContext.Roles.Contains(Roles.ReadOnly)
+                || securityContext.Roles.Contains(Roles.CommentReadOnly))
             {
                 throw new UnauthorizedCommentException(
                     message: "The current user is blocked from contributing comments.");

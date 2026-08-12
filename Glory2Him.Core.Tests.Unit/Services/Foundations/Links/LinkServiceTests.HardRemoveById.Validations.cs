@@ -271,5 +271,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsScopedReadOnlyAndLogItAsync()
+        {
+            // given: a banned caller who also holds Admin must be refused the irreversible hard
+            // remove before the row is even read — blocking the reversible takedown but not the
+            // destructive one would be the wrong way round.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.LinkReadOnly);
+
+            Guid someLinkId = Guid.NewGuid();
+
+            var unauthorizedLinkException = new UnauthorizedLinkException(
+                message: "The current user is blocked from contributing links.");
+
+            var expectedLinkValidationException = new LinkValidationException(
+                message: "Link validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedLinkException);
+
+            // when
+            ValueTask<Link> hardRemoveLinkByIdTask =
+                this.linkService.HardRemoveLinkByIdAsync(
+                    someLinkId,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    hardRemoveLinkByIdTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteLinkAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
