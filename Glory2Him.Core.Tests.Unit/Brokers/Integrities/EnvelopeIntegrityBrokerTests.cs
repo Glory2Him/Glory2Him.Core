@@ -138,6 +138,32 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         }
 
         [Fact]
+        public async Task ShouldSignThenVerifyAReplyAsync()
+        {
+            // given: the fire-and-observe path — a handler's reply is signed with the Reply
+            // direction, and the publisher reading it back verifies it under the same direction.
+            // It must verify as a reply and never as a request, so a reply can never be lifted
+            // back onto a request address and believed as an inbound command.
+            IEnvelopeIntegrityBroker broker = BrokerWith(ActiveKey("key-a"));
+
+            EnvelopeIntegrity integrity = await broker.SignAsync(
+                Envelope(), EventName, EnvelopeDirection.Reply);
+
+            EventEnvelope<string> signedReply = Envelope(integrity: integrity);
+
+            // when
+            bool verifiesAsReply =
+                await broker.VerifyAsync(signedReply, EventName, EnvelopeDirection.Reply);
+
+            bool verifiesAsRequest =
+                await broker.VerifyAsync(signedReply, EventName, EnvelopeDirection.Request);
+
+            // then
+            verifiesAsReply.Should().BeTrue();
+            verifiesAsRequest.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task ShouldRejectWhenTheKeyIdIsUnknownAsync()
         {
             // given
