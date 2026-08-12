@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Links;
@@ -31,6 +32,85 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Link randomLink = CreateLinkFiller(randomDateTimeOffset).Create();
+            Link inputLink = randomLink;
+            Link auditAppliedLink = inputLink.DeepClone();
+            Link storageLink = auditAppliedLink.DeepClone();
+            Link expectedLink = storageLink.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedLink.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertLinkAsync(auditAppliedLink, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageLink);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishLinkAsync(It.IsAny<EventEnvelope<Link>>(), LinkEventOperation.Added))
+                    .Returns(new ValueTask<EventPublishResult<Link>>(
+                        new EventPublishResult<Link>()));
+
+            // when
+            Link actualLink =
+                await this.linkService.AddLinkAsync(
+                    inputLink,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualLink.Should().BeEquivalentTo(expectedLink);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyAddAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertLinkAsync(auditAppliedLink, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    LinkEventOperation.Added),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.LinkOnAddingLinkSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAddIfApprovalStatusIsSubmittedAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Link randomLink = CreateLinkFiller(randomDateTimeOffset).Create();
+            randomLink.ApprovalStatus = ApprovalStatus.Submitted;
             Link inputLink = randomLink;
             Link auditAppliedLink = inputLink.DeepClone();
             Link storageLink = auditAppliedLink.DeepClone();

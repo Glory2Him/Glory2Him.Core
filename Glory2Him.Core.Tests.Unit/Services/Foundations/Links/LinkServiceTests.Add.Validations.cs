@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
@@ -650,6 +651,225 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // then
             actualLinkValidationException.Should().BeEquivalentTo(
                 expectedLinkValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfIsPublishedIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Link randomLink = CreateLinkFiller(randomDateTimeOffset, randomUserId).Create();
+            Link invalidLink = randomLink;
+            invalidLink.IsPublished = true;
+
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link is invalid, fix the errors and try again.");
+
+            invalidLinkException.AddData(
+                key: nameof(Link.IsPublished),
+                values: "Value is not allowed on add");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Link> addLinkTask =
+                this.linkService.AddLinkAsync(
+                    invalidLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    addLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfPublishDateIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Link randomLink = CreateLinkFiller(randomDateTimeOffset, randomUserId).Create();
+            Link invalidLink = randomLink;
+            invalidLink.PublishDate = randomDateTimeOffset;
+
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link is invalid, fix the errors and try again.");
+
+            invalidLinkException.AddData(
+                key: nameof(Link.PublishDate),
+                values: "Date is not allowed on add");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Link> addLinkTask =
+                this.linkService.AddLinkAsync(
+                    invalidLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    addLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfApprovalStatusIsAVerdictAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Link randomLink = CreateLinkFiller(randomDateTimeOffset, randomUserId).Create();
+            Link invalidLink = randomLink;
+            invalidLink.ApprovalStatus = ApprovalStatus.Approved;
+
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link is invalid, fix the errors and try again.");
+
+            invalidLinkException.AddData(
+                key: nameof(Link.ApprovalStatus),
+                values: "Value must be Draft or Submitted on add");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Link> addLinkTask =
+                this.linkService.AddLinkAsync(
+                    invalidLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    addLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

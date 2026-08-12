@@ -15,10 +15,12 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
@@ -43,6 +45,229 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedLink);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    auditAppliedLink.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedLink,
+                    storageLink))
+                        .ReturnsAsync(auditPreservedLink);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateLinkAsync(auditPreservedLink, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedLink);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    LinkEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<Link>>(
+                        new EventPublishResult<Link>()));
+
+            // when
+            Link actualLink =
+                await this.linkService.ModifyLinkAsync(
+                    inputLink,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualLink.Should().BeEquivalentTo(expectedLink);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectLinkByIdAsync(
+                        auditAppliedLink.Id,
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                        auditAppliedLink,
+                        storageLink),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateLinkAsync(auditPreservedLink, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        LinkEventOperation.Modified),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldModifyWhenOwnerMovesStatusToSubmittedAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            randomLink.ApprovalStatus = ApprovalStatus.Submitted;
+            Link inputLink = randomLink;
+            Link auditAppliedLink = inputLink.DeepClone();
+            Link storageLink = auditAppliedLink.DeepClone();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageLink.ApprovalStatus = ApprovalStatus.Draft;
+            Link auditPreservedLink = auditAppliedLink.DeepClone();
+            Link updatedLink = auditPreservedLink.DeepClone();
+            Link expectedLink = updatedLink.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedLink);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    auditAppliedLink.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedLink,
+                    storageLink))
+                        .ReturnsAsync(auditPreservedLink);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateLinkAsync(auditPreservedLink, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedLink);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    LinkEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<Link>>(
+                        new EventPublishResult<Link>()));
+
+            // when
+            Link actualLink =
+                await this.linkService.ModifyLinkAsync(
+                    inputLink,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualLink.Should().BeEquivalentTo(expectedLink);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectLinkByIdAsync(
+                        auditAppliedLink.Id,
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                        auditAppliedLink,
+                        storageLink),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateLinkAsync(auditPreservedLink, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        LinkEventOperation.Modified),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.LinkOnModifyingLinkSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldModifyWhenPublisherMovesStatusToSubmittedAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.LinkPublisher);
+            string actorUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, actorUserId);
+            randomLink.CreatedBy = ownerUserId;
+            randomLink.ApprovalStatus = ApprovalStatus.Submitted;
+            Link inputLink = randomLink;
+            Link auditAppliedLink = inputLink.DeepClone();
+            Link storageLink = auditAppliedLink.DeepClone();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageLink.ApprovalStatus = ApprovalStatus.Draft;
+            Link auditPreservedLink = auditAppliedLink.DeepClone();
+            Link updatedLink = auditPreservedLink.DeepClone();
+            Link expectedLink = updatedLink.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(actorUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())

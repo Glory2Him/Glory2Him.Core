@@ -359,9 +359,10 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
 
             ValidateStorageBibleReference(maybeBibleReference, bibleReferenceId: bibleReference.Id);
 
-            await ValidateUserCanModifyStorageBibleReferenceAsync(
-                storageBibleReference: maybeBibleReference,
-                securityContext: inboundEnvelope.SecurityContext);
+            bool mayTransitionApprovalStatus =
+                await ValidateUserCanModifyStorageBibleReferenceAsync(
+                    storageBibleReference: maybeBibleReference,
+                    securityContext: inboundEnvelope.SecurityContext);
 
             bibleReference = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -370,7 +371,8 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
 
             ValidateAgainstStorageBibleReferenceOnModify(
                 inputBibleReference: bibleReference,
-                storageBibleReference: maybeBibleReference);
+                storageBibleReference: maybeBibleReference,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             BibleReference updatedBibleReference =
                 await this.storageBroker.UpdateBibleReferenceAsync(bibleReference, cancellationToken);

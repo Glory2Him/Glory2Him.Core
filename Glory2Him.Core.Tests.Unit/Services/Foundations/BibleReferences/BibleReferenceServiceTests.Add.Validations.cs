@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
@@ -650,6 +651,228 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // then
             actualBibleReferenceValidationException.Should().BeEquivalentTo(
                 expectedBibleReferenceValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfIsPublishedIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            BibleReference randomBibleReference =
+                CreateBibleReferenceFiller(randomDateTimeOffset, randomUserId).Create();
+            BibleReference invalidBibleReference = randomBibleReference;
+            invalidBibleReference.IsPublished = true;
+
+            var invalidBibleReferenceException =
+                new InvalidBibleReferenceException(
+                    message: "Bible reference is invalid, fix the errors and try again.");
+
+            invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.IsPublished),
+                values: "Value is not allowed on add");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: invalidBibleReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<BibleReference> addBibleReferenceTask =
+                this.bibleReferenceService.AddBibleReferenceAsync(
+                    invalidBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    addBibleReferenceTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfPublishDateIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            BibleReference randomBibleReference =
+                CreateBibleReferenceFiller(randomDateTimeOffset, randomUserId).Create();
+            BibleReference invalidBibleReference = randomBibleReference;
+            invalidBibleReference.PublishDate = randomDateTimeOffset;
+
+            var invalidBibleReferenceException =
+                new InvalidBibleReferenceException(
+                    message: "Bible reference is invalid, fix the errors and try again.");
+
+            invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.PublishDate),
+                values: "Date is not allowed on add");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: invalidBibleReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<BibleReference> addBibleReferenceTask =
+                this.bibleReferenceService.AddBibleReferenceAsync(
+                    invalidBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    addBibleReferenceTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfApprovalStatusIsAVerdictAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            BibleReference randomBibleReference =
+                CreateBibleReferenceFiller(randomDateTimeOffset, randomUserId).Create();
+            BibleReference invalidBibleReference = randomBibleReference;
+            invalidBibleReference.ApprovalStatus = ApprovalStatus.Approved;
+
+            var invalidBibleReferenceException =
+                new InvalidBibleReferenceException(
+                    message: "Bible reference is invalid, fix the errors and try again.");
+
+            invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.ApprovalStatus),
+                values: "Value must be Draft or Submitted on add");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: invalidBibleReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<BibleReference> addBibleReferenceTask =
+                this.bibleReferenceService.AddBibleReferenceAsync(
+                    invalidBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    addBibleReferenceTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

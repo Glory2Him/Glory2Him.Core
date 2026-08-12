@@ -12,6 +12,7 @@
 using System;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
@@ -625,6 +626,225 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // then
             actualTagValidationException.Should().BeEquivalentTo(
                 expectedTagValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfIsPublishedIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Tag randomTag = CreateTagFiller(randomDateTimeOffset, randomUserId).Create();
+            Tag invalidTag = randomTag;
+            invalidTag.IsPublished = true;
+
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag is invalid, fix the errors and try again.");
+
+            invalidTagException.AddData(
+                key: nameof(Tag.IsPublished),
+                values: "Value is not allowed on add");
+
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Tag> addTagTask =
+                this.tagService.AddTagAsync(
+                    invalidTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    addTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfPublishDateIsSetAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Tag randomTag = CreateTagFiller(randomDateTimeOffset, randomUserId).Create();
+            Tag invalidTag = randomTag;
+            invalidTag.PublishDate = randomDateTimeOffset;
+
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag is invalid, fix the errors and try again.");
+
+            invalidTagException.AddData(
+                key: nameof(Tag.PublishDate),
+                values: "Date is not allowed on add");
+
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Tag> addTagTask =
+                this.tagService.AddTagAsync(
+                    invalidTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    addTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfApprovalStatusIsAVerdictAndLogItAsync()
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            Tag randomTag = CreateTagFiller(randomDateTimeOffset, randomUserId).Create();
+            Tag invalidTag = randomTag;
+            invalidTag.ApprovalStatus = ApprovalStatus.Approved;
+
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag is invalid, fix the errors and try again.");
+
+            invalidTagException.AddData(
+                key: nameof(Tag.ApprovalStatus),
+                values: "Value must be Draft or Submitted on add");
+
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Tag> addTagTask =
+                this.tagService.AddTagAsync(
+                    invalidTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    addTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

@@ -359,9 +359,10 @@ namespace Glory2Him.Core.Services.Foundations.Comments
 
             ValidateStorageComment(maybeComment, commentId: comment.Id);
 
-            await ValidateUserCanModifyStorageCommentAsync(
-                storageComment: maybeComment,
-                securityContext: inboundEnvelope.SecurityContext);
+            bool mayTransitionApprovalStatus =
+                await ValidateUserCanModifyStorageCommentAsync(
+                    storageComment: maybeComment,
+                    securityContext: inboundEnvelope.SecurityContext);
 
             comment = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -370,7 +371,8 @@ namespace Glory2Him.Core.Services.Foundations.Comments
 
             ValidateAgainstStorageCommentOnModify(
                 inputComment: comment,
-                storageComment: maybeComment);
+                storageComment: maybeComment,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             Comment updatedComment =
                 await this.storageBroker.UpdateCommentAsync(comment, cancellationToken);

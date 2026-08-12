@@ -358,9 +358,10 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
 
             ValidateStorageReaction(maybeReaction, reactionId: reaction.Id);
 
-            await ValidateUserCanModifyStorageReactionAsync(
-                storageReaction: maybeReaction,
-                securityContext: inboundEnvelope.SecurityContext);
+            bool mayTransitionApprovalStatus =
+                await ValidateUserCanModifyStorageReactionAsync(
+                    storageReaction: maybeReaction,
+                    securityContext: inboundEnvelope.SecurityContext);
 
             reaction = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -369,7 +370,8 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
 
             ValidateAgainstStorageReactionOnModify(
                 inputReaction: reaction,
-                storageReaction: maybeReaction);
+                storageReaction: maybeReaction,
+                mayTransitionApprovalStatus: mayTransitionApprovalStatus);
 
             Reaction updatedReaction =
                 await this.storageBroker.UpdateReactionAsync(reaction, cancellationToken);

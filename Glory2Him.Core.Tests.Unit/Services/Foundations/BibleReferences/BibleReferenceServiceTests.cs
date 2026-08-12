@@ -23,6 +23,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
@@ -294,7 +295,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(bibleReference => bibleReference.IsDeleted).Use(false)
                 .OnProperty(bibleReference => bibleReference.CreatedBy).Use(userId)
-                .OnProperty(bibleReference => bibleReference.UpdatedBy).Use(userId);
+                .OnProperty(bibleReference => bibleReference.UpdatedBy).Use(userId)
+
+                // A contribution is unpublished and unapproved: add refuses a caller-supplied IsPublished,
+                // PublishDate or verdict status, and modify pins all three against storage. Drawing them
+                // would make every write test fail on the draw rather than on what it is testing.
+                .OnProperty(bibleReference => bibleReference.ApprovalStatus).Use(ApprovalStatus.Draft)
+                .OnProperty(bibleReference => bibleReference.IsPublished).Use(false)
+                .OnProperty(bibleReference => bibleReference.PublishDate).IgnoreIt();
 
             return filler;
         }

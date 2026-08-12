@@ -14,6 +14,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
@@ -1016,6 +1017,513 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                     It.IsAny<Comment>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStatusChangedByNonPublisherAndLogItAsync()
+        {
+            // given
+            // a Reviewer holds write permission but is neither the owner nor in the Publisher
+            // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
+            // the owner or a Publisher WOULD be allowed — so the refusal comes from the carve-out
+            // gate, not from the status being a verdict.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            string ownerUserId = GetRandomString();
+            Comment invalidComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            invalidComment.CreatedBy = ownerUserId;
+            invalidComment.ApprovalStatus = ApprovalStatus.Draft;
+            Comment storageComment = invalidComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            invalidComment.ApprovalStatus = ApprovalStatus.Submitted;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.ApprovalStatus),
+                values: "Value is not the same as storage approval status");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment))
+                        .ReturnsAsync(invalidComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfIsPublishedChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment invalidComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            invalidComment.IsPublished = true;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.IsPublished),
+                values: "Value is not the same as IsPublished");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment))
+                        .ReturnsAsync(invalidComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfPublishDateChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment invalidComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            invalidComment.PublishDate = randomDateTimeOffset;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.PublishDate),
+                values: "Date is not the same as PublishDate");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment))
+                        .ReturnsAsync(invalidComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfIsApprovedByBypassChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment invalidComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            invalidComment.IsApprovedByBypass = !storageComment.IsApprovedByBypass;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.IsApprovedByBypass),
+                values: "Value is not the same as IsApprovedByBypass");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment))
+                        .ReturnsAsync(invalidComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfApprovedByBypassReasonChangedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment invalidComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageComment.ApprovedByBypassReason = GetRandomString();
+            invalidComment.ApprovedByBypassReason = GetRandomString();
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
+
+            invalidCommentException.AddData(
+                key: nameof(Comment.ApprovedByBypassReason),
+                values: "Text is not the same as ApprovedByBypassReason");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment))
+                        .ReturnsAsync(invalidComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    invalidComment,
+                    storageComment),
+                Times.Once);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(
