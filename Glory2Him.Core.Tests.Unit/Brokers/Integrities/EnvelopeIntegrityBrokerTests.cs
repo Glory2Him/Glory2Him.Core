@@ -164,6 +164,28 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         }
 
         [Fact]
+        public async Task ShouldRejectAReplyLiftedOntoADifferentAddressAsync()
+        {
+            // given: the foundation and orchestration both reply over the same content type, so a
+            // reply must bind the address name ("ContentItem..." vs "ContentItemOrchestration...")
+            // and not merely the type — otherwise a foundation reply could be lifted into an
+            // orchestration delivery slot and verify.
+            IEnvelopeIntegrityBroker broker = BrokerWith(ActiveKey("key-a"));
+
+            EnvelopeIntegrity integrity = await broker.SignAsync(
+                Envelope(), "ContentItemRetrievingById", EnvelopeDirection.Reply);
+
+            EventEnvelope<string> foundationReply = Envelope(integrity: integrity);
+
+            // when
+            bool verifiesAsOrchestrationReply = await broker.VerifyAsync(
+                foundationReply, "ContentItemOrchestrationRetrievingById", EnvelopeDirection.Reply);
+
+            // then
+            verifiesAsOrchestrationReply.Should().BeFalse();
+        }
+
+        [Fact]
         public async Task ShouldRejectWhenTheKeyIdIsUnknownAsync()
         {
             // given

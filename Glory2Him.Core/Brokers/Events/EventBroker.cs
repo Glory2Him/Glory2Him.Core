@@ -116,14 +116,7 @@ namespace Glory2Him.Core.Brokers.Events
             EnvelopeIntegrity integrity = await this.envelopeIntegrityBroker.SignAsync(
                 envelope, eventName, EnvelopeDirection.Request);
 
-            var signedEnvelope = new EventEnvelope<T>
-            {
-                Content = envelope.Content,
-                SecurityContext = envelope.SecurityContext,
-                RequestContext = envelope.RequestContext,
-                Metadata = envelope.Metadata,
-                Integrity = integrity
-            };
+            EventEnvelope<T> signedEnvelope = WithIntegrity(envelope, integrity);
 
             var eventV2 = new EventV2
             {
@@ -139,9 +132,8 @@ namespace Glory2Him.Core.Brokers.Events
             EventV2 submittedEventV2 = await this.eventHighwayClient.V2.EventV2Client
                 .SubmitEventV2Async(eventV2, CancellationToken.None);
 
-            // The reply the receiver signed is bound to the entity type and operation plus the
-            // Reply direction; the publisher rebuilds the same name to verify it on read-back.
-            string replyEventName = $"{typeof(T).Name}{operation}";
+            // The reply the receiver signed is bound to the same event name as this request plus
+            // the Reply direction, so it is verified against exactly the name it answers.
             var deliveries = new List<EventDelivery<T>>();
 
             foreach (ListenerEventV2 listenerEventV2 in
@@ -160,7 +152,7 @@ namespace Glory2Him.Core.Brokers.Events
                     // only if its signature verifies against this operation and the Reply direction.
                     // A reply that fails verification (tampered in storage, or a replayed request)
                     // is dropped to null rather than handed back as authentic.
-                    Response = await VerifiedReplyOrNullAsync<T>(listenerEventV2, replyEventName)
+                    Response = await VerifiedReplyOrNullAsync<T>(listenerEventV2, eventName)
                 });
             }
 
@@ -199,18 +191,29 @@ namespace Glory2Him.Core.Brokers.Events
             EnvelopeIntegrity integrity = await this.envelopeIntegrityBroker.SignAsync(
                 replyEnvelope, replyEventName, EnvelopeDirection.Reply);
 
-            return new EventEnvelope<T>
+            return WithIntegrity(replyEnvelope, integrity);
+        }
+
+        // Copies an envelope with a freshly computed signature swapped in. Both signing paths —
+        // the request in PublishEventAsync and the reply here — rebuild through this one method so
+        // a field added to EventEnvelope only has to be carried in one place; a copy that dropped
+        // a field on one side would make the receiver recompute a different HMAC and reject a
+        // genuine envelope.
+        private static EventEnvelope<T> WithIntegrity<T>(
+            EventEnvelope<T> envelope,
+            EnvelopeIntegrity integrity) =>
+            new EventEnvelope<T>
             {
-                Content = replyEnvelope.Content,
-                SecurityContext = replyEnvelope.SecurityContext,
-                RequestContext = replyEnvelope.RequestContext,
-                Metadata = replyEnvelope.Metadata,
+                Content = envelope.Content,
+                SecurityContext = envelope.SecurityContext,
+                RequestContext = envelope.RequestContext,
+                Metadata = envelope.Metadata,
                 Integrity = integrity
             };
-        }
 
         private ValueTask SubscribeToEventAsync<T, TOperation>(
             IReadOnlyDictionary<TOperation, Guid> eventAddressIds,
+            string entityName,
             EventSubscription subscription,
             TOperation operation,
             Func<EventEnvelope<T>, CancellationToken, ValueTask> eventHandler,
@@ -219,6 +222,7 @@ namespace Glory2Him.Core.Brokers.Events
         {
             return SubscribeToEventAsync(
                 eventAddressIds: eventAddressIds,
+                entityName: entityName,
                 subscription: subscription,
                 operation: operation,
                 eventHandler: async (EventEnvelope<T> envelope, CancellationToken handlerCancellationToken) =>
@@ -232,6 +236,7 @@ namespace Glory2Him.Core.Brokers.Events
 
         private async ValueTask SubscribeToEventAsync<T, TOperation>(
             IReadOnlyDictionary<TOperation, Guid> eventAddressIds,
+            string entityName,
             EventSubscription subscription,
             TOperation operation,
             Func<EventEnvelope<T>, CancellationToken, ValueTask<EventEnvelope<T>?>> eventHandler,
@@ -240,11 +245,12 @@ namespace Glory2Him.Core.Brokers.Events
         {
             Guid eventAddressId = eventAddressIds[operation];
 
-            // The reply is bound to the entity type and operation it answers, plus the Reply
-            // direction. Composed from the generic T and operation the handler was invoked with —
-            // the same pair the publisher has when it reads the reply back — so both sides agree
-            // without threading the address name through the subscription API.
-            string replyEventName = $"{typeof(T).Name}{operation}";
+            // The reply is bound to the SAME event name as the request it answers — composed from
+            // the caller-supplied entityName, not typeof(T).Name, so a foundation reply and an
+            // orchestration reply over the same content type cannot share a signature — plus the
+            // Reply direction. The publisher rebuilds the identical name from the entityName and
+            // operation it published with.
+            string replyEventName = $"{entityName}{operation}";
 
             var delegateEventHandler = new DelegateEventHandler(
                 subscription.Id,

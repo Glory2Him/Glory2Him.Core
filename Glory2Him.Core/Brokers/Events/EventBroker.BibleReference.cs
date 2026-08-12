@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Brokers.Events
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
                     eventAddressIds: EventBrokerIdentifiers.BibleReferenceEventAddressIds,
+                    entityName: nameof(BibleReference),
                     subscription: subscription,
                     operation: operation,
                     eventHandler: bibleReferenceEventHandler,
@@ -51,6 +52,7 @@ namespace Glory2Him.Core.Brokers.Events
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
                     eventAddressIds: EventBrokerIdentifiers.BibleReferenceEventAddressIds,
+                    entityName: nameof(BibleReference),
                     subscription: subscription,
                     operation: operation,
                     eventHandler: bibleReferenceEventHandler,

@@ -38,6 +38,7 @@ namespace Glory2Him.Core.Brokers.Events
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
                     eventAddressIds: EventBrokerIdentifiers.AttachmentEventAddressIds,
+                    entityName: nameof(Attachment),
                     subscription: subscription,
                     operation: operation,
                     eventHandler: attachmentEventHandler,
@@ -51,6 +52,7 @@ namespace Glory2Him.Core.Brokers.Events
             CancellationToken cancellationToken = default) =>
                 SubscribeToEventAsync(
                     eventAddressIds: EventBrokerIdentifiers.AttachmentEventAddressIds,
+                    entityName: nameof(Attachment),
                     subscription: subscription,
                     operation: operation,
                     eventHandler: attachmentEventHandler,
