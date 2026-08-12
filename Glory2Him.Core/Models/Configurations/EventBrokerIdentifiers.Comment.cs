@@ -41,6 +41,21 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid CommentRemovedEventAddressId =
             new Guid("019f814e-89c1-7c8c-8e89-494580f6a5b2");
 
+        public static readonly Guid CommentSubmittingEventAddressId =
+            new Guid("6adb9c53-8673-452a-9190-d7035f423b2d");
+
+        public static readonly Guid CommentApprovingEventAddressId =
+            new Guid("2ca3e39e-d964-4f78-bef8-6ecacb7cd5dd");
+
+        public static readonly Guid CommentSubmittedEventAddressId =
+            new Guid("9a983a0e-f737-4ace-8952-2d1a5fee3688");
+
+        public static readonly Guid CommentApprovedEventAddressId =
+            new Guid("88a74885-e0a1-47b8-8dcd-abe5af68b41b");
+
+        public static readonly Guid CommentRejectedEventAddressId =
+            new Guid("60e0719b-1620-4e86-a262-7d970f56fd38");
+
         internal static readonly IReadOnlyDictionary<CommentEventOperation, Guid>
             CommentEventAddressIds = new Dictionary<CommentEventOperation, Guid>
             {
@@ -49,6 +64,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { CommentEventOperation.RemovingById, CommentRemovingByIdEventAddressId },
                 { CommentEventOperation.HardRemovingById, CommentHardRemovingByIdEventAddressId },
                 { CommentEventOperation.RetrievingById, CommentRetrievingByIdEventAddressId },
+                { CommentEventOperation.Submitting, CommentSubmittingEventAddressId },
+                { CommentEventOperation.Approving, CommentApprovingEventAddressId },
                 { CommentEventOperation.Added, CommentAddedEventAddressId },
                 { CommentEventOperation.Modified, CommentModifiedEventAddressId },
 
@@ -56,7 +73,11 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("CommentHardRemoved" vs "CommentRemoved").
                 { CommentEventOperation.Removed, CommentRemovedEventAddressId },
-                { CommentEventOperation.HardRemoved, CommentRemovedEventAddressId }
+                { CommentEventOperation.HardRemoved, CommentRemovedEventAddressId },
+
+                { CommentEventOperation.Submitted, CommentSubmittedEventAddressId },
+                { CommentEventOperation.Approved, CommentApprovedEventAddressId },
+                { CommentEventOperation.Rejected, CommentRejectedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> CommentEventAddresses =
@@ -67,9 +88,14 @@ namespace Glory2Him.Core.Models.Configurations
                 { CommentRemovingByIdEventAddressId, "Comment-RemovingById" },
                 { CommentHardRemovingByIdEventAddressId, "Comment-HardRemovingById" },
                 { CommentRetrievingByIdEventAddressId, "Comment-RetrievingById" },
+                { CommentSubmittingEventAddressId, "Comment-Submitting" },
+                { CommentApprovingEventAddressId, "Comment-Approving" },
                 { CommentAddedEventAddressId, "Comment-Added" },
                 { CommentModifiedEventAddressId, "Comment-Modified" },
-                { CommentRemovedEventAddressId, "Comment-Removed" }
+                { CommentRemovedEventAddressId, "Comment-Removed" },
+                { CommentSubmittedEventAddressId, "Comment-Submitted" },
+                { CommentApprovedEventAddressId, "Comment-Approved" },
+                { CommentRejectedEventAddressId, "Comment-Rejected" }
             };
 
         public static readonly Guid CommentOnAddingCommentSubscriptionId =
@@ -98,5 +124,17 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string CommentOnRetrievingCommentByIdSubscriptionName =
             "CommentService.OnRetrievingCommentById";
+
+        public static readonly Guid CommentOnSubmittingCommentSubscriptionId =
+            new Guid("b4f6237f-6e19-476c-8cca-1aac0ae1e0e6");
+
+        public const string CommentOnSubmittingCommentSubscriptionName =
+            "CommentService.OnSubmittingComment";
+
+        public static readonly Guid CommentOnApprovingCommentSubscriptionId =
+            new Guid("f243aabb-f115-478d-99d3-f18e38f370e9");
+
+        public const string CommentOnApprovingCommentSubscriptionName =
+            "CommentService.OnApprovingComment";
     }
 }

@@ -50,6 +50,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         private readonly IEventBroker eventBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IAccessBroker accessBroker;
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -60,6 +61,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             IEventBroker eventBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IAccessBroker accessBroker,
             IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
@@ -69,6 +71,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             this.eventBroker = eventBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.accessBroker = accessBroker;
             this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }

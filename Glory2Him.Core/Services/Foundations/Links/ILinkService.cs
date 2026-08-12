@@ -42,5 +42,13 @@ namespace Glory2Him.Core.Services.Foundations.Links
         ValueTask<Link> HardRemoveLinkByIdAsync(
             Guid linkId,
             CancellationToken cancellationToken = default);
+
+        ValueTask<Link> SubmitLinkByIdAsync(
+            Guid linkId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Link> ApproveLinkAsync(
+            Link link,
+            CancellationToken cancellationToken = default);
     }
 }

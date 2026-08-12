@@ -45,5 +45,13 @@ namespace Glory2Him.Core.Services.Foundations.Links
         ValueTask<EventEnvelope<Link>?> OnRetrievingLinkByIdAsync(
             EventEnvelope<Link> envelope,
             CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Link>?> OnSubmittingLinkAsync(
+            EventEnvelope<Link> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Link>?> OnApprovingLinkAsync(
+            EventEnvelope<Link> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

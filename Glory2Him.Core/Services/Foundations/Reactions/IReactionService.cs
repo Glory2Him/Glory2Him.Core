@@ -42,5 +42,13 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         ValueTask<Reaction> HardRemoveReactionByIdAsync(
             Guid reactionId,
             CancellationToken cancellationToken = default);
+
+        ValueTask<Reaction> SubmitReactionByIdAsync(
+            Guid reactionId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Reaction> ApproveReactionAsync(
+            Reaction reaction,
+            CancellationToken cancellationToken = default);
     }
 }

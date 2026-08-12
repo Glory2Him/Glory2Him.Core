@@ -503,6 +503,22 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: BibleReferenceEventOperation.RetrievingById,
                 expectedHandler: this.bibleReferenceServiceMock.Object.OnRetrievingBibleReferenceByIdAsync);
 
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.BibleReferenceOnSubmittingBibleReferenceSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.BibleReferenceOnSubmittingBibleReferenceSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.Submitting,
+                expectedHandler: this.bibleReferenceServiceMock.Object.OnSubmittingBibleReferenceAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.BibleReferenceOnApprovingBibleReferenceSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.BibleReferenceOnApprovingBibleReferenceSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.Approving,
+                expectedHandler: this.bibleReferenceServiceMock.Object.OnApprovingBibleReferenceAsync);
+
             VerifyTagSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers.TagOnAddingTagSubscriptionId,
                 expectedSubscriptionName: EventBrokerIdentifiers.TagOnAddingTagSubscriptionName,
@@ -587,6 +603,22 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: LinkEventOperation.RetrievingById,
                 expectedHandler: this.linkServiceMock.Object.OnRetrievingLinkByIdAsync);
 
+            VerifyLinkSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkOnSubmittingLinkSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkOnSubmittingLinkSubscriptionName,
+                expectedOperation: LinkEventOperation.Submitting,
+                expectedHandler: this.linkServiceMock.Object.OnSubmittingLinkAsync);
+
+            VerifyLinkSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkOnApprovingLinkSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkOnApprovingLinkSubscriptionName,
+                expectedOperation: LinkEventOperation.Approving,
+                expectedHandler: this.linkServiceMock.Object.OnApprovingLinkAsync);
+
             VerifyReactionSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionId,
                 expectedSubscriptionName: EventBrokerIdentifiers.ReactionOnAddingReactionSubscriptionName,
@@ -621,6 +653,22 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ReactionEventOperation.RetrievingById,
                 expectedHandler: this.reactionServiceMock.Object.OnRetrievingReactionByIdAsync);
 
+            VerifyReactionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ReactionOnSubmittingReactionSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ReactionOnSubmittingReactionSubscriptionName,
+                expectedOperation: ReactionEventOperation.Submitting,
+                expectedHandler: this.reactionServiceMock.Object.OnSubmittingReactionAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ReactionOnApprovingReactionSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ReactionOnApprovingReactionSubscriptionName,
+                expectedOperation: ReactionEventOperation.Approving,
+                expectedHandler: this.reactionServiceMock.Object.OnApprovingReactionAsync);
+
             VerifyCommentSubscription(
                 expectedSubscriptionId: EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionId,
                 expectedSubscriptionName: EventBrokerIdentifiers.CommentOnAddingCommentSubscriptionName,
@@ -654,6 +702,22 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                     EventBrokerIdentifiers.CommentOnRetrievingCommentByIdSubscriptionName,
                 expectedOperation: CommentEventOperation.RetrievingById,
                 expectedHandler: this.commentServiceMock.Object.OnRetrievingCommentByIdAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.CommentOnSubmittingCommentSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.CommentOnSubmittingCommentSubscriptionName,
+                expectedOperation: CommentEventOperation.Submitting,
+                expectedHandler: this.commentServiceMock.Object.OnSubmittingCommentAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.CommentOnApprovingCommentSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.CommentOnApprovingCommentSubscriptionName,
+                expectedOperation: CommentEventOperation.Approving,
+                expectedHandler: this.commentServiceMock.Object.OnApprovingCommentAsync);
 
             VerifyApprovalCommentSubscription(
                 expectedSubscriptionId:

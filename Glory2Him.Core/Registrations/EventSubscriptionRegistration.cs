@@ -428,6 +428,33 @@ namespace Glory2Him.Core.Registrations
                 bibleReferenceEventHandler: this.bibleReferenceService.OnRetrievingBibleReferenceByIdAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.BibleReferenceOnSubmittingBibleReferenceSubscriptionId,
+                    Name = EventBrokerIdentifiers.BibleReferenceOnSubmittingBibleReferenceSubscriptionName,
+
+                    Description = "Handles submit requests: moves a bibleReference Draft -> Submitted, " +
+                        "publishes BibleReference-Submitted, and replies with the updated entity."
+                },
+                operation: BibleReferenceEventOperation.Submitting,
+                bibleReferenceEventHandler: this.bibleReferenceService.OnSubmittingBibleReferenceAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.BibleReferenceOnApprovingBibleReferenceSubscriptionId,
+                    Name = EventBrokerIdentifiers.BibleReferenceOnApprovingBibleReferenceSubscriptionName,
+
+                    Description = "Handles approve requests: decides a submitted bibleReference, " +
+                        "publishes BibleReference-Approved or BibleReference-Rejected per the decision, and replies " +
+                        "with the updated entity."
+                },
+                operation: BibleReferenceEventOperation.Approving,
+                bibleReferenceEventHandler: this.bibleReferenceService.OnApprovingBibleReferenceAsync,
+                cancellationToken: cancellationToken);
+
             // ── Tag request handlers ─────────────────────────────────────────────
             await this.eventBroker.SubscribeToTagEventAsync(
                 subscription: new EventSubscription
@@ -589,6 +616,33 @@ namespace Glory2Him.Core.Registrations
                 linkEventHandler: this.linkService.OnRetrievingLinkByIdAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnSubmittingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnSubmittingLinkSubscriptionName,
+
+                    Description = "Handles submit requests: moves a link Draft -> Submitted, " +
+                        "publishes Link-Submitted, and replies with the updated entity."
+                },
+                operation: LinkEventOperation.Submitting,
+                linkEventHandler: this.linkService.OnSubmittingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkOnApprovingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkOnApprovingLinkSubscriptionName,
+
+                    Description = "Handles approve requests: decides a submitted link, " +
+                        "publishes Link-Approved or Link-Rejected per the decision, and replies " +
+                        "with the updated entity."
+                },
+                operation: LinkEventOperation.Approving,
+                linkEventHandler: this.linkService.OnApprovingLinkAsync,
+                cancellationToken: cancellationToken);
+
             // ── Reaction request handlers ───────────────────────────────────────
             await this.eventBroker.SubscribeToReactionEventAsync(
                 subscription: new EventSubscription
@@ -656,6 +710,33 @@ namespace Glory2Him.Core.Registrations
                 reactionEventHandler: this.reactionService.OnRetrievingReactionByIdAsync,
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnSubmittingReactionSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnSubmittingReactionSubscriptionName,
+
+                    Description = "Handles submit requests: moves a reaction Draft -> Submitted, " +
+                        "publishes Reaction-Submitted, and replies with the updated entity."
+                },
+                operation: ReactionEventOperation.Submitting,
+                reactionEventHandler: this.reactionService.OnSubmittingReactionAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ReactionOnApprovingReactionSubscriptionId,
+                    Name = EventBrokerIdentifiers.ReactionOnApprovingReactionSubscriptionName,
+
+                    Description = "Handles approve requests: decides a submitted reaction, " +
+                        "publishes Reaction-Approved or Reaction-Rejected per the decision, and replies " +
+                        "with the updated entity."
+                },
+                operation: ReactionEventOperation.Approving,
+                reactionEventHandler: this.reactionService.OnApprovingReactionAsync,
+                cancellationToken: cancellationToken);
+
             // ── Comment request handlers ─────────────────────────────────────────
             await this.eventBroker.SubscribeToCommentEventAsync(
                 subscription: new EventSubscription
@@ -721,6 +802,33 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: CommentEventOperation.RetrievingById,
                 commentEventHandler: this.commentService.OnRetrievingCommentByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnSubmittingCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnSubmittingCommentSubscriptionName,
+
+                    Description = "Handles submit requests: moves a comment Draft -> Submitted, " +
+                        "publishes Comment-Submitted, and replies with the updated entity."
+                },
+                operation: CommentEventOperation.Submitting,
+                commentEventHandler: this.commentService.OnSubmittingCommentAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.CommentOnApprovingCommentSubscriptionId,
+                    Name = EventBrokerIdentifiers.CommentOnApprovingCommentSubscriptionName,
+
+                    Description = "Handles approve requests: decides a submitted comment, " +
+                        "publishes Comment-Approved or Comment-Rejected per the decision, and replies " +
+                        "with the updated entity."
+                },
+                operation: CommentEventOperation.Approving,
+                commentEventHandler: this.commentService.OnApprovingCommentAsync,
                 cancellationToken: cancellationToken);
 
             // ── ApprovalComment request handlers ──────────────────────────────────

@@ -166,6 +166,66 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     content: retrievedLink);
             });
 
+        public ValueTask<EventEnvelope<Link>?> OnSubmittingLinkAsync(
+            EventEnvelope<Link> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateLinkEventEnvelopeAsync(
+                    envelope, LinkEventOperation.Submitting);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .LinkOnSubmittingLinkSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Submit owns only the status, so the id is the whole request; the envelope's
+                // other fields are the caller's copy and never trusted by the do-work.
+                Link submittedLink =
+                    await DoSubmitLinkAsync(
+                        linkId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: submittedLink);
+            });
+
+        public ValueTask<EventEnvelope<Link>?> OnApprovingLinkAsync(
+            EventEnvelope<Link> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateLinkEventEnvelopeAsync(
+                    envelope, LinkEventOperation.Approving);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .LinkOnApprovingLinkSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Link approvedLink =
+                    await DoApproveLinkAsync(
+                        link: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: approvedLink);
+            });
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<Link> envelope,
             string receiverName,

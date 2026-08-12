@@ -166,6 +166,66 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     content: retrievedBibleReference);
             });
 
+        public ValueTask<EventEnvelope<BibleReference>?> OnSubmittingBibleReferenceAsync(
+            EventEnvelope<BibleReference> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateBibleReferenceEventEnvelopeAsync(
+                    envelope, BibleReferenceEventOperation.Submitting);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .BibleReferenceOnSubmittingBibleReferenceSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Submit owns only the status, so the id is the whole request; the envelope's
+                // other fields are the caller's copy and never trusted by the do-work.
+                BibleReference submittedBibleReference =
+                    await DoSubmitBibleReferenceAsync(
+                        bibleReferenceId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: submittedBibleReference);
+            });
+
+        public ValueTask<EventEnvelope<BibleReference>?> OnApprovingBibleReferenceAsync(
+            EventEnvelope<BibleReference> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateBibleReferenceEventEnvelopeAsync(
+                    envelope, BibleReferenceEventOperation.Approving);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .BibleReferenceOnApprovingBibleReferenceSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                BibleReference approvedBibleReference =
+                    await DoApproveBibleReferenceAsync(
+                        bibleReference: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: approvedBibleReference);
+            });
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<BibleReference> envelope,
             string receiverName,

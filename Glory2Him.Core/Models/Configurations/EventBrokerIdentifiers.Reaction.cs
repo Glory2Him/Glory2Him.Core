@@ -41,6 +41,21 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ReactionRemovedEventAddressId =
             new Guid("019f814e-89c1-7f30-9317-3385e9c5f6ae");
 
+        public static readonly Guid ReactionSubmittingEventAddressId =
+            new Guid("52b66362-df28-4dfe-bddd-a0b049bb6ead");
+
+        public static readonly Guid ReactionApprovingEventAddressId =
+            new Guid("f7e89adf-c621-4924-bcbe-73df2781abf4");
+
+        public static readonly Guid ReactionSubmittedEventAddressId =
+            new Guid("efea93a6-f810-4a81-bd7d-c952782c3868");
+
+        public static readonly Guid ReactionApprovedEventAddressId =
+            new Guid("ecd33d43-a567-4b5f-8e0e-7fc34fb31963");
+
+        public static readonly Guid ReactionRejectedEventAddressId =
+            new Guid("99bfcfa4-4bc4-4930-a202-aefcd32049e9");
+
         internal static readonly IReadOnlyDictionary<ReactionEventOperation, Guid>
             ReactionEventAddressIds = new Dictionary<ReactionEventOperation, Guid>
             {
@@ -49,6 +64,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { ReactionEventOperation.RemovingById, ReactionRemovingByIdEventAddressId },
                 { ReactionEventOperation.HardRemovingById, ReactionHardRemovingByIdEventAddressId },
                 { ReactionEventOperation.RetrievingById, ReactionRetrievingByIdEventAddressId },
+                { ReactionEventOperation.Submitting, ReactionSubmittingEventAddressId },
+                { ReactionEventOperation.Approving, ReactionApprovingEventAddressId },
                 { ReactionEventOperation.Added, ReactionAddedEventAddressId },
                 { ReactionEventOperation.Modified, ReactionModifiedEventAddressId },
 
@@ -56,7 +73,11 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("ReactionHardRemoved" vs "ReactionRemoved").
                 { ReactionEventOperation.Removed, ReactionRemovedEventAddressId },
-                { ReactionEventOperation.HardRemoved, ReactionRemovedEventAddressId }
+                { ReactionEventOperation.HardRemoved, ReactionRemovedEventAddressId },
+
+                { ReactionEventOperation.Submitted, ReactionSubmittedEventAddressId },
+                { ReactionEventOperation.Approved, ReactionApprovedEventAddressId },
+                { ReactionEventOperation.Rejected, ReactionRejectedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ReactionEventAddresses =
@@ -67,9 +88,14 @@ namespace Glory2Him.Core.Models.Configurations
                 { ReactionRemovingByIdEventAddressId, "Reaction-RemovingById" },
                 { ReactionHardRemovingByIdEventAddressId, "Reaction-HardRemovingById" },
                 { ReactionRetrievingByIdEventAddressId, "Reaction-RetrievingById" },
+                { ReactionSubmittingEventAddressId, "Reaction-Submitting" },
+                { ReactionApprovingEventAddressId, "Reaction-Approving" },
                 { ReactionAddedEventAddressId, "Reaction-Added" },
                 { ReactionModifiedEventAddressId, "Reaction-Modified" },
-                { ReactionRemovedEventAddressId, "Reaction-Removed" }
+                { ReactionRemovedEventAddressId, "Reaction-Removed" },
+                { ReactionSubmittedEventAddressId, "Reaction-Submitted" },
+                { ReactionApprovedEventAddressId, "Reaction-Approved" },
+                { ReactionRejectedEventAddressId, "Reaction-Rejected" }
             };
 
         public static readonly Guid ReactionOnAddingReactionSubscriptionId =
@@ -98,5 +124,17 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ReactionOnRetrievingReactionByIdSubscriptionName =
             "ReactionService.OnRetrievingReactionById";
+
+        public static readonly Guid ReactionOnSubmittingReactionSubscriptionId =
+            new Guid("94378f7e-568f-4960-87a4-4f2bdfeeba18");
+
+        public const string ReactionOnSubmittingReactionSubscriptionName =
+            "ReactionService.OnSubmittingReaction";
+
+        public static readonly Guid ReactionOnApprovingReactionSubscriptionId =
+            new Guid("d27e3ea0-49dc-4a5f-9318-771f9e78a306");
+
+        public const string ReactionOnApprovingReactionSubscriptionName =
+            "ReactionService.OnApprovingReaction";
     }
 }

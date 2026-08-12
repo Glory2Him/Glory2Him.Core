@@ -42,5 +42,13 @@ namespace Glory2Him.Core.Services.Foundations.Comments
         ValueTask<Comment> HardRemoveCommentByIdAsync(
             Guid commentId,
             CancellationToken cancellationToken = default);
+
+        ValueTask<Comment> SubmitCommentByIdAsync(
+            Guid commentId,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<Comment> ApproveCommentAsync(
+            Comment comment,
+            CancellationToken cancellationToken = default);
     }
 }

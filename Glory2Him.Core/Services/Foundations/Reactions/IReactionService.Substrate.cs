@@ -45,5 +45,13 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
         ValueTask<EventEnvelope<Reaction>?> OnRetrievingReactionByIdAsync(
             EventEnvelope<Reaction> envelope,
             CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Reaction>?> OnSubmittingReactionAsync(
+            EventEnvelope<Reaction> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Reaction>?> OnApprovingReactionAsync(
+            EventEnvelope<Reaction> envelope,
+            CancellationToken cancellationToken = default);
     }
 }
