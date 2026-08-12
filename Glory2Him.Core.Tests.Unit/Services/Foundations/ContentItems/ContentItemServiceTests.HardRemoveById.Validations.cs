@@ -215,5 +215,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
+        {
+            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // the row is even read — the destructive surface is not an exception to the site-wide
+            // contribution ban.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+
+            Guid someContentItemId = Guid.NewGuid();
+
+            var unauthorizedContentItemException = new UnauthorizedContentItemException(
+                message: "The current user is blocked from contributing content items.");
+
+            var expectedContentItemValidationException = new ContentItemValidationException(
+                message: "Content item validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemException);
+
+            // when
+            ValueTask<ContentItem> hardRemoveContentItemByIdTask =
+                this.contentItemService.HardRemoveContentItemByIdAsync(
+                    someContentItemId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    hardRemoveContentItemByIdTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

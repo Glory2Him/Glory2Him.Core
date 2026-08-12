@@ -215,5 +215,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
+        {
+            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // the row is even read — the destructive surface is not an exception to the site-wide
+            // contribution ban.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+
+            Guid someApprovalReviewId = Guid.NewGuid();
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is blocked from contributing approval reviews.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            // when
+            ValueTask<ApprovalReview> hardRemoveApprovalReviewByIdTask =
+                this.approvalReviewService.HardRemoveApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    hardRemoveApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
@@ -193,6 +194,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                 broker.LogErrorAsync(It.Is(
                     SameExceptionAs(expectedContentItemSettingValidationException))),
                 Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
+        {
+            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // the row is even read — the destructive surface is not an exception to the site-wide
+            // contribution ban.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+
+            Guid someContentItemSettingId = Guid.NewGuid();
+
+            var unauthorizedContentItemSettingException = new UnauthorizedContentItemSettingException(
+                message: "The current user is blocked from administering content item settings.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedContentItemSettingException);
+
+            // when
+            ValueTask<ContentItemSetting> hardRemoveContentItemSettingByIdTask =
+                this.contentItemSettingService.HardRemoveContentItemSettingByIdAsync(
+                    someContentItemSettingId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    hardRemoveContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteContentItemSettingAsync(
+                    It.IsAny<ContentItemSetting>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

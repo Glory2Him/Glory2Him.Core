@@ -215,5 +215,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
+        {
+            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // the row is even read — the destructive surface is not an exception to the site-wide
+            // contribution ban.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+
+            Guid someCommentId = Guid.NewGuid();
+
+            var unauthorizedCommentException = new UnauthorizedCommentException(
+                message: "The current user is blocked from contributing comments.");
+
+            var expectedCommentValidationException = new CommentValidationException(
+                message: "Comment validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedCommentException);
+
+            // when
+            ValueTask<Comment> hardRemoveCommentByIdTask =
+                this.commentService.HardRemoveCommentByIdAsync(
+                    someCommentId,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    hardRemoveCommentByIdTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectCommentByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteCommentAsync(
+                    It.IsAny<Comment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

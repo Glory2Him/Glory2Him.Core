@@ -37,6 +37,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                     message: "The current user is not authenticated.");
             }
 
+            // the global ReadOnly ban precedes the Admin check, so a banned Admin cannot reach
+            // past it — this gate is every content item setting write, hard remove included.
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedContentItemSettingException(
+                    message: "The current user is blocked from administering content item settings.");
+            }
+
             if (HasAdminRole(securityContext) is false)
             {
                 throw new UnauthorizedContentItemSettingException(

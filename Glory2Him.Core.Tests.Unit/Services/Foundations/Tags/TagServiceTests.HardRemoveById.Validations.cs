@@ -215,5 +215,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
+        {
+            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // the row is even read — the destructive surface is not an exception to the site-wide
+            // contribution ban.
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+
+            Guid someTagId = Guid.NewGuid();
+
+            var unauthorizedTagException = new UnauthorizedTagException(
+                message: "The current user is blocked from contributing tags.");
+
+            var expectedTagValidationException = new TagValidationException(
+                message: "Tag validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedTagException);
+
+            // when
+            ValueTask<Tag> hardRemoveTagByIdTask =
+                this.tagService.HardRemoveTagByIdAsync(
+                    someTagId,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    hardRemoveTagByIdTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectTagByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.DeleteTagAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

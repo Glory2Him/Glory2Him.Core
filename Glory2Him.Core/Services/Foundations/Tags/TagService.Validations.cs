@@ -118,6 +118,12 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     message: "The current user is not authenticated.");
             }
 
+            if (securityContext.Roles.Contains(Roles.ReadOnly))
+            {
+                throw new UnauthorizedTagException(
+                    message: "The current user is blocked from contributing tags.");
+            }
+
             if (securityContext.Roles.Contains(Roles.Admin) is false)
             {
                 throw new UnauthorizedTagException(
