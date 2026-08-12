@@ -62,6 +62,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return WithDatabaseComputedEffectiveIds(storageRow);
         }
 
+        // The same logical pair with its two endpoints swapped. A caller cannot replicate the
+        // canonical order (it is an ordinal type-name / SqlGuid comparison), so a reversed-order
+        // request is a natural, common input the probe must still match to the canonical stored row.
+        private static Association ReverseEndpoints(Association association)
+        {
+            Association reversed = association.DeepClone();
+
+            (reversed.EntityAType, reversed.EntityBType) =
+                (association.EntityBType, association.EntityAType);
+
+            (reversed.EntityAKeyId, reversed.EntityBKeyId) =
+                (association.EntityBKeyId, association.EntityAKeyId);
+
+            (reversed.EntityAGroupId, reversed.EntityBGroupId) =
+                (association.EntityBGroupId, association.EntityAGroupId);
+
+            (reversed.EntityAScope, reversed.EntityBScope) =
+                (association.EntityBScope, association.EntityAScope);
+
+            (reversed.EntityAContentType, reversed.EntityBContentType) =
+                (association.EntityBContentType, association.EntityAContentType);
+
+            return reversed;
+        }
+
         [Fact]
         public async Task ShouldReturnTheMatchWhenALiveRowOccupiesThePairAsync()
         {
@@ -205,6 +230,103 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             actualMatch.IsDeleted.Should().BeTrue();
             actualMatch.CreatedBy.Should().Be(deletedRow.CreatedBy);
             actualMatch.DeletedBy.Should().Be(deletedRow.DeletedBy);
+        }
+
+        [Fact]
+        public async Task ShouldMatchTheCanonicalRowWhenTheRequestEndpointsAreReversedAsync()
+        {
+            // given: the store holds one canonical row; the request arrives with its endpoints the
+            // other way round. Stored rows are canonicalized on write, so an orientation-sensitive
+            // probe would miss this and let the orchestration insert a colliding duplicate.
+            Association canonicalRequest = CreateResolvedPairRequest();
+
+            Association storageRow = CreateStoredRowForPair(
+                canonicalRequest, ApprovalStatus.Approved, isDeleted: false);
+
+            Association reversedRequest = ReverseEndpoints(canonicalRequest);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new[] { storageRow }.AsQueryable());
+
+            // when
+            AssociationPairMatch? actualMatch =
+                await this.associationService.FindAssociationByPairAsync(
+                    reversedRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: found despite the reversed input order
+            actualMatch.Should().NotBeNull();
+            actualMatch!.Id.Should().Be(storageRow.Id);
+            actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+        }
+
+        [Fact]
+        public async Task ShouldSeeASoftDeletedTakedownRowWhenTheRequestEndpointsAreReversedAsync()
+        {
+            // given: a soft-deleted moderator-takedown row in canonical order, and a reversed-order
+            // resubmission. The unique index filters WHERE IsDeleted = 0, so the DB would NOT block
+            // a normalized insert — only the probe seeing this row stops the takedown being
+            // laundered. An orientation-sensitive probe would miss it and launder a fresh live row.
+            Association canonicalRequest = CreateResolvedPairRequest();
+
+            Association takedownRow = CreateStoredRowForPair(
+                canonicalRequest, ApprovalStatus.Rejected, isDeleted: true);
+            takedownRow.DeletedBy = $"moderator-{Guid.NewGuid()}";
+
+            Association reversedRequest = ReverseEndpoints(canonicalRequest);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new[] { takedownRow }.AsQueryable());
+
+            // when
+            AssociationPairMatch? actualMatch =
+                await this.associationService.FindAssociationByPairAsync(
+                    reversedRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: the takedown row is seen despite the reversed input order
+            actualMatch.Should().NotBeNull();
+            actualMatch!.Id.Should().Be(takedownRow.Id);
+            actualMatch.IsDeleted.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldMatchOnlyTheRowWithTheSameUserIdWhenPairsCollideOnUserAsync()
+        {
+            // given: the same canonical pair carries two live rows differing ONLY by UserId — legal
+            // because UserId is part of the unique index (an editorial row with no user, and a
+            // per-user reaction row). A probe for the editorial (null-user) pair must return the
+            // editorial row, not the newer reaction row — pinning the UserId conjunct of the match.
+            Association editorialRequest = CreateResolvedPairRequest();
+            editorialRequest.UserId = null;
+
+            Association editorialRow = CreateStoredRowForPair(
+                editorialRequest, ApprovalStatus.Approved, isDeleted: false);
+            editorialRow.UpdatedWhen = new DateTimeOffset(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+            Association reactionRow = CreateStoredRowForPair(
+                editorialRequest, ApprovalStatus.Submitted, isDeleted: false);
+            reactionRow.UserId = $"user-{Guid.NewGuid()}";
+            reactionRow.UpdatedWhen = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero);
+            reactionRow = WithDatabaseComputedEffectiveIds(reactionRow);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new[] { reactionRow, editorialRow }.AsQueryable());
+
+            // when
+            AssociationPairMatch? actualMatch =
+                await this.associationService.FindAssociationByPairAsync(
+                    editorialRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then: the editorial row, not the newer reaction row (which a dropped UserId filter
+            // would return by the most-recent tie-break)
+            actualMatch.Should().NotBeNull();
+            actualMatch!.Id.Should().Be(editorialRow.Id);
+            actualMatch.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
         }
 
         [Fact]

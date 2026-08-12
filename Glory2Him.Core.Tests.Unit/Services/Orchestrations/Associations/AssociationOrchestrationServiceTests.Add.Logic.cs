@@ -13,9 +13,11 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Moq;
@@ -245,6 +247,160 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             capturedForLookup.EntityBScope.Should().Be(Scope.ThisVersionOnly);
             capturedForLookup.EntityBGroupId.Should().Be(rawRequest.EntityBKeyId);
             capturedForLookup.EntityBContentType.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldOverwriteACallerSuppliedUserIdWithNullBeforeLookupAndInsertAsync()
+        {
+            // given: a caller sets a UserId on an editorial pairing. UserId partitions the probe
+            // and the unique index, so a trusted value would evade the probe (missing a soft-deleted
+            // takedown row, or duplicating a live one). The orchestration must null it before BOTH
+            // the probe and the insert.
+            Association rawRequest = CreateRawAddRequest();
+            rawRequest.UserId = $"spoofed-{Guid.NewGuid()}";
+
+            SetupEndpointReads(rawRequest);
+
+            Association? capturedForLookup = null;
+            Association? capturedForInsert = null;
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Association, CancellationToken>(
+                            (association, _) => capturedForLookup = association.DeepClone())
+                        .ReturnsAsync((AssociationPairMatch?)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Association association, CancellationToken _) =>
+                        {
+                            capturedForInsert = association.DeepClone();
+                            association.Id = Guid.NewGuid();
+                            return association;
+                        });
+
+            // when
+            await this.associationOrchestrationService.AddAssociationAsync(
+                rawRequest,
+                TestContext.Current.CancellationToken);
+
+            // then
+            capturedForLookup.Should().NotBeNull();
+            capturedForLookup!.UserId.Should().BeNull();
+
+            capturedForInsert.Should().NotBeNull();
+            capturedForInsert!.UserId.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldResolveAVersionedLinkEndpointToItsGroupUnderAllVersionsAsync()
+        {
+            // given: Link is versioned (EntityTypeVersioning), so it must key on its group under
+            // AllVersions like a ContentItem — NOT on its own key id under ThisVersionOnly, which
+            // would pin an AllVersions row to a single version and break cross-version dedup.
+            Association rawRequest = CreateRawAddRequest();
+            rawRequest.EntityBType = EntityType.Link;
+
+            var resolvedContentItem = new ContentItem
+            {
+                Id = rawRequest.EntityAKeyId,
+                ContentItemGroupId = Guid.NewGuid(),
+                ContentType = ContentType.Story,
+            };
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    rawRequest.EntityAKeyId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(resolvedContentItem);
+
+            // the link's group differs from its key id, so a wrong non-versioned derivation is visible
+            var resolvedLink = new Link
+            {
+                Id = rawRequest.EntityBKeyId,
+                ContentItemGroupId = Guid.NewGuid(),
+            };
+
+            this.linkServiceMock.Setup(service =>
+                service.RetrieveLinkByIdAsync(
+                    rawRequest.EntityBKeyId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(resolvedLink);
+
+            Association? capturedForLookup = null;
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Association, CancellationToken>(
+                            (association, _) => capturedForLookup = association)
+                        .ReturnsAsync(CreatePairMatch(ApprovalStatus.Approved, isDeleted: false));
+
+            // when
+            await this.associationOrchestrationService.AddAssociationAsync(
+                rawRequest,
+                TestContext.Current.CancellationToken);
+
+            // then
+            capturedForLookup.Should().NotBeNull();
+            capturedForLookup!.EntityBType.Should().Be(EntityType.Link);
+            capturedForLookup.EntityBGroupId.Should().Be(resolvedLink.ContentItemGroupId);
+            capturedForLookup.EntityBScope.Should().Be(Scope.AllVersions);
+            capturedForLookup.EntityBContentType.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldCarryTheDerivedEndpointFieldsAndNullUserOntoTheInsertedAssociationAsync()
+        {
+            // given: on the Created path the derived fields (and the nulled user) must reach the
+            // INSERT, not only the lookup — a regression that derived for the probe but inserted the
+            // caller's raw values would defeat both the dedup key and the auth-input derivation.
+            Association rawRequest = CreateRawAddRequest();
+            rawRequest.EntityAScope = Scope.ThisVersionOnly;       // wrong on purpose
+            rawRequest.EntityAGroupId = Guid.NewGuid();            // wrong on purpose
+            rawRequest.EntityAContentType = ContentType.Testimony; // wrong on purpose
+            rawRequest.UserId = $"spoofed-{Guid.NewGuid()}";       // must be nulled
+
+            ContentItem resolvedContentItem = SetupEndpointReads(rawRequest);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((AssociationPairMatch?)null);
+
+            Association? capturedForInsert = null;
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Association association, CancellationToken _) =>
+                        {
+                            capturedForInsert = association.DeepClone();
+                            association.Id = Guid.NewGuid();
+                            return association;
+                        });
+
+            // when
+            await this.associationOrchestrationService.AddAssociationAsync(
+                rawRequest,
+                TestContext.Current.CancellationToken);
+
+            // then
+            capturedForInsert.Should().NotBeNull();
+            capturedForInsert!.EntityAScope.Should().Be(Scope.AllVersions);
+            capturedForInsert.EntityAGroupId.Should().Be(resolvedContentItem.ContentItemGroupId);
+            capturedForInsert.EntityAContentType.Should().Be(resolvedContentItem.ContentType);
+            capturedForInsert.EntityBScope.Should().Be(Scope.ThisVersionOnly);
+            capturedForInsert.EntityBGroupId.Should().Be(rawRequest.EntityBKeyId);
+            capturedForInsert.EntityBContentType.Should().BeNull();
+            capturedForInsert.UserId.Should().BeNull();
         }
     }
 }

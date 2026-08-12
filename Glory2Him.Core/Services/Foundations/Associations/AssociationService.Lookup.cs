@@ -44,6 +44,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 IQueryable<Association> allAssociations =
                     await this.storageBroker.SelectAllAssociationsAsync(cancellationToken);
 
+                // Match the SAME canonical endpoint order an insert lands in — DoAddAssociationAsync
+                // normalizes before InsertAssociationAsync, so every stored row is canonical.
+                // Without this the probe is orientation-sensitive: a reversed-order request would
+                // miss the canonical stored row (breaking retrieve-or-add for half of all input
+                // orderings), and against a soft-deleted moderator-takedown row it would slip a
+                // normalized insert past the IsDeleted = 0-filtered unique index — laundering the
+                // exact takedown this probe exists to catch. Normalizing here rather than in the
+                // caller keeps canonical ordering in one place, so the write path and the probe
+                // cannot diverge.
+                association = NormalizeEndpointOrder(association);
+
                 // The same effective ids the persisted computed column carries and the
                 // UX_Associations_Pair index keys on. Computed here from the resolved endpoints
                 // so the probe matches exactly the row an insert would collide with.

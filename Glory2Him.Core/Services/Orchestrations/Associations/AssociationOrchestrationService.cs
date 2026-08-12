@@ -123,6 +123,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
                 endpointName: "B",
                 cancellationToken: cancellationToken);
 
+            // UserId is not the caller's to set. It partitions BOTH the canonical-pair probe and
+            // the unique index, so a caller-supplied value would evade the probe — missing a
+            // soft-deleted moderator-takedown row and laundering a fresh insert past it, or
+            // duplicating a live editorial row. The only rows that legitimately carry a UserId are
+            // per-user reactions, whose replace-on-react flow (thread 4) derives it from the caller
+            // and does not exist yet; until then every suggestion is editorial and carries no user.
+            association.UserId = null;
+
             // The unfiltered canonical-pair lookup — sees a pending/rejected row owned by another
             // user, and a soft-deleted one, both of which the caller's read posture hides.
             AssociationPairMatch? existingMatch =

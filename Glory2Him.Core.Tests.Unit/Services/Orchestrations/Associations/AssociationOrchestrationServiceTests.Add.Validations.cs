@@ -16,7 +16,9 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Associations;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -226,6 +228,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                     rawRequest.EntityAKeyId,
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(contentItemValidationException);
+
+            // when
+            ValueTask<AssociationSuggestionResult> addTask =
+                this.associationOrchestrationService.AddAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            AssociationOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<AssociationOrchestrationValidationException>(addTask.AsTask);
+
+            // then
+            actualException.Should().BeEquivalentTo(expectedValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(SameExceptionAs(expectedValidationException))),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundForTheBEndpointWhenTheSecondEndpointDoesNotExistAndLogItAsync()
+        {
+            // given: the A endpoint resolves but the B endpoint's service reports it missing. The
+            // failure must be attributed to the B endpoint by name (not A), and reported as a
+            // not-found endpoint rather than the Tag's own exception type.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Association rawRequest = CreateRawAddRequest();
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(
+                    rawRequest.EntityAKeyId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ContentItem
+                        {
+                            Id = rawRequest.EntityAKeyId,
+                            ContentItemGroupId = Guid.NewGuid(),
+                            ContentType = ContentType.Story,
+                        });
+
+            this.tagServiceMock.Setup(service =>
+                service.RetrieveTagByIdAsync(
+                    rawRequest.EntityBKeyId,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(new TagValidationException(
+                            message: "not found",
+                            innerException: new Xeption()));
+
+            var notFoundAssociationOrchestrationException =
+                new NotFoundAssociationOrchestrationException(
+                    message: "The B endpoint was not found.");
+
+            var expectedValidationException =
+                new AssociationOrchestrationValidationException(
+                    message: "Content item association orchestration validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: notFoundAssociationOrchestrationException);
 
             // when
             ValueTask<AssociationSuggestionResult> addTask =

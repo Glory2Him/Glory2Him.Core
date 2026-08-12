@@ -12,8 +12,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Orchestrations.Associations.Exceptions;
 using Xeptions;
 
@@ -23,8 +26,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
     {
         // What an endpoint resolves to: the group id the effective id keys on, the content type
         // (only a ContentItem has one — it is the authorization input of §5), and the scope its
-        // publication model implies. A versioned entity (ContentItem) defaults to AllVersions and
-        // keys on its group; a non-versioned one keys on its own id under ThisVersionOnly.
+        // publication model implies. A versioned entity (ContentItem, Link, ...) defaults to
+        // AllVersions and keys on its group; a non-versioned one keys on its own id under
+        // ThisVersionOnly.
         private readonly struct ResolvedEndpoint
         {
             public ResolvedEndpoint(Guid groupId, ContentType? contentType, Scope scope)
@@ -68,40 +72,44 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             Guid keyId,
             CancellationToken cancellationToken)
         {
+            // Every branch reads its endpoint (which confirms it exists and is visible, and
+            // surfaces a not-found), then derives from the resolved row. A versioned entity hands
+            // its IVersion group to DeriveEndpoint; a non-versioned one passes null and keys on its
+            // own id. Only a ContentItem carries a content type. The versioned/scope decision is
+            // NEVER made here — DeriveEndpoint reads it from EntityTypeVersioning, the same source
+            // of truth the foundation derives from, so the two cannot drift (design §7.5.1 warns
+            // against probing the entity for IVersion to answer this).
             switch (entityType)
             {
                 case EntityType.ContentItem:
-                    // the one versioned, content-typed endpoint: its group and content type are
-                    // derived from the resolved row, and it defaults to AllVersions (§7.5.1)
                     ContentItem contentItem =
                         await this.contentItemService.RetrieveContentItemByIdAsync(
                             keyId, cancellationToken);
 
-                    return new ResolvedEndpoint(
-                        groupId: contentItem.ContentItemGroupId,
-                        contentType: contentItem.ContentType,
-                        scope: Scope.AllVersions);
+                    return DeriveEndpoint(entityType, keyId, contentItem, contentItem.ContentType);
+
+                case EntityType.Link:
+                    Link link =
+                        await this.linkService.RetrieveLinkByIdAsync(keyId, cancellationToken);
+
+                    return DeriveEndpoint(entityType, keyId, link, contentType: null);
 
                 case EntityType.Tag:
                     await this.tagService.RetrieveTagByIdAsync(keyId, cancellationToken);
-                    return NonVersionedEndpoint(keyId);
+                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.Reaction:
                     await this.reactionService.RetrieveReactionByIdAsync(keyId, cancellationToken);
-                    return NonVersionedEndpoint(keyId);
+                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.BibleReference:
                     await this.bibleReferenceService.RetrieveBibleReferenceByIdAsync(
                         keyId, cancellationToken);
-                    return NonVersionedEndpoint(keyId);
+                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 case EntityType.Comment:
                     await this.commentService.RetrieveCommentByIdAsync(keyId, cancellationToken);
-                    return NonVersionedEndpoint(keyId);
-
-                case EntityType.Link:
-                    await this.linkService.RetrieveLinkByIdAsync(keyId, cancellationToken);
-                    return NonVersionedEndpoint(keyId);
+                    return DeriveEndpoint(entityType, keyId, versionedEndpoint: null, contentType: null);
 
                 default:
                     // Attachment has no foundation service yet, and an association endpoint
@@ -111,14 +119,25 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             }
         }
 
-        // A non-versioned entity has exactly one row, so its group id is its own key id, it
-        // carries no content type, and ThisVersionOnly and AllVersions mean the same thing —
-        // ThisVersionOnly is the honest default.
-        private static ResolvedEndpoint NonVersionedEndpoint(Guid keyId) =>
-            new ResolvedEndpoint(
-                groupId: keyId,
-                contentType: null,
-                scope: Scope.ThisVersionOnly);
+        // The publication model is decided by EntityTypeVersioning (design §7.5.1) — the SAME
+        // source of truth the foundation's ApplyDerivedEndpointFields uses — so a versioned type
+        // (ContentItem, Link, ...) keys on its group under AllVersions and a non-versioned one keys
+        // on its own id under ThisVersionOnly, and this can never disagree with the foundation on
+        // which is which. A versioned endpoint must supply its resolved IVersion row so its group
+        // id can be read from it.
+        private static ResolvedEndpoint DeriveEndpoint(
+            EntityType entityType,
+            Guid keyId,
+            IVersion? versionedEndpoint,
+            ContentType? contentType)
+        {
+            bool isVersioned = EntityTypeVersioning.IsVersioned(entityType);
+
+            return new ResolvedEndpoint(
+                groupId: isVersioned ? versionedEndpoint!.ContentItemGroupId : keyId,
+                contentType: contentType,
+                scope: EntityTypeVersioning.DefaultScopeFor(entityType));
+        }
 
         // A missing/non-visible endpoint arrives as the entity's own *ValidationException (which
         // wraps its NotFound), never a dependency or service exception. Distinguished by the
