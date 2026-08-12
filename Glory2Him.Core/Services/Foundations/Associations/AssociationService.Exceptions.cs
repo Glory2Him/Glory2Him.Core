@@ -29,6 +29,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private delegate ValueTask<IQueryable<Association>>
             ReturningAssociationsFunction();
 
+        private delegate ValueTask<AssociationPairMatch?>
+            ReturningAssociationPairMatchFunction();
+
         private delegate ValueTask<EventEnvelope<Association>?>
             ReturningAssociationEventEnvelopeFunction();
 
@@ -346,6 +349,75 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             catch (OperationCanceledException)
             {
                 throw;
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageAssociationException =
+                    new FailedStorageAssociationException(
+                        message: "Failed content item association storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageAssociationException);
+            }
+            catch (Exception exception)
+            {
+                var failedAssociationServiceException =
+                    new FailedAssociationServiceException(
+                        message: "Failed content item association service error occurred, please contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedAssociationServiceException);
+            }
+        }
+
+        // The canonical-pair probe both validates its input (null / blocked / invalid) and reads
+        // storage, so it needs the validation catches the entity write path has AND the
+        // read-style dependency catches — but none of the write-only ones (DuplicateKey, foreign
+        // key, concurrency), which a read cannot raise.
+        private async ValueTask<AssociationPairMatch?> TryCatch(
+            ReturningAssociationPairMatchFunction returningAssociationPairMatchFunction)
+        {
+            try
+            {
+                return await returningAssociationPairMatchFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutAssociationException =
+                    new TimeoutAssociationException(
+                        message: "Failed content item association timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutAssociationException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedAssociationException unauthorizedAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedAssociationException);
+            }
+            catch (NullAssociationException nullAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: nullAssociationException);
+            }
+            catch (InvalidAssociationException invalidAssociationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidAssociationException);
             }
             catch (SqlException sqlException)
             {

@@ -31,6 +31,23 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Guid associationId,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Looks up the row that occupies the same canonical pair as <paramref name="association"/>
+        /// — the same endpoint effective ids and <c>UserId</c> the <c>UX_Associations_Pair</c>
+        /// index keys on — over the UNFILTERED store, spanning soft-deleted rows (design §7.4,
+        /// §14.6). The retrieve-or-add flow must see rows the submitting user's read posture
+        /// hides (another user's pending/rejected row, or a soft-deleted one), so a
+        /// visibility-filtered lookup would miss them and let the duplicate through. Returns a
+        /// non-leaking <see cref="AssociationPairMatch"/> projection — id, approval state and
+        /// soft-delete provenance only — or <c>null</c> when the pair is unoccupied; the row
+        /// body never crosses back. The caller supplies an association whose endpoints are
+        /// already resolved (scope, group and key set), because the effective id is computed
+        /// from them.
+        /// </summary>
+        ValueTask<AssociationPairMatch?> FindAssociationByPairAsync(
+            Association association,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Association> ModifyAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default);
