@@ -166,6 +166,37 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     content: retrievedApprovalReview);
             });
 
+        public ValueTask<EventEnvelope<ApprovalReview>?> OnDismissingApprovalReviewAsync(
+            EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateApprovalReviewEventEnvelopeAsync(
+                    envelope, ApprovalReviewEventOperation.Dismissing);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .ApprovalReviewOnDismissingApprovalReviewSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Dismiss owns only the status, so the id is the whole request; the envelope's
+                // other fields are the caller's copy and never trusted by the do-work.
+                ApprovalReview dismissedApprovalReview =
+                    await DoDismissApprovalReviewAsync(
+                        approvalReviewId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: dismissedApprovalReview);
+            });
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<ApprovalReview> envelope,
             string receiverName,

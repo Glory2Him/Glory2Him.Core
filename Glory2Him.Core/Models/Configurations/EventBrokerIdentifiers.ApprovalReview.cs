@@ -41,6 +41,12 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ApprovalReviewRemovedEventAddressId =
             new Guid("019f814e-89c1-7afc-b8ea-799112e620d3");
 
+        public static readonly Guid ApprovalReviewDismissingEventAddressId =
+            new Guid("5381b421-60cd-4ce9-9175-780140444ef6");
+
+        public static readonly Guid ApprovalReviewDismissedEventAddressId =
+            new Guid("c9bb381c-452d-4ee4-8818-94106be92aab");
+
         internal static readonly IReadOnlyDictionary<ApprovalReviewEventOperation, Guid>
             ApprovalReviewEventAddressIds = new Dictionary<ApprovalReviewEventOperation, Guid>
             {
@@ -49,6 +55,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalReviewEventOperation.RemovingById, ApprovalReviewRemovingByIdEventAddressId },
                 { ApprovalReviewEventOperation.HardRemovingById, ApprovalReviewHardRemovingByIdEventAddressId },
                 { ApprovalReviewEventOperation.RetrievingById, ApprovalReviewRetrievingByIdEventAddressId },
+                { ApprovalReviewEventOperation.Dismissing, ApprovalReviewDismissingEventAddressId },
                 { ApprovalReviewEventOperation.Added, ApprovalReviewAddedEventAddressId },
                 { ApprovalReviewEventOperation.Modified, ApprovalReviewModifiedEventAddressId },
 
@@ -56,7 +63,9 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("ApprovalReviewHardRemoved" vs "ApprovalReviewRemoved").
                 { ApprovalReviewEventOperation.Removed, ApprovalReviewRemovedEventAddressId },
-                { ApprovalReviewEventOperation.HardRemoved, ApprovalReviewRemovedEventAddressId }
+                { ApprovalReviewEventOperation.HardRemoved, ApprovalReviewRemovedEventAddressId },
+
+                { ApprovalReviewEventOperation.Dismissed, ApprovalReviewDismissedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ApprovalReviewEventAddresses =
@@ -69,7 +78,9 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalReviewRetrievingByIdEventAddressId, "ApprovalReview-RetrievingById" },
                 { ApprovalReviewAddedEventAddressId, "ApprovalReview-Added" },
                 { ApprovalReviewModifiedEventAddressId, "ApprovalReview-Modified" },
-                { ApprovalReviewRemovedEventAddressId, "ApprovalReview-Removed" }
+                { ApprovalReviewRemovedEventAddressId, "ApprovalReview-Removed" },
+                { ApprovalReviewDismissingEventAddressId, "ApprovalReview-Dismissing" },
+                { ApprovalReviewDismissedEventAddressId, "ApprovalReview-Dismissed" }
             };
 
         public static readonly Guid ApprovalReviewOnAddingApprovalReviewSubscriptionId =
@@ -98,5 +109,11 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ApprovalReviewOnRetrievingApprovalReviewByIdSubscriptionName =
             "ApprovalReviewService.OnRetrievingApprovalReviewById";
+
+        public static readonly Guid ApprovalReviewOnDismissingApprovalReviewSubscriptionId =
+            new Guid("afd4c206-224d-48f9-afcd-75822b6bf91a");
+
+        public const string ApprovalReviewOnDismissingApprovalReviewSubscriptionName =
+            "ApprovalReviewService.OnDismissingApprovalReview";
     }
 }

@@ -42,5 +42,20 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         ValueTask<ApprovalReview> HardRemoveApprovalReviewByIdAsync(
             Guid approvalReviewId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Dismisses a review (design §9.7.1, §8.8, §9.5). A narrow transition owning exactly
+        /// <c>StatusId</c>, driving it to <c>Dismissed</c> — the outcome a review reaches when
+        /// an entity-scoped change invalidates it, never a verdict its author declares (which
+        /// is why add and modify refuse <c>Dismissed</c>). It is the workflow's act, not the
+        /// reviewer's: gated on the publisher tier, not the review role. Refuses a review that
+        /// is already dismissed, and publishes <c>ApprovalReview-Dismissed</c> — never
+        /// <c>ApprovalReview-Modified</c>, which the workflow subscribes to. The dismissed row
+        /// is retained (§9.5) and excluded from the threshold, and the reviewer may file a fresh
+        /// review afterwards (§7.7 rule 7).
+        /// </summary>
+        ValueTask<ApprovalReview> DismissApprovalReviewAsync(
+            Guid approvalReviewId,
+            CancellationToken cancellationToken = default);
     }
 }
