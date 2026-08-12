@@ -166,6 +166,66 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                     content: retrievedComment);
             });
 
+        public ValueTask<EventEnvelope<Comment>?> OnSubmittingCommentAsync(
+            EventEnvelope<Comment> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateCommentEventEnvelopeAsync(
+                    envelope, CommentEventOperation.Submitting);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .CommentOnSubmittingCommentSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Submit owns only the status, so the id is the whole request; the envelope's
+                // other fields are the caller's copy and never trusted by the do-work.
+                Comment submittedComment =
+                    await DoSubmitCommentAsync(
+                        commentId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: submittedComment);
+            });
+
+        public ValueTask<EventEnvelope<Comment>?> OnApprovingCommentAsync(
+            EventEnvelope<Comment> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateCommentEventEnvelopeAsync(
+                    envelope, CommentEventOperation.Approving);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .CommentOnApprovingCommentSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Comment approvedComment =
+                    await DoApproveCommentAsync(
+                        comment: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: approvedComment);
+            });
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<Comment> envelope,
             string receiverName,

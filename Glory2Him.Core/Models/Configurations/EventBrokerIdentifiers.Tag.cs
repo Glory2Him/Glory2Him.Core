@@ -41,6 +41,21 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid TagRemovedEventAddressId =
             new Guid("019f814e-89c1-79ef-973f-e3a8b3e12b93");
 
+        public static readonly Guid TagSubmittingEventAddressId =
+            new Guid("c3d8d50d-4835-4c0b-97d8-0ca966a1a796");
+
+        public static readonly Guid TagApprovingEventAddressId =
+            new Guid("e9813f7d-3f0b-4ae8-b0fa-b654db781141");
+
+        public static readonly Guid TagSubmittedEventAddressId =
+            new Guid("e027fbaf-e165-4a6e-a145-0681b35218a4");
+
+        public static readonly Guid TagApprovedEventAddressId =
+            new Guid("c3be590d-92cd-415d-83cf-639dbb5fa87a");
+
+        public static readonly Guid TagRejectedEventAddressId =
+            new Guid("dee8e62e-03c0-4f99-bee4-e03d2fd1ebb2");
+
         internal static readonly IReadOnlyDictionary<TagEventOperation, Guid>
             TagEventAddressIds = new Dictionary<TagEventOperation, Guid>
             {
@@ -49,6 +64,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { TagEventOperation.RemovingById, TagRemovingByIdEventAddressId },
                 { TagEventOperation.HardRemovingById, TagHardRemovingByIdEventAddressId },
                 { TagEventOperation.RetrievingById, TagRetrievingByIdEventAddressId },
+                { TagEventOperation.Submitting, TagSubmittingEventAddressId },
+                { TagEventOperation.Approving, TagApprovingEventAddressId },
                 { TagEventOperation.Added, TagAddedEventAddressId },
                 { TagEventOperation.Modified, TagModifiedEventAddressId },
 
@@ -56,7 +73,11 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("TagHardRemoved" vs "TagRemoved").
                 { TagEventOperation.Removed, TagRemovedEventAddressId },
-                { TagEventOperation.HardRemoved, TagRemovedEventAddressId }
+                { TagEventOperation.HardRemoved, TagRemovedEventAddressId },
+
+                { TagEventOperation.Submitted, TagSubmittedEventAddressId },
+                { TagEventOperation.Approved, TagApprovedEventAddressId },
+                { TagEventOperation.Rejected, TagRejectedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> TagEventAddresses =
@@ -67,9 +88,14 @@ namespace Glory2Him.Core.Models.Configurations
                 { TagRemovingByIdEventAddressId, "Tag-RemovingById" },
                 { TagHardRemovingByIdEventAddressId, "Tag-HardRemovingById" },
                 { TagRetrievingByIdEventAddressId, "Tag-RetrievingById" },
+                { TagSubmittingEventAddressId, "Tag-Submitting" },
+                { TagApprovingEventAddressId, "Tag-Approving" },
                 { TagAddedEventAddressId, "Tag-Added" },
                 { TagModifiedEventAddressId, "Tag-Modified" },
-                { TagRemovedEventAddressId, "Tag-Removed" }
+                { TagRemovedEventAddressId, "Tag-Removed" },
+                { TagSubmittedEventAddressId, "Tag-Submitted" },
+                { TagApprovedEventAddressId, "Tag-Approved" },
+                { TagRejectedEventAddressId, "Tag-Rejected" }
             };
 
         public static readonly Guid TagOnAddingTagSubscriptionId =
@@ -98,5 +124,17 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string TagOnRetrievingTagByIdSubscriptionName =
             "TagService.OnRetrievingTagById";
+
+        public static readonly Guid TagOnSubmittingTagSubscriptionId =
+            new Guid("dad3cb5e-1d24-4ee7-95f8-5d218b93a4c1");
+
+        public const string TagOnSubmittingTagSubscriptionName =
+            "TagService.OnSubmittingTag";
+
+        public static readonly Guid TagOnApprovingTagSubscriptionId =
+            new Guid("02cda6a2-9e21-49be-acf7-dcf0d948d634");
+
+        public const string TagOnApprovingTagSubscriptionName =
+            "TagService.OnApprovingTag";
     }
 }

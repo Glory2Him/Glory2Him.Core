@@ -15,6 +15,7 @@ using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
@@ -45,6 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
+        private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly ICommentService commentService;
@@ -58,6 +60,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
+            this.accessBrokerMock = new Mock<IAccessBroker>();
+
+            // an approve decision is permitted by default so the non-approval tests that never
+            // touch this broker are unaffected; approve tests override it
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayDecideApprovalAsync(
+                    It.IsAny<ApprovalDecisionQuery>(),
+                    It.IsAny<System.Threading.CancellationToken>()))
+                        .ReturnsAsync(PermittedVerdict());
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
@@ -103,6 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 eventBroker: this.eventBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
+                accessBroker: this.accessBrokerMock.Object,
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
@@ -299,6 +311,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
         private static DateTimeOffset GetRandomDateTimeOffset() =>
             new DateTimeRange(earliestDate: new DateTime()).GetValue();
+
+        private static AccessVerdict PermittedVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "permitted",
+            };
+
+        private static AccessVerdict PermittedBypassVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = true,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "permitted with bypass",
+            };
+
+        private static AccessVerdict DeniedVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = false,
+                DenialReason = AccessDenialReason.NotInPublisherTier,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "denied",
+            };
 
         private static Filler<Comment> CreateCommentFiller(
             DateTimeOffset dateTimeOffset,

@@ -41,6 +41,21 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid BibleReferenceRemovedEventAddressId =
             new Guid("019f814e-89c1-70c1-9991-6d52f85829d1");
 
+        public static readonly Guid BibleReferenceSubmittingEventAddressId =
+            new Guid("0f988127-a99c-4b35-bd33-8bd686bedc16");
+
+        public static readonly Guid BibleReferenceApprovingEventAddressId =
+            new Guid("dac765d6-a44e-4789-960c-e8cca1a1c013");
+
+        public static readonly Guid BibleReferenceSubmittedEventAddressId =
+            new Guid("d11aa5d5-6e2d-44d2-b6de-36ed53af1f97");
+
+        public static readonly Guid BibleReferenceApprovedEventAddressId =
+            new Guid("26f1dff9-1c03-45e9-b4e3-03e754ce6a19");
+
+        public static readonly Guid BibleReferenceRejectedEventAddressId =
+            new Guid("7b0ed004-8843-4bba-a929-860eba4d18e8");
+
         internal static readonly IReadOnlyDictionary<BibleReferenceEventOperation, Guid>
             BibleReferenceEventAddressIds = new Dictionary<BibleReferenceEventOperation, Guid>
             {
@@ -52,6 +67,8 @@ namespace Glory2Him.Core.Models.Configurations
                     BibleReferenceHardRemovingByIdEventAddressId },
 
                 { BibleReferenceEventOperation.RetrievingById, BibleReferenceRetrievingByIdEventAddressId },
+                { BibleReferenceEventOperation.Submitting, BibleReferenceSubmittingEventAddressId },
+                { BibleReferenceEventOperation.Approving, BibleReferenceApprovingEventAddressId },
                 { BibleReferenceEventOperation.Added, BibleReferenceAddedEventAddressId },
                 { BibleReferenceEventOperation.Modified, BibleReferenceModifiedEventAddressId },
 
@@ -59,7 +76,11 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("BibleReferenceHardRemoved" vs "BibleReferenceRemoved").
                 { BibleReferenceEventOperation.Removed, BibleReferenceRemovedEventAddressId },
-                { BibleReferenceEventOperation.HardRemoved, BibleReferenceRemovedEventAddressId }
+                { BibleReferenceEventOperation.HardRemoved, BibleReferenceRemovedEventAddressId },
+
+                { BibleReferenceEventOperation.Submitted, BibleReferenceSubmittedEventAddressId },
+                { BibleReferenceEventOperation.Approved, BibleReferenceApprovedEventAddressId },
+                { BibleReferenceEventOperation.Rejected, BibleReferenceRejectedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> BibleReferenceEventAddresses =
@@ -70,9 +91,14 @@ namespace Glory2Him.Core.Models.Configurations
                 { BibleReferenceRemovingByIdEventAddressId, "BibleReference-RemovingById" },
                 { BibleReferenceHardRemovingByIdEventAddressId, "BibleReference-HardRemovingById" },
                 { BibleReferenceRetrievingByIdEventAddressId, "BibleReference-RetrievingById" },
+                { BibleReferenceSubmittingEventAddressId, "BibleReference-Submitting" },
+                { BibleReferenceApprovingEventAddressId, "BibleReference-Approving" },
                 { BibleReferenceAddedEventAddressId, "BibleReference-Added" },
                 { BibleReferenceModifiedEventAddressId, "BibleReference-Modified" },
-                { BibleReferenceRemovedEventAddressId, "BibleReference-Removed" }
+                { BibleReferenceRemovedEventAddressId, "BibleReference-Removed" },
+                { BibleReferenceSubmittedEventAddressId, "BibleReference-Submitted" },
+                { BibleReferenceApprovedEventAddressId, "BibleReference-Approved" },
+                { BibleReferenceRejectedEventAddressId, "BibleReference-Rejected" }
             };
 
         public static readonly Guid BibleReferenceOnAddingBibleReferenceSubscriptionId =
@@ -101,5 +127,17 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string BibleReferenceOnRetrievingBibleReferenceByIdSubscriptionName =
             "BibleReferenceService.OnRetrievingBibleReferenceById";
+
+        public static readonly Guid BibleReferenceOnSubmittingBibleReferenceSubscriptionId =
+            new Guid("244d78f5-61b1-4bc3-a34b-7820cf5dcffe");
+
+        public const string BibleReferenceOnSubmittingBibleReferenceSubscriptionName =
+            "BibleReferenceService.OnSubmittingBibleReference";
+
+        public static readonly Guid BibleReferenceOnApprovingBibleReferenceSubscriptionId =
+            new Guid("cb22cb6e-1267-4f3c-b681-cfe8b35bea15");
+
+        public const string BibleReferenceOnApprovingBibleReferenceSubscriptionName =
+            "BibleReferenceService.OnApprovingBibleReference";
     }
 }

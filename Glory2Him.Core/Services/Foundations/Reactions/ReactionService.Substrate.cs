@@ -166,6 +166,66 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                     content: retrievedReaction);
             });
 
+        public ValueTask<EventEnvelope<Reaction>?> OnSubmittingReactionAsync(
+            EventEnvelope<Reaction> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateReactionEventEnvelopeAsync(
+                    envelope, ReactionEventOperation.Submitting);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .ReactionOnSubmittingReactionSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Submit owns only the status, so the id is the whole request; the envelope's
+                // other fields are the caller's copy and never trusted by the do-work.
+                Reaction submittedReaction =
+                    await DoSubmitReactionAsync(
+                        reactionId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: submittedReaction);
+            });
+
+        public ValueTask<EventEnvelope<Reaction>?> OnApprovingReactionAsync(
+            EventEnvelope<Reaction> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateReactionEventEnvelopeAsync(
+                    envelope, ReactionEventOperation.Approving);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .ReactionOnApprovingReactionSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Reaction approvedReaction =
+                    await DoApproveReactionAsync(
+                        reaction: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: approvedReaction);
+            });
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<Reaction> envelope,
             string receiverName,

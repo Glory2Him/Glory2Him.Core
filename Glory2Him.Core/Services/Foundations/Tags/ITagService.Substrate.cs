@@ -45,5 +45,13 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         ValueTask<EventEnvelope<Tag>?> OnRetrievingTagByIdAsync(
             EventEnvelope<Tag> envelope,
             CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Tag>?> OnSubmittingTagAsync(
+            EventEnvelope<Tag> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<Tag>?> OnApprovingTagAsync(
+            EventEnvelope<Tag> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

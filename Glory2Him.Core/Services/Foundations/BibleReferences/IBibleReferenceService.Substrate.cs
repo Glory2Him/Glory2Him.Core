@@ -45,5 +45,13 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
         ValueTask<EventEnvelope<BibleReference>?> OnRetrievingBibleReferenceByIdAsync(
             EventEnvelope<BibleReference> envelope,
             CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<BibleReference>?> OnSubmittingBibleReferenceAsync(
+            EventEnvelope<BibleReference> envelope,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<BibleReference>?> OnApprovingBibleReferenceAsync(
+            EventEnvelope<BibleReference> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

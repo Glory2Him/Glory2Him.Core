@@ -166,6 +166,66 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     content: retrievedTag);
             });
 
+        public ValueTask<EventEnvelope<Tag>?> OnSubmittingTagAsync(
+            EventEnvelope<Tag> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateTagEventEnvelopeAsync(
+                    envelope, TagEventOperation.Submitting);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .TagOnSubmittingTagSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Submit owns only the status, so the id is the whole request; the envelope's
+                // other fields are the caller's copy and never trusted by the do-work.
+                Tag submittedTag =
+                    await DoSubmitTagAsync(
+                        tagId: envelope.Content.Id,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: submittedTag);
+            });
+
+        public ValueTask<EventEnvelope<Tag>?> OnApprovingTagAsync(
+            EventEnvelope<Tag> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateTagEventEnvelopeAsync(
+                    envelope, TagEventOperation.Approving);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .TagOnApprovingTagSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                Tag approvedTag =
+                    await DoApproveTagAsync(
+                        tag: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: approvedTag);
+            });
+
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<Tag> envelope,
             string receiverName,

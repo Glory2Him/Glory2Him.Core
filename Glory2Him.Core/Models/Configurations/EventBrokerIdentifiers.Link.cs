@@ -41,6 +41,21 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid LinkRemovedEventAddressId =
             new Guid("019f814e-89c1-7df1-a819-13f20bd80428");
 
+        public static readonly Guid LinkSubmittingEventAddressId =
+            new Guid("249c63a8-46ff-49d1-af40-84ba5fba9385");
+
+        public static readonly Guid LinkApprovingEventAddressId =
+            new Guid("bfda8183-b318-4265-8346-d3154f10246e");
+
+        public static readonly Guid LinkSubmittedEventAddressId =
+            new Guid("0248c594-d2b8-4811-aca5-48ca361a46e3");
+
+        public static readonly Guid LinkApprovedEventAddressId =
+            new Guid("c6c447da-c14a-4af3-8923-da52f1028e8e");
+
+        public static readonly Guid LinkRejectedEventAddressId =
+            new Guid("7339041b-d413-48aa-bf27-dc63b8f50680");
+
         internal static readonly IReadOnlyDictionary<LinkEventOperation, Guid>
             LinkEventAddressIds = new Dictionary<LinkEventOperation, Guid>
             {
@@ -49,6 +64,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { LinkEventOperation.RemovingById, LinkRemovingByIdEventAddressId },
                 { LinkEventOperation.HardRemovingById, LinkHardRemovingByIdEventAddressId },
                 { LinkEventOperation.RetrievingById, LinkRetrievingByIdEventAddressId },
+                { LinkEventOperation.Submitting, LinkSubmittingEventAddressId },
+                { LinkEventOperation.Approving, LinkApprovingEventAddressId },
                 { LinkEventOperation.Added, LinkAddedEventAddressId },
                 { LinkEventOperation.Modified, LinkModifiedEventAddressId },
 
@@ -56,7 +73,11 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("LinkHardRemoved" vs "LinkRemoved").
                 { LinkEventOperation.Removed, LinkRemovedEventAddressId },
-                { LinkEventOperation.HardRemoved, LinkRemovedEventAddressId }
+                { LinkEventOperation.HardRemoved, LinkRemovedEventAddressId },
+
+                { LinkEventOperation.Submitted, LinkSubmittedEventAddressId },
+                { LinkEventOperation.Approved, LinkApprovedEventAddressId },
+                { LinkEventOperation.Rejected, LinkRejectedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> LinkEventAddresses =
@@ -67,9 +88,14 @@ namespace Glory2Him.Core.Models.Configurations
                 { LinkRemovingByIdEventAddressId, "Link-RemovingById" },
                 { LinkHardRemovingByIdEventAddressId, "Link-HardRemovingById" },
                 { LinkRetrievingByIdEventAddressId, "Link-RetrievingById" },
+                { LinkSubmittingEventAddressId, "Link-Submitting" },
+                { LinkApprovingEventAddressId, "Link-Approving" },
                 { LinkAddedEventAddressId, "Link-Added" },
                 { LinkModifiedEventAddressId, "Link-Modified" },
-                { LinkRemovedEventAddressId, "Link-Removed" }
+                { LinkRemovedEventAddressId, "Link-Removed" },
+                { LinkSubmittedEventAddressId, "Link-Submitted" },
+                { LinkApprovedEventAddressId, "Link-Approved" },
+                { LinkRejectedEventAddressId, "Link-Rejected" }
             };
 
         public static readonly Guid LinkOnAddingLinkSubscriptionId =
@@ -98,5 +124,17 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string LinkOnRetrievingLinkByIdSubscriptionName =
             "LinkService.OnRetrievingLinkById";
+
+        public static readonly Guid LinkOnSubmittingLinkSubscriptionId =
+            new Guid("8e581e87-9ecb-4631-bc66-c6526b75a691");
+
+        public const string LinkOnSubmittingLinkSubscriptionName =
+            "LinkService.OnSubmittingLink";
+
+        public static readonly Guid LinkOnApprovingLinkSubscriptionId =
+            new Guid("fe4b9584-c848-4fa2-9e54-741ed85ce7b9");
+
+        public const string LinkOnApprovingLinkSubscriptionName =
+            "LinkService.OnApprovingLink";
     }
 }

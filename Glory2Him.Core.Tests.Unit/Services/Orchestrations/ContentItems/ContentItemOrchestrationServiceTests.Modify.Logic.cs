@@ -244,6 +244,100 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         }
 
         [Fact]
+        public async Task ShouldCarryTheCallerContentTypeToTheFoundationOnModifyInPlaceAsync()
+        {
+            // given: the modify carries the caller's ContentType through to the foundation so
+            // two invariants hold together. First, ContentType is create-only (§12.4.1 rule
+            // 7a): passing the caller's value lets the foundation's storage-pin SEE a
+            // reclassification attempt and reject it — if the row silently kept the stored type
+            // instead, the foundation would compare stored-against-stored, see no change, and a
+            // mismatched-ContentType modify would slip through. Second, the duplicate-content
+            // probe (§3.4.2) is keyed on the CALLER's ContentType, so the type that is persisted
+            // must be the same type that was dedup-checked; otherwise the probe checks one type
+            // while the row lands as another, and a contributor can seed a global duplicate by
+            // sending a colliding hash under a ContentType the probe will not match. The caller
+            // here sends a DIFFERENT ContentType from storage precisely so a regression that
+            // stopped carrying it would be caught.
+            ContentItem inputContentItem = CreateRandomContentItem();
+            inputContentItem.ContentType = ContentType.Story;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string expectedContentHash = ComputeContentHash(inputContentItem.Content);
+            string actorUserId = GetRandomString();
+
+            ContentItem storageContentItem = CreateRandomStorageContentItem(
+                contentItemId: inputContentItem.Id,
+                approvalStatus: ApprovalStatus.Draft,
+                createdBy: actorUserId);
+
+            // the stored row is a DIFFERENT content type from what the caller sends. The
+            // service copies onto the retrieved row in place, so its ContentType is snapshotted
+            // here before the act — reading it back afterwards would see the mapped value.
+            storageContentItem.ContentType = ContentType.Testimony;
+            ContentType storedContentTypeBeforeAct = storageContentItem.ContentType;
+
+            ContentItem updatedContentItem = storageContentItem.DeepClone();
+
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: securityContext);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(actorUserId);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(expectedContentHash);
+
+            // the duplicate probe is keyed on the caller's ContentType (this is what the
+            // production code passes); the persisted type must match it
+            this.contentItemServiceMock.Setup(service =>
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentType,
+                    expectedContentHash,
+                    storageContentItem.ContentItemGroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
+
+            ContentItem? capturedContentItem = null;
+
+            this.contentItemServiceMock.Setup(service =>
+                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
+                    .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
+                        capturedContentItem = contentItem.DeepClone())
+                    .ReturnsAsync(updatedContentItem);
+
+            SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: updatedContentItem,
+                operation: ContentItemOrchestrationEventOperation.Modified);
+
+            // when
+            await this.contentItemOrchestrationService.ModifyContentItemAsync(
+                inputContentItem,
+                TestContext.Current.CancellationToken);
+
+            // then: the entity handed to the foundation carries the CALLER's content type — the
+            // same type the duplicate probe was keyed on — so the foundation can pin the
+            // reclassification and the dedup check cannot desync from what is persisted. A
+            // regression that stopped carrying it would hand the foundation the STORED type
+            // instead, and this assertion would fail.
+            capturedContentItem.Should().NotBeNull();
+            capturedContentItem!.ContentType.Should().Be(inputContentItem.ContentType);
+            capturedContentItem.ContentType.Should().NotBe(storedContentTypeBeforeAct);
+        }
+
+        [Fact]
         public async Task ShouldForkNewVersionOnModifyIfApprovedItemIsModifiedByOwnerAsync()
         {
             // given: an approved item is immutable to its owner — the edit forks a new row
