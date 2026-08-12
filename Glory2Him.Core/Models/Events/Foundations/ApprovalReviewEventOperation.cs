@@ -32,9 +32,18 @@ namespace Glory2Him.Core.Models.Events.Foundations
         RemovingById,
         HardRemovingById,
         RetrievingById,
+
+        // The narrow state-transition request (design §9.7.1, §8.8). Dismissing drives the
+        // review's StatusId to Dismissed — the outcome a review reaches when an entity-scoped
+        // change invalidates it (§9.5), never a verdict its author declares. It answers on its
+        // own event address so the workflow can drive it without the reviewer's verdict path.
+        Dismissing,
         Added,
         Modified,
         Removed,
-        HardRemoved
+        HardRemoved,
+
+        // The fact the dismissal publishes.
+        Dismissed
     }
 }

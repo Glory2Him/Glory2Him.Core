@@ -45,5 +45,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         ValueTask<EventEnvelope<ApprovalReview>?> OnRetrievingApprovalReviewByIdAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<ApprovalReview>?> OnDismissingApprovalReviewAsync(
+            EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken = default);
     }
 }
