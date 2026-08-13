@@ -2162,7 +2162,9 @@ Current intended orchestrations:
 | 8 | `CommentOrchestration` | Orchestrates comment creation, versioning, approval, and association workflows. |
 | 9 | `BibleReferenceOrchestration` | Orchestrates Bible reference creation, versioning, approval, and association workflows. |
 
-> **Open — entries 2 and 5–9 have not been re-tested against the §12.1 entity-count rule.** `ContentItemOrchestration` was listed here until it was checked and found to touch exactly one entity type; it is now `ContentItemProcessingService` (§12.4.1). Each of the remaining single-entity candidates needs the same check before it is built, and any that turns out to touch only its own type belongs in §12.4. Entries 1, 3 and 4 are confirmed multi-entity.
+> **Open — most of this table has not been re-tested against the §12.1 entity-count rule.** `ContentItemOrchestration` was listed here until it was checked and found to touch exactly one entity type; it is now `ContentItemProcessingService` (§12.4.1). Each remaining single-entity candidate needs the same check before it is built, and any that turns out to touch only its own type belongs in §12.4 — or, where it has no cross-row rule either, nowhere above its foundation.
+>
+> Status at the time of writing: **entry 3 (`Approval`) is confirmed multi-entity** — it subscribes to entity facts and spans `Approval`, `ApprovalReview` and `ApprovalSetting`. **Entry 4 (`ApprovalReview`) is not**: `ApprovalReviewService` has no entity-service dependencies, its dismissal and self-approval rules are already implemented at the foundation, and §12.5.3 R5 already assigns threshold evaluation to `ApprovalOrchestrationService`. **Entry 1 (`Association`) is provisional**: it does read several entity types, but it takes seven entity services, which breaks the dependency-count guidance regardless of layer — its endpoint-resolution design is being revisited, and its classification is re-tested when that settles. Entries 2 and 5–9 are untested.
 
 #### 12.5.1 ContentType — no orchestration
 
