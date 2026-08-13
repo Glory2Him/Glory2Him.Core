@@ -111,9 +111,14 @@ namespace Glory2Him.Core.Brokers.Securities
         /// </summary>
         /// <typeparam name="T">The type of the entity.</typeparam>
         /// <param name="entity">The entity to audit for removal.</param>
+        /// <param name="deletionReason">The reason for the removal, or null to leave it unchanged.</param>
         /// <returns>The audited entity with remove metadata applied.</returns>
-        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity) =>
-                this.securityClient.Audits.ApplyRemoveAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
+        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity, string? deletionReason = null) =>
+                this.securityClient.Audits.ApplyRemoveAuditValuesAsync(
+                    entity,
+                    claimsPrincipal,
+                    securityConfigurations,
+                    deletionReason);
 
         /// <summary>
         /// Ensures that add audit values (e.g., created by/date) remain unchanged during modify operations.
@@ -171,11 +176,15 @@ namespace Glory2Him.Core.Brokers.Securities
         /// Applies remove audit values as the actor carried on an event envelope's
         /// <see cref="SecurityContext"/>.
         /// </summary>
-        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
+        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(
+            T entity,
+            SecurityContext securityContext,
+            string? deletionReason = null) =>
             this.securityClient.Audits.ApplyRemoveAuditValuesAsync(
                 entity,
                 CreateClaimsPrincipal(securityContext),
-                securityConfigurations);
+                securityConfigurations,
+                deletionReason);
 
         /// <summary>
         /// Resolves the acting user id from an event envelope's <see cref="SecurityContext"/>,

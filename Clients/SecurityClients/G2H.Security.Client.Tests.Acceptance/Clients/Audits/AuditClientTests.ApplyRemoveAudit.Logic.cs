@@ -92,5 +92,68 @@ namespace G2H.Security.Client.Tests.Clients.Audits
 
             actualResult.DeletedWhen.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
         }
+
+        [Fact]
+        public async Task ShouldPreserveDeletionReasonAlreadyOnEntityWhenNoneSuppliedAsync()
+        {
+            // Given
+            ClaimsPrincipal randomClaimsPrincipal = CreateRandomClaimsPrincipal(true, "username");
+            ClaimsPrincipal inputClaimsPrincipal = randomClaimsPrincipal;
+            string existingDeletionReason = GetRandomString();
+
+            var inputPerson = new Person
+            {
+                Name = GetRandomString(),
+                CreatedBy = GetRandomString(),
+                CreatedWhen = DateTimeOffset.UtcNow.AddMinutes(-1),
+                UpdatedBy = GetRandomString(),
+                UpdatedWhen = DateTimeOffset.UtcNow.AddMinutes(-1),
+                DeletedBy = string.Empty,
+                DeletedWhen = DateTimeOffset.MinValue,
+                IsDeleted = false,
+                DeletionReason = existingDeletionReason,
+            };
+
+            var updatedPerson = inputPerson.DeepClone();
+            updatedPerson.DeletedBy = "username";
+            updatedPerson.IsDeleted = true;
+            updatedPerson.DeletionReason = existingDeletionReason;
+
+            var expectedResult = updatedPerson;
+
+            var inputSecurityConfigurations = new SecurityConfigurations
+            {
+                CreatedByPropertyName = "CreatedBy",
+                CreatedByPropertyType = typeof(string),
+                CreatedWhenPropertyName = "CreatedWhen",
+                CreatedWhenPropertyType = typeof(DateTimeOffset),
+                UpdatedByPropertyName = "UpdatedBy",
+                UpdatedByPropertyType = typeof(string),
+                UpdatedWhenPropertyName = "UpdatedWhen",
+                UpdatedWhenPropertyType = typeof(DateTimeOffset),
+                DeletedByPropertyName = "DeletedBy",
+                DeletedByPropertyType = typeof(string),
+                DeletedWhenPropertyName = "DeletedWhen",
+                DeletedWhenPropertyType = typeof(DateTimeOffset),
+                IsDeletedPropertyName = "IsDeleted",
+                IsDeletedPropertyType = typeof(bool),
+                DeletionReasonPropertyName = "DeletionReason",
+                DeletionReasonPropertyType = typeof(string)
+            };
+
+            // When: the reason rides on the entity and no reason argument is supplied
+            var actualResult = await this.securityClient.Audits
+                .ApplyRemoveAuditValuesAsync(
+                    inputPerson,
+                    inputClaimsPrincipal,
+                    inputSecurityConfigurations);
+
+            // Then
+            actualResult.Should().BeEquivalentTo(expectedResult, options =>
+                options.Excluding(ctx => ctx.Path == "DeletedWhen"));
+
+            actualResult.DeletionReason.Should().Be(existingDeletionReason);
+            actualResult.DeletedWhen.Should().BeCloseTo(DateTimeOffset.UtcNow, TimeSpan.FromSeconds(1));
+        }
     }
 }

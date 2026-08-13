@@ -330,13 +330,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             if (maybeContentItemSetting.IsDeleted)
                 return maybeContentItemSetting;
 
-            if (deletionReason is not null)
-                maybeContentItemSetting.DeletionReason = deletionReason;
-
             ContentItemSetting auditedContentItemSetting =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeContentItemSetting,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             ContentItemSetting removedContentItemSetting = await this.storageBroker.UpdateContentItemSettingAsync(
                 contentItemSetting: auditedContentItemSetting,

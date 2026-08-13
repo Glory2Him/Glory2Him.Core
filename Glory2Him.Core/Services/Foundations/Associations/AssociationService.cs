@@ -562,13 +562,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             if (maybeAssociation.IsDeleted)
                 return maybeAssociation;
 
-            if (deletionReason is not null)
-                maybeAssociation.DeletionReason = deletionReason;
-
             Association auditedAssociation =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeAssociation,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             Association removedAssociation =
                 await this.storageBroker.UpdateAssociationAsync(

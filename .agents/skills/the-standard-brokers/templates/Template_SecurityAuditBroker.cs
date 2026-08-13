@@ -39,8 +39,12 @@ namespace {Namespace}.Brokers.Securities
         /// </summary>
         /// <typeparam name="T">The type of the entity being audited.</typeparam>
         /// <param name="entity">The entity to which deletion audit values should be applied.</param>
+        /// <param name="deletionReason">
+        /// The reason the entity is being removed, stamped alongside the other deletion audit
+        /// values. When null, any reason already on the entity is left untouched.
+        /// </param>
         /// <returns>A task containing the entity with deletion audit values.</returns>
-        ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity);
+        ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity, string? deletionReason = null);
 
         /// <summary>
         /// Ensures that audit values related to entity creation remain unchanged during modification,
@@ -157,9 +161,14 @@ namespace {Namespace}.Brokers.Securities
         /// </summary>
         /// <typeparam name="T">The type of the entity.</typeparam>
         /// <param name="entity">The entity to audit for removal.</param>
+        /// <param name="deletionReason">The reason for the removal, or null to leave it unchanged.</param>
         /// <returns>The audited entity with remove metadata applied.</returns>
-        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity) =>
-                this.securityClient.Audits.ApplyRemoveAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
+        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity, string? deletionReason = null) =>
+                this.securityClient.Audits.ApplyRemoveAuditValuesAsync(
+                    entity,
+                    claimsPrincipal,
+                    securityConfigurations,
+                    deletionReason);
 
         /// <summary>
         /// Ensures that add audit values (e.g., created by/date) remain unchanged during modify operations.

@@ -424,13 +424,11 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             if (maybeReaction.IsDeleted)
                 return maybeReaction;
 
-            if (deletionReason is not null)
-                maybeReaction.DeletionReason = deletionReason;
-
             Reaction auditedReaction =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeReaction,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             Reaction removedReaction = await this.storageBroker.UpdateReactionAsync(
                 reaction: auditedReaction,

@@ -368,13 +368,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             if (maybeApprovalSetting.IsDeleted)
                 return maybeApprovalSetting;
 
-            if (deletionReason is not null)
-                maybeApprovalSetting.DeletionReason = deletionReason;
-
             ApprovalSetting auditedApprovalSetting =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeApprovalSetting,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             ApprovalSetting removedApprovalSetting = await this.storageBroker.UpdateApprovalSettingAsync(
                 approvalSetting: auditedApprovalSetting,
