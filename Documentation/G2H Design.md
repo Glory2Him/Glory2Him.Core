@@ -2100,18 +2100,21 @@ Current intended foundation services:
 2. On every update the foundation loads the current entity from storage and maps only the permitted caller-supplied fields onto it: `Name` (`Tag`), `Name` and `UnicodeEmoji` (`Reaction`), `Content` (`Comment`), `Reference`, `Translation` and `Scripture` (`BibleReference`).
 3. Soft delete follows §10.4. **Dependent associations are left untouched** — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (the §12.4.1 responsibility 5 correction).
 4. A soft-deleted row must not be visible on any content item.
-5. Review dismissal is not their responsibility. Publishing the entity's own `-Modified` fact is sufficient; `ApprovalOrchestrationService` handles dismissal when it receives that fact (§10.17).
-6. State transitions (submit, approve, reject) are the foundation's own operations, each owning a narrower field scope than the general modify (§9.7.1 rule 3, §10.2 rule 7).
+5. **A soft-deleted row must also not be usable as an endpoint for a *new* association.** This is distinct from rule 4: rule 4 hides existing links, this one refuses new ones. It is enforced where associations are created, not here — `AssociationOrchestrationService` already resolves each endpoint through its own service and a visibility-filtered read reports a soft-deleted row as not-found.
+6. Each publishes its own `-Added` / `-Modified` / `-Removed` facts on its own addresses (§10.2), and `ApprovalOrchestrationService` subscribes to them to manage approval records and workflow state (§10.17 rule 1 — the foundation tier is the correct one for a Single-Row entity).
+7. Review dismissal is not their responsibility. Publishing the entity's own `-Modified` fact is sufficient; `ApprovalOrchestrationService` handles dismissal when it receives that fact (§10.17).
+8. State transitions (submit, approve, reject) are the foundation's own operations, each owning a narrower field scope than the general modify (§9.7.1 rule 3, §10.2 rule 7).
 
 **Associating them with a content item is not their work.** The withdrawn subsections gave each entity a responsibility to "associate an approved X with a content item by creating an `Association`, validating that X is permitted by resolving the effective `ContentItemSetting`". Creating the link is `Association`'s own flow (§4, §12.5 entry 1), and the rules that governed it survive there rather than here:
 
 1. A link may only be created when the effective `ContentItemSetting` permits that association type — `TagsAllowed`, `ReactionsAllowed`, `CommentsAllowed`, `BibleReferenceAllowed` (§6.10) — and `LimitReactionsToLoveOnly` further narrows the reaction case.
 2. The association carries its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 3. An entity is visible on a content item only when both it and the association satisfy §14.3.
+4. The same `Tag`, `Reaction`, `Comment` or `BibleReference` may be associated with multiple content items independently — each link is its own `Association` row with its own approval state.
 
 **Neither gate is implemented today.** `AssociationOrchestrationService` takes no `IContentItemSettingService`, so the §6.10 settings gate is unenforced, exactly as the §14.3 composite visibility rule is unenforced (§12.5 entry 1). Moving these rules here does not implement them; it records where they belong.
 
-**`ApprovalReview`** — `ApprovalReviewService` carries the whole of it: reviewer eligibility via `IAccessBroker`, one active review per reviewer per approval record, the decision record itself, dismissal retention, and a new review after a dismissal. Threshold evaluation is **not** here — it belongs to `ApprovalOrchestrationService` (§12.5.3 R5), which is what made a separate orchestration redundant. The rule that a user with an active review may not also set the entity's `ApprovalStatus` is answered from the `ApprovalReview` rows the approval policy already reads (§8.6 regardless-rule 1).
+**`ApprovalReview`** — `ApprovalReviewService` carries the whole of it: reviewer eligibility via `IAccessBroker` (the reviewer must hold the review tier for the entity under review, §8.3, and must not review their own submitted entity when `AllowSelfApproval = false`), one active review per reviewer per approval record — a second active review is refused rather than superseding the first — the decision record itself, dismissal retention for audit (a dismissed review is never deleted), and a new review permitted after a dismissal. Threshold evaluation is **not** here — it belongs to `ApprovalOrchestrationService` (§12.5.3 R5), which is what made a separate orchestration redundant. The rule that a user with an active review may not also set the entity's `ApprovalStatus` is answered from the `ApprovalReview` rows the approval policy already reads (§8.6 regardless-rule 1).
 
 **`ApprovalComment`** — control fields `ApprovalId`, `UserId`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`; the only permitted caller field on update is `Comment`. Approval comments do not participate in the threshold or status-transition workflow. A comment may only be created against an existing, non-deleted approval record — enforce that with the foreign key rather than a read of `Approval`, so the service does not acquire a second entity dependency for an existence check.
 
@@ -2188,7 +2191,7 @@ Current intended orchestrations:
 | Number | Name | Purpose |
 | --- | --- | --- |
 | 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints against their respective entity services and runs the retrieve-or-add suggestion on add. Its only operation today is `AddAssociationAsync`; it has **no read surface**, so the §14.3 composite visibility rule is *not* implemented anywhere yet. |
-| 2 | `ContentItemSettingsOrchestration` | Orchestrates effective settings resolution across content type defaults and item overrides. |
+| 2 | ~~`ContentItemSettingsOrchestration`~~ | **Not an orchestration** — single-entity, so it belongs in §12.4 as `ContentItemSettingsProcessingService`. The layer above its foundation is earned by effective-setting resolution (merging the content type default with any item override), not by versioning. §12.5.2 below and its rules move to §12.4 when the service is built. |
 | 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
 
 > **Entries 4–9 were withdrawn.** `ApprovalReviewOrchestration`, `ApprovalCommentOrchestration`, `TagOrchestration`, `ReactionOrchestration`, `CommentOrchestration` and `BibleReferenceOrchestration` were each planned here before the §12.1 rule was applied. Every one touches a single entity type and is Single-Row, so none needs anything above its foundation; their surviving rules moved to §12.3.1, and their versioning rules were deleted as describing properties those types never had.
@@ -2206,6 +2209,8 @@ Current intended orchestrations:
 Content-type-scoped identity roles (§18.6) are seeded once, at startup, for every member of the enum — they are not created or removed reactively in response to a content type lifecycle, because there is no such lifecycle.
 
 #### 12.5.2 ContentItemSettingsOrchestration
+
+> **Misfiled — this is a processing service, not an orchestration** (§12.1: single entity type). The section is left in place, rules intact, until the service is built and this content moves to §12.4; nothing here changes except which layer owns it. Read "orchestration" below as "processing service".
 
 `ContentItemSettingsOrchestration` orchestrates the creation, modification, and policy resolution of content item settings across foundation services.
 
