@@ -11,8 +11,13 @@
 
 using Glory2Him.WebApp.Data;
 using Glory2Him.WebApp.Infrastructure;
+using Microsoft.AspNetCore.OData;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Last configuration source, so anything a test host supplies outranks appsettings and the
+// environment. Must run before the first Services call that reads configuration.
+Program.ConfigurationOverridesForTesting(builder);
 
 // Add services to the container. The UI is the React SPA (Glory2Him.WebApp.React):
 // this host serves its static build output plus the cookie-authenticated JSON APIs.
@@ -20,7 +25,27 @@ builder.Services.AddPortalIdentity(builder.Configuration);
 builder.Services.AddPortalBrokers();
 builder.Services.AddPortalViewServices();
 
+// The Glory2Him.Core slice behind the tag endpoints.
+builder.Services.AddCoreTagServices();
+
+// Attribute-routed controllers alongside the SPA's minimal-API endpoints. OData is added
+// for the [EnableQuery] collection reads.
+builder.Services
+    .AddControllers()
+    .AddOData(options => options
+        .Select()
+        .Filter()
+        .OrderBy()
+        .Count()
+        .SetMaxTop(null));
+
 var app = builder.Build();
+
+// Core's schema, and the event store's participant and addresses. Both are idempotent and both
+// run unconditionally: the acceptance suite boots this same host and depends on them to bring a
+// fresh LocalDB up to date. An event published to an unregistered address is refused by
+// EventHighway, which would surface as a 500 on every mutating tag endpoint.
+await Program.InitializeCoreAsync(app);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -47,6 +72,10 @@ app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Attribute-routed controllers (api/Tags, ...) — registered before the minimal-API
+// endpoints so a controller route wins over the /api fallback below.
+app.MapControllers();
 
 // Cookie-authenticated JSON endpoints consumed by the React SPA (Glory2Him.WebApp.React).
 app.MapAccountApiEndpoints();
@@ -118,3 +147,6 @@ for (int seedAttempt = 1; seedAttempt <= maxSeedAttempts; seedAttempt++)
 }
 
 app.Run();
+
+// Exposed so the acceptance suite's WebApplicationFactory<Program> has a concrete entry point.
+public partial class Program { }

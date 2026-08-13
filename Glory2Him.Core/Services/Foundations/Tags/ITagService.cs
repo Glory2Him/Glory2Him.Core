@@ -17,7 +17,15 @@ using Glory2Him.Core.Models.Foundations.Tags;
 
 namespace Glory2Him.Core.Services.Foundations.Tags
 {
-    internal partial interface ITagService
+    /// <summary>
+    /// The tag foundation service contract. Public — unlike its sibling foundation interfaces —
+    /// because an exposer binds to it: <c>TagsController</c> in the portal host takes it as its
+    /// only dependency, and a public controller constructor cannot accept a less-accessible
+    /// parameter type. Only the contract is public; <c>TagService</c>, the brokers behind it and
+    /// the outer exception types stay internal and reach the host through
+    /// <c>InternalsVisibleTo</c>, so the implementation remains Core's to change.
+    /// </summary>
+    public partial interface ITagService
     {
         ValueTask<Tag> AddTagAsync(
             Tag tag,

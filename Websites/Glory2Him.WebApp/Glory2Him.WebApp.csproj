@@ -17,9 +17,27 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Microsoft.AspNetCore.OData" Version="9.5.0" />
     <PackageReference Include="QRCoder" Version="1.8.0" />
+    <PackageReference Include="RESTFulSense" Version="3.2.0" />
     <PackageReference Include="SkiaSharp" Version="4.150.1" />
     <PackageReference Include="Xeption" Version="2.9.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Glory2Him.Core\Glory2Him.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The acceptance suite boots this host through WebApplicationFactory<Program> and
+         reaches the internal static test seams on Program. -->
+    <InternalsVisibleTo Include="Glory2Him.WebApp.Tests.Acceptance" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <!-- Publish builds the React SPA and ships its dist output inside wwwroot, next to the

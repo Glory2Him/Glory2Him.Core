@@ -90,6 +90,16 @@
 		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Unit" />
 		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Acceptance" />
 		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Integration" />
+
+		<!--
+			The exposer host and its test projects. ITagService itself is public so a
+			controller can bind to it, but the implementation behind it is not: registering
+			TagService, constructing the broker graph, and catching the outer Tag exceptions
+			all reach internals and only compile from inside this friend set.
+		-->
+		<InternalsVisibleTo Include="Glory2Him.WebApp" />
+		<InternalsVisibleTo Include="Glory2Him.WebApp.Tests.Unit" />
+		<InternalsVisibleTo Include="Glory2Him.WebApp.Tests.Acceptance" />
 		<InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
 	</ItemGroup>
 
