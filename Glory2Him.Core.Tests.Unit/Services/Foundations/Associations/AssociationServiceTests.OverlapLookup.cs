@@ -49,6 +49,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return association;
         }
 
+        // Both endpoints VERSIONED (ContentItem and Link) so each side's scope and key id can be
+        // set independently — the shape needed to exercise the coverage-intersection clause on the
+        // B endpoint, not just the A endpoint. (ContentItem sorts before Link, so this is already
+        // canonical.)
+        private static Association CreateContentItemLinkPair(
+            Guid contentItemGroupId,
+            Scope contentItemScope,
+            Guid linkGroupId,
+            Guid linkKeyId,
+            Scope linkScope)
+        {
+            Association association = CreateRandomAssociation();
+            association.EntityAType = EntityType.ContentItem;
+            association.EntityAContentType = ContentType.Story;
+            association.EntityAKeyId = Guid.NewGuid();
+            association.EntityAGroupId = contentItemGroupId;
+            association.EntityAScope = contentItemScope;
+            association.EntityBType = EntityType.Link;
+            association.EntityBContentType = null;
+            association.EntityBKeyId = linkKeyId;
+            association.EntityBGroupId = linkGroupId;
+            association.EntityBScope = linkScope;
+            association.UserId = null;
+
+            return association;
+        }
+
         [Fact]
         public async Task ShouldReturnOverlapWhenAllVersionsRequestSpansAThisVersionOnlyRowAsync()
         {
@@ -134,6 +161,79 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             Association incoming = CreateContentItemTagPair(
                 groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
+
+            // when
+            AssociationPairMatch? actualMatch =
+                await this.associationService.FindOverlappingAssociationAsync(
+                    incoming,
+                    excludedAssociationId: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualMatch.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldNotFlagTwoThisVersionOnlyRowsOnDifferentVersionsOfTheBEndpointAsync()
+        {
+            // given: the A endpoints overlap (both AllVersions in the same ContentItem group), but
+            // the B endpoints — both versioned Links in ONE group — pin DIFFERENT versions. Overlap
+            // needs BOTH endpoints to intersect, so this is legal. This is the B-side mirror of the
+            // A-side over-block: it isolates the coverage clause on endpoint B, which the Tag-on-B
+            // fixtures never exercise (a Tag's effective id always equals its group).
+            Guid contentItemGroup = Guid.NewGuid();
+            Guid linkGroup = Guid.NewGuid();
+
+            Association storedRequest = CreateContentItemLinkPair(
+                contentItemGroup, Scope.AllVersions,
+                linkGroup, linkKeyId: Guid.NewGuid(), Scope.ThisVersionOnly);
+
+            Association storedRow = CreateStoredRowForPair(
+                storedRequest, ApprovalStatus.Approved, isDeleted: false);
+
+            Association incoming = CreateContentItemLinkPair(
+                contentItemGroup, Scope.AllVersions,
+                linkGroup, linkKeyId: Guid.NewGuid(), Scope.ThisVersionOnly);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new[] { storedRow }.AsQueryable());
+
+            // when
+            AssociationPairMatch? actualMatch =
+                await this.associationService.FindOverlappingAssociationAsync(
+                    incoming,
+                    excludedAssociationId: null,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualMatch.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldNotFlagOverlapWhenTheStoredRowBelongsToADifferentUserAsync()
+        {
+            // given: a row that would fully overlap the request except it carries a different
+            // UserId (a per-user reaction row vs an editorial, user-less request). Overlap is
+            // partitioned by user — the same pairing held by two different users is not a
+            // double-render — so it must not be flagged.
+            Guid groupG = Guid.NewGuid();
+            Guid tagT = Guid.NewGuid();
+
+            Association storedRequest = CreateContentItemTagPair(
+                groupG, contentItemKeyId: Guid.NewGuid(), Scope.ThisVersionOnly, tagT);
+
+            Association storedRow = CreateStoredRowForPair(
+                storedRequest, ApprovalStatus.Approved, isDeleted: false);
+            storedRow.UserId = $"user-{Guid.NewGuid()}";
+
+            Association incoming = CreateContentItemTagPair(
+                groupG, contentItemKeyId: Guid.NewGuid(), Scope.AllVersions, tagT);
+            incoming.UserId = null;
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAllAssociationsAsync(It.IsAny<CancellationToken>()))
