@@ -75,6 +75,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             model
                 .Property(tag => tag.DeletionReason)
+                .HasMaxLength(500)
                 .IsRequired(false);
 
             model

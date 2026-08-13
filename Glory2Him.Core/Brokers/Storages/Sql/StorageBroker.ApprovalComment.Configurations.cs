@@ -67,6 +67,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             model
                 .Property(approvalComment => approvalComment.DeletionReason)
+                .HasMaxLength(500)
                 .IsRequired(false);
 
             model.Property(approvalComment => approvalComment.Comment).IsRequired(false);
