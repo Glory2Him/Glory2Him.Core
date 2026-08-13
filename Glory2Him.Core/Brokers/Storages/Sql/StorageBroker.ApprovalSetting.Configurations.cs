@@ -109,6 +109,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired(false);
 
             model.Property(approvalSetting => approvalSetting.DeletionReason)
+                 .HasMaxLength(500)
                  .IsRequired(false);
 
             // design §8.4 resolution tiers — a single UNIQUE(EntityType) would prevent any

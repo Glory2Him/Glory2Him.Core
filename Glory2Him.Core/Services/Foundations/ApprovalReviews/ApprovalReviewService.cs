@@ -405,7 +405,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveApprovalReviewById(approvalReviewId);
+            ValidateOnRemoveApprovalReviewById(approvalReviewId, deletionReason);
 
             ApprovalReview maybeApprovalReview =
                 await this.storageBroker.SelectApprovalReviewByIdAsync(approvalReviewId, cancellationToken);
@@ -421,13 +421,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             if (maybeApprovalReview.IsDeleted)
                 return maybeApprovalReview;
 
-            if (deletionReason is not null)
-                maybeApprovalReview.DeletionReason = deletionReason;
-
             ApprovalReview auditedApprovalReview =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeApprovalReview,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             ApprovalReview removedApprovalReview = await this.storageBroker.UpdateApprovalReviewAsync(
                 approvalReview: auditedApprovalReview,

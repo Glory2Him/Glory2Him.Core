@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveTagById(tagId);
+            ValidateOnRemoveTagById(tagId, deletionReason);
 
             Tag maybeTag =
                 await this.storageBroker.SelectTagByIdAsync(tagId, cancellationToken);
@@ -425,13 +425,11 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             if (maybeTag.IsDeleted)
                 return maybeTag;
 
-            if (deletionReason is not null)
-                maybeTag.DeletionReason = deletionReason;
-
             Tag auditedTag =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeTag,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             Tag removedTag = await this.storageBroker.UpdateTagAsync(
                 tag: auditedTag,

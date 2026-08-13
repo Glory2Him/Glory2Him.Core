@@ -133,7 +133,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                         .ReturnsAsync(storageContentItemSetting);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageContentItemSetting, It.IsAny<SecurityContext>()))
+                broker.ApplyRemoveAuditValuesAsync(storageContentItemSetting, It.IsAny<SecurityContext>(), someDeletionReason))
                     .ReturnsAsync(auditedContentItemSetting);
 
             this.storageBrokerMock.Setup(broker =>
@@ -164,7 +164,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageContentItemSetting, It.IsAny<SecurityContext>()),
+                broker.ApplyRemoveAuditValuesAsync(storageContentItemSetting, It.IsAny<SecurityContext>(), someDeletionReason),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

@@ -389,7 +389,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToComment(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveApprovalCommentById(approvalCommentId);
+            ValidateOnRemoveApprovalCommentById(approvalCommentId, deletionReason);
 
             ApprovalComment maybeApprovalComment =
                 await this.storageBroker.SelectApprovalCommentByIdAsync(approvalCommentId, cancellationToken);
@@ -405,13 +405,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             if (maybeApprovalComment.IsDeleted)
                 return maybeApprovalComment;
 
-            if (deletionReason is not null)
-                maybeApprovalComment.DeletionReason = deletionReason;
-
             ApprovalComment auditedApprovalComment =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeApprovalComment,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             ApprovalComment removedApprovalComment = await this.storageBroker.UpdateApprovalCommentAsync(
                 approvalComment: auditedApprovalComment,

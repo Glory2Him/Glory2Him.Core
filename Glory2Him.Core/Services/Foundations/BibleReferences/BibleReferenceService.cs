@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveBibleReferenceById(bibleReferenceId);
+            ValidateOnRemoveBibleReferenceById(bibleReferenceId, deletionReason);
 
             BibleReference maybeBibleReference =
                 await this.storageBroker.SelectBibleReferenceByIdAsync(bibleReferenceId, cancellationToken);
@@ -425,13 +425,11 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             if (maybeBibleReference.IsDeleted)
                 return maybeBibleReference;
 
-            if (deletionReason is not null)
-                maybeBibleReference.DeletionReason = deletionReason;
-
             BibleReference auditedBibleReference =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeBibleReference,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             BibleReference removedBibleReference = await this.storageBroker.UpdateBibleReferenceAsync(
                 bibleReference: auditedBibleReference,

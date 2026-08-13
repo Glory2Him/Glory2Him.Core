@@ -299,10 +299,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 message: "Approval comment is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalCommentId), Parameter: nameof(ApprovalComment.Id)));
 
-        private static void ValidateOnRemoveApprovalCommentById(Guid approvalCommentId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveApprovalCommentById(
+            Guid approvalCommentId,
+            string? deletionReason) =>
             Validate(
                 message: "Approval comment is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(approvalCommentId), Parameter: nameof(ApprovalComment.Id)));
+                (Rule: IsInvalid(approvalCommentId), Parameter: nameof(ApprovalComment.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(ApprovalComment.DeletionReason)));
 
         private static void ValidateOnHardRemoveApprovalCommentById(Guid approvalCommentId) =>
             Validate(
@@ -379,7 +386,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"

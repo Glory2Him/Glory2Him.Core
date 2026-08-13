@@ -76,6 +76,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             model
                 .Property(approval => approval.DeletionReason)
+                .HasMaxLength(500)
                 .IsRequired(false);
 
             // UNIQUE (EntityType, EntityId)

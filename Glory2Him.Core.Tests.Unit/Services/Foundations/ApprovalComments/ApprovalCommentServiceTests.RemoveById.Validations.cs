@@ -67,6 +67,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            Guid someApprovalCommentId = Guid.NewGuid();
+            string invalidDeletionReason = GetRandomStringWithLengthOf(501);
+
+            var invalidApprovalCommentException = new InvalidApprovalCommentException(
+                message: "Approval comment is invalid, fix the errors and try again.");
+
+            invalidApprovalCommentException.UpsertDataList(
+                key: nameof(ApprovalComment.DeletionReason),
+                value: $"Text exceed max length of {invalidDeletionReason.Length - 1} characters");
+
+            var expectedApprovalCommentValidationException = new ApprovalCommentValidationException(
+                message: "Approval comment validation error occurred, fix the errors and try again.",
+                innerException: invalidApprovalCommentException);
+
+            // when
+            ValueTask<ApprovalComment> removeApprovalCommentByIdTask =
+                this.approvalCommentService.RemoveApprovalCommentByIdAsync(
+                    someApprovalCommentId,
+                    deletionReason: invalidDeletionReason,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualApprovalCommentValidationException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(
+                    removeApprovalCommentByIdTask.AsTask);
+
+            // then
+            actualApprovalCommentValidationException.Should().BeEquivalentTo(
+                expectedApprovalCommentValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalCommentValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfApprovalCommentNotFoundAndLogItAsync()
         {
             // given

@@ -147,10 +147,16 @@ namespace G2H.Security.Client.Services.Foundations.Audits
                 propertyName: securityConfigurations.IsDeletedPropertyName,
                 value: true);
 
-            SetProperty(
-                entity: entity,
-                propertyName: securityConfigurations.DeletionReasonPropertyName,
-                value: deletionReason);
+            // deletionReason is optional, so a null means "the caller did not supply one" rather
+            // than "clear it" — writing it unconditionally would erase a reason the caller had
+            // already put on the entity. The add path is where the reason gets reset.
+            if (deletionReason is not null)
+            {
+                SetProperty(
+                    entity: entity,
+                    propertyName: securityConfigurations.DeletionReasonPropertyName,
+                    value: deletionReason);
+            }
 
             return entity;
         });

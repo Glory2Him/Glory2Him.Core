@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     .ReturnsAsync(storageBibleReference.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageBibleReference, It.IsAny<SecurityContext>()))
+                broker.ApplyRemoveAuditValuesAsync(storageBibleReference, It.IsAny<SecurityContext>(), someDeletionReason))
                     .ReturnsAsync(auditedBibleReference);
 
             this.storageBrokerMock.Setup(broker =>
@@ -178,7 +178,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageBibleReference, It.IsAny<SecurityContext>()),
+                broker.ApplyRemoveAuditValuesAsync(storageBibleReference, It.IsAny<SecurityContext>(), someDeletionReason),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
