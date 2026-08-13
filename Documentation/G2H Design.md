@@ -2029,6 +2029,8 @@ Controllers
 
 An entity whose flows never leave its own type therefore has no orchestration service at all, and `ContentItem` is that case (§12.4.1). Where an entity has both, the orchestration sits on top of the processing service rather than beside it.
 
+3. **A single-entity type with no higher-order logic of its own needs nothing above its foundation.** Being approvable does not by itself earn a layer: `Tag`, `Reaction`, `Comment`, `BibleReference`, `ApprovalReview` and `ApprovalComment` are all Single-Row (§7.5.1), so they never fork, and §10.17 rule 1 lets the approval workflow subscribe to their foundation facts directly. What earns a processing service is either a version fork (§10.17 rule 2, which makes one mandatory for a Versioned approvable entity) or a cross-row rule the foundation cannot own — a probe over the unfiltered store, an effective-value merge. See §12.3.1.
+
 This layering is a decomposition rule, not a security boundary — §14.6 still requires every service to gate its own callers independently, because an exposer may bind to any layer directly.
 
 ### 12.2 Broker Layer
@@ -2085,6 +2087,35 @@ Current intended foundation services:
 | 12 | `AttachmentService` *(future)* | CRUD and validation for attachments. |
 
 `ContentType` is not in this list — it is a fixed enum (§3.6), not an entity, so it has no foundation service.
+
+#### 12.3.1 Entities With No Service Above Their Foundation
+
+`Tag`, `Reaction`, `Comment`, `BibleReference`, `ApprovalReview` and `ApprovalComment` need **nothing above their foundation service**. Each touches one entity type, so under the §12.1 rule there is nothing to orchestrate; and each is **Single-Row** per §7.5.1, so there is no version fork and §10.17 rule 1 permits the approval workflow to subscribe to their foundation facts directly.
+
+§12.5 previously planned an orchestration for each of these. Those subsections are withdrawn. The rules that were real are restated here as foundation responsibilities; the rules that described versioning are deleted rather than moved, for the reason at the end of this section.
+
+**Shared rules — `Tag`, `Reaction`, `Comment`, `BibleReference`:**
+
+1. The following are control fields and must never be accepted from an external caller — they are set internally by the foundation or by the approval workflow (§8.6.1): `ApprovalStatus`, `IsPublished`, `PublishDate`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`.
+2. On every update the foundation loads the current entity from storage and maps only the permitted caller-supplied fields onto it: `Name` (`Tag`), `Name` and `UnicodeEmoji` (`Reaction`), `Content` (`Comment`), `Reference`, `Translation` and `Scripture` (`BibleReference`).
+3. Soft delete follows §10.4. **Dependent associations are left untouched** — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (the §12.4.1 responsibility 5 correction).
+4. A soft-deleted row must not be visible on any content item.
+5. Review dismissal is not their responsibility. Publishing the entity's own `-Modified` fact is sufficient; `ApprovalOrchestrationService` handles dismissal when it receives that fact (§10.17).
+6. State transitions (submit, approve, reject) are the foundation's own operations, each owning a narrower field scope than the general modify (§9.7.1 rule 3, §10.2 rule 7).
+
+**Associating them with a content item is not their work.** The withdrawn subsections gave each entity a responsibility to "associate an approved X with a content item by creating an `Association`, validating that X is permitted by resolving the effective `ContentItemSetting`". Creating the link is `Association`'s own flow (§4, §12.5 entry 1), and the rules that governed it survive there rather than here:
+
+1. A link may only be created when the effective `ContentItemSetting` permits that association type — `TagsAllowed`, `ReactionsAllowed`, `CommentsAllowed`, `BibleReferenceAllowed` (§6.10) — and `LimitReactionsToLoveOnly` further narrows the reaction case.
+2. The association carries its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
+3. An entity is visible on a content item only when both it and the association satisfy §14.3.
+
+**Neither gate is implemented today.** `AssociationOrchestrationService` takes no `IContentItemSettingService`, so the §6.10 settings gate is unenforced, exactly as the §14.3 composite visibility rule is unenforced (§12.5 entry 1). Moving these rules here does not implement them; it records where they belong.
+
+**`ApprovalReview`** — `ApprovalReviewService` carries the whole of it: reviewer eligibility via `IAccessBroker`, one active review per reviewer per approval record, the decision record itself, dismissal retention, and a new review after a dismissal. Threshold evaluation is **not** here — it belongs to `ApprovalOrchestrationService` (§12.5.3 R5), which is what made a separate orchestration redundant. The rule that a user with an active review may not also set the entity's `ApprovalStatus` is answered from the `ApprovalReview` rows the approval policy already reads (§8.6 regardless-rule 1).
+
+**`ApprovalComment`** — control fields `ApprovalId`, `UserId`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`; the only permitted caller field on update is `Comment`. Approval comments do not participate in the threshold or status-transition workflow. A comment may only be created against an existing, non-deleted approval record — enforce that with the foreign key rather than a read of `Approval`, so the service does not acquire a second entity dependency for an existence check.
+
+**Deleted, not relocated: the versioning rules.** The withdrawn subsections gave `Tag`, `Reaction`, `Comment` and `BibleReference` a full versioning model — fork on modify of an `Approved` row, `IsLatestVersion` demotion, one latest and one published row per `GroupId`, and `GroupId` / `Version` / `IsLatestVersion` in the control-field list. **None of those four types implements `IVersion`**; they carry `IApproval` only, and `EntityTypeVersioning` (§7.5.1) declares all four Single-Row. The rules described properties that do not exist, which is precisely the drift `EntityTypeVersioning`'s own documentation warns about, and they are removed rather than carried forward.
 
 ### 12.4 Processing Layer
 
@@ -2159,16 +2190,14 @@ Current intended orchestrations:
 | 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints against their respective entity services and runs the retrieve-or-add suggestion on add. Its only operation today is `AddAssociationAsync`; it has **no read surface**, so the §14.3 composite visibility rule is *not* implemented anywhere yet. |
 | 2 | `ContentItemSettingsOrchestration` | Orchestrates effective settings resolution across content type defaults and item overrides. |
 | 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
-| 4 | ~~`ApprovalReviewOrchestration`~~ | **Withdrawn.** `ApprovalReviewService` has no entity-service dependencies, its dismissal and self-approval rules already exist at the foundation, and threshold evaluation belongs to `ApprovalOrchestrationService` (§12.5.3 R5). Nothing is left for a layer above the foundation. |
-| 5 | `ApprovalCommentOrchestration` | Orchestrates approval comment creation and lifecycle management. |
-| 6 | `TagOrchestration` | Orchestrates tag creation, versioning, approval, and association workflows. |
-| 7 | `ReactionOrchestration` | Orchestrates reaction creation, versioning, approval, and association workflows. |
-| 8 | `CommentOrchestration` | Orchestrates comment creation, versioning, approval, and association workflows. |
-| 9 | `BibleReferenceOrchestration` | Orchestrates Bible reference creation, versioning, approval, and association workflows. |
 
-> **Open — most of this table has not been re-tested against the §12.1 entity-count rule.** `ContentItemOrchestration` was listed here until it was checked and found to touch exactly one entity type; it is now `ContentItemProcessingService` (§12.4.1). Each remaining single-entity candidate needs the same check before it is built, and any that turns out to touch only its own type belongs in §12.4 — or, where it has no cross-row rule either, nowhere above its foundation.
+> **Entries 4–9 were withdrawn.** `ApprovalReviewOrchestration`, `ApprovalCommentOrchestration`, `TagOrchestration`, `ReactionOrchestration`, `CommentOrchestration` and `BibleReferenceOrchestration` were each planned here before the §12.1 rule was applied. Every one touches a single entity type and is Single-Row, so none needs anything above its foundation; their surviving rules moved to §12.3.1, and their versioning rules were deleted as describing properties those types never had.
 >
-> Status at the time of writing: **entry 3 (`Approval`) is confirmed multi-entity** — it subscribes to entity facts and spans `Approval`, `ApprovalReview` and `ApprovalSetting`. **Entry 4 (`ApprovalReview`) is withdrawn** in the table above. **Entry 1 (`Association`) is provisional**: it does read several entity types, so it is not a processing service as written, but it takes seven entity services for a single operation, which breaks the dependency-count guidance regardless of which layer it sits in — four of its seven endpoint branches read a row only to discard it. Its endpoint-resolution design is being revisited and its classification is re-tested when that settles. Entries 2 and 5–9 are untested against the §12.1 rule.
+> **Entry 1 (`Association`) is provisional.** It does read several entity types, so it is not a processing service as written, but it takes seven entity services for a single operation, which breaks the dependency-count guidance regardless of which layer it sits in — four of its seven endpoint branches read a row only to discard it. Its endpoint-resolution design is being revisited and its classification is re-tested when that settles.
+>
+> **Entry 2 (`ContentItemSettings`) is a processing service**, not an orchestration: it is single-entity, and the layer above its foundation is earned by effective-setting resolution (merging the content type default with any item override) rather than by versioning. It moves to §12.4 when it is built.
+>
+> **Entry 3 (`Approval`) is confirmed multi-entity** — it subscribes to entity facts and spans `Approval`, `ApprovalReview` and `ApprovalSetting`.
 
 #### 12.5.1 ContentType — no orchestration
 
@@ -2259,211 +2288,6 @@ Business Rules:
 16. The versioned/single-row branch is resolved from the §7.5.1 publication-model table, never by probing the entity for `IVersion`, by reflection, or by inspecting EF configuration.
 17. No approval transition may be applied to a soft-deleted entity. The approve, reject and bypass operations validate that the subject is not deleted before applying any transition, so a review submitted before a takedown cannot approve and re-publish it afterwards (§9.7.6 rule 3). Removal itself never changes the approval record.
 18. `Rejected` is reachable by exactly two routes: a blocking review rejection when `BlockOnReject = true` (§8.7 rule 1), and a direct `Publisher`/`Admin` rejection (business rule 13). Both apply immediately and independently of `RequiredNumberOfApprovals`, and both leave `IsPublished` and `IsLatestVersion` untouched.
-
-#### 12.5.4 ApprovalReviewOrchestration
-
-`ApprovalReviewOrchestration` orchestrates the recording, validation, and evaluation of individual reviewer decisions.
-
-Responsibilities:
-
-1. Validate that a reviewer is eligible to review based on role and self-approval settings.
-2. Ensure only one active review per reviewer per approval record exists.
-3. Record the reviewer decision via `ApprovalReviewService`.
-4. Publish `ApprovalReviewCreatedEvent`, `ApprovalReviewUpdatedEvent`, and `ApprovalReviewDeletedEvent` via `ApprovalReviewEventService`.
-
-Business Rules:
-
-1. A reviewer may not submit more than one active review per approval record. Review decisions are not superseded or replaced — a second active review must be rejected by validation.
-2. A reviewer must hold the review tier for the entity under review (§8.3).
-3. A reviewer must not review their own submitted entity when `AllowSelfApproval = false`.
-4. Dismissed reviews must be retained for audit and must not be deleted.
-5. A new review may be submitted after the reviewer's previous review was dismissed.
-6. A user who has filed an active review on the entity must not also set its `ApprovalStatus`, regardless of `AllowSelfApproval` (§8.6 regardless-rule 1). This is answered from the `ApprovalReview` rows the approval policy already reads, not by fetching the entity's audit fields — the earlier form of this rule compared the actor to the entity's `UpdatedBy` and was withdrawn, so the `%EntityType%-RetrievingById` round-trip it needed is no longer part of this step.
-
-#### 12.5.5 ApprovalCommentOrchestration
-
-`ApprovalCommentOrchestration` orchestrates the creation and lifecycle management of comments attached to approval records.
-
-Responsibilities:
-
-1. Orchestrate approval comment creation, ensuring the parent approval record exists before a comment is created.
-2. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing.
-3. Orchestrate soft delete of approval comments.
-4. Publish `ApprovalCommentCreatedEvent`, `ApprovalCommentUpdatedEvent`, and `ApprovalCommentDeletedEvent` via `ApprovalCommentEventService`.
-
-Business Rules:
-
-1. An approval comment may only be created against an existing, non-deleted approval record.
-2. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration:
-   - `ApprovalId`
-   - `UserId`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-3. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Comment`) onto that entity before saving.
-4. Approval comments do not participate in the approval threshold or status transition workflow.
-
-#### 12.5.6 TagOrchestration
-
-`TagOrchestration` orchestrates the full lifecycle of a tag across foundation services, including versioning, approval, and content item association.
-
-Responsibilities:
-
-1. Orchestrate tag creation and modification, enforcing versioning rules and control field integrity.
-2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
-4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate an approved tag with a content item by creating a `Association`, validating that tagging is permitted by resolving the effective `ContentItemSetting`.
-6. Orchestrate soft delete of tags. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
-7. Publish `TagCreatedEvent`, `TagUpdatedEvent`, and `TagDeletedEvent` via `TagEventService`.
-8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
-
-Business Rules:
-
-1. A tag in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
-2. An `Approved` tag is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
-5. A tag may only be associated with a content item if `ContentItemSetting.TagsAllowed = true`.
-6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
-7. A tag is only visible on a content item when both the tag and the association are approved and not deleted.
-8. A soft-deleted tag must not be visible on any content item.
-9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `GroupId`
-   - `Version`
-   - `IsLatestVersion`
-   - `IsPublished`
-   - `ApprovalStatus`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Name`) onto that entity before saving.
-11. Review dismissal is not the responsibility of this orchestration. Publishing `TagUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
-
-#### 12.5.7 ReactionOrchestration
-
-`ReactionOrchestration` orchestrates the full lifecycle of a reaction definition across foundation services, including versioning, approval, and content item association.
-
-Responsibilities:
-
-1. Orchestrate reaction definition creation and modification, enforcing versioning rules and control field integrity.
-2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
-4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate a reaction with a content item by creating a `Association`, validating that reactions are permitted and enforcing `LimitReactionsToLoveOnly` when the setting is enabled.
-6. Orchestrate soft delete of reactions. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
-7. Publish `ReactionCreatedEvent`, `ReactionUpdatedEvent`, and `ReactionDeletedEvent` via `ReactionEventService`.
-8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
-
-Business Rules:
-
-1. A reaction in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
-2. An `Approved` reaction is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
-5. A reaction may only be associated with a content item if `ContentItemSetting.ReactionsAllowed = true`.
-6. When `ContentItemSetting.LimitReactionsToLoveOnly = true`, only the designated love reaction may be associated.
-7. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
-8. A soft-deleted reaction definition must not be associated with new content items.
-9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `GroupId`
-   - `Version`
-   - `IsLatestVersion`
-   - `IsPublished`
-   - `ApprovalStatus`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Name`, `UnicodeEmoji`) onto that entity before saving.
-11. Review dismissal is not the responsibility of this orchestration. Publishing `ReactionUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
-
-#### 12.5.8 CommentOrchestration
-
-`CommentOrchestration` orchestrates the full lifecycle of a comment across foundation services, including versioning, approval, and content item association.
-
-Responsibilities:
-
-1. Orchestrate comment creation and modification, enforcing versioning rules and control field integrity.
-2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
-4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate an approved comment with a content item by creating a `Association`, validating that comments are permitted by resolving the effective `ContentItemSetting`.
-6. Orchestrate soft delete of comments. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
-7. Publish `CommentCreatedEvent`, `CommentUpdatedEvent`, and `CommentDeletedEvent` via `CommentEventService`.
-8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
-
-Business Rules:
-
-1. A comment in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
-2. An `Approved` comment is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
-5. A comment may only be associated with a content item if `ContentItemSetting.CommentsAllowed = true`.
-6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
-7. A soft-deleted comment must not be visible on any content item.
-8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `GroupId`
-   - `Version`
-   - `IsLatestVersion`
-   - `IsPublished`
-   - `ApprovalStatus`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-9. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Content`) onto that entity before saving.
-10. Review dismissal is not the responsibility of this orchestration. Publishing `CommentUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
-
-#### 12.5.9 BibleReferenceOrchestration
-
-`BibleReferenceOrchestration` orchestrates the full lifecycle of a Bible reference across foundation services, including versioning, approval, and content item association.
-
-Responsibilities:
-
-1. Orchestrate Bible reference creation and modification, enforcing versioning rules and control field integrity.
-2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
-4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Associate an approved Bible reference with a content item by creating a `Association`, validating that Bible references are permitted by resolving the effective `ContentItemSetting`.
-6. Orchestrate soft delete of Bible references. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
-7. Publish `BibleReferenceCreatedEvent`, `BibleReferenceUpdatedEvent`, and `BibleReferenceDeletedEvent` via `BibleReferenceEventService`.
-8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
-
-Business Rules:
-
-1. A Bible reference in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
-2. An `Approved` Bible reference is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
-5. A Bible reference may only be associated with a content item if `ContentItemSetting.BibleReferenceAllowed = true`.
-6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
-7. A soft-deleted Bible reference must not be visible on any content item.
-8. The same Bible reference may be associated with multiple content items independently.
-9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `GroupId`
-   - `Version`
-   - `IsLatestVersion`
-   - `IsPublished`
-   - `ApprovalStatus`
-   - `IsDeleted`
-   - `CreatedBy`
-   - `CreatedWhen`
-   - `DeletedBy`
-   - `DeletedWhen`
-   - `DeletionReason`
-10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Reference`, `Translation`, `Scripture`) onto that entity before saving.
-11. Review dismissal is not the responsibility of this orchestration. Publishing `BibleReferenceUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
 ### 12.6 Controller Layer
 
