@@ -25,21 +25,6 @@
       ],
       "port": 6080,
       "url": "https://localhost:6080"
-    },
-    {
-      "name": "DependencyGraph",
-      "runtimeExecutable": "python",
-      "runtimeArgs": [
-        "-m",
-        "http.server",
-        "8731",
-        "--bind",
-        "127.0.0.1",
-        "--directory",
-        "Documentation/DependencyGraph"
-      ],
-      "port": 8731,
-      "url": "http://localhost:8731"
     }
   ]
 }

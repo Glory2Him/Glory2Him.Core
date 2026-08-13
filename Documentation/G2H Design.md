@@ -2092,9 +2092,13 @@ Processing services own higher-order business logic for a **single** entity type
 
 Current intended processings:
 
-| Number | Name | Purpose |
-| --- | --- | --- |
-| 1 | `ContentItemProcessingService` | Content item creation, versioning (in-place vs. fork), duplicate-content enforcement, soft delete, and per-caller read visibility. |
+| Number | Name | Purpose | Status |
+| --- | --- | --- | --- |
+| 1 | `ContentItemProcessingService` | Content item creation, versioning (in-place vs. fork), duplicate-content enforcement, soft delete, and per-caller read visibility. | Built (§12.4.1) |
+| 2 | `LinkProcessingService` | Same shape as ContentItem: `Link` is Versioned, so an amend of a terminal row forks. | Required, not built |
+| 3 | `AttachmentProcessingService` | Same shape. `Attachment` is Versioned, and has no foundation service yet either. | Required, not built |
+
+**Entries 2 and 3 are not optional.** §10.17 rule 1 makes a service above the foundation a hard prerequisite for a **Versioned** approvable entity, and `EntityTypeVersioning` (§7.5.1) declares exactly three Versioned types — `ContentItem`, `Link` and `Attachment`. Until each has one it cannot participate in approval without hitting the fork-emits-two-facts problem of §10.17 rule 2. Any other entity earns a processing service only by having higher-order single-entity logic of its own — a cross-row probe, an effective-value merge — because plain CRUD on a Single-Row entity needs nothing above its foundation.
 
 #### 12.4.1 ContentItemProcessingService
 
@@ -2152,10 +2156,10 @@ Current intended orchestrations:
 
 | Number | Name | Purpose |
 | --- | --- | --- |
-| 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints across their respective entity services, runs the retrieve-or-add suggestion, and evaluates the §14.3 composite visibility rule. |
+| 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints against their respective entity services and runs the retrieve-or-add suggestion on add. Its only operation today is `AddAssociationAsync`; it has **no read surface**, so the §14.3 composite visibility rule is *not* implemented anywhere yet. |
 | 2 | `ContentItemSettingsOrchestration` | Orchestrates effective settings resolution across content type defaults and item overrides. |
 | 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
-| 4 | `ApprovalReviewOrchestration` | Orchestrates reviewer eligibility, threshold evaluation, and dismissal workflows. |
+| 4 | ~~`ApprovalReviewOrchestration`~~ | **Withdrawn.** `ApprovalReviewService` has no entity-service dependencies, its dismissal and self-approval rules already exist at the foundation, and threshold evaluation belongs to `ApprovalOrchestrationService` (§12.5.3 R5). Nothing is left for a layer above the foundation. |
 | 5 | `ApprovalCommentOrchestration` | Orchestrates approval comment creation and lifecycle management. |
 | 6 | `TagOrchestration` | Orchestrates tag creation, versioning, approval, and association workflows. |
 | 7 | `ReactionOrchestration` | Orchestrates reaction creation, versioning, approval, and association workflows. |
@@ -2164,7 +2168,7 @@ Current intended orchestrations:
 
 > **Open — most of this table has not been re-tested against the §12.1 entity-count rule.** `ContentItemOrchestration` was listed here until it was checked and found to touch exactly one entity type; it is now `ContentItemProcessingService` (§12.4.1). Each remaining single-entity candidate needs the same check before it is built, and any that turns out to touch only its own type belongs in §12.4 — or, where it has no cross-row rule either, nowhere above its foundation.
 >
-> Status at the time of writing: **entry 3 (`Approval`) is confirmed multi-entity** — it subscribes to entity facts and spans `Approval`, `ApprovalReview` and `ApprovalSetting`. **Entry 4 (`ApprovalReview`) is not**: `ApprovalReviewService` has no entity-service dependencies, its dismissal and self-approval rules are already implemented at the foundation, and §12.5.3 R5 already assigns threshold evaluation to `ApprovalOrchestrationService`. **Entry 1 (`Association`) is provisional**: it does read several entity types, but it takes seven entity services, which breaks the dependency-count guidance regardless of layer — its endpoint-resolution design is being revisited, and its classification is re-tested when that settles. Entries 2 and 5–9 are untested.
+> Status at the time of writing: **entry 3 (`Approval`) is confirmed multi-entity** — it subscribes to entity facts and spans `Approval`, `ApprovalReview` and `ApprovalSetting`. **Entry 4 (`ApprovalReview`) is withdrawn** in the table above. **Entry 1 (`Association`) is provisional**: it does read several entity types, so it is not a processing service as written, but it takes seven entity services for a single operation, which breaks the dependency-count guidance regardless of which layer it sits in — four of its seven endpoint branches read a row only to discard it. Its endpoint-resolution design is being revisited and its classification is re-tested when that settles. Entries 2 and 5–9 are untested against the §12.1 rule.
 
 #### 12.5.1 ContentType — no orchestration
 

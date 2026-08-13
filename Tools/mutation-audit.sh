@@ -13,7 +13,7 @@
 #
 # Example (ContentItem processing):
 #   Tools/mutation-audit.sh \
-#     Glory2Him.Core/Services/Orchestrations/ContentItems \
+#     Glory2Him.Core/Services/Processings/ContentItems \
 #     ContentItemProcessingServiceTests
 #
 # Notes:
