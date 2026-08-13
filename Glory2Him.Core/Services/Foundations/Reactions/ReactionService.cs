@@ -408,7 +408,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveReactionById(reactionId);
+            ValidateOnRemoveReactionById(reactionId, deletionReason);
 
             Reaction maybeReaction =
                 await this.storageBroker.SelectReactionByIdAsync(reactionId, cancellationToken);

@@ -678,10 +678,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
 
-        private static void ValidateOnRemoveAssociationById(Guid associationId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveAssociationById(
+            Guid associationId,
+            string? deletionReason) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)));
+                (Rule: IsInvalid(associationId), Parameter: nameof(Association.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(Association.DeletionReason)));
 
         private static void ValidateOnHardRemoveAssociationById(Guid associationId) =>
             Validate(

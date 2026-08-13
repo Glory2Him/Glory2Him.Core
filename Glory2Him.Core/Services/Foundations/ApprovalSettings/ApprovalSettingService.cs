@@ -358,7 +358,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
             // permission comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
             ValidateUserIsAllowedToAdministerApprovalSettings(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveApprovalSettingById(approvalSettingId);
+            ValidateOnRemoveApprovalSettingById(approvalSettingId, deletionReason);
 
             ApprovalSetting maybeApprovalSetting =
                 await this.storageBroker.SelectApprovalSettingByIdAsync(approvalSettingId, cancellationToken);

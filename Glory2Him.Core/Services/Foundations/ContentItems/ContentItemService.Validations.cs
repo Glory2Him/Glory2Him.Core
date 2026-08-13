@@ -318,10 +318,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
-        private static void ValidateOnRemoveContentItemById(Guid contentItemId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveContentItemById(
+            Guid contentItemId,
+            string? deletionReason) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(ContentItem.DeletionReason)));
 
         private static void ValidateOnHardRemoveContentItemById(Guid contentItemId) =>
             Validate(
@@ -479,13 +486,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             Message = "Value is not a supported content type"
         };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = IsExceedingLength(text, maxLength),
             Message = $"Text exceed max length of {maxLength} characters"
         };
 
-        private static bool IsExceedingLength(string text, int maxLength) =>
+        private static bool IsExceedingLength(string? text, int maxLength) =>
             (text ?? string.Empty).Length > maxLength;
 
         private static dynamic IsNotSame(

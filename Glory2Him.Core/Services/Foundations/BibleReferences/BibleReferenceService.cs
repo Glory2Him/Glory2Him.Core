@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveBibleReferenceById(bibleReferenceId);
+            ValidateOnRemoveBibleReferenceById(bibleReferenceId, deletionReason);
 
             BibleReference maybeBibleReference =
                 await this.storageBroker.SelectBibleReferenceByIdAsync(bibleReferenceId, cancellationToken);

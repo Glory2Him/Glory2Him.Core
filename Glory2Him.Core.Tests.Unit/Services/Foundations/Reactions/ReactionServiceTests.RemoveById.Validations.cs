@@ -67,6 +67,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            Guid someReactionId = Guid.NewGuid();
+            string invalidDeletionReason = GetRandomStringWithLengthOf(501);
+
+            var invalidReactionException = new InvalidReactionException(
+                message: "Reaction is invalid, fix the errors and try again.");
+
+            invalidReactionException.UpsertDataList(
+                key: nameof(Reaction.DeletionReason),
+                value: $"Text exceed max length of {invalidDeletionReason.Length - 1} characters");
+
+            var expectedReactionValidationException = new ReactionValidationException(
+                message: "Reaction validation error occurred, fix the errors and try again.",
+                innerException: invalidReactionException);
+
+            // when
+            ValueTask<Reaction> removeReactionByIdTask =
+                this.reactionService.RemoveReactionByIdAsync(
+                    someReactionId,
+                    deletionReason: invalidDeletionReason,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ReactionValidationException actualReactionValidationException =
+                await Assert.ThrowsAsync<ReactionValidationException>(
+                    removeReactionByIdTask.AsTask);
+
+            // then
+            actualReactionValidationException.Should().BeEquivalentTo(
+                expectedReactionValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedReactionValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfReactionNotFoundAndLogItAsync()
         {
             // given

@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveTagById(tagId);
+            ValidateOnRemoveTagById(tagId, deletionReason);
 
             Tag maybeTag =
                 await this.storageBroker.SelectTagByIdAsync(tagId, cancellationToken);

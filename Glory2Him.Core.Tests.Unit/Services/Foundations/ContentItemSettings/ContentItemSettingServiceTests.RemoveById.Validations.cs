@@ -67,6 +67,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            Guid someContentItemSettingId = Guid.NewGuid();
+            string invalidDeletionReason = GetRandomStringWithLengthOf(501);
+
+            var invalidContentItemSettingException = new InvalidContentItemSettingException(
+                message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.UpsertDataList(
+                key: nameof(ContentItemSetting.DeletionReason),
+                value: $"Text exceed max length of {invalidDeletionReason.Length - 1} characters");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemSettingException);
+
+            // when
+            ValueTask<ContentItemSetting> removeContentItemSettingByIdTask =
+                this.contentItemSettingService.RemoveContentItemSettingByIdAsync(
+                    someContentItemSettingId,
+                    deletionReason: invalidDeletionReason,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    removeContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfContentItemSettingNotFoundAndLogItAsync()
         {
             // given

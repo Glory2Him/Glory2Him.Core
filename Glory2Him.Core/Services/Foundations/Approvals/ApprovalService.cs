@@ -390,7 +390,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveApprovalById(approvalId);
+            ValidateOnRemoveApprovalById(approvalId, deletionReason);
 
             Approval maybeApproval =
                 await this.storageBroker.SelectApprovalByIdAsync(approvalId, cancellationToken);

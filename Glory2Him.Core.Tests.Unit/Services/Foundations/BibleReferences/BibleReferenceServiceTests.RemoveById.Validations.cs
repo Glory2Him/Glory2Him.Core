@@ -67,6 +67,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            Guid someBibleReferenceId = Guid.NewGuid();
+            string invalidDeletionReason = GetRandomStringWithLengthOf(501);
+
+            var invalidBibleReferenceException = new InvalidBibleReferenceException(
+                message: "Bible reference is invalid, fix the errors and try again.");
+
+            invalidBibleReferenceException.UpsertDataList(
+                key: nameof(BibleReference.DeletionReason),
+                value: $"Text exceed max length of {invalidDeletionReason.Length - 1} characters");
+
+            var expectedBibleReferenceValidationException = new BibleReferenceValidationException(
+                message: "Bible reference validation error occurred, fix the errors and try again.",
+                innerException: invalidBibleReferenceException);
+
+            // when
+            ValueTask<BibleReference> removeBibleReferenceByIdTask =
+                this.bibleReferenceService.RemoveBibleReferenceByIdAsync(
+                    someBibleReferenceId,
+                    deletionReason: invalidDeletionReason,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    removeBibleReferenceByIdTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfBibleReferenceNotFoundAndLogItAsync()
         {
             // given

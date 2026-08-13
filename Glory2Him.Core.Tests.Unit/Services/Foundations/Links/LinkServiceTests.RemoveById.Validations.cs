@@ -67,6 +67,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            Guid someLinkId = Guid.NewGuid();
+            string invalidDeletionReason = GetRandomStringWithLengthOf(501);
+
+            var invalidLinkException = new InvalidLinkException(
+                message: "Link is invalid, fix the errors and try again.");
+
+            invalidLinkException.UpsertDataList(
+                key: nameof(Link.DeletionReason),
+                value: $"Text exceed max length of {invalidDeletionReason.Length - 1} characters");
+
+            var expectedLinkValidationException = new LinkValidationException(
+                message: "Link validation error occurred, fix the errors and try again.",
+                innerException: invalidLinkException);
+
+            // when
+            ValueTask<Link> removeLinkByIdTask =
+                this.linkService.RemoveLinkByIdAsync(
+                    someLinkId,
+                    deletionReason: invalidDeletionReason,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    removeLinkByIdTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfLinkNotFoundAndLogItAsync()
         {
             // given

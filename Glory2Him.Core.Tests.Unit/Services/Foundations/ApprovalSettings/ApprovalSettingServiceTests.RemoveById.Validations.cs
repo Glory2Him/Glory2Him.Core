@@ -67,6 +67,52 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            Guid someApprovalSettingId = Guid.NewGuid();
+            string invalidDeletionReason = GetRandomStringWithLengthOf(501);
+
+            var invalidApprovalSettingException = new InvalidApprovalSettingException(
+                message: "Approval setting is invalid, fix the errors and try again.");
+
+            invalidApprovalSettingException.UpsertDataList(
+                key: nameof(ApprovalSetting.DeletionReason),
+                value: $"Text exceed max length of {invalidDeletionReason.Length - 1} characters");
+
+            var expectedApprovalSettingValidationException = new ApprovalSettingValidationException(
+                message: "Approval setting validation error occurred, fix the errors and try again.",
+                innerException: invalidApprovalSettingException);
+
+            // when
+            ValueTask<ApprovalSetting> removeApprovalSettingByIdTask =
+                this.approvalSettingService.RemoveApprovalSettingByIdAsync(
+                    someApprovalSettingId,
+                    deletionReason: invalidDeletionReason,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalSettingValidationException actualApprovalSettingValidationException =
+                await Assert.ThrowsAsync<ApprovalSettingValidationException>(
+                    removeApprovalSettingByIdTask.AsTask);
+
+            // then
+            actualApprovalSettingValidationException.Should().BeEquivalentTo(
+                expectedApprovalSettingValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfApprovalSettingNotFoundAndLogItAsync()
         {
             // given

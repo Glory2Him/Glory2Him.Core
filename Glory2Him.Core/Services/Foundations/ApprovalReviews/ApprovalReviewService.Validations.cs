@@ -405,10 +405,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 message: "Approval review is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalReviewId), Parameter: nameof(ApprovalReview.Id)));
 
-        private static void ValidateOnRemoveApprovalReviewById(Guid approvalReviewId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveApprovalReviewById(
+            Guid approvalReviewId,
+            string? deletionReason) =>
             Validate(
                 message: "Approval review is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(approvalReviewId), Parameter: nameof(ApprovalReview.Id)));
+                (Rule: IsInvalid(approvalReviewId), Parameter: nameof(ApprovalReview.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(ApprovalReview.DeletionReason)));
 
         private static void ValidateOnHardRemoveApprovalReviewById(Guid approvalReviewId) =>
             Validate(
@@ -500,7 +507,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
