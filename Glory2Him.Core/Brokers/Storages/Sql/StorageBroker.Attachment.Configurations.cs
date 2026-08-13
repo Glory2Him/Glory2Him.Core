@@ -65,6 +65,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired(false);
 
             model.Property(attachment => attachment.DeletionReason)
+                 .HasMaxLength(500)
                  .IsRequired(false);
 
             model.Property(attachment => attachment.ContentItemGroupId)

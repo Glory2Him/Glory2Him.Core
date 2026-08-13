@@ -450,7 +450,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveContentItemById(contentItemId);
+            ValidateOnRemoveContentItemById(contentItemId, deletionReason);
 
             ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
                 contentItemId: contentItemId,

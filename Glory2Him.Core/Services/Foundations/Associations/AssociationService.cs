@@ -538,7 +538,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // touches ProcessedEvents for deduplication; that lookup is keyed on the event
             // id, not the association id, so it reveals nothing about which rows exist.)
             ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveAssociationById(associationId);
+            ValidateOnRemoveAssociationById(associationId, deletionReason);
 
             Association maybeAssociation =
                 await this.storageBroker.SelectAssociationByIdAsync(

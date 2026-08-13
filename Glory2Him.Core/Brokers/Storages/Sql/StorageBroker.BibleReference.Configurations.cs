@@ -68,6 +68,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired(false);
 
             model.Property(bibleReference => bibleReference.DeletionReason)
+                 .HasMaxLength(500)
                  .IsRequired(false);
 
             model.Property(bibleReference => bibleReference.PublishDate)

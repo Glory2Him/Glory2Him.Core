@@ -405,7 +405,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveApprovalReviewById(approvalReviewId);
+            ValidateOnRemoveApprovalReviewById(approvalReviewId, deletionReason);
 
             ApprovalReview maybeApprovalReview =
                 await this.storageBroker.SelectApprovalReviewByIdAsync(approvalReviewId, cancellationToken);

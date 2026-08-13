@@ -187,10 +187,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                 message: "Approval setting is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalSettingId), Parameter: nameof(ApprovalSetting.Id)));
 
-        private static void ValidateOnRemoveApprovalSettingById(Guid approvalSettingId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveApprovalSettingById(
+            Guid approvalSettingId,
+            string? deletionReason) =>
             Validate(
                 message: "Approval setting is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(approvalSettingId), Parameter: nameof(ApprovalSetting.Id)));
+                (Rule: IsInvalid(approvalSettingId), Parameter: nameof(ApprovalSetting.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(ApprovalSetting.DeletionReason)));
 
         private static void ValidateOnHardRemoveApprovalSettingById(Guid approvalSettingId) =>
             Validate(
@@ -258,7 +265,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"

@@ -389,7 +389,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToComment(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveApprovalCommentById(approvalCommentId);
+            ValidateOnRemoveApprovalCommentById(approvalCommentId, deletionReason);
 
             ApprovalComment maybeApprovalComment =
                 await this.storageBroker.SelectApprovalCommentByIdAsync(approvalCommentId, cancellationToken);

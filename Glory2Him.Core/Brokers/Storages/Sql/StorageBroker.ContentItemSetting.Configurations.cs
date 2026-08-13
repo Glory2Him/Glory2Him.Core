@@ -120,6 +120,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             model
                 .Property(contentItemSetting => contentItemSetting.DeletionReason)
+                .HasMaxLength(500)
                 .IsRequired(false);
 
             // ------------------------------------------------------------------------

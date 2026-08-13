@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveLinkById(linkId);
+            ValidateOnRemoveLinkById(linkId, deletionReason);
 
             Link maybeLink =
                 await this.storageBroker.SelectLinkByIdAsync(linkId, cancellationToken);

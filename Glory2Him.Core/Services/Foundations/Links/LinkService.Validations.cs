@@ -349,10 +349,15 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 message: "Link is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
 
-        private static void ValidateOnRemoveLinkById(Guid linkId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveLinkById(Guid linkId, string? deletionReason) =>
             Validate(
                 message: "Link is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
+                (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(Link.DeletionReason)));
 
         private static void ValidateOnHardRemoveLinkById(Guid linkId) =>
             Validate(
@@ -420,7 +425,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"

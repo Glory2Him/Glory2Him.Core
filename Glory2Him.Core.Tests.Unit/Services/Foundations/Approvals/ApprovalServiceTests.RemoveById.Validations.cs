@@ -67,6 +67,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
+        {
+            // given
+            Guid someApprovalId = Guid.NewGuid();
+            string invalidDeletionReason = GetRandomStringWithLengthOf(501);
+
+            var invalidApprovalException = new InvalidApprovalException(
+                message: "Approval is invalid, fix the errors and try again.");
+
+            invalidApprovalException.UpsertDataList(
+                key: nameof(Approval.DeletionReason),
+                value: $"Text exceed max length of {invalidDeletionReason.Length - 1} characters");
+
+            var expectedApprovalValidationException = new ApprovalValidationException(
+                message: "Approval validation error occurred, fix the errors and try again.",
+                innerException: invalidApprovalException);
+
+            // when
+            ValueTask<Approval> removeApprovalByIdTask =
+                this.approvalService.RemoveApprovalByIdAsync(
+                    someApprovalId,
+                    deletionReason: invalidDeletionReason,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    removeApprovalByIdTask.AsTask);
+
+            // then
+            actualApprovalValidationException.Should().BeEquivalentTo(
+                expectedApprovalValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfApprovalNotFoundAndLogItAsync()
         {
             // given

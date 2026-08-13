@@ -337,10 +337,15 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 message: "Reaction is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(reactionId), Parameter: nameof(Reaction.Id)));
 
-        private static void ValidateOnRemoveReactionById(Guid reactionId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveReactionById(Guid reactionId, string? deletionReason) =>
             Validate(
                 message: "Reaction is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(reactionId), Parameter: nameof(Reaction.Id)));
+                (Rule: IsInvalid(reactionId), Parameter: nameof(Reaction.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(Reaction.DeletionReason)));
 
         private static void ValidateOnHardRemoveReactionById(Guid reactionId) =>
             Validate(
@@ -408,7 +413,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"

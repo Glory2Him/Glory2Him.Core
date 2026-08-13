@@ -201,10 +201,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 message: "Content item setting is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemSettingId), Parameter: nameof(ContentItemSetting.Id)));
 
-        private static void ValidateOnRemoveContentItemSettingById(Guid contentItemSettingId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveContentItemSettingById(
+            Guid contentItemSettingId,
+            string? deletionReason) =>
             Validate(
                 message: "Content item setting is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentItemSettingId), Parameter: nameof(ContentItemSetting.Id)));
+                (Rule: IsInvalid(contentItemSettingId), Parameter: nameof(ContentItemSetting.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(ContentItemSetting.DeletionReason)));
 
         private static void ValidateOnHardRemoveContentItemSettingById(Guid contentItemSettingId) =>
             Validate(
@@ -280,7 +287,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
