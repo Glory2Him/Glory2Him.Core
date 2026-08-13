@@ -157,11 +157,12 @@ namespace {Namespace}.Services.Foundations.{Entity}s
                 if (maybe{Entity}.IsDeleted)
                     return maybe{Entity};
 
-                if (deletionReason is not null)
-                    maybe{Entity}.DeletionReason = deletionReason;
-
+                // pass the reason as an argument — do NOT pre-set it on the entity and rely on
+                // the audit call to leave it alone; the reason is the audit broker's to stamp
                 {Entity} audited{Entity} =
-                    await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(maybe{Entity});
+                    await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
+                        entity: maybe{Entity},
+                        deletionReason: deletionReason);
 
                 {Entity} removed{Entity} = 
                     await this.storageBroker.Update{Entity}Async(audited{Entity}, cancellationToken);
