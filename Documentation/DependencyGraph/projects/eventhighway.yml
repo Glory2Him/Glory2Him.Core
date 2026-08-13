@@ -1,0 +1,20 @@
+# EventHighway — components and flows
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+
+project: ext-eventhighway
+components:
+  - id: EXT.EventHighway
+    name: EventHighwayClient
+    layer: external
+    col: 7
+    shared: true
+    description: "EventHighway 2.2 (SQL Server storage). Every EventBroker copy publishes/subscribes through this client — one event address GUID per entity + operation; event name = entity + operation."
+    methods:
+      - V2.EventParticipantV2Client.RetrieveOrAddEventParticipantV2Async
+      - V2.EventAddressV2Client.RetrieveOrRegisterEventAddressV2Async
+      - V2.EventV2Client.SubmitEventV2Async
+      - V2.EventV2Client.FireScheduledPendingEventV2sAsync
+      - V2.RegisterEventHandlerAsync
+      - V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async

@@ -21,6 +21,8 @@
     --edge-subscribe: #b06af5;
     --edge-circular: #f05252;
     --edge-dim: #333c4d;
+    --sel: #ffd24a;
+    --sel-soft: rgba(255,210,74,0.20);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
@@ -57,6 +59,14 @@
   .legend-swatch { width: 18px; height: 3px; border-radius: 2px; }
   .legend-dot { width: 9px; height: 9px; border-radius: 50%; }
   .controls { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .seg { display: flex; border: 1px solid var(--panel-border); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    font-family: Consolas, monospace; font-size: 10.5px; color: var(--text-dim);
+    background: var(--bg); border: 0; padding: 6px 11px; cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--panel-border); }
+  .seg button:hover { color: var(--text); }
+  .seg button.active { background: var(--node-fill-hi); color: var(--text); }
   .controls label {
     display: flex; align-items: center; gap: 6px;
     font-family: Consolas, monospace; font-size: 11px; color: var(--text-dim); cursor: pointer;
@@ -149,10 +159,14 @@
   <header>
     <div>
       <h1>Glory2Him — Solution Dependency Graph</h1>
-      <div class="sub">click a method to trace that method's path · click a header for the whole component · <a href="./index2.html">switch to the single-copy view</a></div>
+      <div class="sub">click a method to trace that method's path · click a header to trace the whole component · switch view top-right</div>
     </div>
     <div class="legend" id="legend"></div>
     <div class="controls">
+      <div class="seg" id="view-toggle">
+        <button data-view="single" title="Every component drawn once with its full method surface — all consumers converge on it">single copy</button>
+        <button data-view="duplicated" title="Dependencies duplicated per consumer; each copy shows only the method rows that consumer uses">per consumer</button>
+      </div>
       <label title="DateTime / Identifier / Logging / Hash brokers">
         <input type="checkbox" id="toggle-utility"> utility brokers
       </label>
@@ -174,14 +188,204 @@
   </div>
 </div>
 
-<script src="./graph-data.js"></script>
+<script>
+/* =====================================================================
+   Graph data loader.
+
+   The data is deliberately separate from this renderer: graph.yml is the
+   manifest (projects, roots, events), and each project's components and
+   flows live in their own file under projects/. This script fetches and
+   parses them (a small YAML subset — see README.md), assembles the
+   renderer's DATA shape, then calls startApp().
+   ===================================================================== */
+"use strict";
+
+function parseScalar(text) {
+  const t = text.trim();
+  if (t === "" || t === "null" || t === "~") return null;
+  if (t === "[]") return [];
+  if (t === "{}") return {};
+  if (t === "true") return true;
+  if (t === "false") return false;
+  if (t.charAt(0) === '"') return JSON.parse(t);
+  if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
+  return t;
+}
+
+function parseYaml(text) {
+  const rows = [];
+  const raw = text.split(/\r?\n/);
+  for (let i = 0; i < raw.length; i++) {
+    const line = raw[i];
+    if (/^\s*$/.test(line) || /^\s*#/.test(line)) continue;
+    const indent = line.match(/^ */)[0].length;
+    rows.push({ indent, text: line.slice(indent) });
+  }
+  let pos = 0;
+
+  function parseBlock(indent) {
+    if (pos >= rows.length || rows[pos].indent !== indent) return null;
+    return rows[pos].text.charAt(0) === "-" ? parseList(indent) : parseMap(indent);
+  }
+
+  // nested block under "key:" — its indent is whatever the next deeper row uses
+  function parseNested(parentIndent) {
+    if (pos >= rows.length || rows[pos].indent <= parentIndent) return null;
+    return parseBlock(rows[pos].indent);
+  }
+
+  function parseKeyed(text, lineIndent) {
+    // "key: value" | "key:" (nested block follows) — returns [key, value]
+    const m = text.match(/^([A-Za-z_][A-Za-z0-9_]*):(.*)$/);
+    if (!m) throw new Error("bad mapping line: " + text);
+    const rest = m[2];
+    if (rest.trim() === "") return [m[1], parseNested(lineIndent)];
+    return [m[1], parseScalar(rest)];
+  }
+
+  function parseMap(indent) {
+    const obj = {};
+    while (pos < rows.length && rows[pos].indent === indent && rows[pos].text.charAt(0) !== "-") {
+      const row = rows[pos];
+      pos++;
+      const kv = parseKeyed(row.text, indent);
+      obj[kv[0]] = kv[1];
+    }
+    return obj;
+  }
+
+  function parseList(indent) {
+    const arr = [];
+    while (pos < rows.length && rows[pos].indent === indent && rows[pos].text.charAt(0) === "-") {
+      const row = rows[pos];
+      const after = row.text.slice(1); // drop "-"
+      if (after.trim() === "") { pos++; arr.push(parseNested(indent)); continue; }
+      const content = after.replace(/^ /, "");
+      if (/^[A-Za-z_][A-Za-z0-9_]*:( |$)/.test(content)) {
+        // inline first pair of a map item; remaining keys sit at indent+2
+        pos++;
+        const obj = {};
+        const kv = parseKeyed(content, indent + 2); // key column = indent + 2
+        obj[kv[0]] = kv[1];
+        while (pos < rows.length && rows[pos].indent === indent + 2 && rows[pos].text.charAt(0) !== "-") {
+          const r2 = rows[pos];
+          pos++;
+          const kv2 = parseKeyed(r2.text, indent + 2);
+          obj[kv2[0]] = kv2[1];
+        }
+        arr.push(obj);
+      } else {
+        pos++;
+        arr.push(parseScalar(content));
+      }
+    }
+    return arr;
+  }
+
+  const out = parseBlock(rows.length ? rows[0].indent : 0);
+  if (pos < rows.length) throw new Error("unparsed content at line: " + rows[pos].text);
+  return out;
+}
+
+/* manifest + [{projectId, doc}] -> { projects, components, events, edges,
+   roots, eventBrokerId } — the exact shape the renderer has always read. */
+function assembleGraph(manifest, docs) {
+  const projects = manifest.projects.map(function (p) {
+    return { id: p.id, name: p.name, kind: p.kind };
+  });
+  const components = [];
+  const edges = [];
+
+  for (const entry of docs) {
+    const comps = (entry.doc && entry.doc.components) || [];
+    for (const c of comps) {
+      const comp = { id: c.id, name: c.name, project: entry.projectId, layer: c.layer, col: c.col, methods: (c.methods || []).slice() };
+      if (c.utility) comp.utility = true;
+      if (c.shared) comp.shared = true;
+      if (c.description) comp.description = c.description;
+      if (c.deriveMethods) comp.deriveMethods = true;
+      components.push(comp);
+      for (const call of (c.calls || [])) {
+        edges.push({ kind: "direct", from: [c.id, call.from === undefined ? null : call.from], to: [call.to, call.method === undefined ? null : call.method] });
+      }
+      for (const pub of (c.publishes || [])) {
+        edges.push({ kind: "publish", from: [c.id, pub.method], event: pub.event });
+      }
+      for (const sub of (c.subscribes || [])) {
+        edges.push({ kind: "subscribe", event: sub.event, to: [c.id, sub.handler] });
+      }
+    }
+  }
+
+  // externals list exactly the surface this solution calls: derive their
+  // rows from the inbound edges so rows and arrows can never drift apart
+  for (const comp of components) {
+    if (!comp.deriveMethods) continue;
+    const called = [];
+    for (const e of edges) {
+      if (e.kind === "direct" && e.to[0] === comp.id && e.to[1] && called.indexOf(e.to[1]) === -1) called.push(e.to[1]);
+    }
+    comp.methods = called.sort(function (a, b) { return a.localeCompare(b); });
+    delete comp.deriveMethods;
+  }
+
+  return {
+    projects: projects,
+    components: components,
+    events: manifest.events || [],
+    edges: edges,
+    roots: manifest.roots || [],
+    eventBrokerId: manifest.eventBroker === undefined ? null : manifest.eventBroker,
+  };
+}
+
+(function () {
+  function showLoadError(err) {
+    console.error(err);
+    document.getElementById("graph-wrap").innerHTML =
+      '<div style="max-width:660px;margin:80px auto;padding:24px 28px;' +
+      'border:1px solid var(--panel-border);border-radius:10px;' +
+      'background:var(--panel);font-family:Consolas,monospace;font-size:13px;' +
+      'line-height:1.7;color:var(--text-dim)">' +
+      '<div style="color:var(--edge-circular);font-weight:700;margin-bottom:10px">' +
+      'graph data did not load</div>' +
+      'This page fetches <code>graph.yml</code> and the per-project files it ' +
+      'lists from <code>projects/</code>, next to index.html. Browsers block ' +
+      'those fetches for pages opened straight from disk — serve the folder ' +
+      'instead:' +
+      '<pre style="margin:14px 0 0;color:var(--text)">python -m http.server 8731 ' +
+      '--bind 127.0.0.1</pre>' +
+      '<div style="margin-top:6px">then open <code>http://127.0.0.1:8731/</code> ' +
+      '— or use the published GitHub Pages copy.</div>' +
+      '<div style="margin-top:10px;color:var(--text-faint)">' + String(err && err.message || err)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;") + '</div></div>';
+  }
+
+  async function fetchText(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(url + ": HTTP " + res.status);
+    return res.text();
+  }
+
+  async function load() {
+    const manifest = parseYaml(await fetchText("./graph.yml"));
+    const docs = await Promise.all(manifest.projects.map(async (p) => ({
+      projectId: p.id,
+      doc: parseYaml(await fetchText("./" + p.file)),
+    })));
+    return assembleGraph(manifest, docs);
+  }
+
+  load().then((data) => { window.G2H_DATA = data; startApp(); }).catch(showLoadError);
+})();
+</script>
 <script>
 "use strict";
 
 /* =====================================================================
    Glory2Him solution dependency graph renderer.
 
-   Reads window.G2H_DATA (see graph-data.js) and renders a left-to-right
+   Reads window.G2H_DATA (assembled from graph.yml + projects/*.yml) and renders a left-to-right
    layered graph: exposers → view/orchestration services → foundations →
    brokers → client libraries → external services, with dashed project
    boundary boxes.
@@ -199,7 +403,10 @@
    circular event flow.
    ===================================================================== */
 
+function startApp() {
+
 const DATA = window.G2H_DATA;
+
 
 const EDGE_COLORS = {
   direct: cssVar("--edge-direct"),
@@ -229,6 +436,7 @@ const NODE_PAD_BOTTOM = 6;
 const COL_GAP = 120;
 const V_GAP = 26;
 const SUBTREE_GAP = 60;
+const PROJECT_GAP = 110;
 const PROJ_PAD = 30;
 
 const compById = Object.fromEntries(DATA.components.map(c => [c.id, c]));
@@ -240,9 +448,11 @@ const state = {
   showUtility: false,
   selected: null,      // instance id — whole-component trace
   selectedRow: null,   // { instId, row } — single-method path trace
+  view: "single",      // "single" = one copy per component | "duplicated" = one per consumer
   zoom: 1, tx: 60, ty: 40,
   dragging: false, lastX: 0, lastY: 0, moved: false,
   instances: [], edges: [], projBoxes: [],
+  decorations: [],     // undo closures for the current selection's styling
 };
 
 function cssVar(name) {
@@ -320,7 +530,7 @@ function nodeWidth(comp, rows) {
   return Math.max(230, Math.min(470, Math.max(titleW, rowW)));
 }
 
-function buildInstances() {
+function buildDuplicatedInstances() {
   const instances = [];
   const visEdges = [];
   const deferredShared = []; // cross-project edges resolved after all roots exist
@@ -500,6 +710,76 @@ function buildInstances() {
   return { instances, edges: visEdges };
 }
 
+/* ---------------------------------------------------------------------
+   SINGLE-COPY builder: no duplication at all. Every component is drawn
+   once with its full method surface and every consumer's flow converges
+   on that one copy, so `shared` in the data is irrelevant here —
+   everything behaves as shared.
+   --------------------------------------------------------------------- */
+function buildSingleCopyInstances() {
+  const instances = [];
+  const visEdges = [];
+  const instByComp = {};
+  const circular = computeCircularPairs();
+  const vis = (id) => { const c = compById[id]; return c && isVisibleComp(c); };
+
+  for (const comp of DATA.components) {
+    if (!isVisibleComp(comp)) continue;
+    const inst = { id: "c_" + comp.id, comp, rows: comp.methods.slice(), x: 0, y: 0, w: 0, h: 0 };
+    instances.push(inst);
+    instByComp[comp.id] = inst;
+  }
+  const ensureRow = (inst, row) => { if (row && !inst.rows.includes(row)) inst.rows.push(row); };
+
+  const eb = instByComp[DATA.eventBrokerId || "EventBroker"];
+
+  // publishes → the single EventBroker's publish rows
+  for (const e of DATA.edges) {
+    if (e.kind !== "publish" || !eb || !vis(e.from[0])) continue;
+    const ev = eventById[e.event];
+    if (!ev) continue;
+    const from = instByComp[e.from[0]];
+    ensureRow(from, e.from[1]);
+    ensureRow(eb, ev.publish);
+    const isCirc = [...circular].some(k => k.startsWith(e.from[0] + "|") && k.endsWith("|" + e.event));
+    visEdges.push({ from, fromRow: e.from[1], to: eb, toRow: ev.publish, kind: "publish", circular: isCirc, data: e });
+  }
+
+  // subscriptions → from the single EventBroker's subscribe rows to handlers
+  for (const e of DATA.edges) {
+    if (e.kind !== "subscribe" || !eb || !vis(e.to[0])) continue;
+    const ev = eventById[e.event];
+    if (!ev) continue;
+    const to = instByComp[e.to[0]];
+    ensureRow(eb, ev.subscribe);
+    ensureRow(to, e.to[1]);
+    const isCirc = [...circular].some(k => {
+      const [p, s, evId] = k.split("|");
+      return s === e.to[0] && evId === e.event;
+    });
+    visEdges.push({ from: eb, fromRow: ev.subscribe, to, toRow: e.to[1], kind: "subscribe", circular: isCirc, data: e });
+  }
+
+  // direct calls — one line per declared call, method row to method row
+  const seen = new Set();
+  for (const e of DATA.edges) {
+    if (e.kind !== "direct" || !vis(e.from[0]) || !vis(e.to[0])) continue;
+    const key = e.from[0] + "|" + (e.from[1] ?? "") + "→" + e.to[0] + "|" + (e.to[1] ?? "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const from = instByComp[e.from[0]], to = instByComp[e.to[0]];
+    ensureRow(from, e.from[1]);
+    ensureRow(to, e.to[1]);
+    visEdges.push({ from, fromRow: e.from[1], to, toRow: e.to[1], kind: "direct", data: e });
+  }
+
+  for (const inst of instances) {
+    inst.w = nodeWidth(inst.comp, inst.rows);
+    inst.h = HEADER_H + inst.rows.length * ROW_H + (inst.rows.length ? NODE_PAD_BOTTOM : 0);
+  }
+  return { instances, edges: visEdges };
+}
+
 /* =====================================================================
    3. Layout — explicit columns, per-column cursors, parents centred
    on their children.
@@ -508,7 +788,7 @@ function colOf(comp) {
   return comp.col !== undefined ? comp.col : 0;
 }
 
-function layout(instances) {
+function layoutTrees(instances) {
   const usedCols = [...new Set(instances.map(i => colOf(i.comp)))].sort((a, b) => a - b);
   const colX = {}, colW = {};
   for (const c of usedCols) colW[c] = Math.max(...instances.filter(i => colOf(i.comp) === c).map(i => i.w));
@@ -550,7 +830,6 @@ function layout(instances) {
   // column in that range to a common baseline with headroom — and after
   // placing the run, seal the range so nothing later can be placed inside
   // the finished box's vertical extent.
-  const PROJECT_GAP = 110;
   const rootList = instances.filter(i => i.isRoot);
   let idx2 = 0;
   while (idx2 < rootList.length) {
@@ -571,6 +850,67 @@ function layout(instances) {
     for (const root of run) subtreeInstances(root, runInsts);
     const runBottom = Math.max(...runInsts.map(i => i.y + i.h));
     for (const c of rangeCols) cursor[c] = Math.max(cursor[c], runBottom + V_GAP);
+  }
+}
+
+/* ---------------------------------------------------------------------
+   SINGLE-COPY layout: projects become vertical bands in DATA.projects
+   order, and inside a column components sort by the barycenter of their
+   already-placed callers to keep the converging lines from crossing.
+   --------------------------------------------------------------------- */
+function layoutBands(instances, edges) {
+  const usedCols = [...new Set(instances.map(i => colOf(i.comp)))].sort((a, b) => a - b);
+  const colX = {}, colW = {};
+  for (const c of usedCols) colW[c] = Math.max(...instances.filter(i => colOf(i.comp) === c).map(i => i.w));
+  let x = 0;
+  for (const c of usedCols) { colX[c] = x; x += colW[c] + COL_GAP; }
+
+  const cursor = {};
+  for (const c of usedCols) cursor[c] = 0;
+
+  const placed = new Set();
+  const inEdges = new Map();
+  for (const e of edges) {
+    if (!inEdges.has(e.to.id)) inEdges.set(e.to.id, []);
+    inEdges.get(e.to.id).push(e);
+  }
+  const declIndex = new Map(instances.map((inst, n) => [inst.id, n]));
+
+  for (const proj of DATA.projects) {
+    const members = instances.filter(i => i.comp.project === proj.id);
+    if (!members.length) continue;
+    const cols = [...new Set(members.map(i => colOf(i.comp)))].sort((a, b) => a - b);
+    const rangeCols = usedCols.filter(c => c >= cols[0] && c <= cols[cols.length - 1]);
+    const baseline = Math.max(...rangeCols.map(c => cursor[c]));
+    for (const c of rangeCols) cursor[c] = baseline > 0 ? baseline + PROJECT_GAP : baseline;
+
+    for (const c of cols) {
+      const colMembers = members.filter(i => colOf(i.comp) === c);
+      const bary = new Map();
+      for (const m of colMembers) {
+        const ys = (inEdges.get(m.id) || [])
+          .filter(e => placed.has(e.from.id))
+          .map(e => rowY(e.from, e.fromRow));
+        if (ys.length) bary.set(m.id, ys.reduce((a, b) => a + b, 0) / ys.length);
+      }
+      colMembers.sort((a, b) => {
+        const ba = bary.get(a.id), bb = bary.get(b.id);
+        if (ba !== undefined && bb !== undefined) return ba - bb;
+        if (ba !== undefined) return -1;
+        if (bb !== undefined) return 1;
+        return declIndex.get(a.id) - declIndex.get(b.id);
+      });
+      for (const m of colMembers) {
+        m.x = colX[c];
+        m.y = cursor[c];
+        cursor[c] = m.y + m.h + V_GAP;
+        placed.add(m.id);
+      }
+    }
+    // seal the project's column range so the next project's band starts
+    // below this box
+    const bottom = Math.max(...members.map(i => i.y + i.h));
+    for (const c of rangeCols) cursor[c] = Math.max(cursor[c], bottom + V_GAP);
   }
 }
 
@@ -655,6 +995,7 @@ let gMain;
 
 function render() {
   svg.innerHTML = "";
+  state.decorations = [];   // the elements they point at are about to go
   const defs = el("defs", {}, svg);
   for (const [key, color] of Object.entries(EDGE_COLORS)) {
     const m = el("marker", { id: "arrow-" + key, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 6.5, markerHeight: 6.5, orient: "auto-start-reverse" }, defs);
@@ -692,7 +1033,7 @@ function render() {
     const layer = LAYERS[inst.comp.layer] || LAYERS.broker;
     const g = el("g", { class: "node", "data-id": inst.id }, gMain);
     inst.el = g;
-    el("rect", {
+    inst.bodyEl = el("rect", {
       class: "body", x: inst.x, y: inst.y, width: inst.w, height: inst.h, rx: 8,
       fill: "var(--node-fill)", stroke: layer.color, "stroke-width": 1.5,
     }, g);
@@ -701,6 +1042,7 @@ function render() {
       "font-family": "Consolas, monospace", "font-weight": 700,
     }, g);
     title.textContent = truncate(inst.comp.name, inst.w - 24, 12.5);
+    inst.titleEl = title;
     const sub = el("text", {
       x: inst.x + 12, y: inst.y + 31, fill: layer.color, "font-size": 9.5,
       "font-family": "Consolas, monospace",
@@ -711,6 +1053,7 @@ function render() {
       el("line", { x1: inst.x, y1: inst.y + HEADER_H - 2, x2: inst.x + inst.w, y2: inst.y + HEADER_H - 2, stroke: "var(--row-line)", "stroke-width": 1 }, g);
     }
     inst.rowHits = {};
+    inst.rowTexts = {};
     inst.rows.forEach((row, i) => {
       const y = inst.y + HEADER_H + i * ROW_H;
       if (i > 0) el("line", { x1: inst.x + 8, y1: y, x2: inst.x + inst.w - 8, y2: y, stroke: "var(--row-line)", "stroke-width": 0.7 }, g);
@@ -719,6 +1062,7 @@ function render() {
         "font-size": 10.5, "font-family": "Consolas, monospace",
       }, g);
       t.textContent = truncate(row, inst.w - 28, 10.5);
+      inst.rowTexts[row] = t;
       // invisible full-width hit target so a click selects the METHOD,
       // not the whole component
       const hit = el("rect", { class: "row-hit", x: inst.x + 1, y, width: inst.w - 2, height: ROW_H, fill: "transparent" }, g);
@@ -804,15 +1148,71 @@ function styleEdges(isOn) {
   }
 }
 
-function resetRowFills() {
-  for (const i of state.instances) {
-    if (!i.rowHits) continue;
-    for (const r in i.rowHits) i.rowHits[r].setAttribute("fill", "transparent");
+/* ---- selection decorations -------------------------------------------
+   Extra styling layered on top of the base render for the current
+   selection. Every change records its own undo, so clearing is
+   O(decorated) rather than O(every row) — the duplicated view can hold
+   several thousand rows and this runs on each click.
+   --------------------------------------------------------------------- */
+function clearDecorations() {
+  // LIFO. A row can be decorated twice — the path tint, then the selection
+  // band on top — and the later undo captured the earlier one's value.
+  for (let i = state.decorations.length - 1; i >= 0; i--) state.decorations[i]();
+  state.decorations = [];
+}
+
+function decorate(elm, attrs, text) {
+  const prev = {};
+  for (const k in attrs) prev[k] = elm.getAttribute(k);
+  const prevText = text === undefined ? undefined : elm.textContent;
+  for (const k in attrs) elm.setAttribute(k, attrs[k]);
+  if (text !== undefined) elm.textContent = text;
+  state.decorations.push(() => {
+    for (const k in prev) {
+      if (prev[k] === null) elm.removeAttribute(k);
+      else elm.setAttribute(k, prev[k]);
+    }
+    if (prevText !== undefined) elm.textContent = prevText;
+  });
+}
+
+/* faint tint on every method row the traced path passes through */
+function tintPathRows(pathEdges) {
+  for (const e of pathEdges) {
+    const f = e.fromRow && e.from.rowHits && e.from.rowHits[e.fromRow];
+    if (f) decorate(f, { fill: "rgba(79,156,249,0.10)" });
+    const t = e.toRow && e.to.rowHits && e.to.rowHits[e.toRow];
+    if (t) decorate(t, { fill: "rgba(79,156,249,0.10)" });
   }
 }
 
+/* the selected node — amber outline and lifted fill; amber title too when
+   the whole component (rather than one of its rows) is what is selected */
+function markSelectedNode(inst, emphasiseTitle) {
+  if (!inst || !inst.bodyEl) return;
+  decorate(inst.bodyEl, {
+    stroke: cssVar("--sel"), "stroke-width": 3, fill: "var(--node-fill-hi)",
+  });
+  if (emphasiseTitle && inst.titleEl) {
+    decorate(inst.titleEl,
+      { fill: cssVar("--sel"), "font-size": 14.5, "font-weight": 800 },
+      truncate(inst.comp.name, inst.w - 24, 14.5));
+  }
+}
+
+/* the selected method row — amber, bigger, bolder, on an amber band */
+function markSelectedRow(inst, row) {
+  if (!inst) return;
+  const hit = inst.rowHits && inst.rowHits[row];
+  if (hit) decorate(hit, { fill: cssVar("--sel-soft") });
+  const txt = inst.rowTexts && inst.rowTexts[row];
+  if (txt) decorate(txt,
+    { fill: cssVar("--sel"), "font-size": 12.5, "font-weight": 700 },
+    truncate(row, inst.w - 28, 12.5));
+}
+
 function applyHighlight() {
-  resetRowFills();
+  clearDecorations();
 
   // ---- single-method path trace
   if (state.selectedRow) {
@@ -822,19 +1222,14 @@ function applyHighlight() {
     for (const e of pathEdges) { lit.add(e.from.id); lit.add(e.to.id); }
     styleEdges(e => pathEdges.has(e));
     for (const i of state.instances) i.el.setAttribute("opacity", lit.has(i.id) ? 1 : 0.14);
-    // tint every method row the path touches, strongest on the selection
-    for (const e of pathEdges) {
-      const f = e.fromRow && e.from.rowHits && e.from.rowHits[e.fromRow];
-      if (f) f.setAttribute("fill", "rgba(79,156,249,0.10)");
-      const t = e.toRow && e.to.rowHits && e.to.rowHits[e.toRow];
-      if (t) t.setAttribute("fill", "rgba(79,156,249,0.10)");
-    }
+    tintPathRows(pathEdges);
     const selInst = state.instances.find(i => i.id === instId);
-    if (selInst && selInst.rowHits && selInst.rowHits[row]) selInst.rowHits[row].setAttribute("fill", "rgba(79,156,249,0.22)");
+    markSelectedNode(selInst, false);
+    markSelectedRow(selInst, row);
     return;
   }
 
-  // ---- whole-component trace
+  // ---- nothing selected: back to the plain view
   const sel = state.selected ? state.instances.find(i => i.id === state.selected) : null;
   if (!sel) {
     for (const e of state.edges) {
@@ -846,15 +1241,22 @@ function applyHighlight() {
     for (const i of state.instances) i.el.setAttribute("opacity", 1);
     return;
   }
-  const touching = state.edges.filter(e => e.from.id === sel.id || e.to.id === sel.id);
-  const connected = new Set([sel.id]);
-  for (const e of touching) { connected.add(e.from.id); connected.add(e.to.id); }
+
+  // ---- whole-component trace: the same forward + backward slice a method
+  // row gets, seeded from EVERY row of the selected copy at once (a null
+  // row makes tracePath follow them all). Selecting a header therefore
+  // lights the component's full fan-out, not just its first hop.
+  const pathEdges = tracePath(sel.id, null);
+  const lit = new Set([sel.id]);
+  for (const e of pathEdges) { lit.add(e.from.id); lit.add(e.to.id); }
   const copies = new Set(state.instances.filter(i => i.comp.id === sel.comp.id).map(i => i.id));
 
-  styleEdges(e => e.from.id === sel.id || e.to.id === sel.id);
+  styleEdges(e => pathEdges.has(e));
   for (const i of state.instances) {
-    i.el.setAttribute("opacity", connected.has(i.id) ? 1 : (copies.has(i.id) ? 0.55 : 0.16));
+    i.el.setAttribute("opacity", lit.has(i.id) ? 1 : (copies.has(i.id) ? 0.5 : 0.14));
   }
+  tintPathRows(pathEdges);
+  markSelectedNode(sel, true);
 }
 
 function select(instId) {
@@ -931,6 +1333,9 @@ function renderPanel() {
 
   const inFlows = state.edges.filter(e => e.to.id === sel.id);
   const outFlows = state.edges.filter(e => e.from.id === sel.id);
+  const tracedEdges = tracePath(sel.id, null);
+  const tracedNodes = new Set();
+  for (const e of tracedEdges) { tracedNodes.add(e.from.id); tracedNodes.add(e.to.id); }
 
   const kindChip = (e) => {
     const color = edgeColor(e);
@@ -954,14 +1359,15 @@ function renderPanel() {
       <span class="chip" style="color:${layer.color};border-color:${layer.color}">${layer.label}</span>
       <span class="chip" style="color:var(--text-dim);border-color:var(--panel-border)">${esc(proj ? proj.name : comp.project)}</span>
       ${copies > 1 ? `<span class="chip" style="color:var(--text-dim);border-color:var(--panel-border)">${copies} copies in view</span>` : ""}
-      ${comp.shared ? `<span class="chip" style="color:var(--text-dim);border-color:var(--panel-border)">shared — not duplicated</span>` : ""}
+      ${state.view === "duplicated" && comp.shared ? `<span class="chip" style="color:var(--text-dim);border-color:var(--panel-border)">shared — not duplicated</span>` : ""}
     </div>
     ${comp.description ? `<p class="note">${esc(comp.description)}</p>` : ""}
+    <p class="note">Traced path: ${tracedEdges.size} flows across ${tracedNodes.size} nodes (upstream + downstream of this component).</p>
     <h3>Flows in (${inFlows.length})</h3>
     ${inFlows.map(e => flowRow(e, "in")).join("") || `<div class="note">none</div>`}
     <h3>Flows out (${outFlows.length})</h3>
     ${outFlows.map(e => flowRow(e, "out")).join("") || `<div class="note">none</div>`}
-    <h3>Methods in this copy (${sel.rows.length})</h3>
+    <h3>Methods${state.view === "duplicated" ? " in this copy" : ""} (${sel.rows.length})</h3>
     ${sel.rows.map(m => `<div class="method-li">${esc(m)}</div>`).join("") || `<div class="note">—</div>`}
   `;
   panel.classList.add("open");
@@ -990,14 +1396,48 @@ function fit() {
 }
 
 function rebuild() {
-  const { instances, edges } = buildInstances();
+  const single = state.view === "single";
+  const { instances, edges } = single ? buildSingleCopyInstances() : buildDuplicatedInstances();
   state.instances = instances;
   state.edges = edges;
-  layout(instances);
+  if (single) layoutBands(instances, edges); else layoutTrees(instances);
   state.projBoxes = computeProjectBoxes(instances);
   render();
   document.getElementById("count").textContent =
-    `${instances.length} nodes · ${edges.length} flows`;
+    `${instances.length} ${single ? "components" : "nodes"} · ${edges.length} flows`;
+}
+
+/* Switching view rebuilds from scratch, so instance ids change. Carry the
+   selection across by component id (and method row) rather than dropping
+   the reader back at the top of a 24 000px graph. */
+function setView(view) {
+  if (view === state.view) return;
+  const at = (id) => state.instances.find(i => i.id === id);
+  const keep = state.selectedRow
+    ? { compId: (at(state.selectedRow.instId) || {}).comp && at(state.selectedRow.instId).comp.id, row: state.selectedRow.row }
+    : state.selected
+      ? { compId: (at(state.selected) || {}).comp && at(state.selected).comp.id, row: null }
+      : null;
+
+  state.view = view;
+  state.selected = null;
+  state.selectedRow = null;
+  for (const b of document.querySelectorAll("#view-toggle button"))
+    b.classList.toggle("active", b.dataset.view === view);
+  if (location.hash.slice(1) !== view) history.replaceState(null, "", "#" + view);
+
+  rebuild();
+  buildLegend();
+  if (keep && keep.compId) {
+    const inst = state.instances.find(i => i.comp.id === keep.compId && i.isRoot)
+             || state.instances.find(i => i.comp.id === keep.compId);
+    if (inst) {
+      if (keep.row && inst.rows.includes(keep.row)) selectRow(inst.id, keep.row);
+      else select(inst.id);
+    }
+  }
+  renderPanel();
+  fit();
 }
 
 /* ---------------- legend ---------------- */
@@ -1059,6 +1499,11 @@ document.getElementById("toggle-utility").addEventListener("change", (e) => {
   rebuild(); buildLegend(); renderPanel(); fit();
 });
 
+document.getElementById("view-toggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-view]");
+  if (btn) setView(btn.dataset.view);
+});
+
 /* search */
 const searchInput = document.getElementById("search");
 const searchResults = document.getElementById("search-results");
@@ -1069,9 +1514,12 @@ searchInput.addEventListener("input", () => {
     c.name.toLowerCase().includes(q) ||
     c.methods.some(m => m.toLowerCase().includes(q)));
   const items = comps.slice(0, 10).map(c => {
-    const n = state.instances.filter(i => i.comp.id === c.id).length;
     const layer = LAYERS[c.layer] || LAYERS.broker;
-    return `<div class="sr" data-comp="${esc(c.id)}"><div>${esc(c.name)}</div><div class="sub">${layer.label} · ${n} cop${n === 1 ? "y" : "ies"} in view</div></div>`;
+    const n = state.instances.filter(i => i.comp.id === c.id).length;
+    const sub = state.view === "duplicated"
+      ? `${n} cop${n === 1 ? "y" : "ies"} in view`
+      : esc(projById[c.project] ? projById[c.project].name : c.project);
+    return `<div class="sr" data-comp="${esc(c.id)}"><div>${esc(c.name)}</div><div class="sub">${layer.label} · ${sub}</div></div>`;
   }).join("");
   searchResults.innerHTML = items || `<div class="sr"><div class="sub">no matches</div></div>`;
   searchResults.style.display = "block";
@@ -1094,10 +1542,18 @@ searchResults.addEventListener("mousedown", (e) => {
 searchInput.addEventListener("blur", () => setTimeout(() => searchResults.style.display = "none", 180));
 
 /* ---------------- boot ---------------- */
+if (location.hash.slice(1) === "duplicated") state.view = "duplicated";
+for (const b of document.querySelectorAll("#view-toggle button"))
+  b.classList.toggle("active", b.dataset.view === state.view);
 rebuild();
 buildLegend();
 fit();
 window.addEventListener("resize", fit);
+
+// console / verification handle
+window.__graph = { state, setView, select, selectRow, clearSelection, rebuild, fit, tracePath };
+
+} // startApp
 </script>
 </body>
 </html>

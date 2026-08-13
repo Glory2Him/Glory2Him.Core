@@ -1,0 +1,473 @@
+# Glory2Him — dependency graph manifest
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+#
+# Column map (components' col in the project files):
+#   0 WebApp exposers   1 WebApp view services   2 WebApp brokers
+#   3 WebApp externals  4 Core entry points      5 Core foundations
+#   6 Core brokers      7 client/external exposers
+#   8 client orchestrations  9 client foundations  10 client brokers
+#   11 far externals
+# `projects` order controls layout bands; `roots` order controls the
+# per-consumer view's tree order. A component flagged shared in its
+# project file must appear in roots or its inbound edges are dropped.
+
+solution: Glory2Him
+eventBroker: EventBroker
+projects:
+  - id: webapp
+    name: Glory2Him.WebApp
+    kind: internal
+    file: projects/glory2him-webapp.yml
+  - id: core
+    name: Glory2Him.Core
+    kind: internal
+    file: projects/glory2him-core.yml
+  - id: security-client
+    name: G2H.Security.Client
+    kind: library
+    file: projects/g2h-security-client.yml
+  - id: storage-client
+    name: G2H.StorageClient
+    kind: library
+    file: projects/g2h-storageclient.yml
+  - id: ee-client
+    name: G2H.EventEnvelope.Client
+    kind: library
+    file: projects/g2h-eventenvelope-client.yml
+  - id: ext-identity
+    name: ASP.NET Core Identity
+    kind: external
+    file: projects/asp-net-core-identity.yml
+  - id: ext-securitydb
+    name: "EF Core · SecurityDbContext"
+    kind: external
+    file: projects/ef-core-securitydbcontext.yml
+  - id: ext-skiasharp
+    name: SkiaSharp
+    kind: external
+    file: projects/skiasharp.yml
+  - id: ext-eventhighway
+    name: EventHighway
+    kind: external
+    file: projects/eventhighway.yml
+  - id: ext-efcore
+    name: EF Core / SQL Server
+    kind: external
+    file: projects/ef-core-sql-server.yml
+roots:
+  - WA.PostApi
+  - WA.ProductApi
+  - WA.ProfileApi
+  - WA.RegistrationApi
+  - WA.UserAdminApi
+  - WA.AccountApi
+  - WA.PasskeyApi
+  - WA.ManageAccountApi
+  - WA.FrontendConfigApi
+  - WA.CartService
+  - CIO
+  - ESR
+  - SecurityBroker
+  - AccessBroker
+  - FS.ContentItem
+  - FS.Association
+  - FS.BibleReference
+  - FS.Comment
+  - FS.Link
+  - FS.Reaction
+  - FS.Tag
+  - FS.Approval
+  - FS.ApprovalComment
+  - FS.ApprovalReview
+  - FS.ApprovalSetting
+  - FS.ContentItemSetting
+  - SC.UserClient
+  - SC.AuditClient
+  - SC.AccessClient
+  - STC.EFCoreClient
+  - STC.StorageBroker
+  - EEC.Client
+  - EEC.SecurityAuditBroker
+  - EXT.EventHighway
+  - EXT.Identity
+  - EXT.SecurityDb
+  - EXT.SkiaSharp
+  - EXT.EFCore
+events:
+  - id: ContentItem.Adding
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Modifying
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.RemovingById
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.HardRemovingById
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.RetrievingById
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Added
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Modified
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Removed
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.HardRemoved
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: Association.Adding
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Modifying
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.RemovingById
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.HardRemovingById
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.RetrievingById
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Added
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Modified
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Removed
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.HardRemoved
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Approving
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Approved
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Rejected
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.BypassApproving
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Approved
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Sorted
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.SettingConfidence
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.ConfidenceSet
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.SettingScope
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: Association.Scoped
+    publish: PublishAssociationAsync
+    subscribe: SubscribeToAssociationEventAsync
+  - id: BibleReference.Adding
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Modifying
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.RemovingById
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.HardRemovingById
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.RetrievingById
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Added
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Modified
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Removed
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.HardRemoved
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: Comment.Adding
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Modifying
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.RemovingById
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.HardRemovingById
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.RetrievingById
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Added
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Modified
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Removed
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.HardRemoved
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Link.Adding
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Modifying
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.RemovingById
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.HardRemovingById
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.RetrievingById
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Added
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Modified
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Removed
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.HardRemoved
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Reaction.Adding
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Modifying
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.RemovingById
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.HardRemovingById
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.RetrievingById
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Added
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Modified
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Removed
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.HardRemoved
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Tag.Adding
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Modifying
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.RemovingById
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.HardRemovingById
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.RetrievingById
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Added
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Modified
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Removed
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.HardRemoved
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Approval.Adding
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.Modifying
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.RemovingById
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.HardRemovingById
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.RetrievingById
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.Added
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.Modified
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.Removed
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: Approval.HardRemoved
+    publish: PublishApprovalAsync
+    subscribe: SubscribeToApprovalEventAsync
+  - id: ApprovalComment.Adding
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.Modifying
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.RemovingById
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.HardRemovingById
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.RetrievingById
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.Added
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.Modified
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.Removed
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.HardRemoved
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalReview.Adding
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.Modifying
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.RemovingById
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.HardRemovingById
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.RetrievingById
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.Added
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.Modified
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.Removed
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.HardRemoved
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalSetting.Adding
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.Modifying
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.RemovingById
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.HardRemovingById
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.RetrievingById
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.Added
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.Modified
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.Removed
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ApprovalSetting.HardRemoved
+    publish: PublishApprovalSettingAsync
+    subscribe: SubscribeToApprovalSettingEventAsync
+  - id: ContentItemSetting.Adding
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.Modifying
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.RemovingById
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.HardRemovingById
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.RetrievingById
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.Added
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.Modified
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.Removed
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemSetting.HardRemoved
+    publish: PublishContentItemSettingAsync
+    subscribe: SubscribeToContentItemSettingEventAsync
+  - id: ContentItemOrchestration.Adding
+    publish: PublishContentItemOrchestrationAsync
+    subscribe: SubscribeToContentItemOrchestrationEventAsync
+  - id: ContentItemOrchestration.Modifying
+    publish: PublishContentItemOrchestrationAsync
+    subscribe: SubscribeToContentItemOrchestrationEventAsync
+  - id: ContentItemOrchestration.RemovingById
+    publish: PublishContentItemOrchestrationAsync
+    subscribe: SubscribeToContentItemOrchestrationEventAsync
+  - id: ContentItemOrchestration.RetrievingById
+    publish: PublishContentItemOrchestrationAsync
+    subscribe: SubscribeToContentItemOrchestrationEventAsync
+  - id: ContentItemOrchestration.Added
+    publish: PublishContentItemOrchestrationAsync
+    subscribe: SubscribeToContentItemOrchestrationEventAsync
+  - id: ContentItemOrchestration.Modified
+    publish: PublishContentItemOrchestrationAsync
+    subscribe: SubscribeToContentItemOrchestrationEventAsync
+  - id: ContentItemOrchestration.Removed
+    publish: PublishContentItemOrchestrationAsync
+    subscribe: SubscribeToContentItemOrchestrationEventAsync

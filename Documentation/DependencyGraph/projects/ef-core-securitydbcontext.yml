@@ -1,0 +1,15 @@
+# EF Core · SecurityDbContext — components and flows
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+
+project: ext-securitydb
+components:
+  - id: EXT.SecurityDb
+    name: SecurityDbContext (EF Core)
+    layer: external
+    col: 3
+    shared: true
+    deriveMethods: true
+    description: "The WebApp's own EF Core Identity database (AppUser/AppRole). Not the Glory2Him.Core database."
+    methods: []
