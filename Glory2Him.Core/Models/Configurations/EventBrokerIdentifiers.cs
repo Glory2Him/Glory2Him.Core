@@ -27,8 +27,8 @@ namespace Glory2Him.Core.Models.Configurations
     /// and tense encodes direction: present participle (<c>-ing</c>) is a request the service
     /// receives, past tense (<c>-ed</c>) is a fact it publishes. So
     /// <c>ContentItemService</c> owns <c>ContentItem-Adding</c> / <c>ContentItem-Added</c>, and
-    /// <c>ContentItemOrchestrationService</c> owns <c>ContentItemOrchestration-Adding</c> /
-    /// <c>ContentItemOrchestration-Added</c>.</para>
+    /// <c>ContentItemProcessingService</c> owns <c>ContentItemProcessing-Adding</c> /
+    /// <c>ContentItemProcessing-Added</c>.</para>
     ///
     /// <para>Because the subject carries the service, the verb is free to stay the standard CRUD
     /// set (<c>Adding</c>, <c>Modifying</c>, <c>RemovingById</c>, <c>HardRemovingById</c>,
@@ -41,7 +41,7 @@ namespace Glory2Him.Core.Models.Configurations
     /// services, because the broker composes the stored event name as
     /// <c>subject + operation</c>. And the <c>On</c> prefix belongs to the receiver <i>method</i>
     /// (<c>OnAddingContentItemAsync</c>) and to the subscription name
-    /// (<c>ContentItemOrchestrationService.OnAddingContentItem</c>) — never to the address.</para>
+    /// (<c>ContentItemProcessingService.OnAddingContentItem</c>) — never to the address.</para>
     ///
     /// <para>A fact asserts only the publisher's own unit of work: a foundation <c>-Added</c>
     /// means a row was written, an orchestration <c>-Added</c> means that process completed
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Models.Configurations
                 BibleReferenceEventAddresses,
                 CommentEventAddresses,
                 ContentItemEventAddresses,
-                ContentItemOrchestrationEventAddresses,
+                ContentItemProcessingEventAddresses,
                 ContentItemSettingEventAddresses,
                 LinkEventAddresses,
                 ReactionEventAddresses,
