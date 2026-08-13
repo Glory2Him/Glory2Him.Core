@@ -48,11 +48,11 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         {
             // given: canonical ordering puts ContentItem on A, since "ContentItem" sorts below
             // "Tag" ordinally
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
             Guid tagGroupId = Guid.NewGuid();
 
-            Association firstAssociation = CreatePair(contentItemGroupId, tagGroupId);
-            Association duplicateAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Association firstAssociation = CreatePair(groupId, tagGroupId);
+            Association duplicateAssociation = CreatePair(groupId, tagGroupId);
 
             // when
             Exception firstOutcome = await SeedAsync(firstAssociation);
@@ -74,16 +74,16 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // index alone cannot catch — reversed, the pair is a different key — which is why
             // canonical ordering is enforced by its own constraint rather than left to the
             // service that normally applies it.
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
             Guid tagGroupId = Guid.NewGuid();
 
-            Association canonicalAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Association canonicalAssociation = CreatePair(groupId, tagGroupId);
 
             Association reversedAssociation = CreateAssociation(
                 entityAType: EntityType.Tag,
                 entityAGroupId: tagGroupId,
                 entityBType: EntityType.ContentItem,
-                entityBGroupId: contentItemGroupId);
+                entityBGroupId: groupId);
 
             // when
             Exception canonicalOutcome = await SeedAsync(canonicalAssociation);
@@ -107,16 +107,16 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // one would be a duplicate. UserId sits LAST in the index and stays nullable, so
             // one index carries both meanings: set, it is one per user; null, it is one
             // globally.
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
             Guid reactionGroupId = Guid.NewGuid();
 
-            Association firstUserAssociation = CreatePair(contentItemGroupId, reactionGroupId);
+            Association firstUserAssociation = CreatePair(groupId, reactionGroupId);
             firstUserAssociation.UserId = Guid.NewGuid().ToString();
 
-            Association secondUserAssociation = CreatePair(contentItemGroupId, reactionGroupId);
+            Association secondUserAssociation = CreatePair(groupId, reactionGroupId);
             secondUserAssociation.UserId = Guid.NewGuid().ToString();
 
-            Association sameUserAgainAssociation = CreatePair(contentItemGroupId, reactionGroupId);
+            Association sameUserAgainAssociation = CreatePair(groupId, reactionGroupId);
             sameUserAgainAssociation.UserId = firstUserAssociation.UserId;
 
             // when
@@ -163,13 +163,13 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // than a query-time expression. Both rows are AllVersions over the same group, so
             // they MEAN the same thing, but their KeyIds differ — over the raw columns they are
             // two distinct rows and any uniqueness built on KeyId would let both through.
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
             Guid tagGroupId = Guid.NewGuid();
 
-            Association firstAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Association firstAssociation = CreatePair(groupId, tagGroupId);
             firstAssociation.EntityAKeyId = Guid.NewGuid();
 
-            Association sameMeaningAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Association sameMeaningAssociation = CreatePair(groupId, tagGroupId);
             sameMeaningAssociation.EntityAKeyId = Guid.NewGuid();
 
             // when
@@ -195,20 +195,20 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // reason "remove a tag, then add it back" works. Without it, every pair a user
             // ever removed would be permanently unrepeatable — the soft-deleted row would go
             // on occupying the key forever.
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
             Guid tagGroupId = Guid.NewGuid();
 
-            Association originalAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Association originalAssociation = CreatePair(groupId, tagGroupId);
             Exception originalOutcome = await SeedAsync(originalAssociation);
 
             // the pair is taken while the row is live
-            Association blockedAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Association blockedAssociation = CreatePair(groupId, tagGroupId);
             Exception blockedOutcome = await this.broker.TryInsertAsync(blockedAssociation);
 
             // when: the original is soft-removed, which is what Remove does — the row stays
             await this.broker.SoftDeleteAsync(originalAssociation);
 
-            Association readdedAssociation = CreatePair(contentItemGroupId, tagGroupId);
+            Association readdedAssociation = CreatePair(groupId, tagGroupId);
             Exception readdedOutcome = await SeedAsync(readdedAssociation);
 
             // then
@@ -318,10 +318,10 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
         // ContentItem sorts below Tag and Reaction ordinally, so it belongs on A — the shape
         // the service's canonical ordering produces, and the only shape the check constraint
         // accepts.
-        private static Association CreatePair(Guid contentItemGroupId, Guid otherGroupId) =>
+        private static Association CreatePair(Guid groupId, Guid otherGroupId) =>
             CreateAssociation(
                 entityAType: EntityType.ContentItem,
-                entityAGroupId: contentItemGroupId,
+                entityAGroupId: groupId,
                 entityBType: EntityType.Tag,
                 entityBGroupId: otherGroupId);
 

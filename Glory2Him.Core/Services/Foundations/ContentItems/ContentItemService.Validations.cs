@@ -216,7 +216,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
                 (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
-                (Rule: IsInvalid(contentItem.ContentItemGroupId), Parameter: nameof(ContentItem.ContentItemGroupId)),
+                (Rule: IsInvalid(contentItem.GroupId), Parameter: nameof(ContentItem.GroupId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)),
                 (Rule: IsInvalid(contentItem.CreatedBy), Parameter: nameof(ContentItem.CreatedBy)),
                 (Rule: IsInvalid(contentItem.UpdatedBy), Parameter: nameof(ContentItem.UpdatedBy)),
@@ -277,7 +277,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
                 (Rule: IsInvalid(contentItem.ContentType), Parameter: nameof(ContentItem.ContentType)),
-                (Rule: IsInvalid(contentItem.ContentItemGroupId), Parameter: nameof(ContentItem.ContentItemGroupId)),
+                (Rule: IsInvalid(contentItem.GroupId), Parameter: nameof(ContentItem.GroupId)),
                 (Rule: IsInvalid(contentItem.Content), Parameter: nameof(ContentItem.Content)),
                 (Rule: IsInvalid(contentItem.CreatedBy), Parameter: nameof(ContentItem.CreatedBy)),
                 (Rule: IsInvalid(contentItem.UpdatedBy), Parameter: nameof(ContentItem.UpdatedBy)),
@@ -379,10 +379,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 // version as latest, and the version anyone actually reviewed would be gone.
                 // The orchestration mints these on the fork; modify never carries them.
                 (Rule: IsNotSame(
-                        first: inputContentItem.ContentItemGroupId,
-                        second: storageContentItem.ContentItemGroupId,
-                        secondName: nameof(ContentItem.ContentItemGroupId)),
-                    Parameter: nameof(ContentItem.ContentItemGroupId)),
+                        first: inputContentItem.GroupId,
+                        second: storageContentItem.GroupId,
+                        secondName: nameof(ContentItem.GroupId)),
+                    Parameter: nameof(ContentItem.GroupId)),
 
                 (Rule: IsNotSame(
                         first: inputContentItem.Version,

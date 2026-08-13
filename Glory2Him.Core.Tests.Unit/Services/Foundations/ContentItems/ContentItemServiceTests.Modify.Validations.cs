@@ -80,7 +80,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             var invalidContentItem = new ContentItem
             {
                 Id = Guid.Empty,
-                ContentItemGroupId = Guid.Empty,
+                GroupId = Guid.Empty,
                 Content = invalidText,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
@@ -97,7 +97,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 values: "Id is required");
 
             invalidContentItemException.AddData(
-                key: nameof(ContentItem.ContentItemGroupId),
+                key: nameof(ContentItem.GroupId),
                 values: "Id is required");
 
             invalidContentItemException.AddData(

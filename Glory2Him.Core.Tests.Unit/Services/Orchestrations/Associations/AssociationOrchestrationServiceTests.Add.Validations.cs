@@ -271,7 +271,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
                         .ReturnsAsync(new ContentItem
                         {
                             Id = rawRequest.EntityAKeyId,
-                            ContentItemGroupId = Guid.NewGuid(),
+                            GroupId = Guid.NewGuid(),
                             ContentType = ContentType.Story,
                         });
 

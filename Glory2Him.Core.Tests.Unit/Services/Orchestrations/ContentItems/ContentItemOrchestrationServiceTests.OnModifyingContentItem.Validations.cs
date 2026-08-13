@@ -212,7 +212,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     contentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(true);
 

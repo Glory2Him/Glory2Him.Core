@@ -186,14 +186,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
 
         // a group read's request payload carries only the group whose versions to read
         private static Expression<Func<ContentItem, bool>> SameGroupRetrieveRequestAs(
-            Guid expectedContentItemGroupId) =>
-            actualContentItem => actualContentItem.ContentItemGroupId == expectedContentItemGroupId;
+            Guid expectedGroupId) =>
+            actualContentItem => actualContentItem.GroupId == expectedGroupId;
 
         // an unfiltered collection read carries no instruction at all — the request payload
         // is an empty content item minted only to capture the ambient security context
         private static Expression<Func<ContentItem, bool>> SameRetrieveAllRequest() =>
             actualContentItem => actualContentItem.Id == Guid.Empty
-                && actualContentItem.ContentItemGroupId == Guid.Empty;
+                && actualContentItem.GroupId == Guid.Empty;
 
         private static string GetRandomString() =>
             new MnemonicString(wordCount: GetRandomNumber()).GetValue();

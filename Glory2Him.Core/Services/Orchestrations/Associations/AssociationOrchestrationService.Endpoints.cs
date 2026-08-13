@@ -134,7 +134,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
             bool isVersioned = EntityTypeVersioning.IsVersioned(entityType);
 
             return new ResolvedEndpoint(
-                groupId: isVersioned ? versionedEndpoint!.ContentItemGroupId : keyId,
+                groupId: isVersioned ? versionedEndpoint!.GroupId : keyId,
                 contentType: contentType,
                 scope: EntityTypeVersioning.DefaultScopeFor(entityType));
         }

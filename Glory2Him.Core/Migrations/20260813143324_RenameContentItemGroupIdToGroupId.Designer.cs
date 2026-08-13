@@ -4,6 +4,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    partial class StorageBrokerModelSnapshot : ModelSnapshot
+    [Migration("20260813143324_RenameContentItemGroupIdToGroupId")]
+    partial class RenameContentItemGroupIdToGroupId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -50,8 +53,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -111,8 +113,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -197,8 +198,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("DoNotAllowBypassingSettings")
                         .ValueGeneratedOnAdd()
@@ -288,8 +288,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("EntityId")
                         .HasColumnType("uniqueidentifier");
@@ -366,8 +365,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("EntityAContentType")
                         .HasMaxLength(32)
@@ -524,8 +522,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uniqueidentifier");
@@ -629,8 +626,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsApprovedByBypass")
                         .ValueGeneratedOnAdd()
@@ -721,8 +717,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsApprovedByBypass")
                         .ValueGeneratedOnAdd()
@@ -801,8 +796,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -931,8 +925,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uniqueidentifier");
@@ -1042,8 +1035,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("GroupId")
                         .HasColumnType("uniqueidentifier");
@@ -1174,8 +1166,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsApprovedByBypass")
                         .ValueGeneratedOnAdd()
@@ -1253,8 +1244,7 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.Property<string>("DeletionReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsApprovedByBypass")
                         .ValueGeneratedOnAdd()

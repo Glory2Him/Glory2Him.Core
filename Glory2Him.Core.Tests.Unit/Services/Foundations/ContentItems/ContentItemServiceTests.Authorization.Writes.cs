@@ -270,7 +270,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
         // ── The version lineage is the workflow's, not the caller's ──────────────────
         //
-        // Version, IsLatestVersion and ContentItemGroupId are how an approved item's history
+        // Version, IsLatestVersion and GroupId are how an approved item's history
         // is read back. Left writable, a caller could detach an item from its group or crown
         // an old version as latest, and the approved version anyone reviewed would be gone.
 
@@ -290,7 +290,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem storageContentItem = invalidContentItem.DeepClone();
             storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
-            invalidContentItem.ContentItemGroupId = Guid.NewGuid();
+            invalidContentItem.GroupId = Guid.NewGuid();
             invalidContentItem.Version = 7;
             invalidContentItem.IsLatestVersion = true;
 
@@ -298,8 +298,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.");
 
             invalidContentItemException.AddData(
-                key: nameof(ContentItem.ContentItemGroupId),
-                values: $"Id is not the same as {nameof(ContentItem.ContentItemGroupId)}");
+                key: nameof(ContentItem.GroupId),
+                values: $"Id is not the same as {nameof(ContentItem.GroupId)}");
 
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.Version),

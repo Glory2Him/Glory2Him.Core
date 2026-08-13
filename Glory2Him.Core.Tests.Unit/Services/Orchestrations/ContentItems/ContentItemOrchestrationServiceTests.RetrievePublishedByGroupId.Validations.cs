@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         public async Task ShouldThrowValidationExceptionOnRetrievePublishedByGroupIdIfGroupIdIsInvalidAndLogItAsync()
         {
             // given
-            Guid invalidContentItemGroupId = Guid.Empty;
+            Guid invalidGroupId = Guid.Empty;
             ContentItem randomContentItem = CreateRandomContentItem();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -41,7 +41,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item is invalid, fix the errors and try again.");
 
             invalidContentItemOrchestrationException.AddData(
-                key: nameof(ContentItem.ContentItemGroupId),
+                key: nameof(ContentItem.GroupId),
                 values: "Id is required");
 
             var expectedContentItemOrchestrationValidationException =
@@ -50,13 +50,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: invalidContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(invalidContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(invalidGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
             ValueTask<ContentItem> retrievePublishedContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrievePublishedContentItemByGroupIdAsync(
-                    invalidContentItemGroupId,
+                    invalidGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
@@ -86,16 +86,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given: a group whose only published row is soft-deleted has no readable
             // published version — like a missing group, it answers not found before the
             // clock or the caller's identity is ever consulted
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
             ContentItem unpublishedContentItem = CreateRandomNonPublicContentItem(
                 createdBy: GetRandomString());
 
-            unpublishedContentItem.ContentItemGroupId = inputContentItemGroupId;
+            unpublishedContentItem.GroupId = inputGroupId;
             ContentItem deletedPublishedContentItem = CreateRandomDeletedContentItem(currentDateTime);
-            deletedPublishedContentItem.ContentItemGroupId = inputContentItemGroupId;
+            deletedPublishedContentItem.GroupId = inputGroupId;
 
             IQueryable<ContentItem> storageContentItems = new[]
             {
@@ -106,7 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { ContentItemGroupId = inputContentItemGroupId },
+                contentItem: new ContentItem { GroupId = inputGroupId },
                 securityContext: securityContext);
 
             var notFoundContentItemOrchestrationException =
@@ -119,7 +119,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: notFoundContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -129,7 +129,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ValueTask<ContentItem> retrievePublishedContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrievePublishedContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
@@ -148,7 +148,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // the server-side log — and only there
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogInformationAsync(
-                    $"Content item read denied. Group {inputContentItemGroupId} has no " +
+                    $"Content item read denied. Group {inputGroupId} has no " +
                         "non-deleted published version; reported to the caller as not found."),
                 Times.Once);
 
@@ -173,8 +173,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given: a future-scheduled published row is reported as not found — never as
             // unauthorized — so an anonymous probe cannot tell a scheduled group from a
             // missing one, and the caller is never identified
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
             ContentItem publishedContentItem = CreateRandomPubliclyVisibleContentItem(
@@ -182,7 +182,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 currentDateTime: currentDateTime,
                 hasPublishDate: true);
 
-            publishedContentItem.ContentItemGroupId = inputContentItemGroupId;
+            publishedContentItem.GroupId = inputGroupId;
             publishedContentItem.PublishDate = currentDateTime.AddDays(1);
 
             IQueryable<ContentItem> storageContentItems = new[]
@@ -191,7 +191,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             }.AsQueryable();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { ContentItemGroupId = inputContentItemGroupId },
+                contentItem: new ContentItem { GroupId = inputGroupId },
                 securityContext: unauthenticatedSecurityContext!);
 
             var notFoundContentItemOrchestrationException =
@@ -204,7 +204,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: notFoundContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -218,7 +218,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ValueTask<ContentItem> retrievePublishedContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrievePublishedContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =
@@ -260,8 +260,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given: an authenticated caller who is neither the owner nor in a review
             // role reads a future-scheduled published row as not found until the
             // schedule passes
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
             ContentItem publishedContentItem = CreateRandomPubliclyVisibleContentItem(
@@ -269,7 +269,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 currentDateTime: currentDateTime,
                 hasPublishDate: true);
 
-            publishedContentItem.ContentItemGroupId = inputContentItemGroupId;
+            publishedContentItem.GroupId = inputGroupId;
             publishedContentItem.PublishDate = currentDateTime.AddDays(1);
 
             IQueryable<ContentItem> storageContentItems = new[]
@@ -281,7 +281,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             string actorUserId = GetRandomString();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { ContentItemGroupId = inputContentItemGroupId },
+                contentItem: new ContentItem { GroupId = inputGroupId },
                 securityContext: securityContext);
 
             var notFoundContentItemOrchestrationException =
@@ -294,7 +294,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: notFoundContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -312,7 +312,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ValueTask<ContentItem> retrievePublishedContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrievePublishedContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =

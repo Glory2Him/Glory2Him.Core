@@ -30,12 +30,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // non-public draft still counts as a duplicate
             ContentType contentType = ContentType.Quote;
             string contentHash = GetRandomString();
-            Guid excludedContentItemGroupId = Guid.NewGuid();
+            Guid excludedGroupId = Guid.NewGuid();
 
             ContentItem matchingContentItem = CreateRandomContentItem();
             matchingContentItem.ContentType = contentType;
             matchingContentItem.ContentHash = contentHash;
-            matchingContentItem.ContentItemGroupId = Guid.NewGuid();
+            matchingContentItem.GroupId = Guid.NewGuid();
             matchingContentItem.IsDeleted = false;
             matchingContentItem.ApprovalStatus = ApprovalStatus.Draft;
             matchingContentItem.IsPublished = false;
@@ -66,7 +66,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 await this.contentItemService.CheckContentItemContentExistsAsync(
                     contentType,
                     contentHash,
-                    excludedContentItemGroupId,
+                    excludedGroupId,
                     TestContext.Current.CancellationToken);
 
             // then
@@ -94,12 +94,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // earlier wording of the same group is not a duplicate
             ContentType contentType = ContentType.Quote;
             string contentHash = GetRandomString();
-            Guid excludedContentItemGroupId = Guid.NewGuid();
+            Guid excludedGroupId = Guid.NewGuid();
 
             ContentItem excludedGroupContentItem = CreateRandomContentItem();
             excludedGroupContentItem.ContentType = contentType;
             excludedGroupContentItem.ContentHash = contentHash;
-            excludedGroupContentItem.ContentItemGroupId = excludedContentItemGroupId;
+            excludedGroupContentItem.GroupId = excludedGroupId;
             excludedGroupContentItem.IsDeleted = false;
 
             IQueryable<ContentItem> storageContentItems = new List<ContentItem>
@@ -116,7 +116,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 await this.contentItemService.CheckContentItemContentExistsAsync(
                     contentType,
                     contentHash,
-                    excludedContentItemGroupId,
+                    excludedGroupId,
                     TestContext.Current.CancellationToken);
 
             // then
@@ -163,7 +163,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 await this.contentItemService.CheckContentItemContentExistsAsync(
                     contentType,
                     contentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             // then
@@ -216,7 +216,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 await this.contentItemService.CheckContentItemContentExistsAsync(
                     contentType,
                     contentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             // then

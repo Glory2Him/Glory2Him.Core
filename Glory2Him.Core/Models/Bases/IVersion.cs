@@ -13,20 +13,37 @@ using System;
 
 namespace Glory2Him.Core.Models.Bases
 {
+    /// <summary>
+    /// Versioning for an entity whose amendments produce a new row rather than mutating the
+    /// existing one (design §3.3, §3.4).
+    ///
+    /// <para><b><see cref="GroupId"/> was called <c>ContentItemGroupId</c>.</b> It was named for
+    /// the first entity to carry it, and the name outlived that: every approvable entity is
+    /// versioned, so a tag's version group would have been a "content item group id" on a row
+    /// that has nothing to do with a content item.</para>
+    /// </summary>
     public interface IVersion
     {
         /// <summary>
-        /// Content item group identifier to group multiple versions of the same content item.
+        /// Groups every version of one logical item. Constant across the whole version chain;
+        /// minted once when version 1 is created and copied by each fork.
+        ///
+        /// <para>Not to be confused with an association's <c>EntityAGroupId</c> /
+        /// <c>EntityBGroupId</c>, which are the group ids of the two rows it points AT. An
+        /// association that implements this interface carries all three, and they answer
+        /// different questions.</para>
         /// </summary>
-        Guid ContentItemGroupId { get; set; }
+        Guid GroupId { get; set; }
 
         /// <summary>
-        /// Version number of the content item (required, defaults to 1).
+        /// Version number within the group (required, defaults to 1).
         /// </summary>
         int Version { get; set; }
 
         /// <summary>
-        /// Gets or sets a value indicating whether the current instance represents the latest version.
+        /// Whether this row is the tip of the version chain — the row edits go to. Distinct from
+        /// <c>IsPublished</c>, which marks the row the public reads; during a review window the
+        /// two deliberately sit on different rows (design §3.4.1).
         /// </summary>
         bool IsLatestVersion { get; set; }
     }

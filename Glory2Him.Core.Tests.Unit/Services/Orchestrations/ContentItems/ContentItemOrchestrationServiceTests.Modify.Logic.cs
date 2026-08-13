@@ -84,7 +84,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     expectedContentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(false);
 
@@ -131,7 +131,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     expectedContentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -216,7 +216,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     expectedContentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(false);
 
@@ -305,7 +305,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     expectedContentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(false);
 
@@ -371,7 +371,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 // not ride in on it — a fresh draft has none until approve grants one
                 PublishDate = null,
                 ContentHash = expectedContentHash,
-                ContentItemGroupId = storageContentItem.ContentItemGroupId,
+                GroupId = storageContentItem.GroupId,
                 Version = storageContentItem.Version + 1,
                 IsLatestVersion = true,
                 IsPublished = false,
@@ -407,7 +407,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     expectedContentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(false);
 
@@ -470,7 +470,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     expectedContentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -558,7 +558,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     expectedContentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(false);
 
@@ -629,7 +629,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 service.CheckContentItemContentExistsAsync(
                     inputContentItem.ContentType,
                     contentHash,
-                    storageContentItem.ContentItemGroupId,
+                    storageContentItem.GroupId,
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(false);
 

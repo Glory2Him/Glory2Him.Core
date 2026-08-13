@@ -126,7 +126,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// and the review roles see every non-deleted version of the group.
         /// </summary>
         ValueTask<IQueryable<ContentItem>> RetrieveContentItemsByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -141,7 +141,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// reason before the reason-free error is thrown (§14.5).
         /// </summary>
         ValueTask<ContentItem> RetrieveLatestContentItemByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -157,7 +157,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         /// error is thrown (§14.5).
         /// </summary>
         ValueTask<ContentItem> RetrievePublishedContentItemByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             CancellationToken cancellationToken = default);
     }
 }

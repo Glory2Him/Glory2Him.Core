@@ -102,10 +102,10 @@ The content item model should contain the following design-relevant properties:
 | `Author` | Optional content author. |
 | `Content` | Required body content. |
 | `ContentHash` | SHA-256 hash of the normalized `Content` (trim, collapse whitespace, lowercase). Control field computed on every write. Non-unique index on (`ContentType`, `ContentHash`) for duplicate detection (§3.4.2). |
-| `ContentItemGroupId` | Groups multiple versions of the same logical content item. |
+| `GroupId` | Groups multiple versions of the same logical content item. |
 | `Version` | Version number for the item. |
-| `IsLatestVersion` | Identifies the latest version within the content group. Only one row per `ContentItemGroupId` may be latest. |
-| `IsPublished` | Identifies the currently published version. Only one row per `ContentItemGroupId` may be published. |
+| `IsLatestVersion` | Identifies the latest version within the content group. Only one row per `GroupId` may be latest. |
+| `IsPublished` | Identifies the currently published version. Only one row per `GroupId` may be published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
 | `PublishDate` | Optional date/time from which the content can be visible. |
 | `IsDeleted` | Soft-delete flag. When `true` the item is excluded from all public visibility. |
@@ -122,7 +122,7 @@ The content item model should contain the following design-relevant properties:
 Content is versioned by using:
 
 1. `Id` for the specific version.
-2. `ContentItemGroupId` for the logical content item across all versions.
+2. `GroupId` for the logical content item across all versions.
 3. `Version` for the version number.
 4. `IsLatestVersion` to identify the latest editable version.
 5. `IsPublished` to identify the current public version.
@@ -134,34 +134,38 @@ The following rules apply:
 1. A new content item starts with `Version = 1`.
 2. A new content item starts with `IsLatestVersion = true`.
 3. A new content item starts with `IsPublished = false` unless it is approved and published through the approval workflow.
-4. A content item that has not yet been approved may be edited in-place.
-5. Editing a draft, submitted, or rejected item does not create a new version.
+4. A content item in `Draft` or `Submitted` may be edited in place.
+5. Editing a `Draft` or `Submitted` item does not create a new version.
 6. If approval reviews have already been submitted and the content item itself changes, those reviews must be dismissed (subject to `ApprovalSetting.RequireReapprovalOnChange`) and the item must be reviewed again. The item itself remains in its current status.
-7. Once a content item has been approved, it becomes immutable to its owner. Only an `Admin` may amend an approved item in-place (rule 16).
-8. When the owner edits an approved content item, a new `ContentItem` row is created with the same `ContentItemGroupId` and incremented `Version`. The owner is the only creator of new versions — `Publisher` and `Admin` roles never create version forks.
+7. **`Approved` and `Rejected` are terminal.** A content item in either state is immutable in place — to its owner, to a `Publisher`, and to an `Admin` alike. No role amends a terminal row's content, and there is no in-place exception (rule 16).
+8. Editing a terminal content item creates a new `ContentItem` row with the same `GroupId` and incremented `Version`. The owner is the only creator of new versions — `Publisher` and `Admin` roles never create version forks.
+
+   A rejected row is terminal on the same terms as an approved one, and for the same reason: reviewers reached a verdict on that text, and text that changes underneath a verdict makes the verdict a record of nothing. The difference is only in what stays live — a **rejected** row never published, so a fork off one leaves the group with no public row until the new version is approved, where a fork off an approved one leaves the approved row published throughout (rule 12).
 9. The new version becomes `IsLatestVersion = true`.
 10. The previous latest version becomes `IsLatestVersion = false`.
 11. The new version must not become `IsPublished = true` until approved.
 12. The previously published version remains `IsPublished = true` until the new version is approved and published.
-13. Only one content item per `ContentItemGroupId` may have `IsLatestVersion = true`.
-14. Only one content item per `ContentItemGroupId` may have `IsPublished = true`.
+13. Only one content item per `GroupId` may have `IsLatestVersion = true`.
+14. Only one content item per `GroupId` may have `IsPublished = true`.
 15. Previous versions must remain available for audit, approval history, comparison, and rollback.
-16. An `Admin` may amend an approved content item in-place without creating a new version. The normal updated event fires, the item's approval is reset to `Submitted`, and all active approval reviews are marked `Dismissed` (stale). The item then goes through the normal approval process again, or the `Admin` may bypass-approve it.
-17. While such re-approval is pending, the amended item no longer satisfies canonical content visibility (its `ApprovalStatus` is `Submitted`) and is not publicly visible until approved again.
-18. `IsLatestVersion` is written at exactly two points: creation (`true` on the new row) and version fork (`true` on the new row, `false` on the previous latest). No other operation — submit, review, approve, publish, or an `Admin` in-place amendment — changes `IsLatestVersion`.
+16. **There is no in-place amendment of a terminal item, by any role.** This rule previously granted an `Admin` one: amend an approved item without forking, resetting its approval to `Submitted` and dismissing active reviews. It is withdrawn, because a state that one role can edit out of is not terminal, and rule 7 depends on it being terminal for everyone.
+
+    What replaces it is narrower and leaves a record. An `Admin` may move a terminal item's **status** back to `Submitted` through the approval transition operation (§8.6 HR-4, §9.7.1 rule 3) — an override, gated to `Admin` alone, which unpublishes the row on the way out of `Approved`. Ordinary editing resumes only once the row is no longer terminal. The two acts stay separate: a status transition changes no content, and a content edit changes no status.
+17. While such a re-opened item is pending, it no longer satisfies canonical content visibility (its `ApprovalStatus` is `Submitted`) and is not publicly visible until approved again.
+18. `IsLatestVersion` is written at exactly two points: creation (`true` on the new row) and version fork (`true` on the new row, `false` on the previous latest). No other operation — submit, review, approve, publish, or an `Admin` status override — changes `IsLatestVersion`.
 
 #### 3.4.1 IsLatestVersion Lifecycle
 
-`IsLatestVersion` marks the tip of the version chain — the row edits go to. `IsPublished` marks the row the public sees. During a review window the two flags deliberately sit on different rows. Exactly one `IsLatestVersion = true` per `ContentItemGroupId` at all times; at most one `IsPublished = true` (both enforced by unique filtered indexes).
+`IsLatestVersion` marks the tip of the version chain — the row edits go to. `IsPublished` marks the row the public sees. During a review window the two flags deliberately sit on different rows. Exactly one `IsLatestVersion = true` per `GroupId` at all times; at most one `IsPublished = true` (both enforced by unique filtered indexes).
 
 | Lifecycle event | `IsLatestVersion` | `IsPublished` |
 | --- | --- | --- |
 | Create V1 | V1 = `true` (the only row is the tip) | V1 = `false` |
-| Edit a not-yet-approved item (in-place) | unchanged | unchanged |
-| Owner edits an `Approved` item (fork) | new row = `true`; previous latest = `false` | new row = `false`; previously published row unchanged |
+| Edit a `Draft` or `Submitted` item (in place) | unchanged | unchanged |
+| Owner edits a terminal item — `Approved` or `Rejected` (fork) | new row = `true`; previous latest = `false` | new row = `false`; previously published row unchanged |
 | Submit / review / reject | unchanged | unchanged |
 | Approve + publish | unchanged (the approved row already carries `true`) | approved row = `true`; previously published row = `false` |
-| `Admin` amends an `Approved` item in-place | unchanged | unchanged (visibility is gated by `ApprovalStatus` until re-approved) |
+| `Admin` overrides a terminal item's status back to `Submitted` | unchanged | that row = `false` (§8.6 HR-4); no other row is republished |
 
 Worked example (V1 published, owner edits):
 
@@ -172,6 +176,16 @@ Worked example (V1 published, owner edits):
 | V2 submitted, under review | latest=`false`, published=`true` | latest=`true`, published=`false`, `Submitted` |
 | V2 approved + published | latest=`false`, published=`false` | latest=`true`, published=`true` |
 
+Worked example (V1 rejected, owner edits) — the case that distinguishes a rejected terminal row:
+
+| Step | V1 | V2 |
+| --- | --- | --- |
+| V1 rejected | latest=`true`, published=`false`, `Rejected` | — |
+| Owner edits → fork V2 | latest=`false`, published=`false` | latest=`true`, published=`false`, `Draft` |
+| V2 approved + published | latest=`false`, published=`false` | latest=`true`, published=`true` |
+
+Note the middle row: the group has **no published version at all** while V2 is in review, because V1 never had one to keep. Nothing is demoted at V2's publish, so §9.7.7 rule 7's ordering has nothing to order.
+
 #### 3.4.2 Duplicate Content Rule
 
 Purpose: two different people cannot submit the exact same content.
@@ -179,7 +193,7 @@ Purpose: two different people cannot submit the exact same content.
 1. The duplicate match compares `Content` only (not `Title` or `Author`).
 2. The match is normalized: trim ends, collapse whitespace/newline runs to a single space, lowercase (invariant culture). The normalization function is a frozen contract — changing it requires recomputing every stored hash in a migration.
 3. The match is scoped per `ContentType`.
-4. The match compares against all non-deleted rows (any status, any version). On modify, the item's own `ContentItemGroupId` is excluded.
+4. The match compares against all non-deleted rows (any status, any version). On modify, the item's own `GroupId` is excluded.
 5. Mechanism: `ContentHash` = SHA-256 of the normalized content, computed by the orchestration on every write and stored on `ContentItem`. A non-unique index on (`ContentType`, `ContentHash`) makes the check an index seek. The index must not be unique — rows within one group may legitimately share a hash (for example a later version reverting to earlier wording); enforcement is application-side.
 6. Response on a duplicate: add → polite acknowledgement ("Thank you for your submission") without creating the record and without revealing the duplicate; modify → validation error.
 
@@ -193,7 +207,7 @@ For `ContentItem`:
 
 1. Changes to `Title`, `Author`, `Content`, `ContentType`, `PublishDate`, or other approval-sensitive content metadata may invalidate the content item's own approval.
 2. If reviews exist for the content item, the reviews should be marked as `Dismissed` when the content changes.
-3. The approval status of the item does not change when reviews are dismissed — a `Submitted` item remains `Submitted`. Exception: an `Admin` in-place amendment of an `Approved` item resets the approval to `Submitted`.
+3. The approval status of the item does not change when reviews are dismissed — a `Submitted` item remains `Submitted`. There is no exception: the `Admin` in-place amendment that used to be one is withdrawn (§3.4 rule 16), and an amendment of a terminal item forks rather than resetting anything.
 4. Reviewers must review the updated content again.
 
 For linked entities:
@@ -367,7 +381,7 @@ Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, C
 | --- | --- |
 | `Id` | Unique tag identifier. |
 | `Name` | Tag name. |
-| `ContentItemGroupId` | Groups all versions of this tag record together. Populated on creation and shared across all versions. |
+| `GroupId` | Groups all versions of this tag record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this tag record, defaults to 1. |
 | `IsLatestVersion` | Identifies the latest version of this tag record. |
 | `PublishDate` | Optional date/time from which this tag becomes visible. |
@@ -391,7 +405,7 @@ Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, C
 | `Id` | Unique reaction identifier. |
 | `Name` | Reaction name. |
 | `UnicodeEmoji` | Emoji representation. |
-| `ContentItemGroupId` | Groups all versions of this reaction record together. Populated on creation and shared across all versions. |
+| `GroupId` | Groups all versions of this reaction record together. Populated on creation and shared across all versions. |
 | `Version` | Version number of this reaction record, defaults to 1. |
 | `IsLatestVersion` | Identifies the latest version of this reaction record. |
 | `PublishDate` | Optional date/time from which this reaction becomes visible. |
@@ -702,9 +716,19 @@ Rules:
 
 1. The approval orchestration must resolve the publication model from this table, mirrored in code as one lookup keyed on `EntityType`. It must **not** infer it by probing the entity for the `IVersion` interface, by reflecting over property names, or by inspecting EF configuration.
 
-   Runtime shape is not a stable discriminator, and the repository proves it twice. §5.1 and §5.2 describe `Tag` and `Reaction` as carrying `ContentItemGroupId`/`Version`/`IsLatestVersion`, but neither implements the properties or the interface. More sharply, `BibleReference` dropped `IVersion` and its versioning properties while its storage configuration and validations kept referencing them — a probe would have silently changed the approval branch, where the compiler at least reports the mismatch.
+   Runtime shape is not a stable discriminator, and the repository proves it twice. §5.1 and §5.2 describe `Tag` and `Reaction` as carrying `GroupId`/`Version`/`IsLatestVersion`, but neither implements the properties or the interface. More sharply, `BibleReference` dropped `IVersion` and its versioning properties while its storage configuration and validations kept referencing them — a probe would have silently changed the approval branch, where the compiler at least reports the mismatch.
 2. Adding an entity type to §7.5 without adding it here is an incomplete change. A missing row is a hard error, never a default.
-3. `Versioned` means an amendment to an approved row produces a **new row** (§3.4 rule 8) and the previously published row stays live until the new one is approved. `Single-Row` means the row that is edited **is** the published row.
+3. `Versioned` means an amendment to a **terminal** row — `Approved` or `Rejected` (§9.3, §9.4) — produces a **new row** (§3.4 rule 8), and any previously published row stays live until the new one is approved. `Single-Row` means the row that is edited **is** the published row, so there is nothing to fork into and an amendment of a terminal row is **refused** instead.
+
+   The two branches are therefore not two ways of doing the same thing. Versioned preserves the rejected or approved text as a row and moves on; Single-Row has nowhere to preserve it, so it holds the row still until an `Admin` override re-opens it (§8.8 regardless-rule 1).
+
+4. **Why this split survived `Approved` and `Rejected` becoming terminal.** The obvious simplification — version everything, so every terminal row can fork and one rule covers all ten types — was considered and rejected on two independent grounds.
+
+   **Three of the Single-Row entities carry a natural-key unique index that a fork would violate.** A fork produces a second row holding the same `Tag.Name`, `Reaction.Name` or `BibleReference.USFM`, and each index refuses it. Versioning those types would have meant re-scoping each constraint to the live tip — narrowing a uniqueness guarantee to make room for rows nobody asked for.
+
+   **And `Association` has no caller-editable content at all.** Every non-audit property is pinned against storage on modify, so the general modify's whole effective payload is the `Draft` ↔ `Submitted` carve-out — the same subtraction §8.6.1 uses to show a last-editor column would be provably inert on it. There is no content amendment to fork, so versioning it would add three columns and three indexes that nothing could ever write.
+
+   The rule that generalises instead is **§3.4 rule 7**: a terminal row's content is immutable. Versioning decides *what an owner does next*, not whether the row is protected.
 
 ### 7.6 ApprovalReview
 
@@ -914,13 +938,17 @@ The answer is a **policy broker**, not a cross-entity read — and it extends th
 
 **`IAccessClient` has landed, and the gaps below closed with it — for two services.** The mechanism exists: `securityClient.Access` decides, `IAccessBroker` in `Brokers/Securities/` gathers, and `AssociationService`'s approve path and `ApprovalReviewService`'s add and modify paths both call it. What follows records what that changed and, just as importantly, what it did **not**.
 
-**It is wired into `Association` and `ApprovalReview` only.** The other six approvable entities have no approve operation yet (§9.7.1, §12.4.4), so there is nothing to gate there; when they gain one it must call the broker, and that is the whole of what consequence 2 below asks. The rules are not enforced "everywhere" — they are enforced everywhere they currently apply, which is not the same claim and must not be read as one.
+**It is wired into every approvable entity that has a foundation service.** `ApproveContentItemAsync`, `ApproveTagAsync`, `ApproveReactionAsync`, `ApproveCommentAsync`, `ApproveBibleReferenceAsync`, `ApproveLinkAsync` and `ApproveAssociationAsync` all exist, and each calls `IAccessBroker` before writing. `ApprovalReviewService`'s add and modify paths do the same.
+
+*This paragraph used to read "wired into `Association` and `ApprovalReview` only… the other six have no approve operation yet". That is out of date: the rollout happened, and consequence 2 below — the obligation on any new approve operation to call the broker — was discharged rather than left outstanding.* The one approvable entity still outside this is `Attachment`, which has no foundation service at all.
+
+The rules are enforced everywhere they currently apply, which is still not the same claim as "everywhere", and must not be read as one.
 
 **The HR-2 interim posture is over.** Foundation services refused self-approval *unconditionally* while the setting that governs it lived on a table they could not read. That bar now goes through the access decision, so `AllowSelfApproval = true` finally has the effect §8.6 says it has. The strict rule shipped first and has relaxed to the configured one, which was the plan.
 
 **HR-4 route 1 is enforced.** `RequireApprovals`, `RequiredNumberOfApprovals`, `RequireReviewCommentResolutionBeforeApprovals`, `BlockOnReject` and `BlockOnZeroApprovalScore` are read on every approve, and the §8.5 formula is evaluated once, in one place. A caller reaching the foundation approve address directly can no longer publish a row with no reviews, or whose reviews are rejections, or whose `ConfidenceScore` is `0` under a policy that blocks it.
 
-**HR-4 route 3 is now implemented — on `Association`.** `BypassApproveAssociationAsync` is the bypass verb, and it is a separate operation rather than a flag on approve: a flag would make every ordinary approve a potential bypass and would demote the reason — the only thing that makes a bypass tolerable — to an optional argument on the common path. It runs the same row-local `Publisher`-tier gate as the ordinary approve, resolved from the **stored** endpoints, then calls `IAccessBroker` with `IsBypassRequested = true` and the reason attached. `DoNotAllowBypassingSettings` therefore now closes a route that exists rather than gating nothing: under it the bypass is refused to everyone including `Admin`, and an unexplained bypass is refused under any policy. Both entry paths reach it — the direct method and the `Association-BypassApproving` address — and both land on `Association-Approved`, because a bypass approval is an approval to every subscriber and the waiver travels on the row; a fact of its own would split the audience for one outcome and leave anyone subscribed to `-Approved` missing exactly the approvals most worth seeing. **Scope: `Association` only.** The other six approvable entities have no approve operation at all, so they have no bypass either, and consequence 2 below applies to both verbs when they gain one.
+**HR-4 route 3 is now implemented — on `Association`.** `BypassApproveAssociationAsync` is the bypass verb, and it is a separate operation rather than a flag on approve: a flag would make every ordinary approve a potential bypass and would demote the reason — the only thing that makes a bypass tolerable — to an optional argument on the common path. It runs the same row-local `Publisher`-tier gate as the ordinary approve, resolved from the **stored** endpoints, then calls `IAccessBroker` with `IsBypassRequested = true` and the reason attached. `DoNotAllowBypassingSettings` therefore now closes a route that exists rather than gating nothing: under it the bypass is refused to everyone including `Admin`, and an unexplained bypass is refused under any policy. Both entry paths reach it — the direct method and the `Association-BypassApproving` address — and both land on `Association-Approved`, because a bypass approval is an approval to every subscriber and the waiver travels on the row; a fact of its own would split the audience for one outcome and leave anyone subscribed to `-Approved` missing exactly the approvals most worth seeing. **Scope: `Association` only.** The other six each have an ordinary approve operation but no bypass verb, so a bypass is unavailable on them rather than ungated.
 
 **Route 2 remains unimplemented, and that is where the remaining gap sits.** `IAccessClient` answers it — `ApprovalConditionsVerdict.ShouldAutoApprove` — but nothing calls it. Route 2 needs the approval evaluation of §9.7.7, which belongs to an orchestration, and there is no `Association` orchestration. The exposure is bounded: it is an absent automation rather than an absent restriction, so the effect is that `AutoApproveIfAllApprovalRequirementsMet = true` does nothing, which is stricter than configured and not more permissive.
 
@@ -947,7 +975,9 @@ Two findings from that attempt are recorded because they close off the obvious r
 Three consequences follow, and all are load-bearing:
 
 1. **What remains open is route 2, and it is recorded rather than accepted.** The permissive gap that used to sit here has closed: `DoNotAllowBypassingSettings` gated nothing while no bypass verb existed, and now it gates the verb that exists. What is left is an absent automation, not an absent restriction — `AutoApproveIfAllApprovalRequirementsMet` has no effect, which errs strict. The `Known limitation` above can ship forever; so, on those terms, can this one — but only until an `Association` orchestration exists to host §9.7.7, at which point leaving it unwired would be a choice rather than a gap.
-2. **`IAccessClient` landed before the approve operation was replicated (§9.7.1, §12.4.4), which is what made this a one-place job.** Every service built before it would have inherited the gap, and the retrofit is not a permissive one-line relaxation — it is a whole new gate plus its tests, in each service. The obligation now runs the other way: an approve operation added to any of the remaining six entities **must** call `IAccessBroker`, and a review of that work should check for the call before anything else.
+2. **`IAccessClient` landed before the approve operation was replicated (§9.7.1, §12.4.4), which is what made this a one-place job — and the replication has since happened.** Every service built before it would have inherited the gap, and the retrofit is not a permissive one-line relaxation: it is a whole new gate plus its tests, in each service. Sequencing it first meant the seven approve operations were each written against a gate that already existed.
+
+   The obligation it created is **discharged** for the seven entities that have a foundation service, and stands only for `Attachment`, which has none. An approve operation added there must call `IAccessBroker`, and a review of that work should check for the call before anything else.
 3. **The last-editor question is settled.** It was implemented once against `UpdatedBy` and withdrawn; the clause was then rewritten rather than a column added, and what replaced it rides on `IAccessClient` (consequence 2) instead of becoming a third mechanism. Nothing further is owed here.
 
 ### 8.7 Rejection Rules
@@ -977,7 +1007,13 @@ If `RequireReapprovalOnChange = false`:
 
 Regardless of this setting:
 
-1. An `Admin` in-place amendment of an `Approved` entity always resets the approval to `Submitted` and dismisses active reviews. The normal approval process then applies, or the `Admin` may bypass-approve.
+1. **An `Admin` override that moves a terminal entity back to `Submitted` always dismisses active reviews.** This replaces the in-place amendment that used to sit here — that is withdrawn, because a state one role can edit out of is not terminal (§3.4 rule 16). The override changes status, never content, and is gated to `Admin` alone (§8.6 HR-4).
+
+   The dismissal is unconditional here for the same reason it is unconditional after a rejection: the reviews belong to a round that closed. `RequireReapprovalOnChange` governs whether an edit *during* a round invalidates the reviews taken so far; it has nothing to say about reviews that already produced a verdict. Re-opening the round on the strength of those verdicts would let an approval be reinstated by the very reviews the override just overruled.
+
+   The normal approval process then applies, or the `Admin` may bypass-approve.
+
+**Both branches above are scoped to a live round.** Neither fires on an edit of a terminal entity, because there is no such edit: a versioned entity forks (and the fork's own approval starts empty, with nothing to dismiss) and a non-versioned entity's edit is refused.
 
 ### 8.9 Role-Based Approval Rules
 
@@ -999,19 +1035,36 @@ An entity starts in `Draft` when it is created but not yet ready for review.
 
 1. A create at `Submitted` creates the `Approval` at `Submitted` and the entity enters the review queue immediately. This is the common path.
 2. A create at `Draft` creates the `Approval` record at `Draft`. Nothing is reviewable, no reviewer queue shows it, and the approval flow stops there (§9.7.3).
-3. Beyond creation, an entity moves between `Draft` and `Submitted` through the **general modify**, as the single narrow carve-out to the content-only rule (§9.7.1). There is no separate submit operation: creation already carries `Submitted` for the common path, and a later submission is inseparable from the edit that made the work ready. A dedicated operation would have added a surface whose only job was to set one field the modify already had in hand.
+3. Beyond creation, an entity moves between `Draft` and `Submitted` by **either** of two routes, and both are live.
+
+   **A dedicated `Submit<Entity>ByIdAsync` operation**, on every approvable foundation service, answering on its own `<Entity>-Submitting` address and publishing `<Entity>-Submitted`. It owns exactly `ApprovalStatus`, drives it to a fixed value, and therefore takes nothing but the id — there is no field on it a caller could misuse. It refuses any stored status but `Draft`.
+
+   **The general modify's carve-out**, as the single narrow exception to the content-only rule (§9.7.1) — because a later submission is often inseparable from the edit that made the work ready, and splitting them would publish two facts for one act.
+
+   *An earlier version of this rule said there was no separate submit operation, on the reasoning that it would be "a surface whose only job was to set one field the modify already had in hand". That was built anyway and the reasoning did not survive contact: the two are not redundant. The narrow verb can be authorized in its own right and carries no payload to validate, which the modify cannot claim; the carve-out keeps edit-then-submit a single event, which the verb cannot. Rules 4 and 5 apply to both.*
 4. **The carve-out is gated on ownership, not on write permission.** It is available to the entity's owner (`CreatedBy`) and to `Publisher` / `Admin`. It is **not** available to a `Reviewer` — a reviewer may hold write permission on the row and may amend its content, but HR-3 forbids them setting `ApprovalStatus` by any route, and a modify is a route.
-5. The carve-out covers `ApprovalStatus` and **only** the `Draft` ↔ `Submitted` pair. Every other approval field stays pinned against storage on modify — `IsPublished` and `PublishDate` absolutely, always. Once the status has left `{Draft, Submitted}`, the owner may not change it at all; from `Approved`, `Rejected` or `Dismissed` only the dedicated approve operation moves it, and only for the `Publisher` tier.
+5. The carve-out covers `ApprovalStatus` and **only** the `Draft` ↔ `Submitted` pair. Every other approval field stays pinned against storage on modify — `IsPublished` and `PublishDate` absolutely, always. Once the status has left `{Draft, Submitted}`, the owner may not change it at all: `Approved` and `Rejected` are terminal (§9.3, §9.4), and the only thing that moves a row out of either is the `Admin` override on the approval transition operation (§8.6 HR-4). A `Publisher` decides a `Submitted` row; only an `Admin` re-opens a decided one.
 6. A submission through modify sets the entity's denormalized `ApprovalStatus = Submitted`; the `Approval` record is moved in the same orchestration branch (§9.8). It never changes `IsLatestVersion` (§3.4 rule 18) and never changes `IsPublished` (§3.4.1). Because the write is a modify, it publishes `-Modified`, which is exactly what makes in-flight reviews stale under `RequireReapprovalOnChange` (§8.8) — the edit and the resubmission are one event because they are one act.
-7. A version fork produces a new row at `Draft` with its own `Approval` at `Draft`. **The fork does not submit** — the owner must submit the new version explicitly. The previously published row stays `Approved` and `IsPublished = true` until the new version is approved.
+7. A version fork produces a new row at `Draft` with its own `Approval` at `Draft`. **The fork does not submit** — the owner must submit the new version explicitly. A fork off an `Approved` row leaves that row `Approved` and `IsPublished = true` until the new version is approved; a fork off a `Rejected` row leaves nothing published at all, because a rejected row never was.
 
 ### 9.3 Approved
 
 An entity moves to `Approved` when approval policy rules are satisfied.
 
+**`Approved` is terminal.** The row's content is immutable from here, for every role (§3.4 rule 7). It leaves this state by exactly one route: an `Admin` override through the approval transition operation (§8.6 HR-4), which unpublishes it on the way out.
+
 ### 9.4 Rejected
 
 An entity moves to `Rejected` when rejected according to the effective approval policy.
+
+**`Rejected` is terminal on the same terms as `Approved`.** Earlier drafts moved a rejected item back to `Draft` when its owner edited it; that is withdrawn. Reviewers reached a verdict on particular text, and letting that text change underneath the verdict makes the verdict a record of nothing — which is the same reason an approved row is immutable, and it does not stop applying because the verdict went the other way.
+
+What an owner does with a rejection therefore depends on the publication model (§7.5.1):
+
+- **Versioned** — editing forks a new row at `Draft` (§3.4 rule 8). The rejected row stays as the record of what was rejected and why.
+- **Non-versioned** — there is no row to fork into, so the edit is refused outright. The row is corrected only after an `Admin` override moves it to `Submitted`.
+
+A rejected row never published, so nothing is unpublished when it is forked or overridden.
 
 ### 9.5 Dismissed (ApprovalReview only)
 
@@ -1028,10 +1081,15 @@ stateDiagram-v2
     Submitted --> Approved: Approval conditions met (auto or manual) or bypass
     Submitted --> Rejected: Blocking rejection or Publisher/Admin reject
     Submitted --> Submitted: Edited while under review (stale reviews dismissed per policy)
-    Rejected --> Draft: Owner edits
-    Approved --> Draft: Owner edits approved item (new version row starts at Draft)
-    Approved --> Submitted: Admin amends approved item in-place (reviews dismissed)
+    Approved --> Submitted: Admin override (row unpublished)
+    Rejected --> Submitted: Admin override
+    Approved --> [*]: terminal
+    Rejected --> [*]: terminal
 ```
+
+`Approved` and `Rejected` are terminal, so no edge leaves them except the `Admin` override. Two edges that used to be here are gone: `Rejected --> Draft: Owner edits` and `Approved --> Submitted: Admin amends approved item in-place`.
+
+**Where an owner's edit of a terminal row went.** It is not a transition at all — for a versioned entity it creates a *different row*, which enters this diagram at `[*] --> Draft` with its own `Approval`. The old `Approved --> Draft` edge described that fork as though one row moved, which it never did: the approved row stays `Approved` and, until the fork is approved, stays published. For a non-versioned entity the edit is simply refused, so there is no edge to draw.
 
 ### 9.7 Approval Process Flow
 
@@ -1059,7 +1117,7 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 
    | Group | Owned by | Examples |
    | --- | --- | --- |
-   | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `ContentItemGroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `IsApprovedByBypass`, `ApprovedByBypassReason`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
+   | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `GroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `IsApprovedByBypass`, `ApprovedByBypassReason`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
    | Derived content | computed by the orchestration from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentType` / `EntityBContentType` (from the resolved endpoint) and `UserId` (from the security context) |
    | Caller-supplied, create-only | the caller, once | `ContentItem.ContentType` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a) |
    | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content` |
@@ -1161,7 +1219,7 @@ Runs before any branch below.
 1. Resolve the `Approval` for `(EntityType, EntityId)`. If none exists, create it with `ApprovalStatus = Draft`. A newly created `Approval` is never created at `Submitted` — only the submit action (§9.2) moves it there.
 2. Existence is evaluated against **all** rows for the key, including soft-deleted ones. `UX_Approvals_EntityType_EntityId` is unique and is **not** filtered on `IsDeleted`, so a closed approval still occupies the key and a second insert can never succeed. A closed approval is reinstated in place (`IsDeleted = false`, deletion fields cleared), not re-inserted.
 3. Resolution must not use the caller-facing reads. Those are visibility-filtered and report `NotFound` for a soft-deleted approval, so they can answer "does not exist" for a key that does exist. A dedicated unfiltered probe is required, following the §14.6 pattern of filtered reads for entities and gated boolean probes for cross-row facts.
-4. `Approval.EntityId` is the identifier of a specific **row**, never of a version group. Every version row owns its own `Approval`. Approvals, reviews and comments never migrate, copy or cascade between versions sharing a `ContentItemGroupId`.
+4. `Approval.EntityId` is the identifier of a specific **row**, never of a version group. Every version row owns its own `Approval`. Approvals, reviews and comments never migrate, copy or cascade between versions sharing a `GroupId`.
 
 #### 9.7.3 Added flow
 
@@ -1186,13 +1244,14 @@ Then, having read the approval's current status and `ApprovalSetting.RequireReap
 | --- | --- | --- | --- | --- |
 | `Draft` | stays `Draft` | stays `Draft` | dismissed only when `RequireReapprovalOnChange = true` | untouched |
 | `Submitted` | stays `Submitted` (§3.4 rule 6, §3.5 rule 3, §8.8 rule 3) | stays `Submitted` | dismissed only when `RequireReapprovalOnChange = true` | untouched |
-| `Rejected` | moves to `Draft` (§9.6); the owner must resubmit explicitly | moves to `Draft` | dismissed — they belong to the closed round — regardless of the setting | untouched |
-| `Approved`, **Versioned** entity | not reached: the owner's edit forks a new `Draft` row (§3.4 rule 8) which runs the Added flow with its own approval | — | — | new row `false`; previously published row untouched |
-| `Approved`, **Single-Row** entity | moves to `Submitted` | moves to `Submitted` | dismissed | set to `false` |
+| `Approved` or `Rejected`, **Versioned** entity | not reached: the owner's edit forks a new `Draft` row (§3.4 rule 8) which runs the Added flow with its own approval | — | — | new row `false`; previously published row, if any, untouched |
+| `Approved` or `Rejected`, **Single-Row** entity | not reached: the edit is refused at the foundation | — | — | untouched |
 
-Two invariants hold across every row: the flow never writes `Submitted` onto an approval that is currently `Draft`, and it never dismisses reviews when `RequireReapprovalOnChange = false`. The single exception is an `Admin` in-place amendment of an `Approved` entity, which always resets to `Submitted` and dismisses active reviews regardless of the setting (§8.8, §12.4.4 business rule 12).
+**This flow only ever sees `Draft` and `Submitted`.** Both terminal rows above are unreachable rather than merely unusual, because §3.4 rule 7 makes a terminal row immutable in place — a versioned entity's edit becomes a *different row* running the Added flow, and a non-versioned entity's edit is refused before any fact is published. The rows are kept in the table so that a reader looking for "what happens when someone edits an approved item" finds the answer here rather than concluding it was overlooked.
 
-The versioned/single-row split is resolved from §7.5.1, never by probing the entity's runtime shape. The last row is the strict one: for a single-row entity the edited row **is** the published row, so leaving it published would expose unreviewed content (§14.3).
+Two invariants hold across every row, and now hold without exception: the flow never writes `Submitted` onto an approval that is currently `Draft`, and it never dismisses reviews when `RequireReapprovalOnChange = false`. The `Admin` in-place amendment that used to be the exception is withdrawn (§3.4 rule 16); what replaced it is a status override that publishes an approval transition rather than a `-Modified`, so it does not reach this flow at all.
+
+The versioned/single-row split is resolved from §7.5.1, never by probing the entity's runtime shape.
 
 #### 9.7.5 Review flow
 
@@ -1240,7 +1299,7 @@ Invoked identically by the Added, Modified and Review flows. **The phrase "autom
 3. If `conditionsMet` is false, the approval stays `Submitted`. Stop.
 4. If `conditionsMet` is true and `AutoApproveIfAllApprovalRequirementsMet = true`, apply `Approved` automatically with `IsApprovedByBypass = false`.
 5. If `conditionsMet` is true and the flag is false, the approval stays `Submitted` and the manual approve action becomes available to `Publisher` / `Admin` (§8.5 rule 5).
-6. On `Approved`: set the entity's `ApprovalStatus = Approved` and `IsPublished = true`, and set `IsPublished = false` on the previously published row of the same group, so only one published version exists per `ContentItemGroupId`. `IsLatestVersion` is not changed at publish time (§3.4.1). For a Single-Row entity there is no group and no previous row — the "only one published" clause is vacuous, and only the row's own flag is set.
+6. On `Approved`: set the entity's `ApprovalStatus = Approved` and `IsPublished = true`, and set `IsPublished = false` on the previously published row of the same group, so only one published version exists per `GroupId`. `IsLatestVersion` is not changed at publish time (§3.4.1). For a Single-Row entity there is no group and no previous row — the "only one published" clause is vacuous, and only the row's own flag is set.
 7. Both writes in rule 6 span two rows and must be ordered so that no window exists in which two rows are published: demote the previous row first, then promote the new one.
 
 ### 9.8 Denormalized Status Invariant
@@ -1876,7 +1935,7 @@ A child item is associated to the topic by creating a `Association` where:
 
 | Field | Value |
 | --- | --- |
-| `ContentItemId` or `ContentItemGroupId` | The parent topic content item or topic group. |
+| `ContentItemId` or `GroupId` | The parent topic content item or topic group. |
 | `EntityType` | `ContentItem` |
 | `EntityId` | The child content item or child content item group. |
 | `Scope` | Whether the association applies to one version or all versions. |
@@ -2050,11 +2109,11 @@ Business Rules:
 
 1. A content item in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
 2. An `Approved` content item is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
-4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
+3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
+4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A content item must not be published until its `ApprovalStatus` is `Approved`. This is enforced by the orchestration workflow that listens for approval status changes and updates `IsPublished` accordingly when approval is granted.
 6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentItemGroupId`
+   - `GroupId`
    - `Version`
    - `IsLatestVersion`
    - `IsPublished`
@@ -2075,8 +2134,8 @@ Business Rules:
    A version fork carries the value forward unchanged; it is preserved, never re-chosen.
 8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 9. Only the owner (`CreatedBy`) may modify a content item or its versions. A `Publisher` or `Admin` may amend the text of a `Submitted` item during review (typos/grammar); their identity is then recorded on `UpdatedBy`. `CreatedBy` never changes on an update.
-10. An `Admin` in-place amendment of an `Approved` content item fires the normal updated event; the approval workflow resets the approval to `Submitted` and dismisses active reviews (§3.4 rule 16).
-11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentType`, `ContentHash`) across non-deleted rows (excluding the item's own `ContentItemGroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
+10. **There is no in-place amendment of a terminal content item, by any role.** An edit of an `Approved` or `Rejected` item forks a new version (§3.4 rules 7–8), including for an `Admin` — the in-place carve-out this rule used to describe is withdrawn (§3.4 rule 16). An `Admin` who wants the row itself re-opened uses the status override instead, which is an approval transition and does not reach this orchestration.
+11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentType`, `ContentHash`) across non-deleted rows (excluding the item's own `GroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
 
 #### 12.4.2 ContentType — no orchestration
 
@@ -2134,7 +2193,7 @@ Responsibilities:
 6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
 7. Write the denormalized `ApprovalStatus` onto the owning entity itself, through that entity's state-transition operation rather than a general modify (§10.17 rules 4–5). The two values must never diverge (§9.8).
 8. On `Approved`, set `IsPublished = true` on the newly approved version.
-9. Set `IsPublished = false` on the previously published version, ensuring only one published version exists per `ContentItemGroupId`, and order the two writes so no window exists in which both are published. `IsLatestVersion` is not changed at publish time (see §3.4.1). For a Single-Row entity (§7.5.1) there is no previous row and this rule is vacuous.
+9. Set `IsPublished = false` on the previously published version, ensuring only one published version exists per `GroupId`, and order the two writes so no window exists in which both are published. `IsLatestVersion` is not changed at publish time (see §3.4.1). For a Single-Row entity (§7.5.1) there is no previous row and this rule is vacuous.
 10. Use `SecurityBroker` to validate user identity and role claims during submission and review.
 11. Publish `ApprovalCreatedEvent`, `ApprovalUpdatedEvent`, and `ApprovalDeletedEvent` via `ApprovalEventService`.
 
@@ -2152,7 +2211,7 @@ Business Rules:
 10. This orchestration is responsible for manual approval submission subject to policy rules  i.e. amount of required approvals, self-approval, and role-based approval. Manual approval requires the approval conditions (§8.5) to be met and is available to `Publisher` and `Admin` (global or matching `%EntityType%-Publisher`).
 11. This orchestration is responsible for manual approval (bypass rules) i.e. policy rules not met but a permitted user needs to approve anyway. This must be a separate method that does not enforce policy rules except role-based access: bypass is available to `Admin`, to the global `Publisher` role (any entity type), and to the matching `%EntityType%-Publisher` role (that entity type only) — the `Publisher` tier, composed from the entity type rather than configured (§8.3). Bypass is unavailable entirely when `ApprovalSetting.DoNotAllowBypassingSettings = true` — the conditions must then be met by everyone, including `Admin`. Bypassing sets `IsApprovedByBypass = true` and records the actor on `UpdatedBy`.
 
-    **This is built at the foundation, on `Association` only** (`BypassApproveAssociationAsync`, §8.6.1, §9.7.5) — the other six approvable entities have no approve operation at all, so they have no bypass either. Four points where the built shape is narrower or more specific than the rule above, and each is deliberate:
+    **This is built at the foundation, on `Association` only** (`BypassApproveAssociationAsync`, §8.6.1, §9.7.5). The other six approvable entities each have an ordinary approve operation but no bypass verb, so a bypass is simply unavailable on them — *not*, as this said previously, because they have no approve operation at all. Four points where the built shape is narrower or more specific than the rule above, and each is deliberate:
 
     - **Approve only.** A rejection withholds approval rather than granting it, so there is nothing for a bypass to waive; the decision sent to `IAccessClient` is fixed to `Approve`, and a direct reject stays the ordinary path (business rule 13, §9.7.5).
     - **The reason is required, and supplied by the caller** — a parameter on the verb on the direct path, and `Content.ApprovedByBypassReason` on the event path, where an envelope carries one entity and nothing else. Validated non-empty and capped at 500 to match the column, so an unexplained bypass is refused before any policy is read.
@@ -2160,7 +2219,7 @@ Business Rules:
     - **The verdict reports what the bypass waived** — `BypassedBlockReason` names the block that would have fired, and is `None` when the conditions were in fact met — so a bypass that overrode a standing rejection is distinguishable from one that overrode nothing.
 
     The row-local `Publisher`-tier gate still runs first and is resolved from the **stored** row, not the caller's copy; the access decision repeats the tier check, which means a defect in the gathering can only make the gate stricter. The outcome publishes the ordinary `-Approved` fact — there is no separate bypass fact (§9.7.5).
-12. Dismissal is only applied when `ApprovalSetting.RequireReapprovalOnChange = true` for the relevant entity type. If `false`, existing reviews are retained and no dismissal occurs. Exception: an `Admin` in-place amendment of an `Approved` entity always resets the approval to `Submitted` and dismisses active reviews, regardless of this setting.
+12. Dismissal is only applied when `ApprovalSetting.RequireReapprovalOnChange = true` for the relevant entity type. If `false`, existing reviews are retained and no dismissal occurs. Exception: an `Admin` **status override** moving a terminal entity back to `Submitted` always dismisses active reviews regardless of this setting (§8.8 regardless-rule 1) — those reviews produced the verdict being overruled, and re-opening the round on their strength would let the override be undone by the very reviews it overrode. The in-place amendment that used to be this exception is withdrawn (§3.4 rule 16).
 13. A `Publisher` or `Admin` may reject directly while the approval is `Submitted`; the outcome is recorded immediately as `Rejected`.
 14. Retrieve-or-create (business rule 2) must evaluate existence against **all** rows for `(EntityType, EntityId)`, including soft-deleted ones, because `UX_Approvals_EntityType_EntityId` is not filtered on `IsDeleted` and the caller-facing reads are visibility-filtered. Either can report "does not exist" for a key that does exist, and the resulting insert cannot succeed (§9.7.2).
 15. The `-Modified` branch runs only when an approval-sensitive field changed (§9.7.4). A fact whose only differences are workflow or bookkeeping fields ends the branch immediately, with no read or write of the approval.
@@ -2233,14 +2292,14 @@ Business Rules:
 
 1. A tag in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
 2. An `Approved` tag is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
+3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A tag may only be associated with a content item if `ContentItemSetting.TagsAllowed = true`.
 6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 7. A tag is only visible on a content item when both the tag and the association are approved and not deleted.
 8. A soft-deleted tag must not be visible on any content item.
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentItemGroupId`
+   - `GroupId`
    - `Version`
    - `IsLatestVersion`
    - `IsPublished`
@@ -2273,14 +2332,14 @@ Business Rules:
 
 1. A reaction in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
 2. An `Approved` reaction is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
+3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A reaction may only be associated with a content item if `ContentItemSetting.ReactionsAllowed = true`.
 6. When `ContentItemSetting.LimitReactionsToLoveOnly = true`, only the designated love reaction may be associated.
 7. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 8. A soft-deleted reaction definition must not be associated with new content items.
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentItemGroupId`
+   - `GroupId`
    - `Version`
    - `IsLatestVersion`
    - `IsPublished`
@@ -2313,13 +2372,13 @@ Business Rules:
 
 1. A comment in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
 2. An `Approved` comment is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
+3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A comment may only be associated with a content item if `ContentItemSetting.CommentsAllowed = true`.
 6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 7. A soft-deleted comment must not be visible on any content item.
 8. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentItemGroupId`
+   - `GroupId`
    - `Version`
    - `IsLatestVersion`
    - `IsPublished`
@@ -2352,14 +2411,14 @@ Business Rules:
 
 1. A Bible reference in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
 2. An `Approved` Bible reference is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
-3. Only one version per `ContentItemGroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
-4. Only one version per `ContentItemGroupId` may have `IsPublished = true`. (also enforced by database unique index)
+3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index)
+4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A Bible reference may only be associated with a content item if `ContentItemSetting.BibleReferenceAllowed = true`.
 6. The association requires its own approval according to the effective `ApprovalSetting` for its `EntityType` (§8.4).
 7. A soft-deleted Bible reference must not be visible on any content item.
 8. The same Bible reference may be associated with multiple content items independently.
 9. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
-   - `ContentItemGroupId`
+   - `GroupId`
    - `Version`
    - `IsLatestVersion`
    - `IsPublished`
@@ -2923,7 +2982,7 @@ Global roles:
 | `ReadOnly` | **The block role.** If present — even alongside any other roles — the user cannot contribute anywhere. Assigned to users who misbehave. Takes precedence over every other role. |
 | `Reviewer` | Can submit approval reviews and approval comments for any entity type. |
 | `Publisher` | Can approve and reject content for any entity type, may amend the text of `Submitted` items during review, and gains the option to bypass approval criteria by being in the role. |
-| `Admin` | Full access including user management, approval settings, bypass approval, and in-place amendment of `Approved` records. |
+| `Admin` | Full access including user management, approval settings, bypass approval, and the status override that re-opens a terminal record (§8.6 HR-4). **Not** in-place amendment of an `Approved` record — that is withdrawn (§3.4 rule 16); an `Admin` editing terminal content forks like anyone else. |
 
 Granular (entity-type-scoped) roles follow the `%EntityType%-ReadOnly`, `%EntityType%-Reviewer`, and `%EntityType%-Publisher` convention, created for each approvable entity type:
 

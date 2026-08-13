@@ -33,7 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             var resolvedContentItem = new ContentItem
             {
                 Id = rawRequest.EntityAKeyId,
-                ContentItemGroupId = Guid.NewGuid(),
+                GroupId = Guid.NewGuid(),
                 ContentType = ContentType.Story,
             };
 
@@ -239,7 +239,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             // A endpoint (a ContentItem): versioned -> AllVersions, group and content type from
             // the resolved row, overriding the caller's bogus values
             capturedForLookup!.EntityAScope.Should().Be(Scope.AllVersions);
-            capturedForLookup.EntityAGroupId.Should().Be(resolvedContentItem.ContentItemGroupId);
+            capturedForLookup.EntityAGroupId.Should().Be(resolvedContentItem.GroupId);
             capturedForLookup.EntityAContentType.Should().Be(resolvedContentItem.ContentType);
 
             // B endpoint (a Tag): non-versioned -> ThisVersionOnly, group is its own key id, no
@@ -308,7 +308,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             var resolvedContentItem = new ContentItem
             {
                 Id = rawRequest.EntityAKeyId,
-                ContentItemGroupId = Guid.NewGuid(),
+                GroupId = Guid.NewGuid(),
                 ContentType = ContentType.Story,
             };
 
@@ -322,7 +322,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             var resolvedLink = new Link
             {
                 Id = rawRequest.EntityBKeyId,
-                ContentItemGroupId = Guid.NewGuid(),
+                GroupId = Guid.NewGuid(),
             };
 
             this.linkServiceMock.Setup(service =>
@@ -349,7 +349,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             // then
             capturedForLookup.Should().NotBeNull();
             capturedForLookup!.EntityBType.Should().Be(EntityType.Link);
-            capturedForLookup.EntityBGroupId.Should().Be(resolvedLink.ContentItemGroupId);
+            capturedForLookup.EntityBGroupId.Should().Be(resolvedLink.GroupId);
             capturedForLookup.EntityBScope.Should().Be(Scope.AllVersions);
             capturedForLookup.EntityBContentType.Should().BeNull();
         }
@@ -395,7 +395,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             // then
             capturedForInsert.Should().NotBeNull();
             capturedForInsert!.EntityAScope.Should().Be(Scope.AllVersions);
-            capturedForInsert.EntityAGroupId.Should().Be(resolvedContentItem.ContentItemGroupId);
+            capturedForInsert.EntityAGroupId.Should().Be(resolvedContentItem.GroupId);
             capturedForInsert.EntityAContentType.Should().Be(resolvedContentItem.ContentType);
             capturedForInsert.EntityBScope.Should().Be(Scope.ThisVersionOnly);
             capturedForInsert.EntityBGroupId.Should().Be(rawRequest.EntityBKeyId);

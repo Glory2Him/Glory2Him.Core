@@ -68,7 +68,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .HasMaxLength(500)
                  .IsRequired(false);
 
-            model.Property(attachment => attachment.ContentItemGroupId)
+            model.Property(attachment => attachment.GroupId)
                  .IsRequired();
 
             model.Property(attachment => attachment.Version)
@@ -99,21 +99,21 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired(false);
 
             // Unique version per group
-            model.HasIndex(attachment => new { attachment.ContentItemGroupId, attachment.Version })
+            model.HasIndex(attachment => new { attachment.GroupId, attachment.Version })
                  .IsUnique()
-                 .HasDatabaseName("UX_Attachments_ContentItemGroupId_Version");
+                 .HasDatabaseName("UX_Attachments_GroupId_Version");
 
             // Exactly one latest version per group
-            model.HasIndex(attachment => new { attachment.ContentItemGroupId, attachment.IsLatestVersion })
+            model.HasIndex(attachment => new { attachment.GroupId, attachment.IsLatestVersion })
                  .IsUnique()
                  .HasFilter($"[{nameof(Attachment.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("UX_Attachments_ContentItemGroupId_G2Hatest");
+                 .HasDatabaseName("UX_Attachments_GroupId_IsLatestVersion");
 
             // Exactly one published version per group
-            model.HasIndex(attachment => new { attachment.ContentItemGroupId, attachment.IsPublished })
+            model.HasIndex(attachment => new { attachment.GroupId, attachment.IsPublished })
                  .IsUnique()
                  .HasFilter($"[{nameof(Attachment.IsPublished)}] = 1")
-                 .HasDatabaseName("UX_Attachments_ContentItemGroupId_IsPublished");
+                 .HasDatabaseName("UX_Attachments_GroupId_IsPublished");
 
             // Hash index for deduplication lookups
             model.HasIndex(attachment => attachment.Hash)

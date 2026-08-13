@@ -172,7 +172,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             });
 
         public ValueTask<IQueryable<ContentItem>> RetrieveContentItemsByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
@@ -180,20 +180,20 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
                 var retrieveRequest = new ContentItem
                 {
-                    ContentItemGroupId = contentItemGroupId
+                    GroupId = groupId
                 };
 
                 EventEnvelope<ContentItem> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
                 return await DoRetrieveContentItemsByGroupIdAsync(
-                    contentItemGroupId: contentItemGroupId,
+                    groupId: groupId,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentItem> RetrieveLatestContentItemByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
@@ -201,20 +201,20 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
                 var retrieveRequest = new ContentItem
                 {
-                    ContentItemGroupId = contentItemGroupId
+                    GroupId = groupId
                 };
 
                 EventEnvelope<ContentItem> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
                 return await DoRetrieveLatestContentItemByGroupIdAsync(
-                    contentItemGroupId: contentItemGroupId,
+                    groupId: groupId,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
         public ValueTask<ContentItem> RetrievePublishedContentItemByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
@@ -222,14 +222,14 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
 
                 var retrieveRequest = new ContentItem
                 {
-                    ContentItemGroupId = contentItemGroupId
+                    GroupId = groupId
                 };
 
                 EventEnvelope<ContentItem> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: retrieveRequest);
 
                 return await DoRetrievePublishedContentItemByGroupIdAsync(
-                    contentItemGroupId: contentItemGroupId,
+                    groupId: groupId,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
@@ -267,7 +267,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 Author = contentItem.Author,
                 Content = contentItem.Content,
                 ContentHash = contentHash,
-                ContentItemGroupId = await this.identifierBroker.GetIdentifierAsync(),
+                GroupId = await this.identifierBroker.GetIdentifierAsync(),
                 Version = 1,
                 IsLatestVersion = true,
                 IsPublished = false,
@@ -311,7 +311,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
                 contentType: contentItem.ContentType,
                 contentHash: contentHash,
-                excludedContentItemGroupId: currentContentItem.ContentItemGroupId,
+                excludedGroupId: currentContentItem.GroupId,
                 cancellationToken: cancellationToken);
 
             if (duplicateContentExists)
@@ -438,17 +438,17 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         }
 
         private async ValueTask<IQueryable<ContentItem>> DoRetrieveContentItemsByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateContentItemGroupIdOnRetrieve(contentItemGroupId);
+            ValidateGroupIdOnRetrieve(groupId);
 
             IQueryable<ContentItem> allContentItems =
                 await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
 
             IQueryable<ContentItem> groupContentItems = allContentItems.Where(contentItem =>
-                contentItem.ContentItemGroupId == contentItemGroupId);
+                contentItem.GroupId == groupId);
 
             return await ApplyCollectionReadVisibilityFilterAsync(
                 contentItems: groupContentItems,
@@ -456,11 +456,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         }
 
         private async ValueTask<ContentItem> DoRetrieveLatestContentItemByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateContentItemGroupIdOnRetrieve(contentItemGroupId);
+            ValidateGroupIdOnRetrieve(groupId);
 
             IQueryable<ContentItem> allContentItems =
                 await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
@@ -468,14 +468,14 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             // the edit tip of the group (§3.4.1) — at most one non-deleted row per group
             // carries IsLatestVersion under the unique filtered index
             ContentItem? latestContentItem = allContentItems.FirstOrDefault(contentItem =>
-                contentItem.ContentItemGroupId == contentItemGroupId
+                contentItem.GroupId == groupId
                     && contentItem.IsLatestVersion
                     && contentItem.IsDeleted == false);
 
             if (latestContentItem is null)
             {
                 await this.loggingBroker.LogInformationAsync(
-                    message: $"Content item read denied. Group {contentItemGroupId} has no " +
+                    message: $"Content item read denied. Group {groupId} has no " +
                         "non-deleted latest version; reported to the caller as not found.");
 
                 throw new NotFoundContentItemOrchestrationException(
@@ -488,11 +488,11 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         }
 
         private async ValueTask<ContentItem> DoRetrievePublishedContentItemByGroupIdAsync(
-            Guid contentItemGroupId,
+            Guid groupId,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateContentItemGroupIdOnRetrieve(contentItemGroupId);
+            ValidateGroupIdOnRetrieve(groupId);
 
             IQueryable<ContentItem> allContentItems =
                 await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
@@ -500,14 +500,14 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             // the row the public currently reads — it stays published while a newer draft
             // moves through review, so it is found independently of IsLatestVersion
             ContentItem? publishedContentItem = allContentItems.FirstOrDefault(contentItem =>
-                contentItem.ContentItemGroupId == contentItemGroupId
+                contentItem.GroupId == groupId
                     && contentItem.IsPublished
                     && contentItem.IsDeleted == false);
 
             if (publishedContentItem is null)
             {
                 await this.loggingBroker.LogInformationAsync(
-                    message: $"Content item read denied. Group {contentItemGroupId} has no " +
+                    message: $"Content item read denied. Group {groupId} has no " +
                         "non-deleted published version; reported to the caller as not found.");
 
                 throw new NotFoundContentItemOrchestrationException(
@@ -667,7 +667,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 Author = contentItem.Author,
                 Content = contentItem.Content,
                 ContentHash = contentHash,
-                ContentItemGroupId = currentContentItem.ContentItemGroupId,
+                GroupId = currentContentItem.GroupId,
                 Version = currentContentItem.Version + 1,
                 IsLatestVersion = true,
                 IsPublished = false,
@@ -717,7 +717,7 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
             CheckDuplicateContentExistsAsync(
                 contentType: contentType,
                 contentHash: contentHash,
-                excludedContentItemGroupId: null,
+                excludedGroupId: null,
                 cancellationToken: cancellationToken);
 
         // the foundation's boolean probe runs over the UNFILTERED store (§3.4.2/§14.6), so
@@ -726,12 +726,12 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
         private async ValueTask<bool> CheckDuplicateContentExistsAsync(
             ContentType contentType,
             string contentHash,
-            Guid? excludedContentItemGroupId,
+            Guid? excludedGroupId,
             CancellationToken cancellationToken) =>
             await this.contentItemService.CheckContentItemContentExistsAsync(
                 contentType: contentType,
                 contentHash: contentHash,
-                excludedContentItemGroupId: excludedContentItemGroupId,
+                excludedGroupId: excludedGroupId,
                 cancellationToken: cancellationToken);
     }
 }
