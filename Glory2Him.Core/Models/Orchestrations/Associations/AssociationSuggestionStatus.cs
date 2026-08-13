@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
+
 namespace Glory2Him.Core.Models.Orchestrations.Associations
 {
     /// <summary>
@@ -31,6 +33,15 @@ namespace Glory2Him.Core.Models.Orchestrations.Associations
 
         /// <summary>An approved row already occupies the pair and is already visible. Nothing was inserted.</summary>
         AlreadyApproved,
+
+        /// <summary>
+        /// No row occupies the exact pair, but a differently-scoped row already covers it — an
+        /// endpoint spanning <see cref="Scope.AllVersions"/> overlaps a
+        /// <see cref="Scope.ThisVersionOnly"/> row's version (or the reverse), so both would
+        /// render the same pairing. The effective ids differ, so the unique index cannot catch
+        /// this; the overlap probe does. Nothing was inserted.
+        /// </summary>
+        OverlapsExisting,
 
         /// <summary>
         /// The caller's own soft-deleted row was resurrected — deletion cleared and approval
