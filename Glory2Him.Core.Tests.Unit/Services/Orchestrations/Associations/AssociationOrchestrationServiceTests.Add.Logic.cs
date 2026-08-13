@@ -402,5 +402,145 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Associations
             capturedForInsert.EntityBContentType.Should().BeNull();
             capturedForInsert.UserId.Should().BeNull();
         }
+
+        [Fact]
+        public async Task ShouldReturnOverlapsExistingWithoutInsertingWhenADifferentlyScopedRowOverlapsAsync()
+        {
+            // given: the exact pair is unoccupied, but a differently-scoped LIVE row overlaps this
+            // one's coverage. Inserting past it would double-render the pairing, so report the
+            // overlap and insert nothing.
+            Association rawRequest = CreateRawAddRequest();
+            SetupEndpointReads(rawRequest);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((AssociationPairMatch?)null);
+
+            AssociationPairMatch overlappingMatch =
+                CreatePairMatch(ApprovalStatus.Approved, isDeleted: false);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(overlappingMatch);
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.AddAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Status.Should().Be(AssociationSuggestionStatus.OverlapsExisting);
+            actualResult.AssociationId.Should().Be(overlappingMatch.Id);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldInsertAndReturnCreatedWhenNothingOccupiesOrOverlapsThePairAsync()
+        {
+            // given: the exact pair is unoccupied AND nothing overlaps — only then is a new row
+            // inserted. The overlap probe must run before the insert.
+            Association rawRequest = CreateRawAddRequest();
+            SetupEndpointReads(rawRequest);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((AssociationPairMatch?)null);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((AssociationPairMatch?)null);
+
+            var insertedId = Guid.NewGuid();
+
+            this.associationServiceMock.Setup(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Association association, CancellationToken _) =>
+                        {
+                            association.Id = insertedId;
+                            return association;
+                        });
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.AddAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Status.Should().Be(AssociationSuggestionStatus.Created);
+            actualResult.AssociationId.Should().Be(insertedId);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldNotCheckForOverlapWhenTheExactPairIsAlreadyOccupiedAsync()
+        {
+            // given: an exact-pair match short-circuits the flow (retrieve-or-add semantics), so
+            // the overlap probe never runs — the overlap check is only for the "no exact row" case.
+            Association rawRequest = CreateRawAddRequest();
+            SetupEndpointReads(rawRequest);
+
+            AssociationPairMatch exactMatch =
+                CreatePairMatch(ApprovalStatus.Approved, isDeleted: false);
+
+            this.associationServiceMock.Setup(service =>
+                service.FindAssociationByPairAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(exactMatch);
+
+            // when
+            AssociationSuggestionResult actualResult =
+                await this.associationOrchestrationService.AddAssociationAsync(
+                    rawRequest,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualResult.Status.Should().Be(AssociationSuggestionStatus.AlreadyApproved);
+            actualResult.AssociationId.Should().Be(exactMatch.Id);
+
+            this.associationServiceMock.Verify(service =>
+                service.FindOverlappingAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.associationServiceMock.Verify(service =>
+                service.AddAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }

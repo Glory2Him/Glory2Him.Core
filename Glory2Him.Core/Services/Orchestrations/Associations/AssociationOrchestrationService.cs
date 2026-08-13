@@ -140,7 +140,27 @@ namespace Glory2Him.Core.Services.Orchestrations.Associations
 
             if (existingMatch is null)
             {
-                // the pair is unoccupied — insert the new suggestion
+                // No row occupies the EXACT pair, but a differently-scoped LIVE row can still
+                // overlap this one's coverage — an AllVersions endpoint spanning a ThisVersionOnly
+                // row's version, or the reverse. Their effective ids differ, so the unique index
+                // is blind to it, yet inserting past it would render the same pairing twice from
+                // two rows with independent approval lifecycles. Report the overlap, insert nothing.
+                AssociationPairMatch? overlappingMatch =
+                    await this.associationService.FindOverlappingAssociationAsync(
+                        association,
+                        excludedAssociationId: null,
+                        cancellationToken);
+
+                if (overlappingMatch is not null)
+                {
+                    return new AssociationSuggestionResult
+                    {
+                        Status = AssociationSuggestionStatus.OverlapsExisting,
+                        AssociationId = overlappingMatch.Id,
+                    };
+                }
+
+                // the pair is unoccupied and nothing overlaps — insert the new suggestion
                 Association addedAssociation =
                     await this.associationService.AddAssociationAsync(
                         association,
