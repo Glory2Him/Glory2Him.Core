@@ -46,7 +46,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .HasMaxLength(64)
                 .IsRequired();
 
-            model.Property(contentItem => contentItem.ContentItemGroupId)
+            model.Property(contentItem => contentItem.GroupId)
                 .IsRequired();
 
             model.Property(contentItem => contentItem.Version)
@@ -122,21 +122,21 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItem => contentItem.Title);
             model.Property(contentItem => contentItem.Author);
 
-            // Index on (ContentItemGroupId, Version DESC) for "latest" lookups
+            // Index on (GroupId, Version DESC) for "latest" lookups
             // SQL Server supports DESC index sort order explicitly
-            model.HasIndex(contentItem => new { contentItem.ContentItemGroupId, contentItem.Version })
-                .HasDatabaseName("IX_ContentItems_ContentItemGroupId_VersionDesc")
+            model.HasIndex(contentItem => new { contentItem.GroupId, contentItem.Version })
+                .HasDatabaseName("IX_ContentItems_GroupId_VersionDesc")
                 .IsUnique()
                 .IsDescending(true, true);
 
-            // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
-            model.HasIndex(e => new { e.ContentItemGroupId, e.IsLatestVersion })
+            // Exactly one latest per GroupId (enforced with filtered unique index)
+            model.HasIndex(e => new { e.GroupId, e.IsLatestVersion })
                  .IsUnique()
                  .HasFilter($"[{nameof(ContentItem.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("IX_ContentItem_G2Hatest");
+                 .HasDatabaseName("IX_ContentItem_IsLatestVersion");
 
-            // Exactly one latest per ContentItemGroupId (enforced with filtered unique index)
-            model.HasIndex(e => new { e.ContentItemGroupId, e.IsPublished })
+            // Exactly one latest per GroupId (enforced with filtered unique index)
+            model.HasIndex(e => new { e.GroupId, e.IsPublished })
                  .IsUnique()
                  .HasFilter($"[{nameof(ContentItem.IsPublished)}] = 1")
                  .HasDatabaseName("IX_ContentItem_IsPublished");

@@ -29,8 +29,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             Xeption dependencyValidationException)
         {
             // given
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             ContentItem randomContentItem = CreateRandomContentItem();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -44,7 +44,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: (dependencyValidationException.InnerException as Xeption)!);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -54,7 +54,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyValidationException
@@ -84,8 +84,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             Xeption dependencyException)
         {
             // given
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             ContentItem randomContentItem = CreateRandomContentItem();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -98,7 +98,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: (dependencyException.InnerException as Xeption)!);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyException actualContentItemOrchestrationDependencyException =
@@ -136,8 +136,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         {
             // given: an OperationCanceledException without a cancellation request is a
             // dependency timeout, not a caller cancellation
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             ContentItem randomContentItem = CreateRandomContentItem();
             var operationCanceledException = new OperationCanceledException();
 
@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: timeoutContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -170,7 +170,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationDependencyException actualContentItemOrchestrationDependencyException =
@@ -193,15 +193,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         public async Task ShouldThrowOperationCanceledExceptionOnRetrieveLatestByGroupIdIfCancellationRequestedAsync()
         {
             // given
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             using var cancellationTokenSource = new CancellationTokenSource();
             await cancellationTokenSource.CancelAsync();
 
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     cancellationTokenSource.Token);
 
             // then
@@ -220,8 +220,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         public async Task ShouldThrowServiceExceptionOnRetrieveLatestByGroupIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             var serviceException = new Exception("Service error occurred.");
 
             var failedContentItemOrchestrationServiceException =
@@ -236,13 +236,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: failedContentItemOrchestrationServiceException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ThrowsAsync(serviceException);
 
             // when
             ValueTask<ContentItem> retrieveLatestContentItemByGroupIdTask =
                 this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationServiceException actualContentItemOrchestrationServiceException =

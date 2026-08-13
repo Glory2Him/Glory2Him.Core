@@ -264,10 +264,10 @@ namespace Glory2Him.Core.Services.Orchestrations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
-        private static void ValidateContentItemGroupIdOnRetrieve(Guid contentItemGroupId) =>
+        private static void ValidateGroupIdOnRetrieve(Guid groupId) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentItemGroupId), Parameter: nameof(ContentItem.ContentItemGroupId)));
+                (Rule: IsInvalid(groupId), Parameter: nameof(ContentItem.GroupId)));
 
         private static void ValidateContentItemIdOnRemove(Guid contentItemId) =>
             Validate(

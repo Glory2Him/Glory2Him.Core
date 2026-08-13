@@ -34,8 +34,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // given: when the group's edit tip itself satisfies canonical content
             // visibility (§14.1) it is readable by anyone — here the caller is anonymous
             // and never identified; the group's older versions never match the tip filter
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
             ContentItem latestContentItem = CreateRandomPubliclyVisibleContentItem(
@@ -43,7 +43,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 currentDateTime: currentDateTime,
                 hasPublishDate: hasPublishDate);
 
-            latestContentItem.ContentItemGroupId = inputContentItemGroupId;
+            latestContentItem.GroupId = inputGroupId;
             latestContentItem.IsLatestVersion = true;
 
             ContentItem olderContentItem = CreateRandomPubliclyVisibleContentItem(
@@ -51,7 +51,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 currentDateTime: currentDateTime,
                 hasPublishDate: true);
 
-            olderContentItem.ContentItemGroupId = inputContentItemGroupId;
+            olderContentItem.GroupId = inputGroupId;
             olderContentItem.IsLatestVersion = false;
 
             ContentItem otherGroupContentItem = CreateRandomPubliclyVisibleContentItem(
@@ -70,11 +70,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             }.AsQueryable();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { ContentItemGroupId = inputContentItemGroupId },
+                contentItem: new ContentItem { GroupId = inputGroupId },
                 securityContext: new SecurityContext { IsAuthenticated = false });
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -88,14 +88,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ContentItem actualContentItem =
                 await this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             // then
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))),
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
@@ -129,8 +129,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         {
             // given: the owner follows their group's edit tip through the whole approval
             // workflow — an unpublished tip of any status stays readable to them
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
 
@@ -139,7 +139,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: approvalStatus,
                 createdBy: actorUserId);
 
-            latestContentItem.ContentItemGroupId = inputContentItemGroupId;
+            latestContentItem.GroupId = inputGroupId;
             latestContentItem.IsPublished = false;
             ContentItem expectedContentItem = latestContentItem.DeepClone();
 
@@ -151,11 +151,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { ContentItemGroupId = inputContentItemGroupId },
+                contentItem: new ContentItem { GroupId = inputGroupId },
                 securityContext: securityContext);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -173,7 +173,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ContentItem actualContentItem =
                 await this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             // then
@@ -210,8 +210,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         {
             // given: the moderation roles (§16.6) read anyone's non-public edit tip for
             // review and audit
-            Guid randomContentItemGroupId = Guid.NewGuid();
-            Guid inputContentItemGroupId = randomContentItemGroupId;
+            Guid randomGroupId = Guid.NewGuid();
+            Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
             ContentItem latestContentItem = CreateRandomStorageContentItem(
@@ -219,7 +219,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 approvalStatus: ApprovalStatus.Submitted,
                 createdBy: GetRandomString());
 
-            latestContentItem.ContentItemGroupId = inputContentItemGroupId;
+            latestContentItem.GroupId = inputGroupId;
             latestContentItem.IsPublished = false;
             ContentItem expectedContentItem = latestContentItem.DeepClone();
 
@@ -231,11 +231,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             SecurityContext securityContext = CreateAuthenticatedSecurityContext(reviewRole);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
-                contentItem: new ContentItem { ContentItemGroupId = inputContentItemGroupId },
+                contentItem: new ContentItem { GroupId = inputGroupId },
                 securityContext: securityContext);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(inputGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             this.contentItemServiceMock.Setup(service =>
@@ -253,7 +253,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             // when
             ContentItem actualContentItem =
                 await this.contentItemOrchestrationService.RetrieveLatestContentItemByGroupIdAsync(
-                    inputContentItemGroupId,
+                    inputGroupId,
                     TestContext.Current.CancellationToken);
 
             // then

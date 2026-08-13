@@ -94,7 +94,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // move the Bible reference to the A side.
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             Guid contentItemKeyId = Guid.NewGuid();
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
             Guid bibleReferenceKeyId = Guid.NewGuid();
 
             Association inputAssociation =
@@ -102,7 +102,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             inputAssociation.EntityAType = EntityType.ContentItem;
             inputAssociation.EntityAKeyId = contentItemKeyId;
-            inputAssociation.EntityAGroupId = contentItemGroupId;
+            inputAssociation.EntityAGroupId = groupId;
             inputAssociation.EntityAContentType = ContentType.Story;
             inputAssociation.EntityBType = EntityType.BibleReference;
             inputAssociation.EntityBKeyId = bibleReferenceKeyId;
@@ -126,7 +126,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             inputAssociation.EntityBType.Should().Be(EntityType.ContentItem);
             inputAssociation.EntityBKeyId.Should().Be(contentItemKeyId);
-            inputAssociation.EntityBGroupId.Should().Be(contentItemGroupId);
+            inputAssociation.EntityBGroupId.Should().Be(groupId);
             inputAssociation.EntityBScope.Should().Be(Scope.AllVersions);
             inputAssociation.EntityBContentType.Should().Be(ContentType.Story);
         }

@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
         {
             // given: the group id is the whole instruction on this path — nothing selects
             // a group without it
-            Guid invalidContentItemGroupId = Guid.Empty;
+            Guid invalidGroupId = Guid.Empty;
             ContentItem randomContentItem = CreateRandomContentItem();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -39,7 +39,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     message: "Content item is invalid, fix the errors and try again.");
 
             invalidContentItemOrchestrationException.AddData(
-                key: nameof(ContentItem.ContentItemGroupId),
+                key: nameof(ContentItem.GroupId),
                 values: "Id is required");
 
             var expectedContentItemOrchestrationValidationException =
@@ -48,13 +48,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                     innerException: invalidContentItemOrchestrationException);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
-                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(invalidContentItemGroupId))))
+                broker.CreateAsync(It.Is(SameGroupRetrieveRequestAs(invalidGroupId))))
                     .ReturnsAsync(inboundEnvelope);
 
             // when
             ValueTask<IQueryable<ContentItem>> retrieveContentItemsByGroupIdTask =
                 this.contentItemOrchestrationService.RetrieveContentItemsByGroupIdAsync(
-                    invalidContentItemGroupId,
+                    invalidGroupId,
                     TestContext.Current.CancellationToken);
 
             ContentItemOrchestrationValidationException actualContentItemOrchestrationValidationException =

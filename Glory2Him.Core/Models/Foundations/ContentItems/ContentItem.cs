@@ -55,10 +55,8 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         /// </summary>
         public string ContentHash { get; set; } = string.Empty;
 
-        /// <summary>
-        /// Content item group identifier to group multiple versions of the same content item.
-        /// </summary>
-        public Guid ContentItemGroupId { get; set; }
+        /// <inheritdoc cref="IVersion.GroupId" />
+        public Guid GroupId { get; set; }
 
         /// <summary>
         /// Version number of the content item (required, defaults to 1).

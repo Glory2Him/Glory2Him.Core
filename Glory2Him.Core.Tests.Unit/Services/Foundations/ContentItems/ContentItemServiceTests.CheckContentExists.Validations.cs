@@ -45,7 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     someContentType,
                     someContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =
@@ -91,7 +91,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     someContentType,
                     someContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =
@@ -141,7 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     invalidContentType,
                     invalidContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =
@@ -190,7 +190,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     someContentType,
                     invalidContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =
@@ -236,7 +236,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     invalidContentType,
                     someContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemValidationException actualContentItemValidationException =

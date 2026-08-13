@@ -34,7 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             string normalizedContent = NormalizeContent(inputContentItem.Content);
             string expectedContentHash = ComputeContentHash(inputContentItem.Content);
             Guid contentItemId = Guid.NewGuid();
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
@@ -52,7 +52,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 // none until approve grants one, which is why it lands unpublished in Draft
                 PublishDate = null,
                 ContentHash = expectedContentHash,
-                ContentItemGroupId = contentItemGroupId,
+                GroupId = groupId,
                 Version = 1,
                 IsLatestVersion = true,
                 IsPublished = false,
@@ -82,7 +82,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.identifierBrokerMock.SetupSequence(broker =>
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(contentItemId)
-                    .ReturnsAsync(contentItemGroupId);
+                    .ReturnsAsync(groupId);
 
             ContentItem? capturedContentItem = null;
 
@@ -212,7 +212,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             string normalizedContent = NormalizeContent(inputContentItem.Content);
             string expectedContentHash = ComputeContentHash(inputContentItem.Content);
             Guid contentItemId = Guid.NewGuid();
-            Guid contentItemGroupId = Guid.NewGuid();
+            Guid groupId = Guid.NewGuid();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: inputContentItem,
@@ -227,7 +227,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
                 Content = inputContentItem.Content,
                 PublishDate = null,
                 ContentHash = expectedContentHash,
-                ContentItemGroupId = contentItemGroupId,
+                GroupId = groupId,
                 Version = 1,
                 IsLatestVersion = true,
                 IsPublished = false,
@@ -256,7 +256,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.ContentItems
             this.identifierBrokerMock.SetupSequence(broker =>
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(contentItemId)
-                    .ReturnsAsync(contentItemGroupId);
+                    .ReturnsAsync(groupId);
 
             ContentItem? capturedContentItem = null;
 

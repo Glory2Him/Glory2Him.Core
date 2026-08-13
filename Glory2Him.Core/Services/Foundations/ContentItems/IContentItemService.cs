@@ -40,7 +40,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         ValueTask<bool> CheckContentItemContentExistsAsync(
             ContentType contentType,
             string contentHash,
-            Guid? excludedContentItemGroupId = null,
+            Guid? excludedGroupId = null,
             CancellationToken cancellationToken = default);
 
         ValueTask<ContentItem> RetrieveContentItemByIdAsync(

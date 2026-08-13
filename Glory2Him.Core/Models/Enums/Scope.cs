@@ -18,7 +18,7 @@ namespace Glory2Him.Core.Models.Enums
     {
         /// <summary>
         /// The association applies to all versions of the content item
-        /// that share the same <see cref="ContentItem.ContentItemGroupId"/>.
+        /// that share the same <see cref="ContentItem.GroupId"/>.
         /// </summary>
         AllVersions = 0,
 
