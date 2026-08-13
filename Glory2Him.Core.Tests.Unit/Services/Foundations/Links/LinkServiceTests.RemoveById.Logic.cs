@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                     .ReturnsAsync(storageLink.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageLink, It.IsAny<SecurityContext>()))
+                broker.ApplyRemoveAuditValuesAsync(storageLink, It.IsAny<SecurityContext>(), someDeletionReason))
                     .ReturnsAsync(auditedLink);
 
             this.storageBrokerMock.Setup(broker =>
@@ -178,7 +178,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageLink, It.IsAny<SecurityContext>()),
+                broker.ApplyRemoveAuditValuesAsync(storageLink, It.IsAny<SecurityContext>(), someDeletionReason),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
