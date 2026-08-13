@@ -808,7 +808,7 @@ Recommended properties:
 | `RequireReapprovalOnChange` | Whether edits reset approval status. |
 | `AutoApproveIfAllApprovalRequirementsMet` | Whether the entity is automatically approved when all approval requirements are met. |
 | `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be resolved before approval can be granted. It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
-| `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a `Publisher`/`Admin` may still bypass it (§12.4.4 business rule 11) or correct the score first (§9.7.1 rule 5). |
+| `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a `Publisher`/`Admin` may still bypass it (§12.5.3 business rule 11) or correct the score first (§9.7.1 rule 5). |
 | `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Admin`. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from policy resolution. |
 | `CreatedBy` | User who created the setting. |
@@ -875,7 +875,7 @@ conditionsMet =
 6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
 7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment raised during review must be resolved (`ApprovalComment.IsResolved = true`) before the conditions are met. This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a question is still open; the approval simply cannot complete until it is answered.
 8. When `BlockOnZeroApprovalScore = true`, an entity whose `ConfidenceScore` is `0` cannot meet the conditions. **A `null` score does not block** — it means the confidence process has not run yet, not that the association was judged worthless. Treating `null` as blocking would deadlock every approval until §13.4 ships, and would strand anything the process failed on. If a scored gate is wanted before that point, the setting to reach for is `RequireApprovals`, not this one.
-9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.4.4 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
+9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.5.3 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
 
 ### 8.6 Self-Approval Rules
 
@@ -975,7 +975,7 @@ Two findings from that attempt are recorded because they close off the obvious r
 Three consequences follow, and all are load-bearing:
 
 1. **What remains open is route 2, and it is recorded rather than accepted.** The permissive gap that used to sit here has closed: `DoNotAllowBypassingSettings` gated nothing while no bypass verb existed, and now it gates the verb that exists. What is left is an absent automation, not an absent restriction — `AutoApproveIfAllApprovalRequirementsMet` has no effect, which errs strict. The `Known limitation` above can ship forever; so, on those terms, can this one — but only until an `Association` orchestration exists to host §9.7.7, at which point leaving it unwired would be a choice rather than a gap.
-2. **`IAccessClient` landed before the approve operation was replicated (§9.7.1, §12.4.4), which is what made this a one-place job — and the replication has since happened.** Every service built before it would have inherited the gap, and the retrofit is not a permissive one-line relaxation: it is a whole new gate plus its tests, in each service. Sequencing it first meant the seven approve operations were each written against a gate that already existed.
+2. **`IAccessClient` landed before the approve operation was replicated (§9.7.1, §12.5.3), which is what made this a one-place job — and the replication has since happened.** Every service built before it would have inherited the gap, and the retrofit is not a permissive one-line relaxation: it is a whole new gate plus its tests, in each service. Sequencing it first meant the seven approve operations were each written against a gate that already existed.
 
    The obligation it created is **discharged** for the seven entities that have a foundation service, and stands only for `Attachment`, which has none. An approve operation added there must call `IAccessBroker`, and a review of that work should check for the call before anything else.
 3. **The last-editor question is settled.** It was implemented once against `UpdatedBy` and withdrawn; the clause was then rewritten rather than a column added, and what replaced it rides on `IAccessClient` (consequence 2) instead of becoming a third mechanism. Nothing further is owed here.
@@ -1233,7 +1233,7 @@ Runs before any branch below.
 **Every `-Modified` fact reaching this flow is a content change, by construction** — there is no field-comparison gate, because three earlier rules make one unnecessary:
 
 1. The operation split (§9.7.1 rules 2–3). Approval state is writable only through `Approve<Entity>Async`, which emits `<Entity>-Approved`. This flow subscribes to `-Modified` and never sees it.
-2. The permitted-field mapping (§12.4.3 business rule 2). A general modify carries only caller-editable content fields onto the storage row, so a `-Modified` fact cannot carry an approval-state change even if a caller supplied one.
+2. The permitted-field mapping (§12.5.2 business rule 2). A general modify carries only caller-editable content fields onto the storage row, so a `-Modified` fact cannot carry an approval-state change even if a caller supplied one.
 3. Orchestration-tier subscription (§10.17 rule 1). A version fork demotes the previous latest row through the general modify, emitting a *foundation* `-Modified` for a row whose only change is `IsLatestVersion`; the orchestration emits exactly one fact per completed amend, so the bookkeeping write is never observed.
 
 There are currently **no** permitted-modify fields that are exempt from approval. `SortOrder` was the one candidate — reordering posts within a series must not reset the membership association and dismiss its reviews — and giving it its own interface and operation (§9.7.1 rule 4) removes it from the modify path entirely. Should a future property be caller-editable but not approval-sensitive, list it alongside that entity's permitted-field mapping; a fact whose only differences are those fields ends this flow immediately.
@@ -1265,9 +1265,9 @@ The versioned/single-row split is resolved from §7.5.1, never by probing the en
 
    Worked example with `RequiredNumberOfApprovals = 2` and `BlockOnReject = false`: reviewer A rejects, reviewers B and C approve. The approval count reaches 2, the conditions are met, and the item may then be approved — automatically if `AutoApproveIfAllApprovalRequirementsMet = true`, otherwise by a `Publisher`/`Admin` clicking approve. The same sequence with `BlockOnReject = true` would have ended at reviewer A.
 
-**Direct decision.** While the approval is `Submitted`, a `Publisher` or `Admin` may approve or reject directly (§12.4.4 business rules 10 and 13). A direct approve still requires the §8.5 conditions to be met; a direct reject does not, and moves both records to `Rejected` immediately. Rejection withholds approval rather than granting it, so `DoNotAllowBypassingSettings` does not gate it and `IsApprovedByBypass` stays `false`.
+**Direct decision.** While the approval is `Submitted`, a `Publisher` or `Admin` may approve or reject directly (§12.5.3 business rules 10 and 13). A direct approve still requires the §8.5 conditions to be met; a direct reject does not, and moves both records to `Rejected` immediately. Rejection withholds approval rather than granting it, so `DoNotAllowBypassingSettings` does not gate it and `IsApprovedByBypass` stays `false`.
 
-**Bypass.** Governed by §12.4.4 business rule 11, and **built** on `Association` as `BypassApproveAssociationAsync` (§8.6.1) — a separate method rather than a flag on approve, role-gated to the `Publisher` tier resolved from the stored endpoints, and refused outright when `DoNotAllowBypassingSettings = true`. Three things about the built shape are load-bearing:
+**Bypass.** Governed by §12.5.3 business rule 11, and **built** on `Association` as `BypassApproveAssociationAsync` (§8.6.1) — a separate method rather than a flag on approve, role-gated to the `Publisher` tier resolved from the stored endpoints, and refused outright when `DoNotAllowBypassingSettings = true`. Three things about the built shape are load-bearing:
 
 1. **The reason is required, and it comes from the caller.** On the direct path it is a parameter on the verb rather than a field on the entity — an argument to the decision, not part of what is saved. On the event path it rides in `Content.ApprovedByBypassReason`, because an envelope carries one entity and nothing else; a missing one is routed into the same required-field validation rather than dereferenced, so the request is refused as invalid naming the field. Either way it is validated non-empty and capped at 500 to match the column, so an unexplained bypass is refused before any policy is read. A bypass is only tolerable because it leaves a record, and an unexplained one records nothing worth reading.
 2. **Neither `IsApprovedByBypass` nor `ApprovedByBypassReason` is copied from the caller's entity**, because they exist to record that the conditions were waived and a caller who can write them can equally clear them. But the two are not derived the same way, and the difference matters. The **flag** is derived outright: it is written from the verdict's `IsBypassUsed` rather than hardcoded `true`. The reason's **value** is necessarily the caller's own words (rule 1) — no verdict can say why a human chose to override. What the verdict decides is whether that value is *kept*: it is written only when `IsBypassUsed` is true and cleared to `null` otherwise, so the row can never claim a waiver the decision did not make, nor carry an excuse for one that never happened.
@@ -1323,7 +1323,7 @@ Every service publishes consistent lifecycle events on its own event addresses. 
 | Service | Request addresses | Fact addresses |
 | --- | --- | --- |
 | `ContentItemService` (foundation) | `ContentItem-Adding`, `ContentItem-Modifying`, `ContentItem-RemovingById`, `ContentItem-HardRemovingById`, `ContentItem-RetrievingById` | `ContentItem-Added`, `ContentItem-Modified`, `ContentItem-Removed` |
-| `ContentItemOrchestrationService` | `ContentItemOrchestration-Adding`, `ContentItemOrchestration-Modifying`, `ContentItemOrchestration-RemovingById` | `ContentItemOrchestration-Added`, `ContentItemOrchestration-Modified`, `ContentItemOrchestration-Removed` |
+| `ContentItemProcessingService` | `ContentItemProcessing-Adding`, `ContentItemProcessing-Modifying`, `ContentItemProcessing-RemovingById` | `ContentItemProcessing-Added`, `ContentItemProcessing-Modified`, `ContentItemProcessing-Removed` |
 
 1. Create operations emit an `-Added` fact.
 2. Update operations emit a `-Modified` fact.
@@ -1612,7 +1612,7 @@ CausationId: 2
 
 ### 10.10 Current Implementation (EventHighway)
 
-Events are published through the `EventBroker`, which wraps [EventHighway](https://github.com/The-Standard-Organization/EventHighway) — a durable, SQL-backed pub/sub substrate. Each service owns a set of event addresses named `<Subject>-<Verb>` (§10.2), split into two families: **requests** in the present tense (`ContentItem-Adding`, `-Modifying`, `-RemovingById`, `-RetrievingById`), answered by responder handlers on the owning service, and **facts** in the past tense (`ContentItem-Added`, `-Modified`, `-Removed`), published by the service after its work is done for observers to react to. The subject is the service rather than the entity, so a higher-level service announcing completion of its own unit of work sits on its own addresses — `ContentItemOrchestration-Adding` is handled by `ContentItemOrchestrationService`, which publishes `ContentItemOrchestration-Added` once the orchestrated add has completed. Receiver handler methods are always named `On<Verb><Entity>Async` (`OnAddingContentItemAsync`); the `On` prefix marks the receiver and never appears in the address itself. The address is selected by a strongly typed per-service operation enum passed on publish (for example `ContentItemEventOperation.Adding`, `ContentItemOrchestrationEventOperation.Added`) — no magic strings, and operations can be added per service without affecting the others. The broker composes the stored event name from the subject and operation (for example `"ContentItemAdding"`, `"ContentItemOrchestrationAdded"`), so the subject must be distinct per service or the stored names would collide. Every publish persists the event and dispatches it inline to the in-process delegate handlers subscribed to that address; handler failures are recorded per listener (with retry support) instead of failing the publisher. Subscriptions bind to exactly one operation. Handlers may optionally return a reply envelope (`ValueTask<EventEnvelope<T>?>`), which the broker serializes onto the delivery's `ListenerEventV2` row — the observable reply channel for request-style events such as `RetrievedById`, carrying the same security-context and metadata discipline as the request.
+Events are published through the `EventBroker`, which wraps [EventHighway](https://github.com/The-Standard-Organization/EventHighway) — a durable, SQL-backed pub/sub substrate. Each service owns a set of event addresses named `<Subject>-<Verb>` (§10.2), split into two families: **requests** in the present tense (`ContentItem-Adding`, `-Modifying`, `-RemovingById`, `-RetrievingById`), answered by responder handlers on the owning service, and **facts** in the past tense (`ContentItem-Added`, `-Modified`, `-Removed`), published by the service after its work is done for observers to react to. The subject is the service rather than the entity, so a higher-level service announcing completion of its own unit of work sits on its own addresses — `ContentItemProcessing-Adding` is handled by `ContentItemProcessingService`, which publishes `ContentItemProcessing-Added` once the processed add has completed. Receiver handler methods are always named `On<Verb><Entity>Async` (`OnAddingContentItemAsync`); the `On` prefix marks the receiver and never appears in the address itself. The address is selected by a strongly typed per-service operation enum passed on publish (for example `ContentItemEventOperation.Adding`, `ContentItemProcessingEventOperation.Added`) — no magic strings, and operations can be added per service without affecting the others. The broker composes the stored event name from the subject and operation (for example `"ContentItemAdding"`, `"ContentItemProcessingAdded"`), so the subject must be distinct per service or the stored names would collide. Every publish persists the event and dispatches it inline to the in-process delegate handlers subscribed to that address; handler failures are recorded per listener (with retry support) instead of failing the publisher. Subscriptions bind to exactly one operation. Handlers may optionally return a reply envelope (`ValueTask<EventEnvelope<T>?>`), which the broker serializes onto the delivery's `ListenerEventV2` row — the observable reply channel for request-style events such as `RetrievedById`, carrying the same security-context and metadata discipline as the request.
 
 Publishing returns an `EventPublishResult<T>`: the persisted event id plus one `EventDelivery<T>` per subscription, each with its dispatch-time status and — for responders — the reply envelope deserialized back to `EventEnvelope<T>`. This is a dispatch-time snapshot: failed deliveries may still succeed later via retries, and the durable truth remains the event store. Notification-style publishers simply ignore the result.
 
@@ -1855,13 +1855,15 @@ Rules:
 
 The approval workflow both **consumes** entity lifecycle facts and **causes** entity writes (§9.7.7 rule 6). Wired naively that cycle does not terminate, so the wiring is specified here rather than left to the implementation.
 
-**Inbound — subscribe to the orchestration fact, never the foundation fact.**
+**Inbound — subscribe to the entity's top-layer fact, never the foundation fact.**
 
-1. The approval orchestration subscribes to `<Entity>Orchestration-Added` and `-Modified` **where an orchestration exists**. It does not subscribe to `-Removed` at all (§9.7.6). Per §10.2 rule 6 it must not also subscribe to the foundation facts for the same reaction.
+An entity's **top-layer service** is the highest business layer that owns its write flows — its orchestration service if it has one, otherwise its processing service, otherwise the foundation itself (§12.1). The tier matters; which of the two upper layers it happens to be does not.
 
-   Where an approvable entity has no orchestration — today that is every one except `ContentItem` — it subscribes to the **foundation** facts instead. That is safe for a Single-Row entity (§7.5.1): the loop is broken by rule 4 below rather than by the subscription tier, and with no version fork there is no multi-row bookkeeping write to misread. A **Versioned** entity must have an orchestration before it can participate in approval, for the reason in rule 2.
-2. The reason is §10.2 rule 5. A version fork writes two foundation rows and therefore emits two foundation facts — a `-Modified` for the previous latest row being demoted, and an `-Added` for the new version. Reacting to the demotion would reset the still-published previous version's approval and dismiss its review history, for a write that changed only `IsLatestVersion`. The orchestration emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about.
-3. The consequence to accept deliberately: a write made directly against a foundation service bypasses approval invalidation. Approvable entities are therefore written through their orchestration, and an exposer must bind to the orchestration rather than the foundation for any approvable entity.
+1. The approval orchestration subscribes to the top-layer `-Added` and `-Modified` facts **where a layer above the foundation exists** — for `ContentItem` that is `ContentItemProcessing-Added` / `-Modified` (§12.4.1). It does not subscribe to `-Removed` at all (§9.7.6). Per §10.2 rule 6 it must not also subscribe to the foundation facts for the same reaction.
+
+   Where an approvable entity has nothing above its foundation — today that is every one except `ContentItem` — it subscribes to the **foundation** facts instead. That is safe for a Single-Row entity (§7.5.1): the loop is broken by rule 4 below rather than by the subscription tier, and with no version fork there is no multi-row bookkeeping write to misread. A **Versioned** entity must have a service above its foundation before it can participate in approval, for the reason in rule 2.
+2. The reason is §10.2 rule 5. A version fork writes two foundation rows and therefore emits two foundation facts — a `-Modified` for the previous latest row being demoted, and an `-Added` for the new version. Reacting to the demotion would reset the still-published previous version's approval and dismiss its review history, for a write that changed only `IsLatestVersion`. The top-layer service emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about — and it is the fork that makes this a *layer* question rather than an *orchestration* question, since the fork is single-entity processing work.
+3. The consequence to accept deliberately: a write made directly against a foundation service bypasses approval invalidation. Approvable entities are therefore written through their top-layer service, and an exposer must bind to that service rather than the foundation for any approvable entity.
 
 **Outbound — approval-caused writes use a transition verb, never `-Modifying`.**
 
@@ -1875,7 +1877,7 @@ The approval workflow both **consumes** entity lifecycle facts and **causes** en
 
 **Ownership of the entity write.**
 
-8. `ApprovalOrchestrationService` performs the entity write itself (§16.7 responsibilities 5 and 6, §10.2 rule 10). It does not publish an approval fact for the owning entity's orchestration to react to. This resolves a contradiction in earlier drafts: §12.4.4 responsibilities 7–9 previously assigned the same write to the owning entity's orchestration, which would have required every approvable entity's orchestration to subscribe to approval facts and would have reintroduced the cycle at one remove.
+8. `ApprovalOrchestrationService` performs the entity write itself (§16.7 responsibilities 5 and 6, §10.2 rule 10). It does not publish an approval fact for the owning entity's orchestration to react to. This resolves a contradiction in earlier drafts: §12.5.3 responsibilities 7–9 previously assigned the same write to the owning entity's orchestration, which would have required every approvable entity's orchestration to subscribe to approval facts and would have reintroduced the cycle at one remove.
 
 ## 11. Topic and Feed Design
 
@@ -2002,21 +2004,32 @@ The component design follows a layered service architecture using:
 
 1. Brokers
 2. Foundation Services
-3. Orchestration Services
-4. Controllers
-5. SQL Storage
-6. Event System
-7. Content Analysis Service
+3. Processing Services
+4. Orchestration Services
+5. Controllers
+6. SQL Storage
+7. Event System
+8. Content Analysis Service
 
 The primary dependency direction is:
 
 ```text
 Controllers
     -> Orchestration Services
-        -> Foundation Services
-            -> Brokers
-                -> SQL Storage / External Infrastructure
+        -> Processing Services
+            -> Foundation Services
+                -> Brokers
+                    -> SQL Storage / External Infrastructure
 ```
+
+**Not every layer exists for every entity, and a caller binds to the highest layer that exists.** The distinction between the two business layers is the entity count, not the amount of logic:
+
+1. A **processing service** owns higher-order logic for **one** entity type, composing repeated calls to that entity's single foundation service — retrieve-then-branch, probe-then-write, read-then-filter. Multi-step is not multi-entity: a version fork writes two rows through one foundation service and is still processing work.
+2. An **orchestration service** exists only where a flow spans **two or more** entity types, and coordinates them through their respective processing (or, where none exists, foundation) services.
+
+An entity whose flows never leave its own type therefore has no orchestration service at all, and `ContentItem` is that case (§12.4.1). Where an entity has both, the orchestration sits on top of the processing service rather than beside it.
+
+This layering is a decomposition rule, not a security boundary — §14.6 still requires every service to gate its own callers independently, because an exposer may bind to any layer directly.
 
 ### 12.2 Broker Layer
 
@@ -2073,36 +2086,34 @@ Current intended foundation services:
 
 `ContentType` is not in this list — it is a fixed enum (§3.6), not an entity, so it has no foundation service.
 
-### 12.4 Orchestration Layer
+### 12.4 Processing Layer
 
-Orchestration services Orchestrate multiple dependencies and enforce cross-entity workflows.
+Processing services own higher-order business logic for a **single** entity type, composing repeated calls to that entity's foundation service. They exist wherever an entity's flows are richer than CRUD but never leave its own type.
 
-Current intended orchestrations:
+Current intended processings:
 
-| Number | Name | Purpose |
-| --- | --- | --- |
-| 1 | `ContentItemOrchestration` | Orchestrates content item creation, versioning, approval submission, and publish workflows. |
-| 2 | `ContentItemSettingsOrchestration` | Orchestrates effective settings resolution across content type defaults and item overrides. |
-| 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
-| 4 | `ApprovalReviewOrchestration` | Orchestrates reviewer eligibility, threshold evaluation, and dismissal workflows. |
-| 5 | `ApprovalCommentOrchestration` | Orchestrates approval comment creation and lifecycle management. |
-| 6 | `TagOrchestration` | Orchestrates tag creation, versioning, approval, and association workflows. |
-| 7 | `ReactionOrchestration` | Orchestrates reaction creation, versioning, approval, and association workflows. |
-| 8 | `CommentOrchestration` | Orchestrates comment creation, versioning, approval, and association workflows. |
-| 9 | `BibleReferenceOrchestration` | Orchestrates Bible reference creation, versioning, approval, and association workflows. |
+| Number | Name | Purpose | Status |
+| --- | --- | --- | --- |
+| 1 | `ContentItemProcessingService` | Content item creation, versioning (in-place vs. fork), duplicate-content enforcement, soft delete, and per-caller read visibility. | Built (§12.4.1) |
+| 2 | `LinkProcessingService` | Same shape as ContentItem: `Link` is Versioned, so an amend of a terminal row forks. | Required, not built |
+| 3 | `AttachmentProcessingService` | Same shape. `Attachment` is Versioned, and has no foundation service yet either. | Required, not built |
 
-#### 12.4.1 ContentItemOrchestration
+**Entries 2 and 3 are not optional.** §10.17 rule 1 makes a service above the foundation a hard prerequisite for a **Versioned** approvable entity, and `EntityTypeVersioning` (§7.5.1) declares exactly three Versioned types — `ContentItem`, `Link` and `Attachment`. Until each has one it cannot participate in approval without hitting the fork-emits-two-facts problem of §10.17 rule 2. Any other entity earns a processing service only by having higher-order single-entity logic of its own — a cross-row probe, an effective-value merge — because plain CRUD on a Single-Row entity needs nothing above its foundation.
 
-`ContentItemOrchestration` orchestrates the full lifecycle of a content item across foundation services.
+#### 12.4.1 ContentItemProcessingService
+
+`ContentItemProcessingService` owns the full lifecycle of a content item through `ContentItemService`, its single foundation dependency.
+
+It is deliberately **not** an orchestration service. Every one of its flows touches exactly one entity type, so there is nothing to coordinate (§12.1). The version fork is the case that most resembles orchestration and is not: it writes two rows, but both through the same foundation service, for the same entity. There is no `ContentItemProcessingService` above it, and none is planned — see responsibility 5 below for the requirement that used to imply one.
 
 Responsibilities:
 
-1. Orchestrate content item creation and modification, enforcing versioning rules and control field integrity.
+1. Process content item creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
-5. Orchestrate soft delete across the content item and flag dependent associations as appropriate.
-6. Publish its own completion facts — `ContentItemOrchestration-Added`, `ContentItemOrchestration-Modified`, and `ContentItemOrchestration-Removed` — via `IEventBroker` once the orchestrated work has completed. The underlying row-level facts (`ContentItem-Added`, `-Modified`, `-Removed`) are published by `ContentItemService` and must not be republished here (§10.2).
+5. Process soft delete of the content item itself, and **nothing else**. Dependent associations are deliberately left untouched: a soft delete breaks no link, and association visibility is a read-time composite evaluated by whoever can resolve both endpoints (§14.3 rules 3–4), not a flag written on delete. This responsibility previously read "flag dependent associations as appropriate", which predates §14.3 and would have made this a cross-entity write — the single requirement that would have forced this service to be an orchestration.
+6. Publish its own completion facts — `ContentItemProcessing-Added`, `ContentItemProcessing-Modified`, and `ContentItemProcessing-Removed` — via `IEventBroker` once the processed work has completed. The underlying row-level facts (`ContentItem-Added`, `-Modified`, `-Removed`) are published by `ContentItemService` and must not be republished here (§10.2).
 7. The approval orchestration service subscribes to these events to manage approval records and workflow state.
 
 Business Rules:
@@ -2111,8 +2122,8 @@ Business Rules:
 2. An `Approved` content item is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
 3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
 4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
-5. A content item must not be published until its `ApprovalStatus` is `Approved`. This is enforced by the orchestration workflow that listens for approval status changes and updates `IsPublished` accordingly when approval is granted.
-6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
+5. A content item must not be published until its `ApprovalStatus` is `Approved`. This is enforced by `ApprovalOrchestrationService`, which listens for approval status changes and updates `IsPublished` accordingly when approval is granted.
+6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by this service or the approval workflow:
    - `GroupId`
    - `Version`
    - `IsLatestVersion`
@@ -2126,24 +2137,46 @@ Business Rules:
    - `DeletedWhen`
    - `DeletionReason`
    - `ContentHash`
-7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author` and `Content` — onto that entity before saving. `ContentType` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
+7. On every update, this service must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author` and `Content` — onto that entity before saving. `ContentType` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
 7a. **`ContentType` is set at creation and may never change.** Reclassifying a content item is not permitted — different content types carry different validation rules, so a `Story` cannot become a `Testimony` by relabelling it; the existing content was never validated against the target type's rules. An item filed under the wrong type is removed and re-created.
 
-   Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentType` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a public address whose caller is, today, unauthenticated (§14.6 rule 4). The orchestration dropping it from the permitted map is defence in depth. Note that pinning against storage is identity-independent, so this particular rule holds even against a forged context — which is exactly why the pins matter more than the gates on that path.
+   Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentType` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a public address whose caller is, today, unauthenticated (§14.6 rule 4). This service dropping it from the permitted map is defence in depth. Note that pinning against storage is identity-independent, so this particular rule holds even against a forged context — which is exactly why the pins matter more than the gates on that path.
 
    A version fork carries the value forward unchanged; it is preserved, never re-chosen.
-8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
+8. Review dismissal is not the responsibility of this service. Publishing `ContentItemUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 9. Only the owner (`CreatedBy`) may modify a content item or its versions. A `Publisher` or `Admin` may amend the text of a `Submitted` item during review (typos/grammar); their identity is then recorded on `UpdatedBy`. `CreatedBy` never changes on an update.
-10. **There is no in-place amendment of a terminal content item, by any role.** An edit of an `Approved` or `Rejected` item forks a new version (§3.4 rules 7–8), including for an `Admin` — the in-place carve-out this rule used to describe is withdrawn (§3.4 rule 16). An `Admin` who wants the row itself re-opened uses the status override instead, which is an approval transition and does not reach this orchestration.
+10. **There is no in-place amendment of a terminal content item, by any role.** An edit of an `Approved` or `Rejected` item forks a new version (§3.4 rules 7–8), including for an `Admin` — the in-place carve-out this rule used to describe is withdrawn (§3.4 rule 16). An `Admin` who wants the row itself re-opened uses the status override instead, which is an approval transition and does not reach this service.
 11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentType`, `ContentHash`) across non-deleted rows (excluding the item's own `GroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
 
-#### 12.4.2 ContentType — no orchestration
+### 12.5 Orchestration Layer
+
+Orchestration services coordinate **two or more** entity types and enforce cross-entity workflows, each entity reached through its own processing service where one exists, or its foundation service where none does.
+
+Current intended orchestrations:
+
+| Number | Name | Purpose |
+| --- | --- | --- |
+| 1 | `AssociationOrchestrationService` | Resolves an association's two endpoints against their respective entity services and runs the retrieve-or-add suggestion on add. Its only operation today is `AddAssociationAsync`; it has **no read surface**, so the §14.3 composite visibility rule is *not* implemented anywhere yet. |
+| 2 | `ContentItemSettingsOrchestration` | Orchestrates effective settings resolution across content type defaults and item overrides. |
+| 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
+| 4 | ~~`ApprovalReviewOrchestration`~~ | **Withdrawn.** `ApprovalReviewService` has no entity-service dependencies, its dismissal and self-approval rules already exist at the foundation, and threshold evaluation belongs to `ApprovalOrchestrationService` (§12.5.3 R5). Nothing is left for a layer above the foundation. |
+| 5 | `ApprovalCommentOrchestration` | Orchestrates approval comment creation and lifecycle management. |
+| 6 | `TagOrchestration` | Orchestrates tag creation, versioning, approval, and association workflows. |
+| 7 | `ReactionOrchestration` | Orchestrates reaction creation, versioning, approval, and association workflows. |
+| 8 | `CommentOrchestration` | Orchestrates comment creation, versioning, approval, and association workflows. |
+| 9 | `BibleReferenceOrchestration` | Orchestrates Bible reference creation, versioning, approval, and association workflows. |
+
+> **Open — most of this table has not been re-tested against the §12.1 entity-count rule.** `ContentItemOrchestration` was listed here until it was checked and found to touch exactly one entity type; it is now `ContentItemProcessingService` (§12.4.1). Each remaining single-entity candidate needs the same check before it is built, and any that turns out to touch only its own type belongs in §12.4 — or, where it has no cross-row rule either, nowhere above its foundation.
+>
+> Status at the time of writing: **entry 3 (`Approval`) is confirmed multi-entity** — it subscribes to entity facts and spans `Approval`, `ApprovalReview` and `ApprovalSetting`. **Entry 4 (`ApprovalReview`) is withdrawn** in the table above. **Entry 1 (`Association`) is provisional**: it does read several entity types, so it is not a processing service as written, but it takes seven entity services for a single operation, which breaks the dependency-count guidance regardless of which layer it sits in — four of its seven endpoint branches read a row only to discard it. Its endpoint-resolution design is being revisited and its classification is re-tested when that settles. Entries 2 and 5–9 are untested against the §12.1 rule.
+
+#### 12.5.1 ContentType — no orchestration
 
 `ContentType` is a fixed enum (§3.6), not a database entity — there is no `ContentTypeOrchestration`, no `ContentTypeService`, no lifecycle to orchestrate, and no events to publish. Adding or removing a content type is a code change and a release, gated by the normal PR/build process rather than by a runtime authorization rule.
 
 Content-type-scoped identity roles (§18.6) are seeded once, at startup, for every member of the enum — they are not created or removed reactively in response to a content type lifecycle, because there is no such lifecycle.
 
-#### 12.4.3 ContentItemSettingsOrchestration
+#### 12.5.2 ContentItemSettingsOrchestration
 
 `ContentItemSettingsOrchestration` orchestrates the creation, modification, and policy resolution of content item settings across foundation services.
 
@@ -2179,13 +2212,13 @@ Business Rules:
 7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
 8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.4 ApprovalOrchestrationService
+#### 12.5.3 ApprovalOrchestrationService
 
 `ApprovalOrchestrationService` orchestrates the approval workflow across entities, policy evaluation, and denormalized state.
 
 Responsibilities:
 
-1. Subscribe to entity `-Added` and `-Modified` **orchestration** facts for all approvable entity types, per §10.17. It does **not** subscribe to `-Removed`: a removal is a takedown, not a moderation step, and must never re-open or re-evaluate approval (§9.7.6).
+1. Subscribe to each approvable entity's **top-layer** `-Added` and `-Modified` facts, per §10.17 — the orchestration fact where one exists, the processing fact otherwise (`ContentItemProcessing-Added` / `-Modified` for `ContentItem`). It does **not** subscribe to `-Removed`: a removal is a takedown, not a moderation step, and must never re-open or re-evaluate approval (§9.7.6).
 2. On receiving a `CreatedEvent`, check whether an approval record already exists for the entity. If none exists, create one with `ApprovalStatus = Draft` via `ApprovalService`.
 3. On receiving an `UpdatedEvent`, check whether an approval record exists for the entity. If none exists, create one with `ApprovalStatus = Draft`. If one exists, evaluate whether existing reviews must be dismissed based on the effective `ApprovalSetting.RequireReapprovalOnChange` policy.
 4. Orchestrate approval submission by moving `ApprovalStatus` from `Draft` to `Submitted`.
@@ -2227,7 +2260,7 @@ Business Rules:
 17. No approval transition may be applied to a soft-deleted entity. The approve, reject and bypass operations validate that the subject is not deleted before applying any transition, so a review submitted before a takedown cannot approve and re-publish it afterwards (§9.7.6 rule 3). Removal itself never changes the approval record.
 18. `Rejected` is reachable by exactly two routes: a blocking review rejection when `BlockOnReject = true` (§8.7 rule 1), and a direct `Publisher`/`Admin` rejection (business rule 13). Both apply immediately and independently of `RequiredNumberOfApprovals`, and both leave `IsPublished` and `IsLatestVersion` untouched.
 
-#### 12.4.5 ApprovalReviewOrchestration
+#### 12.5.4 ApprovalReviewOrchestration
 
 `ApprovalReviewOrchestration` orchestrates the recording, validation, and evaluation of individual reviewer decisions.
 
@@ -2247,7 +2280,7 @@ Business Rules:
 5. A new review may be submitted after the reviewer's previous review was dismissed.
 6. A user who has filed an active review on the entity must not also set its `ApprovalStatus`, regardless of `AllowSelfApproval` (§8.6 regardless-rule 1). This is answered from the `ApprovalReview` rows the approval policy already reads, not by fetching the entity's audit fields — the earlier form of this rule compared the actor to the entity's `UpdatedBy` and was withdrawn, so the `%EntityType%-RetrievingById` round-trip it needed is no longer part of this step.
 
-#### 12.4.6 ApprovalCommentOrchestration
+#### 12.5.5 ApprovalCommentOrchestration
 
 `ApprovalCommentOrchestration` orchestrates the creation and lifecycle management of comments attached to approval records.
 
@@ -2273,7 +2306,7 @@ Business Rules:
 3. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Comment`) onto that entity before saving.
 4. Approval comments do not participate in the approval threshold or status transition workflow.
 
-#### 12.4.7 TagOrchestration
+#### 12.5.6 TagOrchestration
 
 `TagOrchestration` orchestrates the full lifecycle of a tag across foundation services, including versioning, approval, and content item association.
 
@@ -2284,7 +2317,7 @@ Responsibilities:
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved tag with a content item by creating a `Association`, validating that tagging is permitted by resolving the effective `ContentItemSetting`.
-6. Orchestrate soft delete of tags and flag associated content item associations as appropriate.
+6. Orchestrate soft delete of tags. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
 7. Publish `TagCreatedEvent`, `TagUpdatedEvent`, and `TagDeletedEvent` via `TagEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
 
@@ -2313,7 +2346,7 @@ Business Rules:
 10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Name`) onto that entity before saving.
 11. Review dismissal is not the responsibility of this orchestration. Publishing `TagUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.8 ReactionOrchestration
+#### 12.5.7 ReactionOrchestration
 
 `ReactionOrchestration` orchestrates the full lifecycle of a reaction definition across foundation services, including versioning, approval, and content item association.
 
@@ -2324,7 +2357,7 @@ Responsibilities:
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate a reaction with a content item by creating a `Association`, validating that reactions are permitted and enforcing `LimitReactionsToLoveOnly` when the setting is enabled.
-6. Orchestrate soft delete of reactions and flag associated content item associations as appropriate.
+6. Orchestrate soft delete of reactions. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
 7. Publish `ReactionCreatedEvent`, `ReactionUpdatedEvent`, and `ReactionDeletedEvent` via `ReactionEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
 
@@ -2353,7 +2386,7 @@ Business Rules:
 10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Name`, `UnicodeEmoji`) onto that entity before saving.
 11. Review dismissal is not the responsibility of this orchestration. Publishing `ReactionUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.9 CommentOrchestration
+#### 12.5.8 CommentOrchestration
 
 `CommentOrchestration` orchestrates the full lifecycle of a comment across foundation services, including versioning, approval, and content item association.
 
@@ -2364,7 +2397,7 @@ Responsibilities:
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved comment with a content item by creating a `Association`, validating that comments are permitted by resolving the effective `ContentItemSetting`.
-6. Orchestrate soft delete of comments and flag associated content item associations as appropriate.
+6. Orchestrate soft delete of comments. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
 7. Publish `CommentCreatedEvent`, `CommentUpdatedEvent`, and `CommentDeletedEvent` via `CommentEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
 
@@ -2392,7 +2425,7 @@ Business Rules:
 9. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied field (`Content`) onto that entity before saving.
 10. Review dismissal is not the responsibility of this orchestration. Publishing `CommentUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-#### 12.4.10 BibleReferenceOrchestration
+#### 12.5.9 BibleReferenceOrchestration
 
 `BibleReferenceOrchestration` orchestrates the full lifecycle of a Bible reference across foundation services, including versioning, approval, and content item association.
 
@@ -2403,7 +2436,7 @@ Responsibilities:
 3. Update `IsLatestVersion` on the previous version when a new version is created.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Associate an approved Bible reference with a content item by creating a `Association`, validating that Bible references are permitted by resolving the effective `ContentItemSetting`.
-6. Orchestrate soft delete of Bible references and flag associated content item associations as appropriate.
+6. Orchestrate soft delete of Bible references. Dependent associations are left untouched — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (same correction as §12.4.1 responsibility 5).
 7. Publish `BibleReferenceCreatedEvent`, `BibleReferenceUpdatedEvent`, and `BibleReferenceDeletedEvent` via `BibleReferenceEventService`.
 8. The approval orchestration service subscribes to these events to manage approval records and workflow state.
 
@@ -2432,7 +2465,7 @@ Business Rules:
 10. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied fields (`Reference`, `Translation`, `Scripture`) onto that entity before saving.
 11. Review dismissal is not the responsibility of this orchestration. Publishing `BibleReferenceUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
-### 12.5 Controller Layer
+### 12.6 Controller Layer
 
 Controllers expose API endpoints for the domain.
 
@@ -2454,7 +2487,7 @@ Current intended controllers:
 
 `ContentType` is not in this list — a fixed enum has no CRUD endpoints.
 
-### 12.6 SQL Storage
+### 12.7 SQL Storage
 
 SQL is the persistence layer behind `StorageBroker`.
 
@@ -2471,13 +2504,13 @@ The EF Core model snapshot currently shows tables and constraints for:
 | 7 | `Tags` | Stores tag definitions used for content categorisation. |
 | 8 | `Reactions` | Stores reusable reaction definitions. |
 
-### 12.7 Event System
+### 12.8 Event System
 
 The event system decouples entity creation, update, and soft-delete operations from approval workflow side effects.
 
 Events are published through the `EventBroker` and consumed by approval and orchestration services as required.
 
-### 12.8 Content Analysis Service
+### 12.9 Content Analysis Service
 
 The `ContentAnalysisService` orchestrates AI-assisted analysis, duplicate detection, scripture extraction, categorisation, quality checks, and moderation suggestions.
 
@@ -3020,7 +3053,7 @@ Granular role rules:
 
 **The role segment is the `ContentType` enum member name** (`Quote`, `Story`, `Testimony`, `Topic`, `Series`) — there is no `Slug` any more (§3.7). Every member is already a single PascalCase word with no whitespace or hyphens by construction, so no derivation step is needed and no two members can ever collide on the composed role name.
 
-**Role lifecycle is fixed, not driven by any content-type lifecycle** — there is none (§12.4.2). `ContentType` is a compile-time enum, so the full set of content-type-scoped roles is known at compile time and can be enumerated and seeded once, at application startup, for every member: `ContentItem-Quote-Reviewer`, `ContentItem-Quote-Publisher`, `ContentItem-Story-Reviewer`, `ContentItem-Story-Publisher`, and so on for every member. Adding a `ContentType` member is a code change and a release; the corresponding roles are seeded on that release's startup, the same as any other fixed role. There is no rename cascade, no stale role claim, and no removal case to design for.
+**Role lifecycle is fixed, not driven by any content-type lifecycle** — there is none (§12.5.1). `ContentType` is a compile-time enum, so the full set of content-type-scoped roles is known at compile time and can be enumerated and seeded once, at application startup, for every member: `ContentItem-Quote-Reviewer`, `ContentItem-Quote-Publisher`, `ContentItem-Story-Reviewer`, `ContentItem-Story-Publisher`, and so on for every member. Adding a `ContentType` member is a code change and a release; the corresponding roles are seeded on that release's startup, the same as any other fixed role. There is no rename cascade, no stale role claim, and no removal case to design for.
 
 **This capability does not exist yet.** Core's `ISecurityBroker` is read-only on roles — `IsInRoleAsync` and nothing more — and `IIdentityBroker` in the web app manages *user-to-role assignment* (`InsertUserToRoleAsync`, `DeleteUserFromRoleAsync`, `SelectAllRoles`) but cannot create, rename or delete a role. Since Identity is owned by the web app and the `ContentType` enum is owned by Core, the startup seed belongs on the web-app side, reading the fixed set of Core enum members, not on a new Core dependency into the Identity store.
 
@@ -3382,7 +3415,7 @@ The next changes to look at:
 3. Add EF Core configuration for SEO fields including a unique filtered index on `Slug` per content type for published records.
 4. Add `GET /api/content-items/by-slug/{contentType}/{slug}` endpoint.
 5. Update feed API response to include SEO fields.
-6. Add slug generation logic to `ContentItemOrchestration` — auto-generate from `Title`, enforce immutability once published.
+6. Add slug generation logic to `ContentItemProcessingService` — auto-generate from `Title`, enforce immutability once published.
 7. Add sitemap endpoint `/sitemap.xml` and `/sitemap-topics.xml`.
 8. Add `robots.txt` endpoint.
 9. Add JSON-LD structured data support per content type.

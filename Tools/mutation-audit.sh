@@ -11,10 +11,10 @@
 # Usage:
 #   Tools/mutation-audit.sh <production-dir> <test-filter> [test-project]
 #
-# Example (ContentItem orchestration):
+# Example (ContentItem processing):
 #   Tools/mutation-audit.sh \
-#     Glory2Him.Core/Services/Orchestrations/ContentItems \
-#     ContentItemOrchestrationServiceTests
+#     Glory2Him.Core/Services/Processings/ContentItems \
+#     ContentItemProcessingServiceTests
 #
 # Notes:
 # - The target directory must be clean in git (uncommitted changes are refused,

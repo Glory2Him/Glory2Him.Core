@@ -469,13 +469,13 @@ components:
       - from: SubscribeToContentItemSettingEventAsync
         to: EXT.EventHighway
         method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
-      - from: PublishContentItemOrchestrationAsync
+      - from: PublishContentItemProcessingAsync
         to: EXT.EventHighway
         method: V2.EventV2Client.SubmitEventV2Async
-      - from: SubscribeToContentItemOrchestrationEventAsync
+      - from: SubscribeToContentItemProcessingEventAsync
         to: EXT.EventHighway
         method: V2.RegisterEventHandlerAsync
-      - from: SubscribeToContentItemOrchestrationEventAsync
+      - from: SubscribeToContentItemProcessingEventAsync
         to: EXT.EventHighway
         method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
   - id: DateTimeBroker
@@ -2700,11 +2700,11 @@ components:
         handler: OnHardRemovingContentItemSettingByIdAsync
       - event: ContentItemSetting.RetrievingById
         handler: OnRetrievingContentItemSettingByIdAsync
-  - id: CIO
-    name: ContentItemOrchestrationService
-    layer: orchestration
+  - id: CIP
+    name: ContentItemProcessingService
+    layer: processing
     col: 4
-    description: "Core's public write/read surface for content: dedupe-by-hash, immutable-version forking on modify, group-based reads. Publishes ContentItemOrchestration facts (Added/Modified/Removed) exactly once per operation. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation services."
+    description: "Core's public write/read surface for content: dedupe-by-hash, immutable-version forking on modify, group-based reads. Publishes ContentItemProcessing facts (Added/Modified/Removed) exactly once per operation. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation services."
     methods:
       - AddContentItemAsync
       - ModifyContentItemAsync
@@ -2866,19 +2866,19 @@ components:
         method: LogWarningAsync
     publishes:
       - method: AddContentItemAsync
-        event: ContentItemOrchestration.Added
+        event: ContentItemProcessing.Added
       - method: ModifyContentItemAsync
-        event: ContentItemOrchestration.Modified
+        event: ContentItemProcessing.Modified
       - method: RemoveContentItemByIdAsync
-        event: ContentItemOrchestration.Removed
+        event: ContentItemProcessing.Removed
     subscribes:
-      - event: ContentItemOrchestration.Adding
+      - event: ContentItemProcessing.Adding
         handler: OnAddingContentItemAsync
-      - event: ContentItemOrchestration.Modifying
+      - event: ContentItemProcessing.Modifying
         handler: OnModifyingContentItemAsync
-      - event: ContentItemOrchestration.RemovingById
+      - event: ContentItemProcessing.RemovingById
         handler: OnRemovingContentItemByIdAsync
-      - event: ContentItemOrchestration.RetrievingById
+      - event: ContentItemProcessing.RetrievingById
         handler: OnRetrievingContentItemByIdAsync
   - id: ESR
     name: EventSubscriptionRegistration

@@ -67,7 +67,7 @@ roots:
   - WA.ManageAccountApi
   - WA.FrontendConfigApi
   - WA.CartService
-  - CIO
+  - CIP
   - ESR
   - SecurityBroker
   - AccessBroker
@@ -450,24 +450,24 @@ events:
   - id: ContentItemSetting.HardRemoved
     publish: PublishContentItemSettingAsync
     subscribe: SubscribeToContentItemSettingEventAsync
-  - id: ContentItemOrchestration.Adding
-    publish: PublishContentItemOrchestrationAsync
-    subscribe: SubscribeToContentItemOrchestrationEventAsync
-  - id: ContentItemOrchestration.Modifying
-    publish: PublishContentItemOrchestrationAsync
-    subscribe: SubscribeToContentItemOrchestrationEventAsync
-  - id: ContentItemOrchestration.RemovingById
-    publish: PublishContentItemOrchestrationAsync
-    subscribe: SubscribeToContentItemOrchestrationEventAsync
-  - id: ContentItemOrchestration.RetrievingById
-    publish: PublishContentItemOrchestrationAsync
-    subscribe: SubscribeToContentItemOrchestrationEventAsync
-  - id: ContentItemOrchestration.Added
-    publish: PublishContentItemOrchestrationAsync
-    subscribe: SubscribeToContentItemOrchestrationEventAsync
-  - id: ContentItemOrchestration.Modified
-    publish: PublishContentItemOrchestrationAsync
-    subscribe: SubscribeToContentItemOrchestrationEventAsync
-  - id: ContentItemOrchestration.Removed
-    publish: PublishContentItemOrchestrationAsync
-    subscribe: SubscribeToContentItemOrchestrationEventAsync
+  - id: ContentItemProcessing.Adding
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: ContentItemProcessing.Modifying
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: ContentItemProcessing.RemovingById
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: ContentItemProcessing.RetrievingById
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: ContentItemProcessing.Added
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: ContentItemProcessing.Modified
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: ContentItemProcessing.Removed
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
