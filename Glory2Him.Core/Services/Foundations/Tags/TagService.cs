@@ -425,13 +425,11 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             if (maybeTag.IsDeleted)
                 return maybeTag;
 
-            if (deletionReason is not null)
-                maybeTag.DeletionReason = deletionReason;
-
             Tag auditedTag =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeTag,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             Tag removedTag = await this.storageBroker.UpdateTagAsync(
                 tag: auditedTag,

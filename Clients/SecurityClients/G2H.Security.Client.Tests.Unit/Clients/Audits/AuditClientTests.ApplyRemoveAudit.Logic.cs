@@ -56,5 +56,47 @@ namespace G2H.Security.Client.Tests.Clients.Audits
 
             this.auditOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        [Fact]
+        public async Task ShouldForwardDeletionReasonOnApplyRemoveAuditAsync()
+        {
+            // Given
+            ClaimsPrincipal randomClaimsPrincipal = CreateRandomClaimsPrincipal();
+            ClaimsPrincipal inputClaimsPrincipal = randomClaimsPrincipal;
+            string inputDeletionReason = GetRandomString();
+            var inputPerson = new Person { Name = GetRandomString() };
+            var updatedPerson = new Person { Name = GetRandomString() };
+            var expectedResult = updatedPerson;
+            var securityConfigurations = new SecurityConfigurations();
+
+            this.auditOrchestrationServiceMock.Setup(service =>
+                service.ApplyRemoveAuditValuesAsync(
+                    inputPerson,
+                    inputClaimsPrincipal,
+                    securityConfigurations,
+                    inputDeletionReason))
+                        .ReturnsAsync(updatedPerson);
+
+            // When
+            var actualResult = await this.auditClient
+                .ApplyRemoveAuditValuesAsync(
+                    inputPerson,
+                    inputClaimsPrincipal,
+                    securityConfigurations,
+                    inputDeletionReason);
+
+            // Then
+            ((object)actualResult).Should().BeEquivalentTo(expectedResult);
+
+            this.auditOrchestrationServiceMock.Verify(service =>
+                service.ApplyRemoveAuditValuesAsync(
+                    inputPerson,
+                    inputClaimsPrincipal,
+                    securityConfigurations,
+                    inputDeletionReason),
+                        Times.Once);
+
+            this.auditOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
     }
 }

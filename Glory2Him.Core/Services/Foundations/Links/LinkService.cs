@@ -425,13 +425,11 @@ namespace Glory2Him.Core.Services.Foundations.Links
             if (maybeLink.IsDeleted)
                 return maybeLink;
 
-            if (deletionReason is not null)
-                maybeLink.DeletionReason = deletionReason;
-
             Link auditedLink =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeLink,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             Link removedLink = await this.storageBroker.UpdateLinkAsync(
                 link: auditedLink,
