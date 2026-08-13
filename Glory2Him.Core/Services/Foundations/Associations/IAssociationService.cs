@@ -48,6 +48,23 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Association association,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Looks up a LIVE row that OVERLAPS <paramref name="association"/>'s coverage rather than
+        /// occupying its exact pair: same endpoint types, groups and <c>UserId</c>, but a version
+        /// range that intersects on BOTH endpoints — an <see cref="Scope.AllVersions"/> endpoint
+        /// spanning a <see cref="Scope.ThisVersionOnly"/> row's version, or the reverse. Their
+        /// effective ids differ, so <c>UX_Associations_Pair</c> cannot catch it, yet both rows
+        /// would render the same pairing (design §7.4). Two <see cref="Scope.ThisVersionOnly"/>
+        /// endpoints on different versions of one group do NOT overlap and are never returned.
+        /// Reads the UNFILTERED store and returns a non-leaking <see cref="AssociationPairMatch"/>
+        /// (or <c>null</c> when nothing overlaps); pass <paramref name="excludedAssociationId"/> to
+        /// exclude the row being modified from its own check.
+        /// </summary>
+        ValueTask<AssociationPairMatch?> FindOverlappingAssociationAsync(
+            Association association,
+            Guid? excludedAssociationId = null,
+            CancellationToken cancellationToken = default);
+
         ValueTask<Association> ModifyAssociationAsync(
             Association association,
             CancellationToken cancellationToken = default);
