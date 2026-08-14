@@ -51,11 +51,22 @@ namespace Glory2Him.Core.Brokers.Securities
         /// True when the caller is changing a review they already hold rather than filing a new
         /// one — an amendment must not be refused for finding its own review.
         /// </param>
+        ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
+            Guid approvalId,
+            bool isAmendingOwnReview,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
         ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
             Guid approvalId,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 
+        /// <param name="commentCreatedBy">
+        /// The stored comment's <c>CreatedBy</c>. The caller must read it from storage — this
+        /// broker passes it through without verifying it, so a payload-supplied value would
+        /// defeat the ownership gate it feeds.
+        /// </param>
         ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
@@ -65,12 +76,6 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
             Guid approvalId,
             string commentCreatedBy,
-            Models.Events.SecurityContext securityContext,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
-            Guid approvalId,
-            bool isAmendingOwnReview,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
     }

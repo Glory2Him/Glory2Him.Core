@@ -111,9 +111,13 @@ namespace G2H.Security.Client.Models.Foundations.Access
         ApprovalNotOpenForComment = 17,
 
         /// <summary>
-        /// The parent approval is soft-deleted. Its foreign key still resolves — deletion is a
-        /// flag, not a row removal (§10.4) — so this is the half of "existing, non-deleted parent"
-        /// that the key cannot express.
+        /// The parent approval cannot be acted against: either it is soft-deleted, or the
+        /// gatherer could not find it at all.
+        ///
+        /// <para>Soft deletion is the half of "existing, non-deleted parent" that a foreign key
+        /// cannot express — the key still resolves, because deletion is a flag rather than a row
+        /// removal (§10.4). The missing case is reported through the same reason deliberately: a
+        /// caller learns only that the parent is unusable, never which of the two it was.</para>
         /// </summary>
         ParentApprovalUnavailable = 18,
 

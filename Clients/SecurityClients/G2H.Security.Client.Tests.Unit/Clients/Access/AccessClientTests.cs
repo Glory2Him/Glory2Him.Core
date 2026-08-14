@@ -119,6 +119,32 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 Explanation = GetRandomString(),
             };
 
+        private static RecordApprovalCommentRequest CreateRandomRecordApprovalCommentRequest() =>
+            new RecordApprovalCommentRequest
+            {
+                Actor = CreateRandomAccessActor(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
+        private static AmendApprovalCommentRequest CreateRandomAmendApprovalCommentRequest() =>
+            new AmendApprovalCommentRequest
+            {
+                Actor = CreateRandomAccessActor(),
+                CommentCreatedBy = GetRandomString(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
+        private static ResolveApprovalCommentRequest CreateRandomResolveApprovalCommentRequest() =>
+            new ResolveApprovalCommentRequest
+            {
+                Actor = CreateRandomAccessActor(),
+                CommentCreatedBy = GetRandomString(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
         private static AccessVerdict CreateRandomAccessVerdict() =>
             new AccessVerdict
             {

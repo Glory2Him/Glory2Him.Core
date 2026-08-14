@@ -79,23 +79,27 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         private static AmendApprovalCommentRequest CreateRandomAmendApprovalCommentRequest(
             AccessActor? actor = null,
             string? commentCreatedBy = null,
-            ApprovalState approvalState = ApprovalState.Submitted) =>
+            ApprovalState approvalState = ApprovalState.Submitted,
+            bool isParentApprovalDeleted = false) =>
             new AmendApprovalCommentRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(),
                 CommentCreatedBy = commentCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
+                IsParentApprovalDeleted = isParentApprovalDeleted,
             };
 
         private static ResolveApprovalCommentRequest CreateRandomResolveApprovalCommentRequest(
             AccessActor? actor = null,
             string? commentCreatedBy = null,
-            ApprovalState approvalState = ApprovalState.Submitted) =>
+            ApprovalState approvalState = ApprovalState.Submitted,
+            bool isParentApprovalDeleted = false) =>
             new ResolveApprovalCommentRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(),
                 CommentCreatedBy = commentCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
+                IsParentApprovalDeleted = isParentApprovalDeleted,
             };
 
         private static ReviewRecord CreateRandomReviewRecord(

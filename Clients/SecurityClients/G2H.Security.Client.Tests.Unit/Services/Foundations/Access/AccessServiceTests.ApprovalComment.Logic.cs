@@ -225,6 +225,118 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         }
 
         [Fact]
+        public async Task ShouldRefuseAmendingACommentWhenTheParentApprovalIsDeletedAsync()
+        {
+            // given: a taken-down approval stops its comments being editable with it, or a
+            // thread goes on living under an approval that no longer exists to anyone
+            string authorId = GetRandomString();
+
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    isParentApprovalDeleted: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    amendApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.ParentApprovalUnavailable);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseResolvingACommentWhenTheParentApprovalIsDeletedAsync()
+        {
+            // given
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(
+                        roles: new List<string> { RoleNames.Admin }),
+                    commentCreatedBy: GetRandomString(),
+                    isParentApprovalDeleted: true);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(
+                    resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.ParentApprovalUnavailable);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseTheAuthorResolvingOnceTheRoundHasClosedAsync()
+        {
+            // given: the closed-round bar is not an Admin-only rule — narrowing it to admins
+            // would otherwise survive the suite
+            string authorId = GetRandomString();
+
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
+                    actor: CreateRandomAccessActor(userId: authorId),
+                    commentCreatedBy: authorId,
+                    approvalState: ApprovalState.Approved);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(
+                    resolveApprovalCommentRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+
+            actualVerdict.DenialReason.Should()
+                .Be(AccessDenialReason.ApprovalNotOpenForComment);
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task ShouldRefuseEveryCommentGateWhenTheActorUserIdIsBlankAsync(
+            string? invalidUserId)
+        {
+            // given: authenticated but carrying no resolvable id. Blank must never match blank,
+            // or "is this the author?" answers yes for every row whose author was never stamped.
+            var actorWithoutUserId = new AccessActor
+            {
+                UserId = invalidUserId!,
+                Roles = new List<string> { RoleNames.Admin },
+                IsAuthenticated = true,
+            };
+
+            // when
+            AccessVerdict recordVerdict =
+                await this.accessService.MayRecordApprovalCommentAsync(
+                    CreateRandomRecordApprovalCommentRequest(actor: actorWithoutUserId));
+
+            AccessVerdict amendVerdict =
+                await this.accessService.MayAmendApprovalCommentAsync(
+                    CreateRandomAmendApprovalCommentRequest(
+                        actor: actorWithoutUserId,
+                        commentCreatedBy: invalidUserId!));
+
+            AccessVerdict resolveVerdict =
+                await this.accessService.MayResolveApprovalCommentAsync(
+                    CreateRandomResolveApprovalCommentRequest(
+                        actor: actorWithoutUserId,
+                        commentCreatedBy: invalidUserId!));
+
+            // then
+            recordVerdict.DenialReason.Should().Be(AccessDenialReason.NotAuthenticated);
+            amendVerdict.DenialReason.Should().Be(AccessDenialReason.NotAuthenticated);
+            resolveVerdict.DenialReason.Should().Be(AccessDenialReason.NotAuthenticated);
+        }
+
+        [Fact]
         public async Task ShouldRefuseResolvingACommentWhenTheActorIsNotAuthenticatedAsync()
         {
             // given

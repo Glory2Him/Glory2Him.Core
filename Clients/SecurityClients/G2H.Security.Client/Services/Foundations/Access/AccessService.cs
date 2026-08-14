@@ -67,9 +67,6 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
         // ── §7.7 rule 1 / HR-1 / §7.7 rule 2b / §8.9 rule 1 ─────────────────────────────────
         //
-        // Order matters and is not arbitrary. Identity comes first, then role, then the rules
-        // that need no policy at all — because a caller who is refused outright must not learn
-        // anything about the approval's state or its configuration on the way out (§14.5).
         public ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
             RecordApprovalCommentRequest recordApprovalCommentRequest) =>
             TryCatch(() =>
@@ -126,7 +123,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             {
                 return Refuse(
                     AccessDenialReason.ApprovalNotOpenForComment,
-                    "The parent approval is not open, so its comment thread is closed.");
+                    "The parent approval is not open for comment — it is either not yet submitted, or its round has closed.");
             }
 
             return Permit("Actor may add a comment to an open approval.");
@@ -150,11 +147,18 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "Actor did not write this comment; no role permits amending another's words.");
             }
 
+            if (request.IsParentApprovalDeleted)
+            {
+                return Refuse(
+                    AccessDenialReason.ParentApprovalUnavailable,
+                    "The parent approval is soft-deleted, so its comments are no longer writable.");
+            }
+
             if (request.ApprovalState != ApprovalState.Submitted)
             {
                 return Refuse(
                     AccessDenialReason.ApprovalNotOpenForComment,
-                    "The parent approval has closed, so what was said stands as recorded.");
+                    "The parent approval is not open — before submission there is no thread, and once it closes what was said stands as recorded.");
             }
 
             return Permit("Actor is the author of the comment and the round is open.");
@@ -182,11 +186,18 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "Actor is neither the comment's author nor an Admin resolving on their behalf.");
             }
 
+            if (request.IsParentApprovalDeleted)
+            {
+                return Refuse(
+                    AccessDenialReason.ParentApprovalUnavailable,
+                    "The parent approval is soft-deleted, so its comments are no longer writable.");
+            }
+
             if (request.ApprovalState != ApprovalState.Submitted)
             {
                 return Refuse(
                     AccessDenialReason.ApprovalNotOpenForComment,
-                    "The parent approval has closed, so its resolution flags are final.");
+                    "The parent approval is not open — before submission nothing reads the flag, and once it closes the flags are final.");
             }
 
             return isAuthor
@@ -194,6 +205,9 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 : Permit("Actor is an Admin resolving on the author's behalf; UpdatedBy records them.");
         }
 
+        // Order matters and is not arbitrary. Identity comes first, then role, then the rules
+        // that need no policy at all — because a caller who is refused outright must not learn
+        // anything about the approval's state or its configuration on the way out (§14.5).
         private static AccessVerdict DecideMayRecordReview(RecordReviewRequest request)
         {
             if (IsActorUsable(request.Actor) is false)

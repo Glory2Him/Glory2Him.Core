@@ -35,9 +35,14 @@ namespace G2H.Security.Client.Models.Foundations.Access
         public required AccessActor Actor { get; init; }
 
         /// <summary>
-        /// The <c>CreatedBy</c> of the comment being changed, read from storage rather than from
-        /// the caller's payload — a submitted value would let the caller nominate themselves as
-        /// the author of someone else's row.
+        /// The <c>CreatedBy</c> of the comment being acted on.
+        ///
+        /// <para><b>The caller must read this from storage, never from the request payload.</b>
+        /// This client is a pure function and cannot fetch it — a payload-supplied value would
+        /// let a caller nominate themselves as the author of someone else's row and pass the
+        /// ownership gate. <c>AccessBroker</c> passes it through rather than reading it, so the
+        /// obligation lands on the <b>foundation service</b>, which already loads the stored
+        /// comment before it asks. Nothing in this project or the broker can enforce it.</para>
         /// </summary>
         public required string CommentCreatedBy { get; init; }
 
@@ -47,5 +52,17 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <c>Rejected</c> — the record of what was said stands.
         /// </summary>
         public required ApprovalState ApprovalState { get; init; }
+
+        /// <summary>
+        /// Whether the parent approval is soft-deleted.
+        ///
+        /// <para>Asked here for the same reason it is asked on
+        /// <see cref="RecordApprovalCommentRequest"/>: the foreign key cannot answer it, because
+        /// deletion is a flag and the row stays (§10.4). A taken-down approval accepts no new
+        /// comments, and its existing ones stop being changed or withdrawn with it — otherwise a
+        /// comment thread would go on living under an approval that no longer exists to anyone.
+        /// </para>
+        /// </summary>
+        public required bool IsParentApprovalDeleted { get; init; }
     }
 }

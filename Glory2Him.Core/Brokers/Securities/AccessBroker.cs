@@ -136,6 +136,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     Actor = actor,
                     CommentCreatedBy = commentCreatedBy,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                    IsParentApprovalDeleted = maybeApproval.IsDeleted,
                 });
         }
 
@@ -162,6 +163,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     Actor = actor,
                     CommentCreatedBy = commentCreatedBy,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                    IsParentApprovalDeleted = maybeApproval.IsDeleted,
                 });
         }
 
@@ -370,8 +372,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
                 case EntityType.BibleReference:
                     var bibleReference =
-                        await
-                            this.storageBroker.SelectBibleReferenceByIdAsync(entityId, cancellationToken);
+                        await this.storageBroker.SelectBibleReferenceByIdAsync(entityId, cancellationToken);
 
                     return (bibleReference?.CreatedBy ?? string.Empty, null);
 

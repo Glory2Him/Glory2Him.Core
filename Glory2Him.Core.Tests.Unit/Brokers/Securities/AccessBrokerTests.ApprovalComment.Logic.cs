@@ -48,6 +48,13 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             // then
             this.capturedRecordApprovalCommentRequest.Should().NotBeNull();
+
+            // the actor is resolved from the security context by the audit broker, never taken
+            // from the caller — if this stopped being wired the gate would decide for a stranger
+            this.capturedRecordApprovalCommentRequest.Actor.UserId.Should()
+                .Be(this.auditResolvedUserId);
+
+            VerifyTheActorWasResolvedFor(securityContext);
             this.capturedRecordApprovalCommentRequest.ApprovalState.Should().Be(ApprovalState.Submitted);
             this.capturedRecordApprovalCommentRequest.IsParentApprovalDeleted.Should().BeTrue();
 
