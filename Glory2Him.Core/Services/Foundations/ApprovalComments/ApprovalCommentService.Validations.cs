@@ -11,7 +11,9 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
@@ -63,6 +65,79 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
+
+        // The cross-entity half of the write gates, and the reason it could not be asked here
+        // before: it needs the parent Approval, which a single-entity service may not read.
+        // IAccessBroker gathers it. Two rules land with these calls — the round must be open
+        // (§14.7), and the parent must not be soft-deleted, which the foreign key cannot express
+        // because deletion is a flag and the row stays (§10.4, §9.7.2 rule 2).
+        //
+        // The row-local gates above still run: §14.6 rule 2 makes the duplication intended, and
+        // the ownership question needs no cross-entity read at all.
+        private async ValueTask ValidateUserMayRecordApprovalCommentAsync(
+            Guid approvalId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayRecordApprovalCommentAsync(
+                approvalId: approvalId,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            await ThrowIfRefusedAsync(verdict, approvalId, "add a comment to");
+        }
+
+        private async ValueTask ValidateUserMayAmendApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayAmendApprovalCommentAsync(
+                approvalId: approvalId,
+                commentCreatedBy: commentCreatedBy,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            await ThrowIfRefusedAsync(verdict, approvalId, "change or withdraw a comment on");
+        }
+
+        private async ValueTask ValidateUserMayResolveApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayResolveApprovalCommentAsync(
+                approvalId: approvalId,
+                commentCreatedBy: commentCreatedBy,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            await ThrowIfRefusedAsync(verdict, approvalId, "resolve a comment on");
+        }
+
+        // §14.5: the true reason server-side, nothing about the policy to the caller. The
+        // verdict's explanation is composed from resolved policy values, so echoing it outward
+        // would leak the approval configuration through a public event address.
+        private async ValueTask ThrowIfRefusedAsync(
+            AccessVerdict verdict,
+            Guid approvalId,
+            string attempted)
+        {
+            if (verdict.IsPermitted)
+            {
+                return;
+            }
+
+            await this.loggingBroker.LogWarningAsync(
+                $"Approval comment denied. Attempted to {attempted} approval {approvalId}. "
+                    + $"{verdict.DenialReason}: {verdict.Explanation} "
+                    + "Reported to the caller as unauthorized.");
+
+            throw new UnauthorizedApprovalCommentException(
+                message: "The current user is not allowed to act on this approval comment.");
+        }
 
         // row-level write permission: the author, and only the author
         private async ValueTask ValidateUserCanModifyStorageApprovalCommentAsync(

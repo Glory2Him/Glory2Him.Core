@@ -50,6 +50,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         private readonly IEventBroker eventBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IAccessBroker accessBroker;
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -60,6 +61,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             IEventBroker eventBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IAccessBroker accessBroker,
             IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
@@ -69,6 +71,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             this.eventBroker = eventBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.accessBroker = accessBroker;
             this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -299,6 +302,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 approvalComment: approvalComment,
                 securityContext: inboundEnvelope.SecurityContext);
 
+            await ValidateUserMayRecordApprovalCommentAsync(
+                approvalId: approvalComment.ApprovalId,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
             ApprovalComment addedApprovalComment =
                 await this.storageBroker.InsertApprovalCommentAsync(approvalComment, cancellationToken);
 
@@ -347,6 +355,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             await ValidateUserCanModifyStorageApprovalCommentAsync(
                 storageApprovalComment: maybeApprovalComment,
                 securityContext: inboundEnvelope.SecurityContext);
+
+            await ValidateUserMayAmendApprovalCommentAsync(
+                approvalId: maybeApprovalComment.ApprovalId,
+                commentCreatedBy: maybeApprovalComment.CreatedBy,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             approvalComment = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -401,6 +415,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             await ValidateUserCanRemoveStorageApprovalCommentAsync(
                 storageApprovalComment: maybeApprovalComment,
                 securityContext: inboundEnvelope.SecurityContext);
+
+            await ValidateUserMayAmendApprovalCommentAsync(
+                approvalId: maybeApprovalComment.ApprovalId,
+                commentCreatedBy: maybeApprovalComment.CreatedBy,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             if (maybeApprovalComment.IsDeleted)
                 return maybeApprovalComment;
