@@ -57,6 +57,9 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         // is about what crossed that boundary, so it is captured rather than matched inline.
         private DecideApprovalRequest capturedDecideApprovalRequest;
         private RecordReviewRequest capturedRecordReviewRequest;
+        private RecordCommentRequest capturedRecordCommentRequest;
+        private AmendCommentRequest capturedAmendCommentRequest;
+        private ResolveCommentRequest capturedResolveCommentRequest;
 
         // The principal the broker built from the envelope's SecurityContext. Rebuilt inside the
         // broker, so it can only be seen from the boundary it was handed to.
@@ -121,6 +124,24 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 client.MayRecordApprovalReviewAsync(It.IsAny<RecordReviewRequest>()))
                     .Callback((RecordReviewRequest recordReviewRequest) =>
                         this.capturedRecordReviewRequest = recordReviewRequest)
+                    .ReturnsAsync(accessVerdict);
+
+            this.accessClientMock.Setup(client =>
+                client.MayRecordApprovalCommentAsync(It.IsAny<RecordCommentRequest>()))
+                    .Callback((RecordCommentRequest recordCommentRequest) =>
+                        this.capturedRecordCommentRequest = recordCommentRequest)
+                    .ReturnsAsync(accessVerdict);
+
+            this.accessClientMock.Setup(client =>
+                client.MayAmendApprovalCommentAsync(It.IsAny<AmendCommentRequest>()))
+                    .Callback((AmendCommentRequest amendCommentRequest) =>
+                        this.capturedAmendCommentRequest = amendCommentRequest)
+                    .ReturnsAsync(accessVerdict);
+
+            this.accessClientMock.Setup(client =>
+                client.MayResolveApprovalCommentAsync(It.IsAny<ResolveCommentRequest>()))
+                    .Callback((ResolveCommentRequest resolveCommentRequest) =>
+                        this.capturedResolveCommentRequest = resolveCommentRequest)
                     .ReturnsAsync(accessVerdict);
         }
 

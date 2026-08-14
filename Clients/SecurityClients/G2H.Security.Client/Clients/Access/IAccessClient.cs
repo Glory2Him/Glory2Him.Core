@@ -56,6 +56,40 @@ namespace G2H.Security.Client.Clients.Access
             RecordReviewRequest recordReviewRequest);
 
         /// <summary>
+        /// Decides whether an actor may add a comment to an approval — that the parent approval
+        /// is alive and its round still open.
+        ///
+        /// <para>Carries no tier: commenting is not reviewing. The contribution gate is row-local
+        /// and stays in the foundation service (§14.6); what this answers is the pair of facts
+        /// about the parent that a single-entity service may not read.</para>
+        /// </summary>
+        ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            RecordCommentRequest recordCommentRequest);
+
+        /// <summary>
+        /// Decides whether an actor may change or withdraw a comment — authorship, and the open
+        /// round.
+        ///
+        /// <para>Serves editing and soft-deleting alike, because both ask the same question. No
+        /// role widens it: an <c>Admin</c> gets past an unresolved comment by resolving it or by
+        /// bypassing the block, never by rewriting it.</para>
+        /// </summary>
+        ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            AmendCommentRequest amendCommentRequest);
+
+        /// <summary>
+        /// Decides whether an actor may mark a comment resolved or unresolved — the author, or an
+        /// <c>Admin</c> acting on their behalf, while the round is open.
+        ///
+        /// <para>Separate from <see cref="MayAmendApprovalCommentAsync"/> because
+        /// <c>IsResolved</c> is a narrower field scope with a wider audience, and answering both
+        /// through one method would need a "which fields may I touch here" branch — which the
+        /// codebase treats as the signal that there are two operations (§9.7.1 rule 3).</para>
+        /// </summary>
+        ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            ResolveCommentRequest resolveCommentRequest);
+
+        /// <summary>
         /// Decides whether an actor may apply an approval decision — the publisher tier, the bar
         /// on deciding a round you reviewed, self-approval, the approval conditions, and whether
         /// a bypass is available and explained.

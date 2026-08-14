@@ -102,5 +102,26 @@ namespace G2H.Security.Client.Models.Foundations.Access
 
         /// <summary>The entity's confidence score is exactly zero (§8.5 rule 8).</summary>
         BlockedByZeroConfidenceScore = 16,
+
+        /// <summary>
+        /// The parent approval has closed, so its comment thread is closed with it. Separate from
+        /// <see cref="ApprovalNotOpenForReview"/> because the two windows are asked about by
+        /// different operations and a shared reason would report a review problem for a comment.
+        /// </summary>
+        ApprovalNotOpenForComment = 17,
+
+        /// <summary>
+        /// The parent approval is soft-deleted. Its foreign key still resolves — deletion is a
+        /// flag, not a row removal (§10.4) — so this is the half of "existing, non-deleted parent"
+        /// that the key cannot express.
+        /// </summary>
+        ParentApprovalUnavailable = 18,
+
+        /// <summary>
+        /// The actor did not write the comment. Comments are owned by whoever submitted them: no
+        /// role amends another person's words, and an <c>Admin</c> who needs past an unresolved
+        /// one bypasses rather than edits it.
+        /// </summary>
+        NotCommentAuthor = 19,
     }
 }

@@ -51,6 +51,23 @@ namespace Glory2Him.Core.Brokers.Securities
         /// True when the caller is changing a review they already hold rather than filing a new
         /// one — an amendment must not be refused for finding its own review.
         /// </param>
+        ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            Guid approvalId,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
         ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             Guid approvalId,
             bool isAmendingOwnReview,

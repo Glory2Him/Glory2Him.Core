@@ -70,6 +70,129 @@ namespace G2H.Security.Client.Services.Foundations.Access
         // Order matters and is not arbitrary. Identity comes first, then role, then the rules
         // that need no policy at all — because a caller who is refused outright must not learn
         // anything about the approval's state or its configuration on the way out (§14.5).
+        public ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            RecordCommentRequest recordCommentRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnRecordComment(recordCommentRequest);
+
+                return new ValueTask<AccessVerdict>(
+                    DecideMayRecordComment(recordCommentRequest));
+            });
+
+        public ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            AmendCommentRequest amendCommentRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnAmendComment(amendCommentRequest);
+
+                return new ValueTask<AccessVerdict>(
+                    DecideMayAmendComment(amendCommentRequest));
+            });
+
+        public ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            ResolveCommentRequest resolveCommentRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnResolveComment(resolveCommentRequest);
+
+                return new ValueTask<AccessVerdict>(
+                    DecideMayResolveComment(resolveCommentRequest));
+            });
+
+        // Adding carries no tier: anyone who may contribute may speak on an approval they can
+        // see, and that contribution gate is row-local and belongs to the foundation service
+        // (§14.6). What is decided here is the pair of facts about the PARENT that a
+        // single-entity service may not read for itself.
+        private static AccessVerdict DecideMayRecordComment(RecordCommentRequest request)
+        {
+            if (IsActorUsable(request.Actor) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotAuthenticated,
+                    "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            // Checked before the state so a taken-down approval reports what is actually wrong
+            // with it rather than reporting a closed round.
+            if (request.IsParentApprovalDeleted)
+            {
+                return Refuse(
+                    AccessDenialReason.ParentApprovalUnavailable,
+                    "The parent approval is soft-deleted and accepts no further comments.");
+            }
+
+            if (request.ApprovalState != ApprovalState.Submitted)
+            {
+                return Refuse(
+                    AccessDenialReason.ApprovalNotOpenForComment,
+                    "The parent approval is not open, so its comment thread is closed.");
+            }
+
+            return Permit("Actor may add a comment to an open approval.");
+        }
+
+        // Editing the text and withdrawing the row ask the same question, so they share one
+        // decision. No role widens it: a comment belongs to whoever wrote it.
+        private static AccessVerdict DecideMayAmendComment(AmendCommentRequest request)
+        {
+            if (IsActorUsable(request.Actor) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotAuthenticated,
+                    "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            if (IsSameUser(request.Actor.UserId, request.CommentCreatedBy) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotCommentAuthor,
+                    "Actor did not write this comment; no role permits amending another's words.");
+            }
+
+            if (request.ApprovalState != ApprovalState.Submitted)
+            {
+                return Refuse(
+                    AccessDenialReason.ApprovalNotOpenForComment,
+                    "The parent approval has closed, so what was said stands as recorded.");
+            }
+
+            return Permit("Actor is the author of the comment and the round is open.");
+        }
+
+        // The one comment operation an Admin may perform on someone else's row, and deliberately
+        // the only one: resolving records that a question was answered, which changes no words.
+        private static AccessVerdict DecideMayResolveComment(ResolveCommentRequest request)
+        {
+            if (IsActorUsable(request.Actor) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotAuthenticated,
+                    "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
+            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Admin);
+
+            if (isAuthor is false && isAdmin is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotCommentAuthor,
+                    "Actor is neither the comment's author nor an Admin resolving on their behalf.");
+            }
+
+            if (request.ApprovalState != ApprovalState.Submitted)
+            {
+                return Refuse(
+                    AccessDenialReason.ApprovalNotOpenForComment,
+                    "The parent approval has closed, so its resolution flags are final.");
+            }
+
+            return isAuthor
+                ? Permit("Actor is the author of the comment and the round is open.")
+                : Permit("Actor is an Admin resolving on the author's behalf; UpdatedBy records them.");
+        }
+
         private static AccessVerdict DecideMayRecordReview(RecordReviewRequest request)
         {
             if (IsActorUsable(request.Actor) is false)

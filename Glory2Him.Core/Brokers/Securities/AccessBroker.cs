@@ -85,6 +85,98 @@ namespace Glory2Him.Core.Brokers.Securities
                 });
         }
 
+        // The comment gates share one gather: the parent approval, for its state and whether it
+        // has been taken down. Neither fact is readable by ApprovalCommentService, which is
+        // single-entity — which is the whole reason these live here rather than there.
+        public async ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            Guid approvalId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            return await this.securityClient.Access.MayRecordApprovalCommentAsync(
+                new RecordCommentRequest
+                {
+                    Actor = actor,
+                    ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                    IsParentApprovalDeleted = maybeApproval.IsDeleted,
+                });
+        }
+
+        public async ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            return await this.securityClient.Access.MayAmendApprovalCommentAsync(
+                new AmendCommentRequest
+                {
+                    Actor = actor,
+                    CommentCreatedBy = commentCreatedBy,
+                    ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                });
+        }
+
+        public async ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            return await this.securityClient.Access.MayResolveApprovalCommentAsync(
+                new ResolveCommentRequest
+                {
+                    Actor = actor,
+                    CommentCreatedBy = commentCreatedBy,
+                    ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                });
+        }
+
+        // A comment whose approval cannot be found is refused rather than waved through. The
+        // caller's own not-found handling reports it; here it only has to fail closed.
+        private static AccessVerdict RefuseMissingApproval(Guid approvalId) =>
+            new AccessVerdict
+            {
+                IsPermitted = false,
+                DenialReason = AccessDenialReason.ParentApprovalUnavailable,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = $"No approval was found for id {approvalId}.",
+            };
+
         public async ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             Guid approvalId,
             bool isAmendingOwnReview,

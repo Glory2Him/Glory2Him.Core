@@ -65,6 +65,39 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 DoNotAllowBypassingSettings = doNotAllowBypassingSettings,
             };
 
+        private static RecordCommentRequest CreateRandomRecordCommentRequest(
+            AccessActor? actor = null,
+            ApprovalState approvalState = ApprovalState.Submitted,
+            bool isParentApprovalDeleted = false) =>
+            new RecordCommentRequest
+            {
+                Actor = actor ?? CreateRandomAccessActor(),
+                ApprovalState = approvalState,
+                IsParentApprovalDeleted = isParentApprovalDeleted,
+            };
+
+        private static AmendCommentRequest CreateRandomAmendCommentRequest(
+            AccessActor? actor = null,
+            string? commentCreatedBy = null,
+            ApprovalState approvalState = ApprovalState.Submitted) =>
+            new AmendCommentRequest
+            {
+                Actor = actor ?? CreateRandomAccessActor(),
+                CommentCreatedBy = commentCreatedBy ?? GetRandomString(),
+                ApprovalState = approvalState,
+            };
+
+        private static ResolveCommentRequest CreateRandomResolveCommentRequest(
+            AccessActor? actor = null,
+            string? commentCreatedBy = null,
+            ApprovalState approvalState = ApprovalState.Submitted) =>
+            new ResolveCommentRequest
+            {
+                Actor = actor ?? CreateRandomAccessActor(),
+                CommentCreatedBy = commentCreatedBy ?? GetRandomString(),
+                ApprovalState = approvalState,
+            };
+
         private static ReviewRecord CreateRandomReviewRecord(
             string? createdBy = null,
             ReviewVerdict verdict = ReviewVerdict.Approved,
