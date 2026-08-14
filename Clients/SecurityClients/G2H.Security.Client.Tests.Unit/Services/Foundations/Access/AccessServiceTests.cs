@@ -65,33 +65,33 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 DoNotAllowBypassingSettings = doNotAllowBypassingSettings,
             };
 
-        private static RecordCommentRequest CreateRandomRecordCommentRequest(
+        private static RecordApprovalCommentRequest CreateRandomRecordApprovalCommentRequest(
             AccessActor? actor = null,
             ApprovalState approvalState = ApprovalState.Submitted,
             bool isParentApprovalDeleted = false) =>
-            new RecordCommentRequest
+            new RecordApprovalCommentRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(),
                 ApprovalState = approvalState,
                 IsParentApprovalDeleted = isParentApprovalDeleted,
             };
 
-        private static AmendCommentRequest CreateRandomAmendCommentRequest(
+        private static AmendApprovalCommentRequest CreateRandomAmendApprovalCommentRequest(
             AccessActor? actor = null,
             string? commentCreatedBy = null,
             ApprovalState approvalState = ApprovalState.Submitted) =>
-            new AmendCommentRequest
+            new AmendApprovalCommentRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(),
                 CommentCreatedBy = commentCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
             };
 
-        private static ResolveCommentRequest CreateRandomResolveCommentRequest(
+        private static ResolveApprovalCommentRequest CreateRandomResolveApprovalCommentRequest(
             AccessActor? actor = null,
             string? commentCreatedBy = null,
             ApprovalState approvalState = ApprovalState.Submitted) =>
-            new ResolveCommentRequest
+            new ResolveApprovalCommentRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(),
                 CommentCreatedBy = commentCreatedBy ?? GetRandomString(),
@@ -111,10 +111,10 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             };
         }
 
-        private static CommentRecord CreateRandomCommentRecord(
+        private static ApprovalCommentRecord CreateRandomApprovalCommentRecord(
             bool isResolved = true,
             bool isDeleted = false) =>
-            new CommentRecord
+            new ApprovalCommentRecord
             {
                 IsResolved = isResolved,
                 IsDeleted = isDeleted,
@@ -134,7 +134,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             string? entityType = null,
             string? contentType = null,
             IReadOnlyList<ReviewRecord>? reviews = null,
-            IReadOnlyList<CommentRecord>? comments = null,
+            IReadOnlyList<ApprovalCommentRecord>? comments = null,
             decimal? confidenceScore = null) =>
             new ApprovalConditionsRequest
             {
@@ -142,7 +142,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityType = entityType ?? GetRandomString(),
                 ContentType = contentType,
                 Reviews = reviews ?? new List<ReviewRecord>(),
-                Comments = comments ?? new List<CommentRecord>(),
+                Comments = comments ?? new List<ApprovalCommentRecord>(),
                 ConfidenceScore = confidenceScore,
             };
 
@@ -151,7 +151,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         private static ApprovalConditionsRequest CreateApprovalConditionsRequestFor(
             ApprovalPolicy approvalPolicy,
             IReadOnlyList<ReviewRecord>? reviews = null,
-            IReadOnlyList<CommentRecord>? comments = null,
+            IReadOnlyList<ApprovalCommentRecord>? comments = null,
             decimal? confidenceScore = null) =>
             CreateRandomApprovalConditionsRequest(
                 candidatePolicies: new List<ApprovalPolicy> { approvalPolicy },
@@ -188,7 +188,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             string? entityCreatedBy = null,
             ApprovalState approvalState = ApprovalState.Submitted,
             IReadOnlyList<ReviewRecord>? reviews = null,
-            IReadOnlyList<CommentRecord>? comments = null,
+            IReadOnlyList<ApprovalCommentRecord>? comments = null,
             decimal? confidenceScore = null,
             bool isBypassRequested = false,
             string? bypassReason = null)
@@ -209,7 +209,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityCreatedBy = entityCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
                 Reviews = reviews ?? new List<ReviewRecord>(),
-                Comments = comments ?? new List<CommentRecord>(),
+                Comments = comments ?? new List<ApprovalCommentRecord>(),
                 ConfidenceScore = confidenceScore,
                 IsBypassRequested = isBypassRequested,
                 BypassReason = bypassReason,

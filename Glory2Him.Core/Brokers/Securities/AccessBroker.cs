@@ -105,7 +105,7 @@ namespace Glory2Him.Core.Brokers.Securities
             }
 
             return await this.securityClient.Access.MayRecordApprovalCommentAsync(
-                new RecordCommentRequest
+                new RecordApprovalCommentRequest
                 {
                     Actor = actor,
                     ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
@@ -131,7 +131,7 @@ namespace Glory2Him.Core.Brokers.Securities
             }
 
             return await this.securityClient.Access.MayAmendApprovalCommentAsync(
-                new AmendCommentRequest
+                new AmendApprovalCommentRequest
                 {
                     Actor = actor,
                     CommentCreatedBy = commentCreatedBy,
@@ -157,7 +157,7 @@ namespace Glory2Him.Core.Brokers.Securities
             }
 
             return await this.securityClient.Access.MayResolveApprovalCommentAsync(
-                new ResolveCommentRequest
+                new ResolveApprovalCommentRequest
                 {
                     Actor = actor,
                     CommentCreatedBy = commentCreatedBy,
@@ -288,9 +288,9 @@ namespace Glory2Him.Core.Brokers.Securities
                 })
                 .ToList();
 
-            List<CommentRecord> comments = allComments
+            List<ApprovalCommentRecord> comments = allComments
                 .Where(comment => comment.ApprovalId == approval.Id)
-                .Select(comment => new CommentRecord
+                .Select(comment => new ApprovalCommentRecord
                 {
                     IsResolved = comment.IsResolved,
                     IsDeleted = comment.IsDeleted,
@@ -370,7 +370,8 @@ namespace Glory2Him.Core.Brokers.Securities
 
                 case EntityType.BibleReference:
                     var bibleReference =
-                        await this.storageBroker.SelectBibleReferenceByIdAsync(entityId, cancellationToken);
+                        await
+                            this.storageBroker.SelectBibleReferenceByIdAsync(entityId, cancellationToken);
 
                     return (bibleReference?.CreatedBy ?? string.Empty, null);
 
@@ -435,13 +436,13 @@ namespace Glory2Him.Core.Brokers.Securities
         private sealed record ApprovalReviewSnapshot(
             ApprovalState State,
             IReadOnlyList<ReviewRecord> Reviews,
-            IReadOnlyList<CommentRecord> Comments)
+            IReadOnlyList<ApprovalCommentRecord> Comments)
         {
             public static ApprovalReviewSnapshot Empty { get; } =
                 new ApprovalReviewSnapshot(
                     ApprovalState.Draft,
                     new List<ReviewRecord>(),
-                    new List<CommentRecord>());
+                    new List<ApprovalCommentRecord>());
         }
     }
 }

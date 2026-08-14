@@ -27,12 +27,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             AccessActor unauthenticatedActor =
                 CreateRandomAccessActor(isAuthenticated: false);
 
-            RecordCommentRequest recordCommentRequest =
-                CreateRandomRecordCommentRequest(actor: unauthenticatedActor);
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(actor: unauthenticatedActor);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayRecordApprovalCommentAsync(recordCommentRequest);
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -44,12 +44,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given: the foreign key still resolves — deletion is a flag, not a row removal —
             // so this is the half of "existing, non-deleted parent" the key cannot express
-            RecordCommentRequest recordCommentRequest =
-                CreateRandomRecordCommentRequest(isParentApprovalDeleted: true);
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(isParentApprovalDeleted: true);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayRecordApprovalCommentAsync(recordCommentRequest);
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -63,13 +63,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given: a taken-down approval is also a closed one, and the more specific fact is
             // the one worth reporting
-            RecordCommentRequest recordCommentRequest = CreateRandomRecordCommentRequest(
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(
                 approvalState: ApprovalState.Approved,
                 isParentApprovalDeleted: true);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayRecordApprovalCommentAsync(recordCommentRequest);
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
 
             // then
             actualVerdict.DenialReason.Should()
@@ -84,12 +85,12 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             ApprovalState closedState)
         {
             // given
-            RecordCommentRequest recordCommentRequest =
-                CreateRandomRecordCommentRequest(approvalState: closedState);
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(approvalState: closedState);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayRecordApprovalCommentAsync(recordCommentRequest);
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -102,12 +103,13 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         public async Task ShouldPermitRecordingACommentOnAnOpenApprovalWithoutAnyTierAsync()
         {
             // given: commenting is not reviewing — an actor holding no role at all may speak
-            RecordCommentRequest recordCommentRequest = CreateRandomRecordCommentRequest(
+            RecordApprovalCommentRequest recordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest(
                 actor: CreateRandomAccessActor(roles: new List<string>()));
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayRecordApprovalCommentAsync(recordCommentRequest);
+                await this.accessService.MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
@@ -120,13 +122,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // given
             string authorId = GetRandomString();
 
-            AmendCommentRequest amendCommentRequest = CreateRandomAmendCommentRequest(
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
                 actor: CreateRandomAccessActor(userId: authorId, isAuthenticated: false),
                 commentCreatedBy: authorId);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayAmendApprovalCommentAsync(amendCommentRequest);
+                await this.accessService.MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -137,13 +140,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         public async Task ShouldRefuseAmendingACommentTheActorDidNotWriteAsync()
         {
             // given
-            AmendCommentRequest amendCommentRequest = CreateRandomAmendCommentRequest(
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
                 actor: CreateRandomAccessActor(userId: GetRandomString()),
                 commentCreatedBy: GetRandomString());
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayAmendApprovalCommentAsync(amendCommentRequest);
+                await this.accessService.MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -159,13 +163,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given: no tier widens the amend gate. An Admin who needs past an unresolved
             // comment resolves it or bypasses the block; neither rewrites another's words.
-            AmendCommentRequest amendCommentRequest = CreateRandomAmendCommentRequest(
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
                 actor: CreateRandomAccessActor(roles: new List<string> { role }),
                 commentCreatedBy: GetRandomString());
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayAmendApprovalCommentAsync(amendCommentRequest);
+                await this.accessService.MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -182,14 +187,15 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // given: what was said stands as recorded
             string authorId = GetRandomString();
 
-            AmendCommentRequest amendCommentRequest = CreateRandomAmendCommentRequest(
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
                 actor: CreateRandomAccessActor(userId: authorId),
                 commentCreatedBy: authorId,
                 approvalState: closedState);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayAmendApprovalCommentAsync(amendCommentRequest);
+                await this.accessService.MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -204,13 +210,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // given
             string authorId = GetRandomString();
 
-            AmendCommentRequest amendCommentRequest = CreateRandomAmendCommentRequest(
+            AmendApprovalCommentRequest amendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest(
                 actor: CreateRandomAccessActor(userId: authorId, roles: new List<string>()),
                 commentCreatedBy: authorId);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayAmendApprovalCommentAsync(amendCommentRequest);
+                await this.accessService.MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
@@ -223,13 +230,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // given
             string authorId = GetRandomString();
 
-            ResolveCommentRequest resolveCommentRequest = CreateRandomResolveCommentRequest(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(userId: authorId, isAuthenticated: false),
                 commentCreatedBy: authorId);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayResolveApprovalCommentAsync(resolveCommentRequest);
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -242,13 +250,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         public async Task ShouldRefuseResolvingAnotherPersonsCommentWithoutAdminAsync(string role)
         {
             // given: the resolve gate widens to Admin and to nobody else
-            ResolveCommentRequest resolveCommentRequest = CreateRandomResolveCommentRequest(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(roles: new List<string> { role }),
                 commentCreatedBy: GetRandomString());
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayResolveApprovalCommentAsync(resolveCommentRequest);
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
@@ -260,14 +269,15 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given: resolving records that a question was answered, which changes no words —
             // the one comment operation an Admin may perform on someone else's row
-            ResolveCommentRequest resolveCommentRequest = CreateRandomResolveCommentRequest(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(
                     roles: new List<string> { RoleNames.Admin }),
                 commentCreatedBy: GetRandomString());
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayResolveApprovalCommentAsync(resolveCommentRequest);
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
@@ -280,13 +290,14 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // given
             string authorId = GetRandomString();
 
-            ResolveCommentRequest resolveCommentRequest = CreateRandomResolveCommentRequest(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(userId: authorId, roles: new List<string>()),
                 commentCreatedBy: authorId);
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayResolveApprovalCommentAsync(resolveCommentRequest);
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
@@ -301,7 +312,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             ApprovalState closedState)
         {
             // given: the block this flag feeds has already been evaluated for the last time
-            ResolveCommentRequest resolveCommentRequest = CreateRandomResolveCommentRequest(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(
                     roles: new List<string> { RoleNames.Admin }),
                 commentCreatedBy: GetRandomString(),
@@ -309,7 +321,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             // when
             AccessVerdict actualVerdict =
-                await this.accessService.MayResolveApprovalCommentAsync(resolveCommentRequest);
+                await this.accessService.MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();

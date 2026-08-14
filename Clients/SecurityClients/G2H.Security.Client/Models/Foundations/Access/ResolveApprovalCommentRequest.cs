@@ -15,7 +15,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// Everything the "may this actor mark this comment resolved or unresolved?" decision
     /// consults.
     ///
-    /// <para>Separate from <see cref="AmendCommentRequest"/> because it is a separate operation
+    /// <para>Separate from <see cref="AmendApprovalCommentRequest"/> because it is a separate operation
     /// with a narrower field scope — it owns <c>IsResolved</c> and nothing else (§9.7.1 rule 3,
     /// §10.2 rule 7, the same reason <c>Submit</c>, <c>Approve</c> and <c>Dismiss</c> exist).
     /// Splitting it is what keeps the amend gate owner-only while still letting an <c>Admin</c>
@@ -31,7 +31,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// <para>Every property is <c>required</c> for the reason given on
     /// <see cref="ApprovalConditionsRequest"/>.</para>
     /// </summary>
-    public class ResolveCommentRequest
+    public class ResolveApprovalCommentRequest
     {
         /// <summary>
         /// The user attempting to change the resolution flag.

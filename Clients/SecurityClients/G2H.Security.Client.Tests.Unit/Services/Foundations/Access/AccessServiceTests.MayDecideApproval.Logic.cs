@@ -270,9 +270,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 policy: lockedDownApprovalPolicy,
                 confidenceScore: 0m,
 
-                comments: new List<CommentRecord>
+                comments: new List<ApprovalCommentRecord>
                 {
-                    CreateRandomCommentRecord(isResolved: false),
+                    CreateRandomApprovalCommentRecord(isResolved: false),
                 });
 
             // when
@@ -434,9 +434,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 policy: commentGatedApprovalPolicy,
                 isBypassRequested: false,
 
-                comments: new List<CommentRecord>
+                comments: new List<ApprovalCommentRecord>
                 {
-                    CreateRandomCommentRecord(isResolved: false),
+                    CreateRandomApprovalCommentRecord(isResolved: false),
                 });
 
             // when
@@ -590,9 +590,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 isBypassRequested: true,
                 bypassReason: GetRandomString(),
 
-                comments: new List<CommentRecord>
+                comments: new List<ApprovalCommentRecord>
                 {
-                    CreateRandomCommentRecord(isResolved: false),
+                    CreateRandomApprovalCommentRecord(isResolved: false),
                 });
 
             // when

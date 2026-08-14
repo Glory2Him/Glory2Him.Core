@@ -77,12 +77,12 @@ namespace G2H.Security.Client.Clients.Access
         }
 
         public async ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
-            RecordCommentRequest recordCommentRequest)
+            RecordApprovalCommentRequest recordApprovalCommentRequest)
         {
             try
             {
                 return await this.accessService
-                    .MayRecordApprovalCommentAsync(recordCommentRequest);
+                    .MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
             }
             catch (AccessValidationException accessValidationException)
             {
@@ -101,12 +101,12 @@ namespace G2H.Security.Client.Clients.Access
         }
 
         public async ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
-            AmendCommentRequest amendCommentRequest)
+            AmendApprovalCommentRequest amendApprovalCommentRequest)
         {
             try
             {
                 return await this.accessService
-                    .MayAmendApprovalCommentAsync(amendCommentRequest);
+                    .MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
             }
             catch (AccessValidationException accessValidationException)
             {
@@ -125,12 +125,12 @@ namespace G2H.Security.Client.Clients.Access
         }
 
         public async ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
-            ResolveCommentRequest resolveCommentRequest)
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest)
         {
             try
             {
                 return await this.accessService
-                    .MayResolveApprovalCommentAsync(resolveCommentRequest);
+                    .MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
             }
             catch (AccessValidationException accessValidationException)
             {

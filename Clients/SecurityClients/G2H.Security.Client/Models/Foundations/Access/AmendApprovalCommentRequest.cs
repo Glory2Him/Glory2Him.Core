@@ -20,14 +20,14 @@ namespace G2H.Security.Client.Models.Foundations.Access
     ///
     /// <para>Notice what is <b>absent</b>: any role at all. No tier widens this — not
     /// <c>Reviewer</c>, not <c>Publisher</c>, not <c>Admin</c>. An <c>Admin</c> who needs to get
-    /// past an unresolved comment resolves it (<see cref="ResolveCommentRequest"/>) or bypasses
+    /// past an unresolved comment resolves it (<see cref="ResolveApprovalCommentRequest"/>) or bypasses
     /// the block; neither route rewrites another person's words. Passing roles in would invite a
     /// future rule to widen the gate here, which is exactly what this decision refuses.</para>
     ///
     /// <para>Every property is <c>required</c> for the reason given on
     /// <see cref="ApprovalConditionsRequest"/>.</para>
     /// </summary>
-    public class AmendCommentRequest
+    public class AmendApprovalCommentRequest
     {
         /// <summary>
         /// The user attempting to change or withdraw the comment.

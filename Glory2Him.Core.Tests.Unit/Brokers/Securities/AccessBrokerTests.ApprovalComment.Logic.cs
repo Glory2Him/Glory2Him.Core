@@ -47,9 +47,9 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 TestContext.Current.CancellationToken);
 
             // then
-            this.capturedRecordCommentRequest.Should().NotBeNull();
-            this.capturedRecordCommentRequest.ApprovalState.Should().Be(ApprovalState.Submitted);
-            this.capturedRecordCommentRequest.IsParentApprovalDeleted.Should().BeTrue();
+            this.capturedRecordApprovalCommentRequest.Should().NotBeNull();
+            this.capturedRecordApprovalCommentRequest.ApprovalState.Should().Be(ApprovalState.Submitted);
+            this.capturedRecordApprovalCommentRequest.IsParentApprovalDeleted.Should().BeTrue();
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectApprovalByIdAsync(approval.Id, It.IsAny<CancellationToken>()),
@@ -83,7 +83,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 TestContext.Current.CancellationToken);
 
             // then
-            this.capturedRecordCommentRequest.ApprovalState.Should().Be(expectedState);
+            this.capturedRecordApprovalCommentRequest.ApprovalState.Should().Be(expectedState);
         }
 
         [Fact]
@@ -110,9 +110,9 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 TestContext.Current.CancellationToken);
 
             // then
-            this.capturedAmendCommentRequest.Should().NotBeNull();
-            this.capturedAmendCommentRequest.CommentCreatedBy.Should().Be(storedAuthor);
-            this.capturedAmendCommentRequest.ApprovalState.Should().Be(ApprovalState.Submitted);
+            this.capturedAmendApprovalCommentRequest.Should().NotBeNull();
+            this.capturedAmendApprovalCommentRequest.CommentCreatedBy.Should().Be(storedAuthor);
+            this.capturedAmendApprovalCommentRequest.ApprovalState.Should().Be(ApprovalState.Submitted);
         }
 
         [Fact]
@@ -138,9 +138,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 TestContext.Current.CancellationToken);
 
             // then
-            this.capturedResolveCommentRequest.Should().NotBeNull();
-            this.capturedResolveCommentRequest.CommentCreatedBy.Should().Be(storedAuthor);
-            this.capturedResolveCommentRequest.ApprovalState.Should().Be(ApprovalState.Submitted);
+            this.capturedResolveApprovalCommentRequest.Should().NotBeNull();
+            this.capturedResolveApprovalCommentRequest.CommentCreatedBy.Should().Be(storedAuthor);
+            this.capturedResolveApprovalCommentRequest.ApprovalState.Should()
+                .Be(ApprovalState.Submitted);
         }
 
         [Fact]
@@ -168,10 +169,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 .Be(AccessDenialReason.ParentApprovalUnavailable);
 
             actualVerdict.Explanation.Should().Contain(approvalId.ToString());
-            this.capturedRecordCommentRequest.Should().BeNull();
+            this.capturedRecordApprovalCommentRequest.Should().BeNull();
 
             this.accessClientMock.Verify(client =>
-                client.MayRecordApprovalCommentAsync(It.IsAny<RecordCommentRequest>()),
+                client.MayRecordApprovalCommentAsync(It.IsAny<RecordApprovalCommentRequest>()),
                     Times.Never);
         }
 
@@ -199,10 +200,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             actualVerdict.DenialReason.Should()
                 .Be(AccessDenialReason.ParentApprovalUnavailable);
 
-            this.capturedAmendCommentRequest.Should().BeNull();
+            this.capturedAmendApprovalCommentRequest.Should().BeNull();
 
             this.accessClientMock.Verify(client =>
-                client.MayAmendApprovalCommentAsync(It.IsAny<AmendCommentRequest>()),
+                client.MayAmendApprovalCommentAsync(It.IsAny<AmendApprovalCommentRequest>()),
                     Times.Never);
         }
 
@@ -230,10 +231,10 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             actualVerdict.DenialReason.Should()
                 .Be(AccessDenialReason.ParentApprovalUnavailable);
 
-            this.capturedResolveCommentRequest.Should().BeNull();
+            this.capturedResolveApprovalCommentRequest.Should().BeNull();
 
             this.accessClientMock.Verify(client =>
-                client.MayResolveApprovalCommentAsync(It.IsAny<ResolveCommentRequest>()),
+                client.MayResolveApprovalCommentAsync(It.IsAny<ResolveApprovalCommentRequest>()),
                     Times.Never);
         }
     }

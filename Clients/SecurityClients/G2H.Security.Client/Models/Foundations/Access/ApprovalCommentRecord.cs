@@ -18,7 +18,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// is answered by <see cref="IsResolved"/>, and handing a decision function prose it cannot
     /// act on invites someone to start reading it.</para>
     /// </summary>
-    public class CommentRecord
+    public class ApprovalCommentRecord
     {
         /// <summary>
         /// Whether the question this comment raised has been answered. An unresolved comment

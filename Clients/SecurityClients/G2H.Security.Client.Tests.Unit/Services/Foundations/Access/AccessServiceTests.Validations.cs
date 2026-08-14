@@ -61,7 +61,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityType = invalidEntityType!,
                 ContentType = null,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<CommentRecord>(),
+                Comments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
             };
 
@@ -301,7 +301,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<CommentRecord>(),
+                Comments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
                 IsBypassRequested = false,
                 BypassReason = null,

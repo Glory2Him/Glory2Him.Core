@@ -71,40 +71,40 @@ namespace G2H.Security.Client.Services.Foundations.Access
         // that need no policy at all — because a caller who is refused outright must not learn
         // anything about the approval's state or its configuration on the way out (§14.5).
         public ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
-            RecordCommentRequest recordCommentRequest) =>
+            RecordApprovalCommentRequest recordApprovalCommentRequest) =>
             TryCatch(() =>
             {
-                ValidateOnRecordComment(recordCommentRequest);
+                ValidateOnRecordApprovalComment(recordApprovalCommentRequest);
 
                 return new ValueTask<AccessVerdict>(
-                    DecideMayRecordComment(recordCommentRequest));
+                    DecideMayRecordApprovalComment(recordApprovalCommentRequest));
             });
 
         public ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
-            AmendCommentRequest amendCommentRequest) =>
+            AmendApprovalCommentRequest amendApprovalCommentRequest) =>
             TryCatch(() =>
             {
-                ValidateOnAmendComment(amendCommentRequest);
+                ValidateOnAmendApprovalComment(amendApprovalCommentRequest);
 
                 return new ValueTask<AccessVerdict>(
-                    DecideMayAmendComment(amendCommentRequest));
+                    DecideMayAmendApprovalComment(amendApprovalCommentRequest));
             });
 
         public ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
-            ResolveCommentRequest resolveCommentRequest) =>
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest) =>
             TryCatch(() =>
             {
-                ValidateOnResolveComment(resolveCommentRequest);
+                ValidateOnResolveApprovalComment(resolveApprovalCommentRequest);
 
                 return new ValueTask<AccessVerdict>(
-                    DecideMayResolveComment(resolveCommentRequest));
+                    DecideMayResolveApprovalComment(resolveApprovalCommentRequest));
             });
 
         // Adding carries no tier: anyone who may contribute may speak on an approval they can
         // see, and that contribution gate is row-local and belongs to the foundation service
         // (§14.6). What is decided here is the pair of facts about the PARENT that a
         // single-entity service may not read for itself.
-        private static AccessVerdict DecideMayRecordComment(RecordCommentRequest request)
+        private static AccessVerdict DecideMayRecordApprovalComment(RecordApprovalCommentRequest request)
         {
             if (IsActorUsable(request.Actor) is false)
             {
@@ -134,7 +134,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
         // Editing the text and withdrawing the row ask the same question, so they share one
         // decision. No role widens it: a comment belongs to whoever wrote it.
-        private static AccessVerdict DecideMayAmendComment(AmendCommentRequest request)
+        private static AccessVerdict DecideMayAmendApprovalComment(AmendApprovalCommentRequest request)
         {
             if (IsActorUsable(request.Actor) is false)
             {
@@ -162,7 +162,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
         // The one comment operation an Admin may perform on someone else's row, and deliberately
         // the only one: resolving records that a question was answered, which changes no words.
-        private static AccessVerdict DecideMayResolveComment(ResolveCommentRequest request)
+        private static AccessVerdict DecideMayResolveApprovalComment(
+            ResolveApprovalCommentRequest request)
         {
             if (IsActorUsable(request.Actor) is false)
             {
@@ -364,7 +365,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
         private static ApprovalConditionsVerdict EvaluateConditions(
             ApprovalPolicy policy,
             IReadOnlyList<ReviewRecord> reviews,
-            IReadOnlyList<CommentRecord> comments,
+            IReadOnlyList<ApprovalCommentRecord> comments,
             decimal? confidenceScore)
         {
             // The Dismissed clause is redundant TODAY and kept on purpose. A dismissed review is

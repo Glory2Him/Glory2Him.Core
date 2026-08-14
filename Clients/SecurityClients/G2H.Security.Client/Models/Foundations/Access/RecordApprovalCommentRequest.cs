@@ -28,7 +28,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// <see cref="ApprovalConditionsRequest"/>: an ungathered fact would default to the
     /// permissive answer.</para>
     /// </summary>
-    public class RecordCommentRequest
+    public class RecordApprovalCommentRequest
     {
         /// <summary>
         /// The user attempting to add the comment.

@@ -60,31 +60,31 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     Parameter: nameof(RecordReviewRequest.ExistingReviews)));
         }
 
-        virtual internal void ValidateOnRecordComment(RecordCommentRequest recordCommentRequest)
+        virtual internal void ValidateOnRecordApprovalComment(RecordApprovalCommentRequest recordApprovalCommentRequest)
         {
-            ValidateRequestIsNotNull(recordCommentRequest);
+            ValidateRequestIsNotNull(recordApprovalCommentRequest);
 
             Validate(
-                (Rule: IsInvalid(recordCommentRequest.Actor),
-                    Parameter: nameof(RecordCommentRequest.Actor)));
+                (Rule: IsInvalid(recordApprovalCommentRequest.Actor),
+                    Parameter: nameof(RecordApprovalCommentRequest.Actor)));
         }
 
-        virtual internal void ValidateOnAmendComment(AmendCommentRequest amendCommentRequest)
+        virtual internal void ValidateOnAmendApprovalComment(AmendApprovalCommentRequest amendApprovalCommentRequest)
         {
-            ValidateRequestIsNotNull(amendCommentRequest);
+            ValidateRequestIsNotNull(amendApprovalCommentRequest);
 
             Validate(
-                (Rule: IsInvalid(amendCommentRequest.Actor),
-                    Parameter: nameof(AmendCommentRequest.Actor)));
+                (Rule: IsInvalid(amendApprovalCommentRequest.Actor),
+                    Parameter: nameof(AmendApprovalCommentRequest.Actor)));
         }
 
-        virtual internal void ValidateOnResolveComment(ResolveCommentRequest resolveCommentRequest)
+        virtual internal void ValidateOnResolveApprovalComment(ResolveApprovalCommentRequest resolveApprovalCommentRequest)
         {
-            ValidateRequestIsNotNull(resolveCommentRequest);
+            ValidateRequestIsNotNull(resolveApprovalCommentRequest);
 
             Validate(
-                (Rule: IsInvalid(resolveCommentRequest.Actor),
-                    Parameter: nameof(ResolveCommentRequest.Actor)));
+                (Rule: IsInvalid(resolveApprovalCommentRequest.Actor),
+                    Parameter: nameof(ResolveApprovalCommentRequest.Actor)));
         }
 
         virtual internal void ValidateOnDecideApproval(DecideApprovalRequest decideApprovalRequest)

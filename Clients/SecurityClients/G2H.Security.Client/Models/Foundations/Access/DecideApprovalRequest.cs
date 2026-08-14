@@ -82,7 +82,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <summary>
         /// Every comment on the approval, including soft-deleted ones.
         /// </summary>
-        public required IReadOnlyList<CommentRecord> Comments { get; init; }
+        public required IReadOnlyList<ApprovalCommentRecord> Comments { get; init; }
 
         /// <summary>
         /// The entity's confidence score, or null. Null never blocks; see

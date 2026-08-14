@@ -64,7 +64,7 @@ namespace G2H.Security.Client.Clients.Access
         /// about the parent that a single-entity service may not read.</para>
         /// </summary>
         ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
-            RecordCommentRequest recordCommentRequest);
+            RecordApprovalCommentRequest recordApprovalCommentRequest);
 
         /// <summary>
         /// Decides whether an actor may change or withdraw a comment — authorship, and the open
@@ -75,7 +75,7 @@ namespace G2H.Security.Client.Clients.Access
         /// bypassing the block, never by rewriting it.</para>
         /// </summary>
         ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
-            AmendCommentRequest amendCommentRequest);
+            AmendApprovalCommentRequest amendApprovalCommentRequest);
 
         /// <summary>
         /// Decides whether an actor may mark a comment resolved or unresolved — the author, or an
@@ -87,7 +87,7 @@ namespace G2H.Security.Client.Clients.Access
         /// codebase treats as the signal that there are two operations (§9.7.1 rule 3).</para>
         /// </summary>
         ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
-            ResolveCommentRequest resolveCommentRequest);
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest);
 
         /// <summary>
         /// Decides whether an actor may apply an approval decision — the publisher tier, the bar
