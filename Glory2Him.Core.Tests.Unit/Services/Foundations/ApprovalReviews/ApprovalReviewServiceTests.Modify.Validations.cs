@@ -369,7 +369,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             ApprovalReview randomApprovalReview = CreateRandomModifyApprovalReview(randomDateTimeOffset, randomUserId);
             ApprovalReview invalidApprovalReview = randomApprovalReview;
             ApprovalReview storageApprovalReview = randomApprovalReview.DeepClone();
-            storageApprovalReview.CreatedBy = GetRandomString();
+            invalidApprovalReview.CreatedBy = GetRandomString();
             storageApprovalReview.UpdatedWhen = storageApprovalReview.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
             var invalidApprovalReviewException =
@@ -560,21 +560,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             ShouldThrowValidationExceptionOnModifyIfAUniqueIndexKeyFieldWasChangedAndLogItAsync(
                 string changedField)
         {
-            // given: both halves of UX_ApprovalReviews_ApprovalId_CreatedBy are fixed at add.
-            // The caller is an Admin ON PURPOSE — an Admin may legitimately amend anyone's
-            // review, and the point of these pins is that correcting a verdict must not also
-            // move it onto another reviewer's name or onto a different approval, either of
-            // which walks the row past the uniqueness rule that makes §7.7 rule 1 mean
-            // anything.
+            // given: both halves of UX_ApprovalReviews_ApprovalId_CreatedBy are fixed at add,
+            // and correcting a verdict must not also move it onto a different approval — that
+            // walks the row past the uniqueness rule that makes §7.7 rule 1 mean anything.
             //
-            // The actor is deliberately NOT the review's author. With the two equal, the
-            // ownership branch of ValidateUserCanModifyStorageApprovalReviewAsync carries the
-            // authorization, Roles.Admin becomes inert, and the amending-someone-else's-review
-            // case these pins exist for is never actually exercised.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            // The caller is the review's own author. This used to arrange an Admin acting on
+            // someone else's review, on the reasoning that "an Admin may legitimately amend
+            // anyone's review" — a model since withdrawn (§14.7 rule 5). The gate is owner-only
+            // now, so a non-owner is refused before reaching these pins; the owner tampering
+            // with the payload is the route that remains, and the one worth pinning.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            string reviewerUserId = GetRandomString();
             string randomUserId = GetRandomString();
+            string reviewerUserId = randomUserId;
 
             ApprovalReview randomApprovalReview =
                 CreateRandomModifyApprovalReview(randomDateTimeOffset, reviewerUserId);

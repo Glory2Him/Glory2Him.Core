@@ -315,6 +315,77 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         }
 
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsAdminButNotOwnerAndLogItAsync()
+        {
+            // given: the Admin escape is closed. This used to assert the opposite — that an
+            // Admin could retract anyone's review — and that is withdrawn (§14.7 rule 5). An
+            // Admin who needs past a review bypasses the block rather than deleting it.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            string randomActorUserId = GetRandomString();
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.IsDeleted = false;
+            Guid someApprovalReviewId = storageApprovalReview.Id;
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is not allowed to remove this approval review.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomActorUserId);
+
+            // when
+            ValueTask<ApprovalReview> removeApprovalReviewByIdTask =
+                this.approvalReviewService.RemoveApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    removeApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotAllowedEvenWhenAlreadyDeletedAndLogItAsync()
         {
             // given: permission is answered before the idempotent already-deleted

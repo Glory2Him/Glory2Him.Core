@@ -132,7 +132,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalReview.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            // Owner only. A verdict belongs to the reviewer who recorded it, and no role amends
+            // another person's — not Publisher, not Admin. An Admin who needs past a standing
+            // rejection bypasses the block (§8.6.1) rather than editing the review out of the way,
+            // which keeps the record of what was actually said intact.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalReviewException(
                     message: "The current user is not allowed to modify this approval review.");
@@ -151,7 +155,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalReview.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            // Owner only, for the same reason as modify. Withdrawing someone else's verdict is
+            // amending the review record by deletion.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalReviewException(
                     message: "The current user is not allowed to remove this approval review.");

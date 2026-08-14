@@ -64,9 +64,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
 
-        // row-level write permission: the author may edit their own comment and a review
-        // role may write it too — reviewers flip IsResolved on a submitter's comment as the
-        // thread is worked through
+        // row-level write permission: the author, and only the author
         private async ValueTask ValidateUserCanModifyStorageApprovalCommentAsync(
             ApprovalComment storageApprovalComment,
             SecurityContext securityContext)
@@ -77,15 +75,18 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalComment.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            // Owner only. This replaces "the author may edit their own comment and a review role
+            // may write it too — reviewers flip IsResolved on a submitter's comment": that model is
+            // withdrawn (§14.7 rule 5). IsResolved now has its own operation, which an Admin may
+            // use on someone else's row; the wording itself belongs to whoever wrote it.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalCommentException(
                     message: "The current user is not allowed to modify this approval comment.");
             }
         }
 
-        // removing a comment retracts it from the review record — the author may retract
-        // their own and an Admin may retract anyone's; reviewers resolve threads instead
+        // removing a comment retracts it from the review record — only its author may do so
         private async ValueTask ValidateUserCanRemoveStorageApprovalCommentAsync(
             ApprovalComment storageApprovalComment,
             SecurityContext securityContext)
@@ -96,7 +97,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalComment.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            // Owner only, matching modify. An Admin who needs past an unresolved comment resolves
+            // it or bypasses the block; withdrawing someone else's words is neither.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalCommentException(
                     message: "The current user is not allowed to remove this approval comment.");
