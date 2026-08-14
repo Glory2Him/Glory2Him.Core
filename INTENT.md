@@ -116,14 +116,12 @@ Provides a reusable mechanism to govern all entities.
 
 * Id (Guid)
 * ApprovalId
-* UserId
 * Comment
 
 ### ApprovalReview
 
 * Id (Guid)
 * ApprovalId
-* ReviewerId
 * StatusId
 
 ### ApprovalSettings

@@ -198,8 +198,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 new InvalidApprovalReviewException(
                     message: "Approval review is invalid, fix the errors and try again.");
 
-            // two rules now fire on this field: the length cap, and the actor binding — the
-            // over-long ReviewerId is by definition not the caller's id
+            // two rules fire on this field: the length cap, and the actor binding — an
+            // over-long CreatedBy is by definition not the caller's id
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.CreatedBy),
                 values: $"Text exceed max length of {invalidApprovalReview.CreatedBy.Length - 1} characters");

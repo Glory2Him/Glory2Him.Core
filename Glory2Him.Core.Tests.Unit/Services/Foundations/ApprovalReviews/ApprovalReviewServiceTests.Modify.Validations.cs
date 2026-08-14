@@ -548,7 +548,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public static TheoryData<string> UniqueIndexKeyFields() =>
             new TheoryData<string>
             {
-                nameof(ApprovalReview.CreatedBy),
+                // CreatedBy, the index's other key half, is pinned by
+                // ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync
+                // rather than here, so this theory covers the half nothing else does.
                 nameof(ApprovalReview.ApprovalId)
             };
 
@@ -586,16 +588,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             string expectedMessage;
 
-            if (changedField == nameof(ApprovalReview.CreatedBy))
-            {
-                storageApprovalReview.CreatedBy = GetRandomString();
-                expectedMessage = $"Text is not the same as {nameof(ApprovalReview.CreatedBy)}";
-            }
-            else
-            {
-                storageApprovalReview.ApprovalId = Guid.NewGuid();
-                expectedMessage = $"Id is not the same as {nameof(ApprovalReview.ApprovalId)}";
-            }
+            storageApprovalReview.ApprovalId = Guid.NewGuid();
+            expectedMessage = $"Id is not the same as {nameof(ApprovalReview.ApprovalId)}";
 
             var invalidApprovalReviewException =
                 new InvalidApprovalReviewException(

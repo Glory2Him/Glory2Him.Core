@@ -29,7 +29,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .Property(approvalComment => approvalComment.ApprovalId)
                 .IsRequired();
 
-
             model
                 .Property(approvalComment => approvalComment.CreatedBy)
                 .HasMaxLength(255)
