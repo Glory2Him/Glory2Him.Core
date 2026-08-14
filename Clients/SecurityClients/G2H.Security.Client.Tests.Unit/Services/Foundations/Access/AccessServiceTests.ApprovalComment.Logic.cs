@@ -151,7 +151,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
-            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotCommentAuthor);
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotApprovalCommentAuthor);
         }
 
         [Theory]
@@ -174,7 +174,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
-            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotCommentAuthor);
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotApprovalCommentAuthor);
         }
 
         [Theory]
@@ -261,7 +261,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             // then
             actualVerdict.IsPermitted.Should().BeFalse();
-            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotCommentAuthor);
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotApprovalCommentAuthor);
         }
 
         [Fact]

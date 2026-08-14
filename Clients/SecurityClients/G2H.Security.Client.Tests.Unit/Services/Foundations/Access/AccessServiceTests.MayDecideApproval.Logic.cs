@@ -447,7 +447,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.IsPermitted.Should().BeFalse();
 
             actualVerdict.DenialReason.Should()
-                .Be(AccessDenialReason.BlockedByUnresolvedComment);
+                .Be(AccessDenialReason.BlockedByUnresolvedApprovalComment);
 
             actualVerdict.Explanation.Should()
                 .Be("The approval conditions are not met and no bypass was requested. "
@@ -604,7 +604,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.IsBypassUsed.Should().BeTrue();
 
             actualVerdict.BypassedBlockReason.Should()
-                .Be(AccessDenialReason.BlockedByUnresolvedComment);
+                .Be(AccessDenialReason.BlockedByUnresolvedApprovalComment);
 
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
         }

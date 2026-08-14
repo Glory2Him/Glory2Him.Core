@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     EntityCreatedBy = approvalDecisionQuery.EntityCreatedBy,
                     ApprovalState = snapshot.State,
                     Reviews = snapshot.Reviews,
-                    Comments = snapshot.Comments,
+                    ApprovalComments = snapshot.ApprovalComments,
                     ConfidenceScore = approvalDecisionQuery.ConfidenceScore,
                     IsBypassRequested = approvalDecisionQuery.IsBypassRequested,
                     BypassReason = approvalDecisionQuery.BypassReason,
@@ -436,7 +436,7 @@ namespace Glory2Him.Core.Brokers.Securities
         private sealed record ApprovalReviewSnapshot(
             ApprovalState State,
             IReadOnlyList<ReviewRecord> Reviews,
-            IReadOnlyList<ApprovalCommentRecord> Comments)
+            IReadOnlyList<ApprovalCommentRecord> ApprovalComments)
         {
             public static ApprovalReviewSnapshot Empty { get; } =
                 new ApprovalReviewSnapshot(

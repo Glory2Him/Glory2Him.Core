@@ -41,7 +41,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     EvaluateConditions(
                         policy,
                         approvalConditionsRequest.Reviews,
-                        approvalConditionsRequest.Comments,
+                        approvalConditionsRequest.ApprovalComments,
                         approvalConditionsRequest.ConfidenceScore));
             });
 
@@ -146,7 +146,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             if (IsSameUser(request.Actor.UserId, request.CommentCreatedBy) is false)
             {
                 return Refuse(
-                    AccessDenialReason.NotCommentAuthor,
+                    AccessDenialReason.NotApprovalCommentAuthor,
                     "Actor did not write this comment; no role permits amending another's words.");
             }
 
@@ -178,7 +178,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             if (isAuthor is false && isAdmin is false)
             {
                 return Refuse(
-                    AccessDenialReason.NotCommentAuthor,
+                    AccessDenialReason.NotApprovalCommentAuthor,
                     "Actor is neither the comment's author nor an Admin resolving on their behalf.");
             }
 
@@ -332,7 +332,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 ApprovalConditionsVerdict bypassedConditions = EvaluateConditions(
                     policy,
                     request.Reviews,
-                    request.Comments,
+                    request.ApprovalComments,
                     request.ConfidenceScore);
 
                 return PermitByBypass(
@@ -347,7 +347,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             ApprovalConditionsVerdict conditions = EvaluateConditions(
                 policy,
                 request.Reviews,
-                request.Comments,
+                request.ApprovalComments,
                 request.ConfidenceScore);
 
             if (conditions.AreConditionsMet is false)
@@ -406,7 +406,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 && comments.Any(comment => comment.IsDeleted is false
                     && comment.IsResolved is false))
             {
-                blockReason = AccessDenialReason.BlockedByUnresolvedComment;
+                blockReason = AccessDenialReason.BlockedByUnresolvedApprovalComment;
                 explanation = "An approval comment is still unresolved.";
             }
             else if (policy.BlockOnZeroApprovalScore && confidenceScore == 0m)

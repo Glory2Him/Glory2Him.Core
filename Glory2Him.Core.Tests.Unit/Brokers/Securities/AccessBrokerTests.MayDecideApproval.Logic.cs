@@ -252,12 +252,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     && review.Verdict == ReviewVerdict.Rejected
                     && review.IsDeleted == true);
 
-            this.capturedDecideApprovalRequest.Comments.Should().HaveCount(2);
+            this.capturedDecideApprovalRequest.ApprovalComments.Should().HaveCount(2);
 
-            this.capturedDecideApprovalRequest.Comments.Should().ContainSingle(comment =>
+            this.capturedDecideApprovalRequest.ApprovalComments.Should().ContainSingle(comment =>
                 comment.IsResolved == false && comment.IsDeleted == false);
 
-            this.capturedDecideApprovalRequest.Comments.Should().ContainSingle(comment =>
+            this.capturedDecideApprovalRequest.ApprovalComments.Should().ContainSingle(comment =>
                 comment.IsResolved == true && comment.IsDeleted == true);
 
             VerifyDecideStorageReadsForAnExistingApproval();
@@ -320,7 +320,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.capturedDecideApprovalRequest.Reviews.Should().ContainSingle(review =>
                 review.CreatedBy == "reviewer-on-this-approval");
 
-            this.capturedDecideApprovalRequest.Comments.Should().ContainSingle(comment =>
+            this.capturedDecideApprovalRequest.ApprovalComments.Should().ContainSingle(comment =>
                 comment.IsResolved == false);
 
             VerifyDecideStorageReadsForAnExistingApproval();
@@ -597,7 +597,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 .Should().Be(ApprovalState.Draft);
 
             this.capturedDecideApprovalRequest.Reviews.Should().BeEmpty();
-            this.capturedDecideApprovalRequest.Comments.Should().BeEmpty();
+            this.capturedDecideApprovalRequest.ApprovalComments.Should().BeEmpty();
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllApprovalReviewsAsync(It.IsAny<CancellationToken>()),

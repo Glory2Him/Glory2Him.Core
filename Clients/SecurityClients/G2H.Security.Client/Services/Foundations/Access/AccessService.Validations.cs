@@ -41,8 +41,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 (Rule: IsInvalid(approvalConditionsRequest.Reviews),
                     Parameter: nameof(ApprovalConditionsRequest.Reviews)),
 
-                (Rule: IsInvalid(approvalConditionsRequest.Comments),
-                    Parameter: nameof(ApprovalConditionsRequest.Comments)));
+                (Rule: IsInvalid(approvalConditionsRequest.ApprovalComments),
+                    Parameter: nameof(ApprovalConditionsRequest.ApprovalComments)));
         }
 
         virtual internal void ValidateOnRecordReview(RecordReviewRequest recordReviewRequest)
@@ -107,8 +107,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 (Rule: IsInvalid(decideApprovalRequest.Reviews),
                     Parameter: nameof(DecideApprovalRequest.Reviews)),
 
-                (Rule: IsInvalid(decideApprovalRequest.Comments),
-                    Parameter: nameof(DecideApprovalRequest.Comments)));
+                (Rule: IsInvalid(decideApprovalRequest.ApprovalComments),
+                    Parameter: nameof(DecideApprovalRequest.ApprovalComments)));
         }
 
         private static void ValidateRequestIsNotNull(object? request)

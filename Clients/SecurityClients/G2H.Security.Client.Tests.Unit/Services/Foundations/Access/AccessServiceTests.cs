@@ -142,7 +142,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityType = entityType ?? GetRandomString(),
                 ContentType = contentType,
                 Reviews = reviews ?? new List<ReviewRecord>(),
-                Comments = comments ?? new List<ApprovalCommentRecord>(),
+                ApprovalComments = comments ?? new List<ApprovalCommentRecord>(),
                 ConfidenceScore = confidenceScore,
             };
 
@@ -209,7 +209,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityCreatedBy = entityCreatedBy ?? GetRandomString(),
                 ApprovalState = approvalState,
                 Reviews = reviews ?? new List<ReviewRecord>(),
-                Comments = comments ?? new List<ApprovalCommentRecord>(),
+                ApprovalComments = comments ?? new List<ApprovalCommentRecord>(),
                 ConfidenceScore = confidenceScore,
                 IsBypassRequested = isBypassRequested,
                 BypassReason = bypassReason,

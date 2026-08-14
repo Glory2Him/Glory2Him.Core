@@ -61,7 +61,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityType = invalidEntityType!,
                 ContentType = null,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<ApprovalCommentRecord>(),
+                ApprovalComments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
             };
 
@@ -100,7 +100,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityType = GetRandomString(),
                 ContentType = null,
                 Reviews = null!,
-                Comments = null!,
+                ApprovalComments = null!,
                 ConfidenceScore = null,
             };
 
@@ -116,7 +116,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 value: "List is required");
 
             invalidArgumentAccessException.UpsertDataList(
-                key: nameof(ApprovalConditionsRequest.Comments),
+                key: nameof(ApprovalConditionsRequest.ApprovalComments),
                 value: "List is required");
 
             var expectedAccessValidationException = new AccessValidationException(
@@ -301,7 +301,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<ApprovalCommentRecord>(),
+                ApprovalComments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
                 IsBypassRequested = false,
                 BypassReason = null,
@@ -346,7 +346,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 Reviews = null!,
-                Comments = null!,
+                ApprovalComments = null!,
                 ConfidenceScore = null,
                 IsBypassRequested = false,
                 BypassReason = null,
@@ -372,7 +372,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 value: "List is required");
 
             invalidArgumentAccessException.UpsertDataList(
-                key: nameof(DecideApprovalRequest.Comments),
+                key: nameof(DecideApprovalRequest.ApprovalComments),
                 value: "List is required");
 
             var expectedAccessValidationException = new AccessValidationException(

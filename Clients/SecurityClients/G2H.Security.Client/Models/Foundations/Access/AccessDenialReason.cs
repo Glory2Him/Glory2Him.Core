@@ -98,7 +98,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
         BlockedByRejection = 14,
 
         /// <summary>An unresolved approval comment is outstanding (§8.5 rule 7).</summary>
-        BlockedByUnresolvedComment = 15,
+        BlockedByUnresolvedApprovalComment = 15,
 
         /// <summary>The entity's confidence score is exactly zero (§8.5 rule 8).</summary>
         BlockedByZeroConfidenceScore = 16,
@@ -122,6 +122,6 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// role amends another person's words, and an <c>Admin</c> who needs past an unresolved
         /// one bypasses rather than edits it.
         /// </summary>
-        NotCommentAuthor = 19,
+        NotApprovalCommentAuthor = 19,
     }
 }

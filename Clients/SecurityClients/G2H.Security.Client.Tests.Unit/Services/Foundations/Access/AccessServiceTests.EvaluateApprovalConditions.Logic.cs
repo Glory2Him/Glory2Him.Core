@@ -266,7 +266,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.AreConditionsMet.Should().BeFalse();
 
             actualVerdict.BlockReason.Should()
-                .Be(AccessDenialReason.BlockedByUnresolvedComment);
+                .Be(AccessDenialReason.BlockedByUnresolvedApprovalComment);
 
             actualVerdict.Explanation.Should()
                 .Be("An approval comment is still unresolved.");
