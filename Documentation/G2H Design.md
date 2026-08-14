@@ -2078,7 +2078,7 @@ Current intended foundation services:
 | 3 | `ApprovalService` | Approval record creation, status transitions, and uniqueness enforcement. |
 | 4 | `ApprovalSettingsService` | Approval policy rule management and effective setting resolution. |
 | 5 | `ApprovalCommentService` | CRUD for approval comments. |
-| 6 | `ApprovalReviewService` | Reviewer decision recording, eligibility validation, and threshold evaluation. |
+| 6 | `ApprovalReviewService` | Reviewer decision recording and eligibility validation (the row-local tier; `IAccessClient` narrows it). Threshold evaluation, one-active-review enforcement and dismissed-review exclusion are explicitly **not** its responsibility (§16.5, §12.3.1). |
 | 7 | `TagService` | CRUD and validation for tags. |
 | 8 | `ReactionService` | CRUD and validation for reaction definitions. |
 | 9 | `CommentService` | CRUD and validation for comments. |
@@ -2114,7 +2114,23 @@ Current intended foundation services:
 
 **Neither gate is implemented today.** `AssociationOrchestrationService` takes no `IContentItemSettingService`, so the §6.10 settings gate is unenforced, exactly as the §14.3 composite visibility rule is unenforced (§12.5 entry 1). Moving these rules here does not implement them; it records where they belong.
 
-**`ApprovalReview`** — `ApprovalReviewService` carries the whole of it: reviewer eligibility via `IAccessBroker` (the reviewer must hold the review tier for the entity under review, §8.3, and must never review their own content — §8.6 HR-1 is unconditional, and `AllowSelfApproval` does not relax it, because that setting governs HR-2 approval rather than review), one active review per reviewer per approval record — a second active review is refused rather than superseding the first — the decision record itself, dismissal retention for audit (a dismissed review is never deleted), and a new review permitted after a dismissal. Threshold evaluation is **not** here — it belongs to `ApprovalOrchestrationService` (§12.5.3 R5), which is what made a separate orchestration redundant. The rule that a user with an active review may not also set the entity's `ApprovalStatus` is answered from the `ApprovalReview` rows the approval policy already reads (§8.6 regardless-rule 1).
+**`ApprovalReview`** — `ApprovalReviewService` owns the row-local half: recording the reviewer decision with `ReviewerId` bound to the acting user and pinned against storage on modify, dismissal retention for audit (a dismissed review is never deleted), and a new review permitted after a previous one was dismissed. §16.5 is the authority for what follows; keep the two in step.
+
+**Eligibility is enforced in two tiers, and both are real.** The service runs the row-local gates first — the review-role gate on recording a decision, and owner-or-`Admin` for amending or withdrawing a verdict (§16.5 responsibility 2). `IAccessClient` behind `IAccessBroker` then *narrows* the first of those: the service's own role check matches any `-Reviewer` suffix, so the tier is additionally checked against the entity actually under review (§8.3, §8.6.1). The broker narrows the service's check rather than replacing it, which is §14.6 rule 2's intended duplicate enforcement. `IAccessClient` also decides **HR-1: no one may ever review their own content, unconditionally — `AllowSelfApproval` does not relax it**, because that setting governs HR-2 approval rather than review (§8.6).
+
+**Three things are explicitly not this service's**, because each needs `ApprovalSetting` or the whole review set that a single-entity foundation service may not read (§16.5):
+
+1. **One active review per reviewer per approval record** — that is the unique index `UX_ApprovalReviews_ApprovalId_ReviewerId` (§7.7 rule 1), with the policy-level refusal in `IAccessClient`.
+2. **Evaluating approval thresholds.**
+3. **Excluding dismissed reviews from those calculations** — `IAccessClient` uses the same definition of *active* as that index's filter: not dismissed, not soft-deleted (§8.6.1).
+
+**Where threshold evaluation actually lives.** The decision is `IAccessClient.EvaluateApprovalConditionsAsync`, returning an `ApprovalConditionsVerdict`. It is a **pure function** — the caller gathers `ApprovalSetting`, `Approval`, `ApprovalReview` and `ApprovalComment` and passes them in (§8.6.1 rule 2). The **caller** is `ApprovalOrchestrationService`, which evaluates after each review decision and acts on the verdict (§12.5.3 R5). §12.5.3 R5’s phrase “using `ApprovalSettingsService`” is the **gathering** step, not a second decision engine — that is how the caller obtains the `ApprovalSetting` it passes in. §16.5 and §12.5.3 R5 therefore agree rather than conflict: §16.5 names where the decision logic sits, §12.5.3 R5 names who invokes it and how it collects the inputs. Neither is `ApprovalReviewService`.
+
+That caller does not exist yet. `IAccessBroker` exposes `MayDecideApprovalAsync` and `MayRecordApprovalReviewAsync` but not `EvaluateApprovalConditionsAsync`, which is the unimplemented Route 2 of §8.6.1 — the verdict is answerable but nothing calls it. Building `ApprovalOrchestrationService` (#200) closes it.
+
+The rule that a user with an active review may not also set the entity's `ApprovalStatus` is answered from the `ApprovalReview` rows the approval policy already reads (§8.6 regardless-rule 1).
+
+`ApprovalReviewService` publishes its own facts on its own addresses (§10.2): `ApprovalReview-Added`, `-Modified`, `-Removed` and `-HardRemoved`, plus **`ApprovalReview-Dismissed`** for the dismissal transition, which carries its own `ApprovalReview-Dismissing` request address.
 
 **`ApprovalComment`** — control fields `ApprovalId`, `UserId`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`; the only permitted caller field on update is `Comment`. Approval comments do not participate in the threshold or status-transition workflow. A comment may only be created against an existing, non-deleted approval record — enforce that with the foreign key rather than a read of `Approval`, so the service does not acquire a second entity dependency for an existence check.
 
