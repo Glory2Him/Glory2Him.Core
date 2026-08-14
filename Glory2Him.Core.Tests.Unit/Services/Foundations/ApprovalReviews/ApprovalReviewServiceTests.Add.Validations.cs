@@ -81,7 +81,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             {
                 Id = Guid.Empty,
                 ApprovalId = Guid.Empty,
-                ReviewerId = invalidText,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -99,10 +98,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.ApprovalId),
                 values: "Id is required");
-
-            invalidApprovalReviewException.AddData(
-                key: nameof(ApprovalReview.ReviewerId),
-                values: "Text is required");
 
             // a bare review defaults StatusId to Draft, which is an entity state rather than
             // a verdict — the closed set is Approved or Rejected (design §7.7 rule 2)
@@ -198,22 +193,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             ApprovalReview invalidApprovalReview =
                 CreateApprovalReviewFiller(randomDateTimeOffset, randomUserId).Create();
 
-            invalidApprovalReview.ReviewerId = GetRandomStringWithLengthOf(451);
 
             var invalidApprovalReviewException =
                 new InvalidApprovalReviewException(
                     message: "Approval review is invalid, fix the errors and try again.");
 
-            // two rules now fire on this field: the length cap, and the actor binding — the
-            // over-long ReviewerId is by definition not the caller's id
-            invalidApprovalReviewException.AddData(
-                key: nameof(ApprovalReview.ReviewerId),
-                values: new[]
-                {
-                    $"Text exceed max length of {invalidApprovalReview.ReviewerId.Length - 1} characters",
-                    $"Expected value to be '{randomUserId}' but found '{invalidApprovalReview.ReviewerId}'."
-                });
-
+            // two rules fire on this field: the length cap, and the actor binding — an
+            // over-long CreatedBy is by definition not the caller's id
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.CreatedBy),
                 values: $"Text exceed max length of {invalidApprovalReview.CreatedBy.Length - 1} characters");
@@ -500,90 +486,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     It.IsAny<ApprovalReview>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
-        }
-
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnAddIfReviewerIdIsNotSameAsCurrentUserIdAndLogItAsync()
-        {
-            // given: the ballot-stuffing guard. ReviewerId is the second half of
-            // UX_ApprovalReviews_ApprovalId_ReviewerId, which is the ONLY place design §7.7
-            // rule 1 — one active review per reviewer per approval — is expressed. Left
-            // caller-supplied it is free text: one reviewer files three verdicts under three
-            // invented ids, clears the index each time, and meets RequiredNumberOfApprovals
-            // = 3 single-handed. CreatedBy is left matching the caller here so the failure
-            // can only come from the ReviewerId rule.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
-            string randomUserId = GetRandomString();
-            string differentUserId = GetRandomString();
-            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-
-            ApprovalReview randomApprovalReview =
-                CreateApprovalReviewFiller(randomDateTimeOffset, randomUserId).Create();
-
-            ApprovalReview invalidApprovalReview = randomApprovalReview;
-            invalidApprovalReview.ReviewerId = differentUserId;
-
-            var invalidApprovalReviewException =
-                new InvalidApprovalReviewException(
-                    message: "Approval review is invalid, fix the errors and try again.");
-
-            invalidApprovalReviewException.AddData(
-                key: nameof(ApprovalReview.ReviewerId),
-                values: $"Expected value to be '{randomUserId}' but found '{differentUserId}'.");
-
-            var expectedApprovalReviewValidationException =
-                new ApprovalReviewValidationException(
-                    message: "Approval review validation error occurred, fix the errors and try again.",
-                    innerException: invalidApprovalReviewException);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidApprovalReview, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(invalidApprovalReview);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(randomUserId);
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
-
-            // when
-            ValueTask<ApprovalReview> addApprovalReviewTask =
-                this.approvalReviewService.AddApprovalReviewAsync(
-                    invalidApprovalReview,
-                    TestContext.Current.CancellationToken);
-
-            ApprovalReviewValidationException actualApprovalReviewValidationException =
-                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
-                    addApprovalReviewTask.AsTask);
-
-            // then
-            actualApprovalReviewValidationException.Should().BeEquivalentTo(
-                expectedApprovalReviewValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyAddAuditValuesAsync(invalidApprovalReview, It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Once);
-
-            this.loggingBrokerMock.Verify(broker =>
-                broker.LogErrorAsync(It.Is(
-                    SameExceptionAs(expectedApprovalReviewValidationException))),
-                Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]

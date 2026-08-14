@@ -32,12 +32,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
     /// <para>The filter is what distinguishes "one <i>active</i> review per reviewer" from "one
     /// review per reviewer, ever". Without it a reviewer whose verdict was dismissed — retained
     /// for audit by design (§9.5) — or withdrawn by a soft delete keeps the
-    /// <c>(ApprovalId, ReviewerId)</c> slot forever, and §7.7 rule 7's re-file has nowhere to go.
+    /// <c>(ApprovalId, CreatedBy)</c> slot forever, and §7.7 rule 7's re-file has nowhere to go.
     /// </para>
     /// </summary>
     public class StorageBrokerApprovalReviewIndexTests
     {
-        private const string UniqueIndexName = "UX_ApprovalReviews_ApprovalId_ReviewerId";
+        private const string UniqueIndexName = "UX_ApprovalReviews_ApprovalId_CreatedBy";
 
         [Fact]
         public void ShouldRestrictTheReviewerUniqueIndexToActiveReviews()
@@ -65,7 +65,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
             actualFilter.Should().Be(expectedFilter);
 
             reviewerIndex.Properties.Select(property => property.Name).Should()
-                .Equal(nameof(ApprovalReview.ApprovalId), nameof(ApprovalReview.ReviewerId));
+                .Equal(nameof(ApprovalReview.ApprovalId), nameof(ApprovalReview.CreatedBy));
         }
 
         private static IModel CreateStorageBrokerModel()

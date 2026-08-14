@@ -316,12 +316,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 // than drawn: a posture-sensitive test must never depend on the draw. Tests
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(approvalComment => approvalComment.IsDeleted).Use(false)
-                .OnProperty(approvalComment => approvalComment.CreatedBy).Use(userId)
-                .OnProperty(approvalComment => approvalComment.UpdatedBy).Use(userId)
-
-                // the commenter IS the caller, so a drawn value would fail the actor binding
+                // CreatedBy IS the caller and, since ReviewerId/UserId were dropped, carries
+                // the commenter identity on its own — a drawn value would fail the actor binding
                 // on every add test rather than on the one test that is about it
-                .OnProperty(approvalComment => approvalComment.UserId).Use(userId);
+                .OnProperty(approvalComment => approvalComment.CreatedBy).Use(userId)
+                .OnProperty(approvalComment => approvalComment.UpdatedBy).Use(userId);
 
             return filler;
         }

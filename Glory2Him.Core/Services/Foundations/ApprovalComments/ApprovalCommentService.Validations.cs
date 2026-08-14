@@ -136,7 +136,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 message: "Approval comment is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalComment.Id), Parameter: nameof(ApprovalComment.Id)),
                 (Rule: IsInvalid(approvalComment.ApprovalId), Parameter: nameof(ApprovalComment.ApprovalId)),
-                (Rule: IsInvalid(approvalComment.UserId), Parameter: nameof(ApprovalComment.UserId)),
                 (Rule: IsInvalid(approvalComment.CreatedBy), Parameter: nameof(ApprovalComment.CreatedBy)),
                 (Rule: IsInvalid(approvalComment.UpdatedBy), Parameter: nameof(ApprovalComment.UpdatedBy)),
                 (Rule: IsInvalid(approvalComment.CreatedWhen), Parameter: nameof(ApprovalComment.CreatedWhen)),
@@ -159,21 +158,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         second: approvalComment.CreatedBy),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
 
-                // The commenter is the caller, not a label the caller chooses. Comments became
-                // load-bearing for the approval gate once
-                // RequireReviewCommentResolutionBeforeApprovals settled: that setting blocks
-                // approval until every ApprovalComment.IsResolved is true, so a comment
-                // attributed to someone else moves a gate rather than merely misreporting who
-                // spoke.
-                //
-                // Bound rather than stamped, matching how every other actor fact in this
-                // codebase is handled: a caller who meant to attribute the comment elsewhere
-                // gets the mismatch back by name instead of a silent re-attribution.
-                (Rule: IsNotSame(
-                        first: currentUserId,
-                        second: approvalComment.UserId),
-                    Parameter: nameof(ApprovalComment.UserId)),
-
                 (Rule: IsNotSame(
                         first: approvalComment.UpdatedBy,
                         second: approvalComment.CreatedBy,
@@ -195,7 +179,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 message: "Approval comment is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalComment.Id), Parameter: nameof(ApprovalComment.Id)),
                 (Rule: IsInvalid(approvalComment.ApprovalId), Parameter: nameof(ApprovalComment.ApprovalId)),
-                (Rule: IsInvalid(approvalComment.UserId), Parameter: nameof(ApprovalComment.UserId)),
                 (Rule: IsInvalid(approvalComment.CreatedBy), Parameter: nameof(ApprovalComment.CreatedBy)),
                 (Rule: IsInvalid(approvalComment.UpdatedBy), Parameter: nameof(ApprovalComment.UpdatedBy)),
                 (Rule: IsInvalid(approvalComment.CreatedWhen), Parameter: nameof(ApprovalComment.CreatedWhen)),
@@ -268,19 +251,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         secondName: nameof(ApprovalComment.CreatedBy)),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
 
-                // Both are fixed at add. Pinned against STORAGE rather than against the caller
-                // because a review-role caller or an Admin may legitimately amend someone
-                // else's comment (ValidateUserCanModifyStorageApprovalCommentAsync) — but
-                // correcting the text must not mean moving the comment onto another person's
-                // name, or onto a different approval. Re-pointing ApprovalId would walk an
-                // unresolved comment off the approval it is blocking, which is the gate
-                // RequireReviewCommentResolutionBeforeApprovals exists to hold shut.
-                (Rule: IsNotSame(
-                        first: inputApprovalComment.UserId,
-                        second: storageApprovalComment.UserId,
-                        secondName: nameof(ApprovalComment.UserId)),
-                    Parameter: nameof(ApprovalComment.UserId)),
-
+                // CreatedBy is pinned above; ApprovalId is pinned here. Both are fixed at add and
+                // pinned against STORAGE rather than against the caller: correcting the text
+                // must not mean moving the comment onto a different approval. Re-pointing
+                // ApprovalId would walk an unresolved comment off the approval it is blocking,
+                // which is the gate RequireReviewCommentResolutionBeforeApprovals exists to hold
+                // shut.
                 (Rule: IsNotSame(
                         first: inputApprovalComment.ApprovalId,
                         second: storageApprovalComment.ApprovalId,

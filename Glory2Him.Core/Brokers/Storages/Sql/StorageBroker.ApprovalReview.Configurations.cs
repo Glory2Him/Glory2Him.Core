@@ -26,7 +26,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // Key
             model.HasKey(approvalReviews => approvalReviews.Id);
             model.Property(approvalReviews => approvalReviews.ApprovalId).IsRequired();
-            model.Property(approvalReviews => approvalReviews.ReviewerId).IsRequired();
             model.Property(approvalReviews => approvalReviews.StatusId).IsRequired();
 
             model
@@ -80,23 +79,25 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             //
             // The filter is the whole point. §7.7 rule 1 bars a second *active* review, not a
             // second review ever — and unfiltered, this index reserved the
-            // (ApprovalId, ReviewerId) slot permanently. Withdrawal is a soft delete, so the row
+            // (ApprovalId, CreatedBy) slot permanently. Withdrawal is a soft delete, so the row
             // stays; dismissal retains the row for audit by design (§9.5). So §7.7 rule 7's
             // "file a new review once yours has been dismissed" had no route at all: rule 1
             // forbids superseding the dismissed row in place, and amending it is refused outright
             // because a dismissal is precisely the record that the verdict no longer describes
             // the current content.
             //
-            // While ReviewerId was free text a reviewer could sidestep this by inventing a second
-            // id. That was never a feature — it was the hole that let one reviewer meet a
-            // three-approval threshold alone — and binding the field to the acting user closed
-            // it, which is what turned a latent oddity into a dead end.
-            model.HasIndex(approvalReviews => new { approvalReviews.ApprovalId, approvalReviews.ReviewerId })
+            // The identity half is CreatedBy, not a caller-supplied reviewer id. ReviewerId used
+            // to sit here and was free text, which let one reviewer meet a three-approval
+            // threshold alone by inventing a second id; binding it to the acting user closed
+            // that, and dropping it removes the surface altogether. CreatedBy is written by
+            // SecurityAuditBroker from the security context and pinned against storage on modify,
+            // so there is no longer a second identity for this index to disagree with.
+            model.HasIndex(approvalReviews => new { approvalReviews.ApprovalId, approvalReviews.CreatedBy })
                 .IsUnique()
                 .HasFilter(
                     $"[{nameof(ApprovalReview.StatusId)}] <> {(int)ApprovalStatus.Dismissed} " +
                         $"AND [{nameof(ApprovalReview.IsDeleted)}] = 0")
-                .HasDatabaseName("UX_ApprovalReviews_ApprovalId_ReviewerId");
+                .HasDatabaseName("UX_ApprovalReviews_ApprovalId_CreatedBy");
 
             // Relationship: many ApprovalReviews to one Approval
             model.HasOne(approvalReview => approvalReview.Approval)

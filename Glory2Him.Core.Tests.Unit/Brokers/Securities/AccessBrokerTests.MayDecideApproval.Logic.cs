@@ -198,19 +198,18 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             ApprovalReview activeReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-active",
+                createdBy: "author-of-active-row",
                 statusId: ApprovalStatus.Approved,
-                isDeleted: false,
-                createdBy: "author-of-active-row");
+                isDeleted: false);
 
             ApprovalReview dismissedReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-dismissed",
+                createdBy: "reviewer-dismissed",
                 statusId: ApprovalStatus.Dismissed);
 
             ApprovalReview deletedReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-deleted",
+                createdBy: "reviewer-deleted",
                 statusId: ApprovalStatus.Rejected,
                 isDeleted: true);
 
@@ -239,18 +238,17 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.capturedDecideApprovalRequest.Reviews.Should().HaveCount(3);
 
             this.capturedDecideApprovalRequest.Reviews.Should().ContainSingle(review =>
-                review.ReviewerId == "reviewer-active"
-                    && review.CreatedBy == "author-of-active-row"
+                review.CreatedBy == "author-of-active-row"
                     && review.Verdict == ReviewVerdict.Approved
                     && review.IsDeleted == false);
 
             this.capturedDecideApprovalRequest.Reviews.Should().ContainSingle(review =>
-                review.ReviewerId == "reviewer-dismissed"
+                review.CreatedBy == "reviewer-dismissed"
                     && review.Verdict == ReviewVerdict.Dismissed
                     && review.IsDeleted == false);
 
             this.capturedDecideApprovalRequest.Reviews.Should().ContainSingle(review =>
-                review.ReviewerId == "reviewer-deleted"
+                review.CreatedBy == "reviewer-deleted"
                     && review.Verdict == ReviewVerdict.Rejected
                     && review.IsDeleted == true);
 
@@ -293,12 +291,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             ApprovalReview ownReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-on-this-approval",
+                createdBy: "reviewer-on-this-approval",
                 statusId: ApprovalStatus.Approved);
 
             ApprovalReview foreignReview = CreateApprovalReview(
                 otherApprovalId,
-                reviewerId: "reviewer-on-another-approval",
+                createdBy: "reviewer-on-another-approval",
                 statusId: ApprovalStatus.Approved);
 
             ApprovalComment ownComment = CreateApprovalComment(approvalId, isResolved: false);
@@ -320,7 +318,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             // then
             this.capturedDecideApprovalRequest.Reviews.Should().ContainSingle(review =>
-                review.ReviewerId == "reviewer-on-this-approval");
+                review.CreatedBy == "reviewer-on-this-approval");
 
             this.capturedDecideApprovalRequest.Comments.Should().ContainSingle(comment =>
                 comment.IsResolved == false);
@@ -471,7 +469,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             ApprovalReview approvalReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "the-reviewer",
+                createdBy: "the-reviewer",
                 statusId: reviewStatus);
 
             SetupApprovals(approval);
@@ -648,7 +646,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             ApprovalReview approvalReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-on-the-deleted-approval",
+                createdBy: "reviewer-on-the-deleted-approval",
                 statusId: ApprovalStatus.Approved);
 
             SetupApprovals(softDeletedApproval);
@@ -669,7 +667,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 .Should().Be(ApprovalState.Submitted);
 
             this.capturedDecideApprovalRequest.Reviews.Should().ContainSingle(review =>
-                review.ReviewerId == "reviewer-on-the-deleted-approval");
+                review.CreatedBy == "reviewer-on-the-deleted-approval");
 
             VerifyDecideStorageReadsForAnExistingApproval();
 

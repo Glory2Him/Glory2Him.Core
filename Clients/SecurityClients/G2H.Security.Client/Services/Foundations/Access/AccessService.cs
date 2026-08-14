@@ -397,8 +397,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             reviews.Any(review =>
                 review.IsDeleted is false
                     && review.Verdict != ReviewVerdict.Dismissed
-                    && (IsSameUser(review.ReviewerId, userId)
-                        || IsSameUser(review.CreatedBy, userId)));
+                    && IsSameUser(review.CreatedBy, userId));
 
         private static bool IsActorUsable(AccessActor actor) =>
             actor.IsAuthenticated && string.IsNullOrWhiteSpace(actor.UserId) is false;

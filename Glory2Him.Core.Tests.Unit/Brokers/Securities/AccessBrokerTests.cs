@@ -307,16 +307,14 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
         private static ApprovalReview CreateApprovalReview(
             Guid approvalId,
-            string reviewerId,
+            string createdBy,
             ApprovalStatus statusId,
-            bool isDeleted = false,
-            string createdBy = null) =>
+            bool isDeleted = false) =>
             new ApprovalReview
             {
                 Id = Guid.NewGuid(),
                 ApprovalId = approvalId,
-                ReviewerId = reviewerId,
-                CreatedBy = createdBy ?? reviewerId,
+                CreatedBy = createdBy,
                 StatusId = statusId,
                 IsDeleted = isDeleted,
             };

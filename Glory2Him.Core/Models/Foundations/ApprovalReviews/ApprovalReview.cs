@@ -32,11 +32,6 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalReviews
         public Guid ApprovalId { get; set; }
 
         /// <summary>
-        /// Identifier of the user who made the review.
-        /// </summary>
-        public string ReviewerId { get; set; } = string.Empty;
-
-        /// <summary>
         /// The status associated with this approval review.
         /// </summary>
         public ApprovalStatus StatusId { get; set; }

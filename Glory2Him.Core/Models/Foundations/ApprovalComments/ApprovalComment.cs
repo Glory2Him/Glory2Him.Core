@@ -31,11 +31,6 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalComments
         public Guid ApprovalId { get; set; }
 
         /// <summary>
-        /// Identifier of the user who made the comment.
-        /// </summary>
-        public string UserId { get; set; } = string.Empty;
-
-        /// <summary>
         /// Text content of the comment.
         /// </summary>
         public string Comment { get; set; } = string.Empty;
