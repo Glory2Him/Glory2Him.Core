@@ -178,7 +178,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
                 reviews: new List<ReviewRecord>
                 {
-                    CreateRandomReviewRecord(reviewerId: actorId),
+                    CreateRandomReviewRecord(createdBy: actorId),
                 });
 
             // when

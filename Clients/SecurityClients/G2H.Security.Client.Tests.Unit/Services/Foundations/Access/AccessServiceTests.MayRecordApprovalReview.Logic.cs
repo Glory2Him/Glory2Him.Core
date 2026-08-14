@@ -299,7 +299,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
                 existingReviews: new List<ReviewRecord>
                 {
-                    CreateRandomReviewRecord(reviewerId: actorId),
+                    CreateRandomReviewRecord(createdBy: actorId),
                 });
 
             // when
@@ -333,7 +333,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 existingReviews: new List<ReviewRecord>
                 {
                     CreateRandomReviewRecord(
-                        reviewerId: actorId,
+                        createdBy: actorId,
                         verdict: priorVerdict,
                         isDeleted: isPriorReviewDeleted),
                 });
@@ -363,7 +363,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
                 existingReviews: new List<ReviewRecord>
                 {
-                    CreateRandomReviewRecord(reviewerId: actorId),
+                    CreateRandomReviewRecord(createdBy: actorId),
                 });
 
             // when
@@ -390,7 +390,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
                 existingReviews: new List<ReviewRecord>
                 {
-                    CreateRandomReviewRecord(reviewerId: GetRandomString()),
+                    CreateRandomReviewRecord(createdBy: GetRandomString()),
                 });
 
             // when
@@ -400,37 +400,6 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // then
             actualVerdict.IsPermitted.Should().BeTrue();
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
-        }
-
-        [Fact]
-        public async Task ShouldRefuseRecordingASecondReviewWhenTheActiveReviewMatchesOnReviewerIdAsync()
-        {
-            // given
-            string actorId = GetRandomString();
-
-            AccessActor actor = CreateRandomAccessActor(
-                userId: actorId,
-                roles: new List<string> { RoleNames.Reviewer });
-
-            RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
-                actor: actor,
-
-                existingReviews: new List<ReviewRecord>
-                {
-                    CreateRandomReviewRecord(
-                        reviewerId: actorId,
-                        createdBy: GetRandomString()),
-                });
-
-            // when
-            AccessVerdict actualVerdict =
-                await this.accessService.MayRecordApprovalReviewAsync(recordReviewRequest);
-
-            // then
-            actualVerdict.IsPermitted.Should().BeFalse();
-
-            actualVerdict.DenialReason.Should()
-                .Be(AccessDenialReason.ActiveReviewAlreadyRecorded);
         }
 
         [Fact]
@@ -449,7 +418,6 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 existingReviews: new List<ReviewRecord>
                 {
                     CreateRandomReviewRecord(
-                        reviewerId: GetRandomString(),
                         createdBy: actorId),
                 });
 

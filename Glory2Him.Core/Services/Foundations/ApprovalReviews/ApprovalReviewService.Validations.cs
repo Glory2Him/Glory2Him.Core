@@ -191,14 +191,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 message: "Approval review is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalReview.Id), Parameter: nameof(ApprovalReview.Id)),
                 (Rule: IsInvalid(approvalReview.ApprovalId), Parameter: nameof(ApprovalReview.ApprovalId)),
-                (Rule: IsInvalid(approvalReview.ReviewerId), Parameter: nameof(ApprovalReview.ReviewerId)),
                 (Rule: IsInvalid(approvalReview.CreatedBy), Parameter: nameof(ApprovalReview.CreatedBy)),
                 (Rule: IsInvalid(approvalReview.UpdatedBy), Parameter: nameof(ApprovalReview.UpdatedBy)),
                 (Rule: IsInvalid(approvalReview.CreatedWhen), Parameter: nameof(ApprovalReview.CreatedWhen)),
                 (Rule: IsInvalid(approvalReview.UpdatedWhen), Parameter: nameof(ApprovalReview.UpdatedWhen)),
-
-                (Rule: IsGreaterThan(approvalReview.ReviewerId, 450),
-                    Parameter: nameof(ApprovalReview.ReviewerId)),
 
                 (Rule: IsGreaterThan(approvalReview.CreatedBy, 255),
                     Parameter: nameof(ApprovalReview.CreatedBy)),
@@ -216,30 +212,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                         first: currentUserId,
                         second: approvalReview.CreatedBy),
                     Parameter: nameof(ApprovalReview.CreatedBy)),
-
-                // The reviewer is the caller, not a label the caller chooses. The only thing
-                // standing behind design §7.7 rule 1 is
-                // UX_ApprovalReviews_ApprovalId_ReviewerId, so an unbound ReviewerId leaves
-                // that rule with nothing: one reviewer files three verdicts under three
-                // invented ids, clears the index each time, and meets
-                // RequiredNumberOfApprovals = 3 alone. A threshold met by one person is not
-                // a threshold.
-                //
-                // Note the index is UNFILTERED — no predicate on StatusId or IsDeleted — so
-                // what it actually enforces is one review per reviewer per approval EVER,
-                // which is stricter than §7.7 rule 1's "one ACTIVE review". That gap belongs
-                // to the index, not to this rule, but it becomes reachable once this binding
-                // lands: §7.7 rule 7 lets a reviewer re-file after dismissal, and the INSERT
-                // that needs will now collide. Filtering the index is the fix; it is recorded
-                // in §7.7 rather than done here.
-                //
-                // Bound rather than stamped, matching how every other actor fact in this
-                // codebase is handled: a caller who meant to attribute the review elsewhere
-                // gets the mismatch back by name instead of a silent re-attribution.
-                (Rule: IsNotSame(
-                        first: currentUserId,
-                        second: approvalReview.ReviewerId),
-                    Parameter: nameof(ApprovalReview.ReviewerId)),
 
                 (Rule: IsNotSame(
                         first: approvalReview.UpdatedBy,
@@ -274,14 +246,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 message: "Approval review is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalReview.Id), Parameter: nameof(ApprovalReview.Id)),
                 (Rule: IsInvalid(approvalReview.ApprovalId), Parameter: nameof(ApprovalReview.ApprovalId)),
-                (Rule: IsInvalid(approvalReview.ReviewerId), Parameter: nameof(ApprovalReview.ReviewerId)),
                 (Rule: IsInvalid(approvalReview.CreatedBy), Parameter: nameof(ApprovalReview.CreatedBy)),
                 (Rule: IsInvalid(approvalReview.UpdatedBy), Parameter: nameof(ApprovalReview.UpdatedBy)),
                 (Rule: IsInvalid(approvalReview.CreatedWhen), Parameter: nameof(ApprovalReview.CreatedWhen)),
                 (Rule: IsInvalid(approvalReview.UpdatedWhen), Parameter: nameof(ApprovalReview.UpdatedWhen)),
-
-                (Rule: IsGreaterThan(approvalReview.ReviewerId, 450),
-                    Parameter: nameof(ApprovalReview.ReviewerId)),
 
                 (Rule: IsGreaterThan(approvalReview.CreatedBy, 255),
                     Parameter: nameof(ApprovalReview.CreatedBy)),
@@ -375,18 +343,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                         secondName: nameof(ApprovalReview.CreatedBy)),
                     Parameter: nameof(ApprovalReview.CreatedBy)),
 
-                // Both halves of UX_ApprovalReviews_ApprovalId_ReviewerId are fixed at add.
-                // Pinned against STORAGE rather than against the caller because an Admin may
-                // legitimately amend anyone's review (ValidateUserCanModifyStorageApprovalReviewAsync)
-                // — but correcting a verdict must not mean moving it onto another reviewer's
-                // name, or onto a different approval, either of which walks the row past the
+                // Both halves of UX_ApprovalReviews_ApprovalId_CreatedBy are fixed at add, and
+                // both are pinned against STORAGE rather than against the caller. CreatedBy is
+                // pinned above; ApprovalId is pinned here, because correcting a verdict must not
+                // mean moving it onto a different approval — that walks the row past the
                 // uniqueness rule that makes §7.7 rule 1 mean anything.
-                (Rule: IsNotSame(
-                        first: inputApprovalReview.ReviewerId,
-                        second: storageApprovalReview.ReviewerId,
-                        secondName: nameof(ApprovalReview.ReviewerId)),
-                    Parameter: nameof(ApprovalReview.ReviewerId)),
-
                 (Rule: IsNotSame(
                         first: inputApprovalReview.ApprovalId,
                         second: storageApprovalReview.ApprovalId,

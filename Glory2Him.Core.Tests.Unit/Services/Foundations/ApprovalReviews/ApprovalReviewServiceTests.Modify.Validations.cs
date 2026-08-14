@@ -81,7 +81,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             {
                 Id = Guid.Empty,
                 ApprovalId = Guid.Empty,
-                ReviewerId = invalidText,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -99,10 +98,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.ApprovalId),
                 values: "Id is required");
-
-            invalidApprovalReviewException.AddData(
-                key: nameof(ApprovalReview.ReviewerId),
-                values: "Text is required");
 
             // a bare review defaults StatusId to Draft, which is an entity state rather than
             // a verdict — the closed set is Approved or Rejected (design §7.7 rule 2)
@@ -553,7 +548,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public static TheoryData<string> UniqueIndexKeyFields() =>
             new TheoryData<string>
             {
-                nameof(ApprovalReview.ReviewerId),
+                nameof(ApprovalReview.CreatedBy),
                 nameof(ApprovalReview.ApprovalId)
             };
 
@@ -563,7 +558,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             ShouldThrowValidationExceptionOnModifyIfAUniqueIndexKeyFieldWasChangedAndLogItAsync(
                 string changedField)
         {
-            // given: both halves of UX_ApprovalReviews_ApprovalId_ReviewerId are fixed at add.
+            // given: both halves of UX_ApprovalReviews_ApprovalId_CreatedBy are fixed at add.
             // The caller is an Admin ON PURPOSE — an Admin may legitimately amend anyone's
             // review, and the point of these pins is that correcting a verdict must not also
             // move it onto another reviewer's name or onto a different approval, either of
@@ -591,10 +586,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             string expectedMessage;
 
-            if (changedField == nameof(ApprovalReview.ReviewerId))
+            if (changedField == nameof(ApprovalReview.CreatedBy))
             {
-                storageApprovalReview.ReviewerId = GetRandomString();
-                expectedMessage = $"Text is not the same as {nameof(ApprovalReview.ReviewerId)}";
+                storageApprovalReview.CreatedBy = GetRandomString();
+                expectedMessage = $"Text is not the same as {nameof(ApprovalReview.CreatedBy)}";
             }
             else
             {

@@ -396,11 +396,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 // what it is testing. Tests about the closed set say the status explicitly.
                 .OnProperty(approvalReview => approvalReview.StatusId).Use(ApprovalStatus.Approved)
                 .OnProperty(approvalReview => approvalReview.CreatedBy).Use(userId)
-                .OnProperty(approvalReview => approvalReview.UpdatedBy).Use(userId)
+                .OnProperty(approvalReview => approvalReview.UpdatedBy).Use(userId);
 
-                // the reviewer IS the caller, so a drawn value would fail the actor binding
-                // on every add test rather than on the one test that is about it
-                .OnProperty(approvalReview => approvalReview.ReviewerId).Use(userId);
+                // CreatedBy IS the caller and now carries the reviewer identity on its own,
+                // so a drawn value would fail the actor binding on every add test rather than
+                // on the one test that is about it
 
             return filler;
         }

@@ -66,17 +66,13 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             };
 
         private static ReviewRecord CreateRandomReviewRecord(
-            string? reviewerId = null,
             string? createdBy = null,
             ReviewVerdict verdict = ReviewVerdict.Approved,
             bool isDeleted = false)
         {
-            string resolvedReviewerId = reviewerId ?? GetRandomString();
-
             return new ReviewRecord
             {
-                ReviewerId = resolvedReviewerId,
-                CreatedBy = createdBy ?? resolvedReviewerId,
+                CreatedBy = createdBy ?? GetRandomString(),
                 Verdict = verdict,
                 IsDeleted = isDeleted,
             };

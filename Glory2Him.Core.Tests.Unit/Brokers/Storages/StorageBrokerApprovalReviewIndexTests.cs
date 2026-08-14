@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
     /// </summary>
     public class StorageBrokerApprovalReviewIndexTests
     {
-        private const string UniqueIndexName = "UX_ApprovalReviews_ApprovalId_ReviewerId";
+        private const string UniqueIndexName = "UX_ApprovalReviews_ApprovalId_CreatedBy";
 
         [Fact]
         public void ShouldRestrictTheReviewerUniqueIndexToActiveReviews()
@@ -65,7 +65,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
             actualFilter.Should().Be(expectedFilter);
 
             reviewerIndex.Properties.Select(property => property.Name).Should()
-                .Equal(nameof(ApprovalReview.ApprovalId), nameof(ApprovalReview.ReviewerId));
+                .Equal(nameof(ApprovalReview.ApprovalId), nameof(ApprovalReview.CreatedBy));
         }
 
         private static IModel CreateStorageBrokerModel()

@@ -254,23 +254,23 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
             ApprovalReview activeReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-active",
+                createdBy: "reviewer-active",
                 statusId: ApprovalStatus.Approved);
 
             ApprovalReview dismissedReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-dismissed",
+                createdBy: "reviewer-dismissed",
                 statusId: ApprovalStatus.Dismissed);
 
             ApprovalReview deletedReview = CreateApprovalReview(
                 approvalId,
-                reviewerId: "reviewer-deleted",
+                createdBy: "reviewer-deleted",
                 statusId: ApprovalStatus.Rejected,
                 isDeleted: true);
 
             ApprovalReview foreignReview = CreateApprovalReview(
                 otherApprovalId,
-                reviewerId: "reviewer-on-another-approval",
+                createdBy: "reviewer-on-another-approval",
                 statusId: ApprovalStatus.Approved);
 
             SetupApprovalById(approval);
@@ -292,17 +292,17 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.capturedRecordReviewRequest.ExistingReviews.Should().HaveCount(3);
 
             this.capturedRecordReviewRequest.ExistingReviews.Should().ContainSingle(review =>
-                review.ReviewerId == "reviewer-dismissed"
+                review.CreatedBy == "reviewer-dismissed"
                     && review.Verdict == ReviewVerdict.Dismissed
                     && review.IsDeleted == false);
 
             this.capturedRecordReviewRequest.ExistingReviews.Should().ContainSingle(review =>
-                review.ReviewerId == "reviewer-deleted"
+                review.CreatedBy == "reviewer-deleted"
                     && review.Verdict == ReviewVerdict.Rejected
                     && review.IsDeleted == true);
 
             this.capturedRecordReviewRequest.ExistingReviews.Should().NotContain(review =>
-                review.ReviewerId == "reviewer-on-another-approval");
+                review.CreatedBy == "reviewer-on-another-approval");
 
             VerifyEntityAuthorRead(EntityType.Tag, entityId);
             VerifyRecordReviewGatherReads(approvalId);

@@ -190,7 +190,6 @@ namespace Glory2Him.Core.Brokers.Securities
                 .Where(review => review.ApprovalId == approval.Id)
                 .Select(review => new ReviewRecord
                 {
-                    ReviewerId = review.ReviewerId,
                     CreatedBy = review.CreatedBy,
                     Verdict = ToReviewVerdict(review.StatusId),
                     IsDeleted = review.IsDeleted,
