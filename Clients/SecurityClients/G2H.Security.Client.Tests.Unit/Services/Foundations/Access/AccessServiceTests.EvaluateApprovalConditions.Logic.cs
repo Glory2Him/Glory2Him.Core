@@ -246,9 +246,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 CreateRandomReviewRecord(verdict: ReviewVerdict.Approved),
             };
 
-            var comments = new List<CommentRecord>
+            var comments = new List<ApprovalCommentRecord>
             {
-                CreateRandomCommentRecord(isResolved: false),
+                CreateRandomApprovalCommentRecord(isResolved: false),
             };
 
             ApprovalConditionsRequest approvalConditionsRequest =
@@ -266,7 +266,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.AreConditionsMet.Should().BeFalse();
 
             actualVerdict.BlockReason.Should()
-                .Be(AccessDenialReason.BlockedByUnresolvedComment);
+                .Be(AccessDenialReason.BlockedByUnresolvedApprovalComment);
 
             actualVerdict.Explanation.Should()
                 .Be("An approval comment is still unresolved.");
@@ -286,9 +286,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 CreateRandomReviewRecord(verdict: ReviewVerdict.Approved),
             };
 
-            var comments = new List<CommentRecord>
+            var comments = new List<ApprovalCommentRecord>
             {
-                CreateRandomCommentRecord(isResolved: false),
+                CreateRandomApprovalCommentRecord(isResolved: false),
             };
 
             ApprovalConditionsRequest approvalConditionsRequest =
@@ -321,9 +321,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 CreateRandomReviewRecord(verdict: ReviewVerdict.Approved),
             };
 
-            var comments = new List<CommentRecord>
+            var comments = new List<ApprovalCommentRecord>
             {
-                CreateRandomCommentRecord(isResolved: false, isDeleted: true),
+                CreateRandomApprovalCommentRecord(isResolved: false, isDeleted: true),
             };
 
             ApprovalConditionsRequest approvalConditionsRequest =

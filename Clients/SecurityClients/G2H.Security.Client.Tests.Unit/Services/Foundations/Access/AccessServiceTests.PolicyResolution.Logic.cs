@@ -148,9 +148,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 CreateRandomReviewRecord(verdict: ReviewVerdict.Rejected),
             };
 
-            var comments = new List<CommentRecord>
+            var comments = new List<ApprovalCommentRecord>
             {
-                CreateRandomCommentRecord(isResolved: false),
+                CreateRandomApprovalCommentRecord(isResolved: false),
             };
 
             ApprovalConditionsRequest approvalConditionsRequest =

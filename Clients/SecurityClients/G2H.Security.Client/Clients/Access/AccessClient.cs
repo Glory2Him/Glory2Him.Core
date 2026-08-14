@@ -76,6 +76,78 @@ namespace G2H.Security.Client.Clients.Access
             }
         }
 
+        public async ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            RecordApprovalCommentRequest recordApprovalCommentRequest)
+        {
+            try
+            {
+                return await this.accessService
+                    .MayRecordApprovalCommentAsync(recordApprovalCommentRequest);
+            }
+            catch (AccessValidationException accessValidationException)
+            {
+                throw CreateAccessClientValidationException(
+                    accessValidationException.InnerException as Xeption);
+            }
+            catch (AccessServiceException accessServiceException)
+            {
+                throw CreateAccessClientDependencyException(
+                    accessServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateAccessClientServiceException(exception);
+            }
+        }
+
+        public async ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            AmendApprovalCommentRequest amendApprovalCommentRequest)
+        {
+            try
+            {
+                return await this.accessService
+                    .MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
+            }
+            catch (AccessValidationException accessValidationException)
+            {
+                throw CreateAccessClientValidationException(
+                    accessValidationException.InnerException as Xeption);
+            }
+            catch (AccessServiceException accessServiceException)
+            {
+                throw CreateAccessClientDependencyException(
+                    accessServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateAccessClientServiceException(exception);
+            }
+        }
+
+        public async ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest)
+        {
+            try
+            {
+                return await this.accessService
+                    .MayResolveApprovalCommentAsync(resolveApprovalCommentRequest);
+            }
+            catch (AccessValidationException accessValidationException)
+            {
+                throw CreateAccessClientValidationException(
+                    accessValidationException.InnerException as Xeption);
+            }
+            catch (AccessServiceException accessServiceException)
+            {
+                throw CreateAccessClientDependencyException(
+                    accessServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateAccessClientServiceException(exception);
+            }
+        }
+
         public async ValueTask<AccessVerdict> MayDecideApprovalAsync(
             DecideApprovalRequest decideApprovalRequest)
         {

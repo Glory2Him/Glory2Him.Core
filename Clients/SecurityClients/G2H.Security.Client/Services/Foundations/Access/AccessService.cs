@@ -41,7 +41,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     EvaluateConditions(
                         policy,
                         approvalConditionsRequest.Reviews,
-                        approvalConditionsRequest.Comments,
+                        approvalConditionsRequest.ApprovalComments,
                         approvalConditionsRequest.ConfidenceScore));
             });
 
@@ -67,6 +67,144 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
         // ── §7.7 rule 1 / HR-1 / §7.7 rule 2b / §8.9 rule 1 ─────────────────────────────────
         //
+        public ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            RecordApprovalCommentRequest recordApprovalCommentRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnRecordApprovalComment(recordApprovalCommentRequest);
+
+                return new ValueTask<AccessVerdict>(
+                    DecideMayRecordApprovalComment(recordApprovalCommentRequest));
+            });
+
+        public ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            AmendApprovalCommentRequest amendApprovalCommentRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnAmendApprovalComment(amendApprovalCommentRequest);
+
+                return new ValueTask<AccessVerdict>(
+                    DecideMayAmendApprovalComment(amendApprovalCommentRequest));
+            });
+
+        public ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnResolveApprovalComment(resolveApprovalCommentRequest);
+
+                return new ValueTask<AccessVerdict>(
+                    DecideMayResolveApprovalComment(resolveApprovalCommentRequest));
+            });
+
+        // Adding carries no tier: anyone who may contribute may speak on an approval they can
+        // see, and that contribution gate is row-local and belongs to the foundation service
+        // (§14.6). What is decided here is the pair of facts about the PARENT that a
+        // single-entity service may not read for itself.
+        private static AccessVerdict DecideMayRecordApprovalComment(RecordApprovalCommentRequest request)
+        {
+            if (IsActorUsable(request.Actor) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotAuthenticated,
+                    "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            // Checked before the state so a taken-down approval reports what is actually wrong
+            // with it rather than reporting a closed round.
+            if (request.IsParentApprovalDeleted)
+            {
+                return Refuse(
+                    AccessDenialReason.ParentApprovalUnavailable,
+                    "The parent approval is soft-deleted and accepts no further comments.");
+            }
+
+            if (request.ApprovalState != ApprovalState.Submitted)
+            {
+                return Refuse(
+                    AccessDenialReason.ApprovalNotOpenForComment,
+                    "The parent approval is not open for comment — it is either not yet submitted, or its round has closed.");
+            }
+
+            return Permit("Actor may add a comment to an open approval.");
+        }
+
+        // Editing the text and withdrawing the row ask the same question, so they share one
+        // decision. No role widens it: a comment belongs to whoever wrote it.
+        private static AccessVerdict DecideMayAmendApprovalComment(AmendApprovalCommentRequest request)
+        {
+            if (IsActorUsable(request.Actor) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotAuthenticated,
+                    "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            if (IsSameUser(request.Actor.UserId, request.CommentCreatedBy) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotApprovalCommentAuthor,
+                    "Actor did not write this comment; no role permits amending another's words.");
+            }
+
+            if (request.IsParentApprovalDeleted)
+            {
+                return Refuse(
+                    AccessDenialReason.ParentApprovalUnavailable,
+                    "The parent approval is soft-deleted, so its comments are no longer writable.");
+            }
+
+            if (request.ApprovalState != ApprovalState.Submitted)
+            {
+                return Refuse(
+                    AccessDenialReason.ApprovalNotOpenForComment,
+                    "The parent approval is not open — before submission there is no thread, and once it closes what was said stands as recorded.");
+            }
+
+            return Permit("Actor is the author of the comment and the round is open.");
+        }
+
+        // The one comment operation an Admin may perform on someone else's row, and deliberately
+        // the only one: resolving records that a question was answered, which changes no words.
+        private static AccessVerdict DecideMayResolveApprovalComment(
+            ResolveApprovalCommentRequest request)
+        {
+            if (IsActorUsable(request.Actor) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotAuthenticated,
+                    "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
+            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Admin);
+
+            if (isAuthor is false && isAdmin is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotApprovalCommentAuthor,
+                    "Actor is neither the comment's author nor an Admin resolving on their behalf.");
+            }
+
+            if (request.IsParentApprovalDeleted)
+            {
+                return Refuse(
+                    AccessDenialReason.ParentApprovalUnavailable,
+                    "The parent approval is soft-deleted, so its comments are no longer writable.");
+            }
+
+            if (request.ApprovalState != ApprovalState.Submitted)
+            {
+                return Refuse(
+                    AccessDenialReason.ApprovalNotOpenForComment,
+                    "The parent approval is not open — before submission nothing reads the flag, and once it closes the flags are final.");
+            }
+
+            return isAuthor
+                ? Permit("Actor is the author of the comment and the round is open.")
+                : Permit("Actor is an Admin resolving on the author's behalf; UpdatedBy records them.");
+        }
+
         // Order matters and is not arbitrary. Identity comes first, then role, then the rules
         // that need no policy at all — because a caller who is refused outright must not learn
         // anything about the approval's state or its configuration on the way out (§14.5).
@@ -208,7 +346,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 ApprovalConditionsVerdict bypassedConditions = EvaluateConditions(
                     policy,
                     request.Reviews,
-                    request.Comments,
+                    request.ApprovalComments,
                     request.ConfidenceScore);
 
                 return PermitByBypass(
@@ -223,7 +361,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             ApprovalConditionsVerdict conditions = EvaluateConditions(
                 policy,
                 request.Reviews,
-                request.Comments,
+                request.ApprovalComments,
                 request.ConfidenceScore);
 
             if (conditions.AreConditionsMet is false)
@@ -241,7 +379,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
         private static ApprovalConditionsVerdict EvaluateConditions(
             ApprovalPolicy policy,
             IReadOnlyList<ReviewRecord> reviews,
-            IReadOnlyList<CommentRecord> comments,
+            IReadOnlyList<ApprovalCommentRecord> comments,
             decimal? confidenceScore)
         {
             // The Dismissed clause is redundant TODAY and kept on purpose. A dismissed review is
@@ -282,7 +420,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 && comments.Any(comment => comment.IsDeleted is false
                     && comment.IsResolved is false))
             {
-                blockReason = AccessDenialReason.BlockedByUnresolvedComment;
+                blockReason = AccessDenialReason.BlockedByUnresolvedApprovalComment;
                 explanation = "An approval comment is still unresolved.";
             }
             else if (policy.BlockOnZeroApprovalScore && confidenceScore == 0m)

@@ -22,6 +22,15 @@ namespace G2H.Security.Client.Services.Foundations.Access
         ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             RecordReviewRequest recordReviewRequest);
 
+        ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            RecordApprovalCommentRequest recordApprovalCommentRequest);
+
+        ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            AmendApprovalCommentRequest amendApprovalCommentRequest);
+
+        ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            ResolveApprovalCommentRequest resolveApprovalCommentRequest);
+
         ValueTask<AccessVerdict> MayDecideApprovalAsync(
             DecideApprovalRequest decideApprovalRequest);
     }

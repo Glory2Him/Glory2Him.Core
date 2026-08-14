@@ -233,6 +233,9 @@ components:
     methods:
       - MayDecideApprovalAsync
       - MayRecordApprovalReviewAsync
+      - MayRecordApprovalCommentAsync
+      - MayAmendApprovalCommentAsync
+      - MayResolveApprovalCommentAsync
     calls:
       - from: MayDecideApprovalAsync
         to: SC.AccessClient
@@ -258,6 +261,33 @@ components:
       - from: MayDecideApprovalAsync
         to: StorageBroker
         method: SelectAssociationByIdAsync
+      - from: MayRecordApprovalCommentAsync
+        to: SC.AccessClient
+        method: MayRecordApprovalCommentAsync
+      - from: MayRecordApprovalCommentAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayRecordApprovalCommentAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: MayAmendApprovalCommentAsync
+        to: SC.AccessClient
+        method: MayAmendApprovalCommentAsync
+      - from: MayAmendApprovalCommentAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayAmendApprovalCommentAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: MayResolveApprovalCommentAsync
+        to: SC.AccessClient
+        method: MayResolveApprovalCommentAsync
+      - from: MayResolveApprovalCommentAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayResolveApprovalCommentAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
       - from: MayRecordApprovalReviewAsync
         to: SC.AccessClient
         method: MayRecordApprovalReviewAsync

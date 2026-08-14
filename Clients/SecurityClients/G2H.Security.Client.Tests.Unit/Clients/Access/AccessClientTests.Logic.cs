@@ -107,5 +107,88 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
 
             this.accessServiceMock.VerifyNoOtherCalls();
         }
+        [Fact]
+        public async Task ShouldDecideIfActorMayRecordApprovalCommentAsync()
+        {
+            // given
+            RecordApprovalCommentRequest randomRecordApprovalCommentRequest =
+                CreateRandomRecordApprovalCommentRequest();
+
+            AccessVerdict randomAccessVerdict = CreateRandomAccessVerdict();
+            AccessVerdict expectedAccessVerdict = randomAccessVerdict;
+
+            this.accessServiceMock.Setup(service =>
+                service.MayRecordApprovalCommentAsync(randomRecordApprovalCommentRequest))
+                    .ReturnsAsync(randomAccessVerdict);
+
+            // when
+            AccessVerdict actualAccessVerdict =
+                await this.accessClient.MayRecordApprovalCommentAsync(randomRecordApprovalCommentRequest);
+
+            // then
+            actualAccessVerdict.Should().BeEquivalentTo(expectedAccessVerdict);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayRecordApprovalCommentAsync(randomRecordApprovalCommentRequest),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldDecideIfActorMayAmendApprovalCommentAsync()
+        {
+            // given
+            AmendApprovalCommentRequest randomAmendApprovalCommentRequest =
+                CreateRandomAmendApprovalCommentRequest();
+
+            AccessVerdict randomAccessVerdict = CreateRandomAccessVerdict();
+            AccessVerdict expectedAccessVerdict = randomAccessVerdict;
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalCommentAsync(randomAmendApprovalCommentRequest))
+                    .ReturnsAsync(randomAccessVerdict);
+
+            // when
+            AccessVerdict actualAccessVerdict =
+                await this.accessClient.MayAmendApprovalCommentAsync(randomAmendApprovalCommentRequest);
+
+            // then
+            actualAccessVerdict.Should().BeEquivalentTo(expectedAccessVerdict);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalCommentAsync(randomAmendApprovalCommentRequest),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldDecideIfActorMayResolveApprovalCommentAsync()
+        {
+            // given
+            ResolveApprovalCommentRequest randomResolveApprovalCommentRequest =
+                CreateRandomResolveApprovalCommentRequest();
+
+            AccessVerdict randomAccessVerdict = CreateRandomAccessVerdict();
+            AccessVerdict expectedAccessVerdict = randomAccessVerdict;
+
+            this.accessServiceMock.Setup(service =>
+                service.MayResolveApprovalCommentAsync(randomResolveApprovalCommentRequest))
+                    .ReturnsAsync(randomAccessVerdict);
+
+            // when
+            AccessVerdict actualAccessVerdict =
+                await this.accessClient.MayResolveApprovalCommentAsync(randomResolveApprovalCommentRequest);
+
+            // then
+            actualAccessVerdict.Should().BeEquivalentTo(expectedAccessVerdict);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayResolveApprovalCommentAsync(randomResolveApprovalCommentRequest),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
