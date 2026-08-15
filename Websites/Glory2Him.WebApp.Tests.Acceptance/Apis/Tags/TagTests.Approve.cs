@@ -16,6 +16,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.WebApp.Tests.Acceptance.Models.Tags;
+using CoreApprovalStatus = Glory2Him.Core.Models.Enums.ApprovalStatus;
 using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
@@ -42,18 +43,30 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             inputTag.ApprovalStatus = ApprovalStatus.Approved;
             inputTag.IsPublished = true;
 
-            // when
-            Tag actualTag = await this.apiBroker.ApproveTagAsync(inputTag);
+            try
+            {
+                // when
+                Tag actualTag = await this.apiBroker.ApproveTagAsync(inputTag);
 
-            // then
-            actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-            actualTag.IsPublished.Should().BeTrue();
-            actualTag.IsApprovedByBypass.Should().BeFalse();
+                // then
+                actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+                actualTag.IsPublished.Should().BeTrue();
+                actualTag.IsApprovedByBypass.Should().BeFalse();
 
-            await this.apiBroker.RemoveApprovalReviewAsync(approvalReview);
-            await this.apiBroker.RemoveApprovalAsync(approval);
-            await this.apiBroker.RemoveCoreTagAsync(
-                await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id));
+                CoreTag storedTag = await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id);
+                storedTag.ApprovalStatus.Should().Be(CoreApprovalStatus.Approved);
+                storedTag.IsPublished.Should().BeTrue();
+            }
+            finally
+            {
+                // In FK order, and outside the assertions — the arranged rows have no owning
+                // endpoint, so a failure here would orphan an Approval and an ApprovalReview in
+                // a database nothing else resets.
+                await this.apiBroker.RemoveApprovalReviewAsync(approvalReview);
+                await this.apiBroker.RemoveApprovalAsync(approval);
+                await this.apiBroker.RemoveCoreTagAsync(
+                    await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id));
+            }
         }
 
         [Fact]
@@ -71,16 +84,24 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             Tag inputTag = await this.apiBroker.GetTagByIdAsync(submittedTag.Id);
             inputTag.ApprovalStatus = ApprovalStatus.Rejected;
 
-            // when
-            Tag actualTag = await this.apiBroker.ApproveTagAsync(inputTag);
+            try
+            {
+                // when
+                Tag actualTag = await this.apiBroker.ApproveTagAsync(inputTag);
 
-            // then
-            actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Rejected);
-            actualTag.IsPublished.Should().BeFalse();
+                // then
+                actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Rejected);
+                actualTag.IsPublished.Should().BeFalse();
 
-            await this.apiBroker.RemoveApprovalAsync(approval);
-            await this.apiBroker.RemoveCoreTagAsync(
-                await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id));
+                CoreTag storedTag = await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id);
+                storedTag.ApprovalStatus.Should().Be(CoreApprovalStatus.Rejected);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveApprovalAsync(approval);
+                await this.apiBroker.RemoveCoreTagAsync(
+                    await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id));
+            }
         }
     }
 }

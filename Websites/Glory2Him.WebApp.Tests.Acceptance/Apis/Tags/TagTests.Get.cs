@@ -30,18 +30,30 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             List<Tag> actualTags = await this.apiBroker.GetAllTagsAsync();
 
             // then
-            foreach (Tag expectedTag in expectedTags)
+            try
             {
-                Tag actualTag =
-                    actualTags.Single(tag => tag.Id == expectedTag.Id);
+                foreach (Tag expectedTag in expectedTags)
+                {
+                    Tag actualTag =
+                        actualTags.Single(tag => tag.Id == expectedTag.Id);
 
-                actualTag.Should().BeEquivalentTo(expectedTag, options => options
-                    .Excluding(property => property.CreatedBy)
-                    .Excluding(property => property.CreatedWhen)
-                    .Excluding(property => property.UpdatedBy)
-                    .Excluding(property => property.UpdatedWhen));
-
-                await this.apiBroker.DeleteTagByIdAsync(actualTag.Id);
+                    actualTag.Should().BeEquivalentTo(expectedTag, options => options
+                        .Excluding(property => property.CreatedBy)
+                        .Excluding(property => property.CreatedWhen)
+                        .Excluding(property => property.UpdatedBy)
+                        .Excluding(property => property.UpdatedWhen));
+                }
+            }
+            finally
+            {
+                // Cleanup is driven off what was POSTED, not off what the read returned, and
+                // runs even when an assertion throws. Deleting inside the assertion loop left
+                // every row the loop had not reached yet live forever, and this suite runs
+                // against a persistent database that nothing else resets.
+                foreach (Tag postedTag in randomTags)
+                {
+                    await this.apiBroker.DeleteTagByIdAsync(postedTag.Id);
+                }
             }
         }
     }

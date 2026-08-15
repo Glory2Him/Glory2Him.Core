@@ -2660,9 +2660,11 @@ Two brokers sit in that chain:
    constructor. It stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps.
 2. `EventEnvelopeBroker` constructs an `EventEnvelopeClient`, which builds its own service
    provider and resolves `IEventEnvelopeService` **once**, and the `SecurityBroker` beneath that
-   reads `HttpContext.User` in *its* constructor. This one is easy to miss: the capture is two
-   assemblies away, inside `G2H.Security.Client`, behind a parameterless constructor that looks
-   stateless. It supplies the `SecurityContext` on every envelope, which is what the foundation
+   reads `HttpContext.User` in *its* constructor. This one is easy to miss: the capture is an
+   assembly away, in `G2H.EventEnvelope.Client/Brokers/Securities/SecurityBroker.cs`, behind a
+   parameterless constructor that looks stateless — `EventEnvelopeClient` builds its own
+   `ServiceCollection` and resolves `IEventEnvelopeService` once, which pins that broker and the
+   principal it captured for the lifetime of the client. It supplies the `SecurityContext` on every envelope, which is what the foundation
    authorises against.
 
 **Registering either as a singleton freezes the first principal the process ever saw.** The
