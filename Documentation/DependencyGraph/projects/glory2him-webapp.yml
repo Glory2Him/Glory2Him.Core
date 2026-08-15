@@ -1,0 +1,856 @@
+# Glory2Him.WebApp — components and flows
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+
+project: webapp
+components:
+  - id: WA.PostApi
+    name: PostApiEndpoints
+    layer: exposer
+    col: 0
+    description: "Minimal-API endpoint group. Glory2Him.WebApp is currently standalone — it has no project reference to Glory2Him.Core; it serves the React SPA with its own Identity database and sample in-memory data."
+    methods:
+      - GET /api/posts
+      - "GET /api/posts/slug/{slug}"
+      - "GET /api/posts/{id}"
+      - POST /api/posts
+      - "PUT /api/posts/{id}"
+      - "DELETE /api/posts/{id}"
+    calls:
+      - from: GET /api/posts
+        to: WA.PostsView
+        method: RetrieveAllPostsAsync
+      - from: "GET /api/posts/slug/{slug}"
+        to: WA.PostsView
+        method: RetrievePostBySlugAsync
+      - from: "GET /api/posts/{id}"
+        to: WA.PostsView
+        method: RetrievePostByIdAsync
+      - from: POST /api/posts
+        to: WA.PostsView
+        method: AddPostAsync
+      - from: "PUT /api/posts/{id}"
+        to: WA.PostsView
+        method: ModifyPostAsync
+      - from: "DELETE /api/posts/{id}"
+        to: WA.PostsView
+        method: RemovePostAsync
+  - id: WA.PostsView
+    name: PostsViewService
+    layer: view
+    col: 1
+    description: Backed by the in-memory SamplePosts store (no database yet).
+    methods:
+      - RetrieveAllPostsAsync
+      - RetrievePostBySlugAsync
+      - RetrievePostByIdAsync
+      - AddPostAsync
+      - ModifyPostAsync
+      - RemovePostAsync
+    calls:
+      - from: RetrieveAllPostsAsync
+        to: WA.SamplePosts
+        method: All
+      - from: RetrievePostBySlugAsync
+        to: WA.SamplePosts
+        method: All
+      - from: RetrievePostByIdAsync
+        to: WA.SamplePosts
+        method: All
+      - from: ModifyPostAsync
+        to: WA.SamplePosts
+        method: All
+      - from: RemovePostAsync
+        to: WA.SamplePosts
+        method: All
+      - from: AddPostAsync
+        to: WA.SamplePosts
+        method: NextId
+      - from: AddPostAsync
+        to: WA.SamplePosts
+        method: All
+  - id: WA.SamplePosts
+    name: SamplePosts (in-memory)
+    layer: broker
+    col: 2
+    description: Static sample data store standing in for a future data source.
+    methods:
+      - All
+      - NextId
+  - id: WA.ProductApi
+    name: ProductApiEndpoints
+    layer: exposer
+    col: 0
+    methods:
+      - GET /api/products
+      - "GET /api/products/slug/{slug}"
+    calls:
+      - from: GET /api/products
+        to: WA.ProductsView
+        method: RetrieveAllProductsAsync
+      - from: "GET /api/products/slug/{slug}"
+        to: WA.ProductsView
+        method: RetrieveProductBySlugAsync
+  - id: WA.ProductsView
+    name: ProductsViewService
+    layer: view
+    col: 1
+    description: Backed by the in-memory SampleProducts store.
+    methods:
+      - RetrieveAllProductsAsync
+      - RetrieveProductBySlugAsync
+    calls:
+      - from: RetrieveAllProductsAsync
+        to: WA.SampleProducts
+        method: All
+      - from: RetrieveProductBySlugAsync
+        to: WA.SampleProducts
+        method: All
+  - id: WA.SampleProducts
+    name: SampleProducts (in-memory)
+    layer: broker
+    col: 2
+    methods:
+      - All
+  - id: WA.ProfileApi
+    name: ProfileApiEndpoints
+    layer: exposer
+    col: 0
+    methods:
+      - GET /api/profile
+      - PUT /api/profile
+      - POST /api/profile/image
+      - DELETE /api/profile/image
+      - "GET /Profile-Image/{userId} (Program.cs)"
+    calls:
+      - from: GET /api/profile
+        to: WA.ProfileView
+        method: RetrieveProfileByIdAsync
+      - from: GET /api/profile
+        to: EXT.Identity
+        method: UserManager.GetUserAsync
+      - from: PUT /api/profile
+        to: EXT.Identity
+        method: UserManager.GetUserAsync
+      - from: PUT /api/profile
+        to: EXT.Identity
+        method: UserManager.SetPhoneNumberAsync
+      - from: PUT /api/profile
+        to: EXT.Identity
+        method: UserManager.UpdateAsync
+      - from: PUT /api/profile
+        to: EXT.Identity
+        method: SignInManager.RefreshSignInAsync
+      - from: POST /api/profile/image
+        to: WA.ProfileView
+        method: SetProfileImageAsync
+      - from: DELETE /api/profile/image
+        to: WA.ProfileView
+        method: RemoveProfileImageAsync
+      - from: "GET /Profile-Image/{userId} (Program.cs)"
+        to: WA.ProfileView
+        method: RetrieveProfileImageAsync
+  - id: WA.ProfileView
+    name: ProfileViewService
+    layer: view
+    col: 1
+    methods:
+      - RetrieveProfileByIdAsync
+      - SetProfileImageAsync
+      - RemoveProfileImageAsync
+      - RetrieveProfileImageAsync
+    calls:
+      - from: RetrieveProfileByIdAsync
+        to: WA.ProfileImageBroker
+        method: SelectUserByIdAsync
+      - from: SetProfileImageAsync
+        to: WA.ImageProcessingBroker
+        method: CreateSquareAvatarAsync
+      - from: SetProfileImageAsync
+        to: WA.ProfileImageBroker
+        method: UpdateProfileImageAsync
+      - from: RemoveProfileImageAsync
+        to: WA.ProfileImageBroker
+        method: UpdateProfileImageAsync
+      - from: RetrieveProfileImageAsync
+        to: WA.ProfileImageBroker
+        method: SelectUserByIdAsync
+  - id: WA.ProfileImageBroker
+    name: ProfileImageBroker
+    layer: broker
+    col: 2
+    description: "Reads/writes AppUser.ProfileImage via IDbContextFactory<SecurityDbContext>."
+    methods:
+      - SelectUserByIdAsync
+      - UpdateProfileImageAsync
+    calls:
+      - from: SelectUserByIdAsync
+        to: EXT.SecurityDb
+        method: "Users (DbSet<AppUser>)"
+      - from: UpdateProfileImageAsync
+        to: EXT.SecurityDb
+        method: "Users (DbSet<AppUser>)"
+      - from: UpdateProfileImageAsync
+        to: EXT.SecurityDb
+        method: SaveChangesAsync
+  - id: WA.ImageProcessingBroker
+    name: ImageProcessingBroker
+    layer: broker
+    col: 2
+    methods:
+      - CreateSquareAvatarAsync
+    calls:
+      - from: CreateSquareAvatarAsync
+        to: EXT.SkiaSharp
+        method: SKBitmap.Decode
+      - from: CreateSquareAvatarAsync
+        to: EXT.SkiaSharp
+        method: SKBitmap.Resize
+      - from: CreateSquareAvatarAsync
+        to: EXT.SkiaSharp
+        method: SKImage.FromBitmap
+      - from: CreateSquareAvatarAsync
+        to: EXT.SkiaSharp
+        method: SKImage.Encode (WebP)
+  - id: WA.RegistrationApi
+    name: RegistrationApiEndpoints
+    layer: exposer
+    col: 0
+    methods:
+      - GET /api/registrations/username-available
+      - GET /api/registrations/email-in-use
+      - GET /api/registrations/username-suggestions
+      - POST /api/registrations
+    calls:
+      - from: GET /api/registrations/username-available
+        to: WA.RegistrationView
+        method: IsUsernameAvailableAsync
+      - from: GET /api/registrations/username-available
+        to: WA.RegistrationView
+        method: MinimumUsernameLength
+      - from: GET /api/registrations/email-in-use
+        to: WA.RegistrationView
+        method: IsEmailInUseAsync
+      - from: GET /api/registrations/username-suggestions
+        to: WA.RegistrationView
+        method: SuggestUsernamesAsync
+      - from: POST /api/registrations
+        to: WA.RegistrationView
+        method: IsUsernameAvailableAsync
+      - from: POST /api/registrations
+        to: WA.RegistrationView
+        method: IsEmailInUseAsync
+      - from: POST /api/registrations
+        to: EXT.Identity
+        method: UserManager.CreateAsync
+      - from: POST /api/registrations
+        to: EXT.Identity
+        method: UserManager.AddToRoleAsync
+      - from: POST /api/registrations
+        to: EXT.Identity
+        method: IUserStore.SetUserNameAsync
+      - from: POST /api/registrations
+        to: EXT.Identity
+        method: IUserEmailStore.SetEmailAsync
+  - id: WA.RegistrationView
+    name: RegistrationViewService
+    layer: view
+    col: 1
+    methods:
+      - MinimumUsernameLength
+      - IsUsernameAvailableAsync
+      - IsEmailInUseAsync
+      - SuggestUsernamesAsync
+    calls:
+      - from: IsUsernameAvailableAsync
+        to: WA.AccountBroker
+        method: UsernameExistsAsync
+      - from: IsEmailInUseAsync
+        to: WA.AccountBroker
+        method: EmailExistsAsync
+      - from: SuggestUsernamesAsync
+        to: WA.AccountBroker
+        method: UsernameExistsAsync
+  - id: WA.AccountBroker
+    name: AccountBroker
+    layer: broker
+    col: 2
+    description: "Queries normalized username/email columns via IDbContextFactory<SecurityDbContext>."
+    methods:
+      - UsernameExistsAsync
+      - EmailExistsAsync
+    calls:
+      - from: UsernameExistsAsync
+        to: EXT.SecurityDb
+        method: "Users (DbSet<AppUser>)"
+      - from: EmailExistsAsync
+        to: EXT.SecurityDb
+        method: "Users (DbSet<AppUser>)"
+  - id: WA.UserAdminApi
+    name: UserAdminApiEndpoints
+    layer: exposer
+    col: 0
+    methods:
+      - GET /api/admin/users
+      - GET /api/admin/users/roles
+      - "GET /api/admin/users/{id}"
+      - "PUT /api/admin/users/{id}"
+      - "POST …/roles"
+      - "POST …/confirm-email"
+      - "POST …/locked-out"
+      - "POST …/reset-failed-count"
+      - "POST …/two-factor"
+      - "POST …/disabled"
+      - "POST …/confirmation-link"
+      - "POST …/password-reset-link"
+      - "DELETE /api/admin/users/{id}"
+    calls:
+      - from: GET /api/admin/users
+        to: WA.UsersView
+        method: RetrieveAllUsersAsync
+      - from: GET /api/admin/users/roles
+        to: WA.UsersView
+        method: RetrieveAllRoleNamesAsync
+      - from: "GET /api/admin/users/{id}"
+        to: WA.UsersView
+        method: RetrieveUserByIdAsync
+      - from: "PUT /api/admin/users/{id}"
+        to: WA.UsersView
+        method: ModifyUserAsync
+      - from: "POST …/roles"
+        to: WA.UsersView
+        method: SetUserRoleAsync
+      - from: "POST …/confirm-email"
+        to: WA.UsersView
+        method: ConfirmUserEmailAsync
+      - from: "POST …/locked-out"
+        to: WA.UsersView
+        method: SetUserLockedOutAsync
+      - from: "POST …/reset-failed-count"
+        to: WA.UsersView
+        method: ResetAccessFailedCountAsync
+      - from: "POST …/two-factor"
+        to: WA.UsersView
+        method: SetTwoFactorEnabledAsync
+      - from: "POST …/disabled"
+        to: WA.UsersView
+        method: SetUserDisabledAsync
+      - from: "POST …/confirmation-link"
+        to: WA.UsersView
+        method: GenerateEmailConfirmationTokenAsync
+      - from: "POST …/password-reset-link"
+        to: WA.UsersView
+        method: GeneratePasswordResetTokenAsync
+      - from: "DELETE /api/admin/users/{id}"
+        to: WA.UsersView
+        method: DeleteUserAsync
+  - id: WA.UsersView
+    name: UsersViewService
+    layer: view
+    col: 1
+    methods:
+      - RetrieveAllUsersAsync
+      - RetrieveUserByIdAsync
+      - RetrieveAllRoleNamesAsync
+      - ModifyUserAsync
+      - SetUserRoleAsync
+      - ConfirmUserEmailAsync
+      - SetUserLockedOutAsync
+      - ResetAccessFailedCountAsync
+      - SetTwoFactorEnabledAsync
+      - SetUserDisabledAsync
+      - GenerateEmailConfirmationTokenAsync
+      - GeneratePasswordResetTokenAsync
+      - DeleteUserAsync
+    calls:
+      - from: RetrieveAllUsersAsync
+        to: WA.IdentityBroker
+        method: SelectAllUsers
+      - from: RetrieveAllUsersAsync
+        to: WA.IdentityBroker
+        method: SelectUserRolesAsync
+      - from: RetrieveUserByIdAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: RetrieveUserByIdAsync
+        to: WA.IdentityBroker
+        method: SelectUserRolesAsync
+      - from: RetrieveUserByIdAsync
+        to: WA.IdentityBroker
+        method: SelectIsLockedOutAsync
+      - from: RetrieveAllRoleNamesAsync
+        to: WA.IdentityBroker
+        method: SelectAllRoles
+      - from: ModifyUserAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: ModifyUserAsync
+        to: WA.IdentityBroker
+        method: UpdateUserAsync
+      - from: ModifyUserAsync
+        to: WA.IdentityBroker
+        method: SetUserNameAsync
+      - from: ModifyUserAsync
+        to: WA.IdentityBroker
+        method: SetEmailAsync
+      - from: ModifyUserAsync
+        to: WA.IdentityBroker
+        method: SetPhoneNumberAsync
+      - from: SetUserRoleAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: SetUserRoleAsync
+        to: WA.IdentityBroker
+        method: InsertUserToRoleAsync
+      - from: SetUserRoleAsync
+        to: WA.IdentityBroker
+        method: DeleteUserFromRoleAsync
+      - from: SetUserRoleAsync
+        to: WA.IdentityBroker
+        method: SelectUserRolesAsync
+      - from: SetUserRoleAsync
+        to: WA.IdentityBroker
+        method: SelectUsersInRoleAsync
+      - from: ConfirmUserEmailAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: ConfirmUserEmailAsync
+        to: WA.IdentityBroker
+        method: GenerateEmailConfirmationTokenAsync
+      - from: ConfirmUserEmailAsync
+        to: WA.IdentityBroker
+        method: ConfirmEmailAsync
+      - from: SetUserLockedOutAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: SetUserLockedOutAsync
+        to: WA.IdentityBroker
+        method: SelectUserRolesAsync
+      - from: SetUserLockedOutAsync
+        to: WA.IdentityBroker
+        method: SelectUsersInRoleAsync
+      - from: SetUserLockedOutAsync
+        to: WA.IdentityBroker
+        method: SetLockoutEnabledAsync
+      - from: SetUserLockedOutAsync
+        to: WA.IdentityBroker
+        method: SetLockoutEndDateAsync
+      - from: ResetAccessFailedCountAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: ResetAccessFailedCountAsync
+        to: WA.IdentityBroker
+        method: ResetAccessFailedCountAsync
+      - from: SetTwoFactorEnabledAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: SetTwoFactorEnabledAsync
+        to: WA.IdentityBroker
+        method: SetTwoFactorEnabledAsync
+      - from: SetTwoFactorEnabledAsync
+        to: WA.IdentityBroker
+        method: ResetAuthenticatorKeyAsync
+      - from: SetUserDisabledAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: SetUserDisabledAsync
+        to: WA.IdentityBroker
+        method: SelectUserRolesAsync
+      - from: SetUserDisabledAsync
+        to: WA.IdentityBroker
+        method: SelectUsersInRoleAsync
+      - from: SetUserDisabledAsync
+        to: WA.IdentityBroker
+        method: UpdateUserAsync
+      - from: SetUserDisabledAsync
+        to: WA.IdentityBroker
+        method: SetLockoutEnabledAsync
+      - from: SetUserDisabledAsync
+        to: WA.IdentityBroker
+        method: SetLockoutEndDateAsync
+      - from: GenerateEmailConfirmationTokenAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: GenerateEmailConfirmationTokenAsync
+        to: WA.IdentityBroker
+        method: GenerateEmailConfirmationTokenAsync
+      - from: GeneratePasswordResetTokenAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: GeneratePasswordResetTokenAsync
+        to: WA.IdentityBroker
+        method: GeneratePasswordResetTokenAsync
+      - from: DeleteUserAsync
+        to: WA.IdentityBroker
+        method: SelectUserByIdAsync
+      - from: DeleteUserAsync
+        to: WA.IdentityBroker
+        method: SelectUserRolesAsync
+      - from: DeleteUserAsync
+        to: WA.IdentityBroker
+        method: SelectUsersInRoleAsync
+      - from: DeleteUserAsync
+        to: WA.IdentityBroker
+        method: DeleteUserAsync
+  - id: WA.IdentityBroker
+    name: IdentityBroker
+    layer: broker
+    col: 2
+    description: "Wraps ASP.NET Identity UserManager<AppUser> + RoleManager<AppRole>."
+    methods:
+      - SelectAllUsers
+      - SelectUserByIdAsync
+      - SelectUserRolesAsync
+      - SelectUsersInRoleAsync
+      - SelectAllRoles
+      - SelectIsLockedOutAsync
+      - UpdateUserAsync
+      - SetUserNameAsync
+      - SetEmailAsync
+      - SetPhoneNumberAsync
+      - InsertUserToRoleAsync
+      - DeleteUserFromRoleAsync
+      - DeleteUserAsync
+      - GenerateEmailConfirmationTokenAsync
+      - ConfirmEmailAsync
+      - GeneratePasswordResetTokenAsync
+      - SetLockoutEnabledAsync
+      - SetLockoutEndDateAsync
+      - ResetAccessFailedCountAsync
+      - SetTwoFactorEnabledAsync
+      - ResetAuthenticatorKeyAsync
+    calls:
+      - from: SelectAllUsers
+        to: EXT.Identity
+        method: UserManager.Users
+      - from: SelectUserByIdAsync
+        to: EXT.Identity
+        method: UserManager.FindByIdAsync
+      - from: InsertUserAsync
+        to: EXT.Identity
+        method: UserManager.CreateAsync
+      - from: DeleteUserAsync
+        to: EXT.Identity
+        method: UserManager.DeleteAsync
+      - from: SelectUserRolesAsync
+        to: EXT.Identity
+        method: UserManager.GetRolesAsync
+      - from: InsertUserToRoleAsync
+        to: EXT.Identity
+        method: UserManager.AddToRoleAsync
+      - from: DeleteUserFromRoleAsync
+        to: EXT.Identity
+        method: UserManager.RemoveFromRoleAsync
+      - from: SelectUsersInRoleAsync
+        to: EXT.Identity
+        method: UserManager.GetUsersInRoleAsync
+      - from: SelectIsLockedOutAsync
+        to: EXT.Identity
+        method: UserManager.IsLockedOutAsync
+      - from: UpdateUserAsync
+        to: EXT.Identity
+        method: UserManager.UpdateAsync
+      - from: SetUserNameAsync
+        to: EXT.Identity
+        method: UserManager.SetUserNameAsync
+      - from: SetEmailAsync
+        to: EXT.Identity
+        method: UserManager.SetEmailAsync
+      - from: SetPhoneNumberAsync
+        to: EXT.Identity
+        method: UserManager.SetPhoneNumberAsync
+      - from: GenerateEmailConfirmationTokenAsync
+        to: EXT.Identity
+        method: UserManager.GenerateEmailConfirmationTokenAsync
+      - from: ConfirmEmailAsync
+        to: EXT.Identity
+        method: UserManager.ConfirmEmailAsync
+      - from: GeneratePasswordResetTokenAsync
+        to: EXT.Identity
+        method: UserManager.GeneratePasswordResetTokenAsync
+      - from: SetLockoutEnabledAsync
+        to: EXT.Identity
+        method: UserManager.SetLockoutEnabledAsync
+      - from: SetLockoutEndDateAsync
+        to: EXT.Identity
+        method: UserManager.SetLockoutEndDateAsync
+      - from: ResetAccessFailedCountAsync
+        to: EXT.Identity
+        method: UserManager.ResetAccessFailedCountAsync
+      - from: SetTwoFactorEnabledAsync
+        to: EXT.Identity
+        method: UserManager.SetTwoFactorEnabledAsync
+      - from: ResetAuthenticatorKeyAsync
+        to: EXT.Identity
+        method: UserManager.ResetAuthenticatorKeyAsync
+      - from: SelectAllRoles
+        to: EXT.Identity
+        method: RoleManager.Roles
+  - id: WA.AccountApi
+    name: AccountApiEndpoints
+    layer: exposer
+    col: 0
+    description: "Talks to ASP.NET Identity directly — no view service."
+    methods:
+      - GET /api/accounts/me
+      - POST /api/accounts/login
+      - POST /api/accounts/login-2fa
+      - POST /api/accounts/login-recovery-code
+      - POST /api/accounts/logout
+      - POST /api/accounts/change-password
+      - POST /api/accounts/forgot-password
+      - POST /api/accounts/reset-password
+    calls:
+      - from: GET /api/accounts/me
+        to: EXT.Identity
+        method: UserManager.GetUserAsync
+      - from: GET /api/accounts/me
+        to: EXT.Identity
+        method: UserManager.GetRolesAsync
+      - from: POST /api/accounts/login
+        to: EXT.Identity
+        method: UserManager.FindByNameAsync
+      - from: POST /api/accounts/login
+        to: EXT.Identity
+        method: UserManager.FindByEmailAsync
+      - from: POST /api/accounts/login
+        to: EXT.Identity
+        method: SignInManager.PasswordSignInAsync
+      - from: POST /api/accounts/login-2fa
+        to: EXT.Identity
+        method: SignInManager.GetTwoFactorAuthenticationUserAsync
+      - from: POST /api/accounts/login-2fa
+        to: EXT.Identity
+        method: SignInManager.TwoFactorAuthenticatorSignInAsync
+      - from: POST /api/accounts/login-recovery-code
+        to: EXT.Identity
+        method: SignInManager.TwoFactorRecoveryCodeSignInAsync
+      - from: POST /api/accounts/logout
+        to: EXT.Identity
+        method: SignInManager.SignOutAsync
+      - from: POST /api/accounts/change-password
+        to: EXT.Identity
+        method: UserManager.ChangePasswordAsync
+      - from: POST /api/accounts/change-password
+        to: EXT.Identity
+        method: SignInManager.RefreshSignInAsync
+      - from: POST /api/accounts/forgot-password
+        to: EXT.Identity
+        method: UserManager.GeneratePasswordResetTokenAsync
+      - from: POST /api/accounts/forgot-password
+        to: EXT.Identity
+        method: IEmailSender.SendPasswordResetLinkAsync
+      - from: POST /api/accounts/reset-password
+        to: EXT.Identity
+        method: UserManager.ResetPasswordAsync
+  - id: WA.PasskeyApi
+    name: PasskeyApiEndpoints
+    layer: exposer
+    col: 0
+    description: "WebAuthn/passkeys + external logins — ASP.NET Identity directly, no view service."
+    methods:
+      - POST /api/passkeys/creation-options
+      - POST /api/passkeys/request-options
+      - POST /api/passkeys/register
+      - POST /api/passkeys/login
+      - GET /api/passkeys
+      - "PUT /api/passkeys/{credentialId}"
+      - "DELETE /api/passkeys/{credentialId}"
+      - GET /api/accounts/external-providers
+      - GET /api/accounts/external-logins
+      - POST /api/accounts/external-logins/remove
+    calls:
+      - from: POST /api/passkeys/creation-options
+        to: EXT.Identity
+        method: SignInManager.MakePasskeyCreationOptionsAsync
+      - from: POST /api/passkeys/request-options
+        to: EXT.Identity
+        method: SignInManager.MakePasskeyRequestOptionsAsync
+      - from: POST /api/passkeys/register
+        to: EXT.Identity
+        method: SignInManager.PerformPasskeyAttestationAsync
+      - from: POST /api/passkeys/register
+        to: EXT.Identity
+        method: UserManager.AddOrUpdatePasskeyAsync
+      - from: POST /api/passkeys/login
+        to: EXT.Identity
+        method: UserManager.FindByPasskeyIdAsync
+      - from: POST /api/passkeys/login
+        to: EXT.Identity
+        method: SignInManager.PasskeySignInAsync
+      - from: GET /api/passkeys
+        to: EXT.Identity
+        method: UserManager.GetPasskeysAsync
+      - from: "PUT /api/passkeys/{credentialId}"
+        to: EXT.Identity
+        method: UserManager.GetPasskeyAsync
+      - from: "PUT /api/passkeys/{credentialId}"
+        to: EXT.Identity
+        method: UserManager.AddOrUpdatePasskeyAsync
+      - from: "DELETE /api/passkeys/{credentialId}"
+        to: EXT.Identity
+        method: UserManager.RemovePasskeyAsync
+      - from: GET /api/accounts/external-providers
+        to: EXT.Identity
+        method: SignInManager.GetExternalAuthenticationSchemesAsync
+      - from: GET /api/accounts/external-logins
+        to: EXT.Identity
+        method: UserManager.GetLoginsAsync
+      - from: GET /api/accounts/external-logins
+        to: EXT.Identity
+        method: UserManager.HasPasswordAsync
+      - from: POST /api/accounts/external-logins/remove
+        to: EXT.Identity
+        method: UserManager.RemoveLoginAsync
+      - from: POST /api/accounts/external-logins/remove
+        to: EXT.Identity
+        method: SignInManager.RefreshSignInAsync
+  - id: WA.ManageAccountApi
+    name: ManageAccountApiEndpoints
+    layer: exposer
+    col: 0
+    description: "Email / 2FA / personal-data management — ASP.NET Identity directly (QR codes via QRCoder), no view service."
+    methods:
+      - GET /api/manage/email
+      - POST /api/manage/email/change
+      - POST /api/manage/email/send-verification
+      - GET /api/manage/two-factor
+      - GET /api/manage/two-factor/authenticator
+      - GET /api/manage/two-factor/qr-code
+      - POST /api/manage/two-factor/verify
+      - POST /api/manage/two-factor/disable
+      - "POST …/generate-recovery-codes"
+      - "POST …/reset-authenticator"
+      - "POST …/forget-browser"
+      - GET /api/manage/personal-data
+      - "GET …/personal-data/download"
+      - POST /api/manage/delete-personal-data
+      - "POST …/resend-email-confirmation"
+      - POST /api/accounts/confirm-email
+      - "POST …/confirm-email-change"
+      - "GET …/register-confirmation"
+    calls:
+      - from: GET /api/manage/email
+        to: EXT.Identity
+        method: UserManager.GetEmailAsync
+      - from: GET /api/manage/email
+        to: EXT.Identity
+        method: UserManager.IsEmailConfirmedAsync
+      - from: POST /api/manage/email/change
+        to: EXT.Identity
+        method: UserManager.GenerateChangeEmailTokenAsync
+      - from: POST /api/manage/email/change
+        to: EXT.Identity
+        method: IEmailSender.SendConfirmationLinkAsync
+      - from: POST /api/manage/email/send-verification
+        to: EXT.Identity
+        method: UserManager.GenerateEmailConfirmationTokenAsync
+      - from: POST /api/manage/email/send-verification
+        to: EXT.Identity
+        method: IEmailSender.SendConfirmationLinkAsync
+      - from: GET /api/manage/two-factor
+        to: EXT.Identity
+        method: UserManager.GetAuthenticatorKeyAsync
+      - from: GET /api/manage/two-factor
+        to: EXT.Identity
+        method: UserManager.GetTwoFactorEnabledAsync
+      - from: GET /api/manage/two-factor
+        to: EXT.Identity
+        method: UserManager.CountRecoveryCodesAsync
+      - from: GET /api/manage/two-factor/authenticator
+        to: EXT.Identity
+        method: UserManager.ResetAuthenticatorKeyAsync
+      - from: GET /api/manage/two-factor/qr-code
+        to: EXT.Identity
+        method: UserManager.GetAuthenticatorKeyAsync
+      - from: POST /api/manage/two-factor/verify
+        to: EXT.Identity
+        method: UserManager.VerifyTwoFactorTokenAsync
+      - from: POST /api/manage/two-factor/verify
+        to: EXT.Identity
+        method: UserManager.SetTwoFactorEnabledAsync
+      - from: POST /api/manage/two-factor/verify
+        to: EXT.Identity
+        method: UserManager.GenerateNewTwoFactorRecoveryCodesAsync
+      - from: POST /api/manage/two-factor/disable
+        to: EXT.Identity
+        method: UserManager.SetTwoFactorEnabledAsync
+      - from: "POST …/generate-recovery-codes"
+        to: EXT.Identity
+        method: UserManager.GenerateNewTwoFactorRecoveryCodesAsync
+      - from: "POST …/reset-authenticator"
+        to: EXT.Identity
+        method: UserManager.ResetAuthenticatorKeyAsync
+      - from: "POST …/reset-authenticator"
+        to: EXT.Identity
+        method: SignInManager.RefreshSignInAsync
+      - from: "POST …/forget-browser"
+        to: EXT.Identity
+        method: SignInManager.ForgetTwoFactorClientAsync
+      - from: GET /api/manage/personal-data
+        to: EXT.Identity
+        method: UserManager.HasPasswordAsync
+      - from: "GET …/personal-data/download"
+        to: EXT.Identity
+        method: UserManager.GetLoginsAsync
+      - from: "GET …/personal-data/download"
+        to: EXT.Identity
+        method: UserManager.GetAuthenticatorKeyAsync
+      - from: POST /api/manage/delete-personal-data
+        to: EXT.Identity
+        method: UserManager.CheckPasswordAsync
+      - from: POST /api/manage/delete-personal-data
+        to: EXT.Identity
+        method: UserManager.DeleteAsync
+      - from: POST /api/manage/delete-personal-data
+        to: EXT.Identity
+        method: SignInManager.SignOutAsync
+      - from: "POST …/resend-email-confirmation"
+        to: EXT.Identity
+        method: UserManager.GenerateEmailConfirmationTokenAsync
+      - from: "POST …/resend-email-confirmation"
+        to: EXT.Identity
+        method: IEmailSender.SendConfirmationLinkAsync
+      - from: POST /api/accounts/confirm-email
+        to: EXT.Identity
+        method: UserManager.ConfirmEmailAsync
+      - from: "POST …/confirm-email-change"
+        to: EXT.Identity
+        method: UserManager.ChangeEmailAsync
+      - from: "POST …/confirm-email-change"
+        to: EXT.Identity
+        method: UserManager.SetUserNameAsync
+      - from: "GET …/register-confirmation"
+        to: EXT.Identity
+        method: UserManager.GenerateEmailConfirmationTokenAsync
+  - id: WA.FrontendConfigApi
+    name: FrontendConfigurationApiEndpoints
+    layer: exposer
+    col: 0
+    description: "Reads IConfiguration only (YouVersion app key) — no downstream components."
+    methods:
+      - GET /api/frontend-configurations
+  - id: WA.CartService
+    name: CartService
+    layer: view
+    col: 1
+    description: "Legacy Blazor-era in-memory demo cart — registered but not referenced by any API endpoint."
+    methods:
+      - Add
+      - UpdateQuantity
+      - Remove
+      - Clear
+  - id: WA.LoggingBroker
+    name: LoggingBroker
+    layer: broker
+    col: 2
+    utility: true
+    description: "Used by the view services' exception-path TryCatch only; exception-path calls are not drawn as edges."
+    methods:
+      - LogInformationAsync
+      - LogTraceAsync
+      - LogDebugAsync
+      - LogWarningAsync
+      - LogErrorAsync
+      - LogCriticalAsync

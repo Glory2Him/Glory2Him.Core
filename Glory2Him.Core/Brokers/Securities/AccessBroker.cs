@@ -78,12 +78,106 @@ namespace Glory2Him.Core.Brokers.Securities
                     EntityCreatedBy = approvalDecisionQuery.EntityCreatedBy,
                     ApprovalState = snapshot.State,
                     Reviews = snapshot.Reviews,
-                    Comments = snapshot.Comments,
+                    ApprovalComments = snapshot.ApprovalComments,
                     ConfidenceScore = approvalDecisionQuery.ConfidenceScore,
                     IsBypassRequested = approvalDecisionQuery.IsBypassRequested,
                     BypassReason = approvalDecisionQuery.BypassReason,
                 });
         }
+
+        // The comment gates share one gather: the parent approval, for its state and whether it
+        // has been taken down. Neither fact is readable by ApprovalCommentService, which is
+        // single-entity — which is the whole reason these live here rather than there.
+        public async ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            Guid approvalId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            return await this.securityClient.Access.MayRecordApprovalCommentAsync(
+                new RecordApprovalCommentRequest
+                {
+                    Actor = actor,
+                    ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                    IsParentApprovalDeleted = maybeApproval.IsDeleted,
+                });
+        }
+
+        public async ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            return await this.securityClient.Access.MayAmendApprovalCommentAsync(
+                new AmendApprovalCommentRequest
+                {
+                    Actor = actor,
+                    CommentCreatedBy = commentCreatedBy,
+                    ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                    IsParentApprovalDeleted = maybeApproval.IsDeleted,
+                });
+        }
+
+        public async ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            return await this.securityClient.Access.MayResolveApprovalCommentAsync(
+                new ResolveApprovalCommentRequest
+                {
+                    Actor = actor,
+                    CommentCreatedBy = commentCreatedBy,
+                    ApprovalState = ToApprovalState(maybeApproval.ApprovalStatus),
+                    IsParentApprovalDeleted = maybeApproval.IsDeleted,
+                });
+        }
+
+        // A comment whose approval cannot be found is refused rather than waved through. The
+        // caller's own not-found handling reports it; here it only has to fail closed.
+        private static AccessVerdict RefuseMissingApproval(Guid approvalId) =>
+            new AccessVerdict
+            {
+                IsPermitted = false,
+                DenialReason = AccessDenialReason.ParentApprovalUnavailable,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = $"No approval was found for id {approvalId}.",
+            };
 
         public async ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             Guid approvalId,
@@ -190,16 +284,15 @@ namespace Glory2Him.Core.Brokers.Securities
                 .Where(review => review.ApprovalId == approval.Id)
                 .Select(review => new ReviewRecord
                 {
-                    ReviewerId = review.ReviewerId,
                     CreatedBy = review.CreatedBy,
                     Verdict = ToReviewVerdict(review.StatusId),
                     IsDeleted = review.IsDeleted,
                 })
                 .ToList();
 
-            List<CommentRecord> comments = allComments
+            List<ApprovalCommentRecord> comments = allComments
                 .Where(comment => comment.ApprovalId == approval.Id)
-                .Select(comment => new CommentRecord
+                .Select(comment => new ApprovalCommentRecord
                 {
                     IsResolved = comment.IsResolved,
                     IsDeleted = comment.IsDeleted,
@@ -344,13 +437,13 @@ namespace Glory2Him.Core.Brokers.Securities
         private sealed record ApprovalReviewSnapshot(
             ApprovalState State,
             IReadOnlyList<ReviewRecord> Reviews,
-            IReadOnlyList<CommentRecord> Comments)
+            IReadOnlyList<ApprovalCommentRecord> ApprovalComments)
         {
             public static ApprovalReviewSnapshot Empty { get; } =
                 new ApprovalReviewSnapshot(
                     ApprovalState.Draft,
                     new List<ReviewRecord>(),
-                    new List<CommentRecord>());
+                    new List<ApprovalCommentRecord>());
         }
     }
 }

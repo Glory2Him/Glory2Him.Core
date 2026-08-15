@@ -31,25 +31,34 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalComments
         public Guid ApprovalId { get; set; }
 
         /// <summary>
-        /// Identifier of the user who made the comment.
-        /// </summary>
-        public string UserId { get; set; } = string.Empty;
-
-        /// <summary>
         /// Text content of the comment.
         /// </summary>
         public string Comment { get; set; } = string.Empty;
 
         /// <summary>
-        /// Whether the question this comment raised has been answered and is no longer open.
-        /// An <c>ApprovalComment</c> is open discussion between reviewers, unlike
-        /// <c>ApprovalReview.Comment</c>, which is one reviewer's rationale for their own
-        /// verdict and is never resolvable.
+        /// Whether this comment is <b>settled</b> — whether it still requires something before
+        /// the approval can proceed.
+        ///
+        /// <para><b>Not every comment asks for anything.</b> An observation, or a reviewer
+        /// recording their rationale so others can see the thinking behind a verdict, is
+        /// informational: others may act on it or not, and nothing waits on it. Such a comment is
+        /// created <c>IsResolved = true</c> and never blocks. A comment that <i>does</i> ask for
+        /// something — a question, a change request — is created <c>false</c> and holds the
+        /// approval shut until it is settled.</para>
+        ///
+        /// <para>So both birth values are legitimate, and the add path deliberately applies no
+        /// rule to this field. The column defaults to <c>false</c>, which is the fail-closed
+        /// choice for a caller who says nothing.</para>
         ///
         /// <para>Read by <c>ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals</c>:
-        /// when that setting is enabled, no unanswered question may be outstanding before the
-        /// approval conditions are met. It gates the <c>Approval</c> entity only — it never
-        /// affects an individual <c>ApprovalReview</c>'s own verdict (design §8.5 rule 7).</para>
+        /// when that setting is enabled, no outstanding comment may remain before the approval
+        /// conditions are met. It gates the <c>Approval</c> entity only — it never affects an
+        /// individual <c>ApprovalReview</c>'s own verdict (design §8.5 rule 7).</para>
+        ///
+        /// <para>Distinct from <c>ApprovalReview.Comment</c>, which is one reviewer's rationale
+        /// for their <i>own</i> verdict and is never resolvable at all. A reviewer who wants to
+        /// put reasoning in front of the other reviewers writes an <c>ApprovalComment</c> — that
+        /// is exactly the informational case above.</para>
         /// </summary>
         public bool IsResolved { get; set; } = false;
 

@@ -45,5 +45,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         ValueTask<EventEnvelope<ApprovalComment>?> OnRetrievingApprovalCommentByIdAsync(
             EventEnvelope<ApprovalComment> envelope,
             CancellationToken cancellationToken = default);
+
+        ValueTask<EventEnvelope<ApprovalComment>?> OnResolvingApprovalCommentAsync(
+            EventEnvelope<ApprovalComment> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

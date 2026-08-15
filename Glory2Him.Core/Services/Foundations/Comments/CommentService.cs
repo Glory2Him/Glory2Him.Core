@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveCommentById(commentId);
+            ValidateOnRemoveCommentById(commentId, deletionReason);
 
             Comment maybeComment =
                 await this.storageBroker.SelectCommentByIdAsync(commentId, cancellationToken);
@@ -425,13 +425,11 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             if (maybeComment.IsDeleted)
                 return maybeComment;
 
-            if (deletionReason is not null)
-                maybeComment.DeletionReason = deletionReason;
-
             Comment auditedComment =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeComment,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             Comment removedComment = await this.storageBroker.UpdateCommentAsync(
                 comment: auditedComment,

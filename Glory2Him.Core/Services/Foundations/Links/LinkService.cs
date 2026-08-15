@@ -409,7 +409,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveLinkById(linkId);
+            ValidateOnRemoveLinkById(linkId, deletionReason);
 
             Link maybeLink =
                 await this.storageBroker.SelectLinkByIdAsync(linkId, cancellationToken);
@@ -425,13 +425,11 @@ namespace Glory2Him.Core.Services.Foundations.Links
             if (maybeLink.IsDeleted)
                 return maybeLink;
 
-            if (deletionReason is not null)
-                maybeLink.DeletionReason = deletionReason;
-
             Link auditedLink =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeLink,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             Link removedLink = await this.storageBroker.UpdateLinkAsync(
                 link: auditedLink,

@@ -357,5 +357,334 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
 
             this.accessServiceMock.VerifyNoOtherCalls();
         }
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldThrowValidationExceptionOnMayRecordApprovalCommentIfValidationErrorOccursAsync(
+            Xeption validationException)
+        {
+            // given
+            RecordApprovalCommentRequest someRecordApprovalCommentRequest = CreateRandomRecordApprovalCommentRequest();
+
+            var expectedAccessClientValidationException =
+                new AccessClientValidationException(
+                    message: "Access client validation error occurred, fix the error and try again.",
+                    innerException: (validationException.InnerException as Xeption)!,
+                    data: validationException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayRecordApprovalCommentAsync(It.IsAny<RecordApprovalCommentRequest>()))
+                    .Throws(validationException);
+
+            // when
+            ValueTask<AccessVerdict> mayRecordApprovalCommentTask =
+                this.accessClient.MayRecordApprovalCommentAsync(someRecordApprovalCommentRequest);
+
+            AccessClientValidationException actualException =
+                await Assert.ThrowsAsync<AccessClientValidationException>(
+                    mayRecordApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientValidationException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayRecordApprovalCommentAsync(It.IsAny<RecordApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnMayRecordApprovalCommentIfDependencyErrorOccursAsync(
+            Xeption dependencyException)
+        {
+            // given
+            RecordApprovalCommentRequest someRecordApprovalCommentRequest = CreateRandomRecordApprovalCommentRequest();
+
+            var expectedAccessClientDependencyException =
+                new AccessClientDependencyException(
+                    message: "Access client dependency error occurred, please contact support.",
+                    innerException: (dependencyException.InnerException as Xeption)!,
+                    data: dependencyException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayRecordApprovalCommentAsync(It.IsAny<RecordApprovalCommentRequest>()))
+                    .Throws(dependencyException);
+
+            // when
+            ValueTask<AccessVerdict> mayRecordApprovalCommentTask =
+                this.accessClient.MayRecordApprovalCommentAsync(someRecordApprovalCommentRequest);
+
+            AccessClientDependencyException actualException =
+                await Assert.ThrowsAsync<AccessClientDependencyException>(
+                    mayRecordApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientDependencyException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayRecordApprovalCommentAsync(It.IsAny<RecordApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnMayRecordApprovalCommentIfServiceErrorOccursAsync()
+        {
+            // given
+            RecordApprovalCommentRequest someRecordApprovalCommentRequest = CreateRandomRecordApprovalCommentRequest();
+            var serviceException = new Exception();
+
+            var expectedAccessClientServiceException =
+                new AccessClientServiceException(
+                    message: "Access client service error occurred, please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayRecordApprovalCommentAsync(It.IsAny<RecordApprovalCommentRequest>()))
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<AccessVerdict> mayRecordApprovalCommentTask =
+                this.accessClient.MayRecordApprovalCommentAsync(someRecordApprovalCommentRequest);
+
+            AccessClientServiceException actualException =
+                await Assert.ThrowsAsync<AccessClientServiceException>(
+                    mayRecordApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientServiceException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayRecordApprovalCommentAsync(It.IsAny<RecordApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldThrowValidationExceptionOnMayAmendApprovalCommentIfValidationErrorOccursAsync(
+            Xeption validationException)
+        {
+            // given
+            AmendApprovalCommentRequest someAmendApprovalCommentRequest = CreateRandomAmendApprovalCommentRequest();
+
+            var expectedAccessClientValidationException =
+                new AccessClientValidationException(
+                    message: "Access client validation error occurred, fix the error and try again.",
+                    innerException: (validationException.InnerException as Xeption)!,
+                    data: validationException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalCommentAsync(It.IsAny<AmendApprovalCommentRequest>()))
+                    .Throws(validationException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalCommentTask =
+                this.accessClient.MayAmendApprovalCommentAsync(someAmendApprovalCommentRequest);
+
+            AccessClientValidationException actualException =
+                await Assert.ThrowsAsync<AccessClientValidationException>(
+                    mayAmendApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientValidationException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalCommentAsync(It.IsAny<AmendApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnMayAmendApprovalCommentIfDependencyErrorOccursAsync(
+            Xeption dependencyException)
+        {
+            // given
+            AmendApprovalCommentRequest someAmendApprovalCommentRequest = CreateRandomAmendApprovalCommentRequest();
+
+            var expectedAccessClientDependencyException =
+                new AccessClientDependencyException(
+                    message: "Access client dependency error occurred, please contact support.",
+                    innerException: (dependencyException.InnerException as Xeption)!,
+                    data: dependencyException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalCommentAsync(It.IsAny<AmendApprovalCommentRequest>()))
+                    .Throws(dependencyException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalCommentTask =
+                this.accessClient.MayAmendApprovalCommentAsync(someAmendApprovalCommentRequest);
+
+            AccessClientDependencyException actualException =
+                await Assert.ThrowsAsync<AccessClientDependencyException>(
+                    mayAmendApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientDependencyException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalCommentAsync(It.IsAny<AmendApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnMayAmendApprovalCommentIfServiceErrorOccursAsync()
+        {
+            // given
+            AmendApprovalCommentRequest someAmendApprovalCommentRequest = CreateRandomAmendApprovalCommentRequest();
+            var serviceException = new Exception();
+
+            var expectedAccessClientServiceException =
+                new AccessClientServiceException(
+                    message: "Access client service error occurred, please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalCommentAsync(It.IsAny<AmendApprovalCommentRequest>()))
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalCommentTask =
+                this.accessClient.MayAmendApprovalCommentAsync(someAmendApprovalCommentRequest);
+
+            AccessClientServiceException actualException =
+                await Assert.ThrowsAsync<AccessClientServiceException>(
+                    mayAmendApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientServiceException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalCommentAsync(It.IsAny<AmendApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldThrowValidationExceptionOnMayResolveApprovalCommentIfValidationErrorOccursAsync(
+            Xeption validationException)
+        {
+            // given
+            ResolveApprovalCommentRequest someResolveApprovalCommentRequest = CreateRandomResolveApprovalCommentRequest();
+
+            var expectedAccessClientValidationException =
+                new AccessClientValidationException(
+                    message: "Access client validation error occurred, fix the error and try again.",
+                    innerException: (validationException.InnerException as Xeption)!,
+                    data: validationException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayResolveApprovalCommentAsync(It.IsAny<ResolveApprovalCommentRequest>()))
+                    .Throws(validationException);
+
+            // when
+            ValueTask<AccessVerdict> mayResolveApprovalCommentTask =
+                this.accessClient.MayResolveApprovalCommentAsync(someResolveApprovalCommentRequest);
+
+            AccessClientValidationException actualException =
+                await Assert.ThrowsAsync<AccessClientValidationException>(
+                    mayResolveApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientValidationException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayResolveApprovalCommentAsync(It.IsAny<ResolveApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnMayResolveApprovalCommentIfDependencyErrorOccursAsync(
+            Xeption dependencyException)
+        {
+            // given
+            ResolveApprovalCommentRequest someResolveApprovalCommentRequest = CreateRandomResolveApprovalCommentRequest();
+
+            var expectedAccessClientDependencyException =
+                new AccessClientDependencyException(
+                    message: "Access client dependency error occurred, please contact support.",
+                    innerException: (dependencyException.InnerException as Xeption)!,
+                    data: dependencyException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayResolveApprovalCommentAsync(It.IsAny<ResolveApprovalCommentRequest>()))
+                    .Throws(dependencyException);
+
+            // when
+            ValueTask<AccessVerdict> mayResolveApprovalCommentTask =
+                this.accessClient.MayResolveApprovalCommentAsync(someResolveApprovalCommentRequest);
+
+            AccessClientDependencyException actualException =
+                await Assert.ThrowsAsync<AccessClientDependencyException>(
+                    mayResolveApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientDependencyException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayResolveApprovalCommentAsync(It.IsAny<ResolveApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnMayResolveApprovalCommentIfServiceErrorOccursAsync()
+        {
+            // given
+            ResolveApprovalCommentRequest someResolveApprovalCommentRequest = CreateRandomResolveApprovalCommentRequest();
+            var serviceException = new Exception();
+
+            var expectedAccessClientServiceException =
+                new AccessClientServiceException(
+                    message: "Access client service error occurred, please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayResolveApprovalCommentAsync(It.IsAny<ResolveApprovalCommentRequest>()))
+                    .ThrowsAsync(serviceException);
+
+            // when
+            ValueTask<AccessVerdict> mayResolveApprovalCommentTask =
+                this.accessClient.MayResolveApprovalCommentAsync(someResolveApprovalCommentRequest);
+
+            AccessClientServiceException actualException =
+                await Assert.ThrowsAsync<AccessClientServiceException>(
+                    mayResolveApprovalCommentTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedAccessClientServiceException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayResolveApprovalCommentAsync(It.IsAny<ResolveApprovalCommentRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
     }
 }

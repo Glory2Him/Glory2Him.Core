@@ -80,11 +80,8 @@ namespace Glory2Him.Core.Models.Foundations.Links
         /// </summary>
         public string? DeletionReason { get; set; }
 
-        /// <summary>
-        /// Content item group identifier that groups all versions of this link together.
-        /// Populated on creation and shared across all versions.
-        /// </summary>
-        public Guid ContentItemGroupId { get; set; }
+        /// <inheritdoc cref="IVersion.GroupId" />
+        public Guid GroupId { get; set; }
 
         /// <summary>
         /// Version number of this link record, defaults to 1.

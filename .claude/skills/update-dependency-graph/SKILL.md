@@ -1,19 +1,23 @@
 ---
 name: update-dependency-graph
-description: Re-scan the solution and regenerate Documentation/DependencyGraph/graph-data.js so the interactive dependency graph matches the current source. Use when services, events, brokers, client libraries, or cross-project wiring have changed, or when the user asks to refresh/rebuild the dependency graph.
+description: Re-scan the solution and regenerate the dependency graph data files (Documentation/DependencyGraph/graph.yml + projects/*.yml) so the interactive dependency graph matches the current source. Use when services, events, brokers, client libraries, or cross-project wiring have changed, or when the user asks to refresh/rebuild the dependency graph.
 version: 0.1.0
 ---
 
 # Update Solution Dependency Graph
 
-Regenerate `Documentation/DependencyGraph/graph-data.js` from the current
-source. `index.html` is the renderer — do not change it unless a new
-concept cannot be expressed in data (new edge kind, new layer).
+Regenerate the data files — `Documentation/DependencyGraph/graph.yml` and
+`projects/*.yml` — from the current source. `index.html` is the renderer — do not change it unless a new
+concept cannot be expressed in data (new edge kind, new layer). It carries
+BOTH views behind `state.view`: `buildSingleCopyInstances` + `layoutBands`
+(the default) and `buildDuplicatedInstances` + `layoutTrees`. Anything you
+change in one builder usually needs the mirror change in the other.
 
 ## 1/ Load the current model
 
-Read `Documentation/DependencyGraph/README.md` and `graph-data.js` first.
-The data file is the previous scan's snapshot; your job is a diff-and-update,
+Read `Documentation/DependencyGraph/README.md`, then `graph.yml` and the
+`projects/*.yml` files it lists. The data files are the previous scan's
+snapshot; your job is a diff-and-update,
 not a rewrite. Preserve its modeling rules:
 
 - Per-consumer duplication is done by the renderer — declare each component
@@ -30,8 +34,13 @@ not a rewrite. Preserve its modeling rules:
   `<Entity>.<Operation>` (`ContentItem.Added`). Request ops = `Adding`,
   `Modifying`, `RemovingById`, `HardRemovingById`, `RetrievingById`;
   fact ops = `Added`, `Modified`, `Removed`, `HardRemoved`.
-- Column map (0–11) is documented at the top of `graph-data.js` — keep new
-  components consistent with it.
+- Column map (0–11) is documented in `graph.yml` — keep new components
+  consistent with it.
+- The foundation-service template knowledge (variants A–D below) guides the
+  SCAN; the data itself is fully expanded YAML with no generators. When a
+  change touches many components the same way (a new broker call in every
+  templated service, a new entity's full CRUD block), write a throwaway
+  script against the YAML rather than hand-editing dozens of entries.
 
 ## 2/ Re-scan the source (parallel Explore agents)
 
@@ -57,31 +66,52 @@ Fan out read-only exploration; each agent returns compact JSON:
    externals; whether WebApp now references Glory2Him.Core (today it does NOT
    — if that changed, it is the headline update).
 
-## 3/ Update graph-data.js
+## 3/ Update the data files
 
-- New/changed foundation service → edit the `entities` config (usually one
-  line: entity name + variant). A structural deviation from the template →
-  extend the generator, don't special-case with hand-written edges.
-- Everything else → explicit declarations: `C({...})` components,
-  `D(from, to)` direct edges (`null` method = header-level link),
-  `P(comp, method, event)` publishes, `S(event, comp, handler)` subscribes.
-- Add new roots to the `roots` list in project order (it controls layout).
-- Circular-event detection is automatic from P/S pairs — never hand-color.
+The YAML schema is documented in the README's "The data files" section —
+components live in `projects/<project>.yml`, each with `methods`, outbound
+`calls` (`from: null` = header-level link), `publishes` (method + event) and
+`subscribes` (event + handler); manifest-level lists (`projects`, `roots`,
+`events`) live in `graph.yml`.
+
+- A new component → add it to its project's file AND to `roots` in
+  `graph.yml` (project order; `shared` components must be roots).
+- A new templated foundation service → replicate an existing sibling of the
+  same variant (its full block: methods, calls, publishes, subscribes), and
+  register the entity's events in `graph.yml`'s `events` list.
+- Externals with `deriveMethods: true` get their rows derived from inbound
+  edges at load time — never hand-list rows on them.
+- Circular-event detection is automatic from publish/subscribe pairs — never
+  hand-color.
+- Strings with characters beyond letters, digits, spaces and `_.-/()` must be
+  double-quoted JSON strings; the renderer parses a small YAML subset
+  (single-line scalars only, no anchors, no multi-line blocks).
 
 ## 4/ Verify in the browser
 
-Both views read the same data: `index.html` (per-consumer duplicated) and
-`index2.html` (single copy per component). Verify `index.html` fully, then
-load `index2.html` once to confirm it renders without console errors.
-In `index.html` confirm:
+`index.html` carries both views. Serve the folder over HTTP first — the page
+fetches `graph.yml` and the project files, and browsers block those fetches
+from `file://` pages. Verify BOTH views — the header toggle, or
+`window.__graph.setView("single")` / `window.__graph.setView("duplicated")`
+from `javascript_tool` (the renderer exposes `window.__graph` = { state,
+setView, select, selectRow, clearSelection, rebuild, fit, tracePath }).
+Confirm:
 
-- No console errors; the header count roughly matches expectations.
+- No console errors; the header count roughly matches expectations (last
+  scan: 60 components · 1033 flows single-copy; 119 nodes · 1226 flows per
+  consumer).
 - Purple edge count equals the number of subscriptions wired in
-  `EventSubscriptionRegistration` (74 at last scan).
+  `EventSubscriptionRegistration` (74 at last scan) — in both views.
 - No node-rect overlaps and no project-box overlaps (query the SVG rects
-  with `javascript_tool` and intersect pairwise).
+  with `javascript_tool` and intersect pairwise), in each view.
+- Switching view preserves the selection (by component id).
 - Click one foundation service, the orchestration, and one shared client
   exposer: flows in/out in the side panel must match the scan results.
+- Selecting a header must light the component's whole fan-out (the same
+  upstream + downstream slice a method row gets, seeded from every row), not
+  just its first hop, and the selection must be outlined in amber. Clearing
+  the selection must restore the graph exactly — snapshot every node's
+  attributes before and after and compare.
 - Red edges appear ONLY if a real publish/subscribe cycle now exists — if
   one shows up, verify it against the source before accepting it.
 

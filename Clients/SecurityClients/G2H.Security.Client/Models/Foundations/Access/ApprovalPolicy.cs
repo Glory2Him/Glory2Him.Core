@@ -81,9 +81,12 @@ namespace G2H.Security.Client.Models.Foundations.Access
         public required bool RequireReapprovalOnChange { get; init; }
 
         /// <summary>
-        /// Whether every approval comment must be resolved before the conditions are met. It
+        /// Whether every approval comment must be settled before the conditions are met. It
         /// gates the approval as a whole, never an individual reviewer's verdict — a reviewer may
-        /// record <c>Approved</c> while a question is still open (§8.5 rule 7).
+        /// record <c>Approved</c> while a comment is still outstanding (§8.5 rule 7).
+        ///
+        /// <para>Only comments that ask for something ever hold this shut. An informational
+        /// comment is created settled and never counts against it (§7.8).</para>
         /// </summary>
         public required bool RequireReviewCommentResolutionBeforeApprovals { get; init; }
 

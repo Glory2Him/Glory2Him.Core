@@ -178,7 +178,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
                 reviews: new List<ReviewRecord>
                 {
-                    CreateRandomReviewRecord(reviewerId: actorId),
+                    CreateRandomReviewRecord(createdBy: actorId),
                 });
 
             // when
@@ -270,9 +270,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 policy: lockedDownApprovalPolicy,
                 confidenceScore: 0m,
 
-                comments: new List<CommentRecord>
+                comments: new List<ApprovalCommentRecord>
                 {
-                    CreateRandomCommentRecord(isResolved: false),
+                    CreateRandomApprovalCommentRecord(isResolved: false),
                 });
 
             // when
@@ -434,9 +434,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 policy: commentGatedApprovalPolicy,
                 isBypassRequested: false,
 
-                comments: new List<CommentRecord>
+                comments: new List<ApprovalCommentRecord>
                 {
-                    CreateRandomCommentRecord(isResolved: false),
+                    CreateRandomApprovalCommentRecord(isResolved: false),
                 });
 
             // when
@@ -447,7 +447,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.IsPermitted.Should().BeFalse();
 
             actualVerdict.DenialReason.Should()
-                .Be(AccessDenialReason.BlockedByUnresolvedComment);
+                .Be(AccessDenialReason.BlockedByUnresolvedApprovalComment);
 
             actualVerdict.Explanation.Should()
                 .Be("The approval conditions are not met and no bypass was requested. "
@@ -590,9 +590,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 isBypassRequested: true,
                 bypassReason: GetRandomString(),
 
-                comments: new List<CommentRecord>
+                comments: new List<ApprovalCommentRecord>
                 {
-                    CreateRandomCommentRecord(isResolved: false),
+                    CreateRandomApprovalCommentRecord(isResolved: false),
                 });
 
             // when
@@ -604,7 +604,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.IsBypassUsed.Should().BeTrue();
 
             actualVerdict.BypassedBlockReason.Should()
-                .Be(AccessDenialReason.BlockedByUnresolvedComment);
+                .Be(AccessDenialReason.BlockedByUnresolvedApprovalComment);
 
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
         }

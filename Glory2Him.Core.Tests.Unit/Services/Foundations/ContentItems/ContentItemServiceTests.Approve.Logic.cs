@@ -280,7 +280,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             inputContentItem.Title = $"caller-{Guid.NewGuid()}";
             inputContentItem.ContentType = ContentType.Testimony;
             inputContentItem.CreatedBy = $"caller-{Guid.NewGuid()}";
-            inputContentItem.ContentItemGroupId = Guid.NewGuid();
+            inputContentItem.GroupId = Guid.NewGuid();
 
             // when
             ContentItem savedContentItem =
@@ -300,8 +300,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             savedContentItem.Title.Should().Be(expectedStorageContentItem.Title);
             savedContentItem.ContentType.Should().Be(expectedStorageContentItem.ContentType);
             savedContentItem.CreatedBy.Should().Be(expectedStorageContentItem.CreatedBy);
-            savedContentItem.ContentItemGroupId.Should().Be(
-                expectedStorageContentItem.ContentItemGroupId);
+            savedContentItem.GroupId.Should().Be(
+                expectedStorageContentItem.GroupId);
         }
 
         // ── The bypass record is DERIVED, not copied ─────────────────────────────────────────

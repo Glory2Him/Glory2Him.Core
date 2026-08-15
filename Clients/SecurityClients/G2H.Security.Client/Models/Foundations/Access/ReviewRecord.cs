@@ -19,18 +19,15 @@ namespace G2H.Security.Client.Models.Foundations.Access
     public class ReviewRecord
     {
         /// <summary>
-        /// The reviewer this verdict belongs to.
-        /// </summary>
-        public required string ReviewerId { get; init; }
-
-        /// <summary>
-        /// Who wrote the row.
+        /// Who wrote the row, and therefore whose verdict it is.
         ///
-        /// <para>Carried <i>alongside</i> <see cref="ReviewerId"/> rather than assumed equal to it,
-        /// because the rule that bars reviewing and deciding the same round attaches to either
-        /// (§8.6 regardless-rule 1). They are bound to the same user on the paths that exist
-        /// today, but a rule written against only one of them would be a rule with a hole in it
-        /// the moment that stops being true.</para>
+        /// <para>This was once carried alongside a separate <c>ReviewerId</c>, deliberately not
+        /// assumed equal to it, because the rule barring reviewing and deciding the same round
+        /// attaches to either (§8.6 regardless-rule 1) and a rule written against only one of
+        /// them would have had a hole the moment they diverged. <c>ReviewerId</c> has since been
+        /// removed: it was caller-supplied and redundant with this field, so the two can no
+        /// longer disagree and the hedge is discharged rather than dropped. <c>CreatedBy</c> is
+        /// written from the security context and pinned against storage on modify.</para>
         /// </summary>
         public required string CreatedBy { get; init; }
 

@@ -61,7 +61,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityType = invalidEntityType!,
                 ContentType = null,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<CommentRecord>(),
+                ApprovalComments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
             };
 
@@ -100,7 +100,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityType = GetRandomString(),
                 ContentType = null,
                 Reviews = null!,
-                Comments = null!,
+                ApprovalComments = null!,
                 ConfidenceScore = null,
             };
 
@@ -116,7 +116,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 value: "List is required");
 
             invalidArgumentAccessException.UpsertDataList(
-                key: nameof(ApprovalConditionsRequest.Comments),
+                key: nameof(ApprovalConditionsRequest.ApprovalComments),
                 value: "List is required");
 
             var expectedAccessValidationException = new AccessValidationException(
@@ -301,7 +301,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<CommentRecord>(),
+                ApprovalComments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
                 IsBypassRequested = false,
                 BypassReason = null,
@@ -346,7 +346,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 EntityCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 Reviews = null!,
-                Comments = null!,
+                ApprovalComments = null!,
                 ConfidenceScore = null,
                 IsBypassRequested = false,
                 BypassReason = null,
@@ -372,7 +372,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 value: "List is required");
 
             invalidArgumentAccessException.UpsertDataList(
-                key: nameof(DecideApprovalRequest.Comments),
+                key: nameof(DecideApprovalRequest.ApprovalComments),
                 value: "List is required");
 
             var expectedAccessValidationException = new AccessValidationException(
@@ -386,6 +386,193 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             AccessValidationException actualAccessValidationException =
                 await Assert.ThrowsAsync<AccessValidationException>(
                     mayDecideApprovalTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayRecordApprovalCommentIfRequestIsNullAsync()
+        {
+            // given
+            RecordApprovalCommentRequest? nullRecordApprovalCommentRequest = null;
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayRecordApprovalCommentTask =
+                this.accessService.MayRecordApprovalCommentAsync(nullRecordApprovalCommentRequest!);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayRecordApprovalCommentTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayRecordApprovalCommentIfActorIsNullAsync()
+        {
+            // given: an ungathered actor must be a validation error rather than a decision,
+            // because a null actor would otherwise reach IsActorUsable and read as unauthenticated
+            var requestWithoutActor = new RecordApprovalCommentRequest
+            {
+                Actor = null!,
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            invalidArgumentAccessException.AddData(
+                key: nameof(RecordApprovalCommentRequest.Actor),
+                values: "Actor is required");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayRecordApprovalCommentTask =
+                this.accessService.MayRecordApprovalCommentAsync(requestWithoutActor);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayRecordApprovalCommentTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayAmendApprovalCommentIfRequestIsNullAsync()
+        {
+            // given
+            AmendApprovalCommentRequest? nullAmendApprovalCommentRequest = null;
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalCommentTask =
+                this.accessService.MayAmendApprovalCommentAsync(nullAmendApprovalCommentRequest!);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayAmendApprovalCommentTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayAmendApprovalCommentIfActorIsNullAsync()
+        {
+            // given: an ungathered actor must be a validation error rather than a decision,
+            // because a null actor would otherwise reach IsActorUsable and read as unauthenticated
+            var requestWithoutActor = new AmendApprovalCommentRequest
+            {
+                Actor = null!,
+                CommentCreatedBy = GetRandomString(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            invalidArgumentAccessException.AddData(
+                key: nameof(AmendApprovalCommentRequest.Actor),
+                values: "Actor is required");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalCommentTask =
+                this.accessService.MayAmendApprovalCommentAsync(requestWithoutActor);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayAmendApprovalCommentTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayResolveApprovalCommentIfRequestIsNullAsync()
+        {
+            // given
+            ResolveApprovalCommentRequest? nullResolveApprovalCommentRequest = null;
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayResolveApprovalCommentTask =
+                this.accessService.MayResolveApprovalCommentAsync(nullResolveApprovalCommentRequest!);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayResolveApprovalCommentTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayResolveApprovalCommentIfActorIsNullAsync()
+        {
+            // given: an ungathered actor must be a validation error rather than a decision,
+            // because a null actor would otherwise reach IsActorUsable and read as unauthenticated
+            var requestWithoutActor = new ResolveApprovalCommentRequest
+            {
+                Actor = null!,
+                CommentCreatedBy = GetRandomString(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            invalidArgumentAccessException.AddData(
+                key: nameof(ResolveApprovalCommentRequest.Actor),
+                values: "Actor is required");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayResolveApprovalCommentTask =
+                this.accessService.MayResolveApprovalCommentAsync(requestWithoutActor);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayResolveApprovalCommentTask.AsTask);
 
             // then
             actualAccessValidationException.Should()

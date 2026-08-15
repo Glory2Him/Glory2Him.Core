@@ -320,7 +320,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             // the gate comes before the idempotent short-circuit, so an unauthorized
             // caller learns nothing about the row's deletion state
             ValidateUserIsAllowedToAdministerContentItemSettings(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveContentItemSettingById(contentItemSettingId);
+            ValidateOnRemoveContentItemSettingById(contentItemSettingId, deletionReason);
 
             ContentItemSetting maybeContentItemSetting =
                 await this.storageBroker.SelectContentItemSettingByIdAsync(contentItemSettingId, cancellationToken);
@@ -330,13 +330,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             if (maybeContentItemSetting.IsDeleted)
                 return maybeContentItemSetting;
 
-            if (deletionReason is not null)
-                maybeContentItemSetting.DeletionReason = deletionReason;
-
             ContentItemSetting auditedContentItemSetting =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeContentItemSetting,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             ContentItemSetting removedContentItemSetting = await this.storageBroker.UpdateContentItemSettingAsync(
                 contentItemSetting: auditedContentItemSetting,

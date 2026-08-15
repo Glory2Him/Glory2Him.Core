@@ -37,10 +37,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — recording
-    /// a verdict requires a review role (§8.9), a review is amended or withdrawn only by its
-    /// author or an Admin, hard removal is Admin-only, and reads are never public: an
-    /// approval review answers not-found to everyone but its owner and the review roles —
-    /// never assuming an upstream orchestration already gated the caller.
+    /// a verdict requires a review role (§8.9), a review is amended or withdrawn <b>only by its
+    /// author</b> (not <c>Publisher</c>, not <c>Admin</c> — an <c>Admin</c> who needs past a
+    /// standing rejection bypasses rather than editing the review), a <b>dismissed</b> review
+    /// may not be touched at all, hard removal is <c>Admin</c>-only, and reads are never
+    /// public: an approval review answers not-found to everyone but its owner and the review
+    /// roles — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ApprovalReviewService : IApprovalReviewService
     {
@@ -405,7 +407,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveApprovalReviewById(approvalReviewId);
+            ValidateOnRemoveApprovalReviewById(approvalReviewId, deletionReason);
 
             ApprovalReview maybeApprovalReview =
                 await this.storageBroker.SelectApprovalReviewByIdAsync(approvalReviewId, cancellationToken);
@@ -418,16 +420,41 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 storageApprovalReview: maybeApprovalReview,
                 securityContext: inboundEnvelope.SecurityContext);
 
+            // Withdrawing a verdict is amending it by deletion, so it takes the same gate as
+            // modify — including §7.7 rule 2b's window. Once the round has closed the review
+            // record stands: a verdict removed afterwards would not re-run the workflow, and the
+            // entity could sit Approved with the rejection that blocked it quietly gone.
+            //
+            // ApprovalId comes from STORAGE. Remove takes only an id, so there is no payload to
+            // mistrust here, but reading it from the row keeps this identical to modify.
+            //
+            // Deliberately NOT applied to hard remove: that is Admin-only maintenance which
+            // destroys the row outright, and locking it to an open round would leave a closed
+            // round's rows permanently unclearable.
+            await ValidateUserMayRecordApprovalReviewAsync(
+                approvalId: maybeApprovalReview.ApprovalId,
+                isAmendingOwnReview: true,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
+            // A dismissed review is closed and may not be touched — withdrawal included. Modify
+            // already refused it; remove did not, which left the shorter route open: rather than
+            // edit the stale verdict a reviewer could simply delete it. §9.5 retains a dismissed
+            // review precisely as evidence that a verdict once applied to superseded content, so
+            // soft-deleting one destroys the record the dismissal exists to keep.
+            //
+            // Hard remove is deliberately still exempt: it is Admin-only maintenance whose whole
+            // purpose is to destroy the row.
+            ValidateStorageApprovalReviewIsNotDismissed(maybeApprovalReview);
+
             if (maybeApprovalReview.IsDeleted)
                 return maybeApprovalReview;
-
-            if (deletionReason is not null)
-                maybeApprovalReview.DeletionReason = deletionReason;
 
             ApprovalReview auditedApprovalReview =
                 await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                     entity: maybeApprovalReview,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    deletionReason: deletionReason);
 
             ApprovalReview removedApprovalReview = await this.storageBroker.UpdateApprovalReviewAsync(
                 approvalReview: auditedApprovalReview,

@@ -56,5 +56,27 @@ namespace Glory2Him.Core.Brokers.Securities
             bool isAmendingOwnReview,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
+
+        ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
+            Guid approvalId,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
+        /// <param name="commentCreatedBy">
+        /// The stored comment's <c>CreatedBy</c>. The caller must read it from storage — this
+        /// broker passes it through without verifying it, so a payload-supplied value would
+        /// defeat the ownership gate it feeds.
+        /// </param>
+        ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
+        ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
     }
 }

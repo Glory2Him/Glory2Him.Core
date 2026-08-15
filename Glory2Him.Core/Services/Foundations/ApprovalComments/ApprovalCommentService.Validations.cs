@@ -11,7 +11,9 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
@@ -30,10 +32,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
         private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
 
-        // commenting on a review thread is a conversation, not a moderation step: the
-        // submitter answers the reviewer's questions on their own submission, so any
-        // authenticated caller who is not globally blocked may comment. No entity-scoped
-        // ReadOnly role exists for approval workflow records, so only the global one blocks.
+        // commenting on a review thread is a conversation, not a moderation step: a reviewer
+        // raises a point or records their thinking, the submitter responds on their own
+        // submission, so any authenticated caller who is not globally blocked may comment. No
+        // entity-scoped ReadOnly role exists for approval workflow records, so only the global
+        // one blocks.
         private static void ValidateUserIsAllowedToComment(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -64,9 +67,80 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
 
-        // row-level write permission: the author may edit their own comment and a review
-        // role may write it too — reviewers flip IsResolved on a submitter's comment as the
-        // thread is worked through
+        // The cross-entity half of the write gates, and the reason it could not be asked here
+        // before: it needs the parent Approval, which a single-entity service may not read.
+        // IAccessBroker gathers it. Two rules land with these calls — the round must be open
+        // (§14.7), and the parent must not be soft-deleted, which the foreign key cannot express
+        // because deletion is a flag and the row stays (§10.4, §9.7.2 rule 2).
+        //
+        // The row-local gates above still run: §14.6 rule 2 makes the duplication intended, and
+        // the ownership question needs no cross-entity read at all.
+        private async ValueTask ValidateUserMayRecordApprovalCommentAsync(
+            Guid approvalId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayRecordApprovalCommentAsync(
+                approvalId: approvalId,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            await ThrowIfRefusedAsync(verdict, approvalId, "add a comment to");
+        }
+
+        private async ValueTask ValidateUserMayAmendApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayAmendApprovalCommentAsync(
+                approvalId: approvalId,
+                commentCreatedBy: commentCreatedBy,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            await ThrowIfRefusedAsync(verdict, approvalId, "change or withdraw a comment on");
+        }
+
+        private async ValueTask ValidateUserMayResolveApprovalCommentAsync(
+            Guid approvalId,
+            string commentCreatedBy,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayResolveApprovalCommentAsync(
+                approvalId: approvalId,
+                commentCreatedBy: commentCreatedBy,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            await ThrowIfRefusedAsync(verdict, approvalId, "resolve a comment on");
+        }
+
+        // §14.5: the true reason server-side, nothing about the policy to the caller. The
+        // verdict's explanation is composed from resolved policy values, so echoing it outward
+        // would leak the approval configuration through a public event address.
+        private async ValueTask ThrowIfRefusedAsync(
+            AccessVerdict verdict,
+            Guid approvalId,
+            string attempted)
+        {
+            if (verdict.IsPermitted)
+            {
+                return;
+            }
+
+            await this.loggingBroker.LogWarningAsync(
+                $"Approval comment denied. Attempted to {attempted} approval {approvalId}. "
+                    + $"{verdict.DenialReason}: {verdict.Explanation} "
+                    + "Reported to the caller as unauthorized.");
+
+            throw new UnauthorizedApprovalCommentException(
+                message: "The current user is not allowed to act on this approval comment.");
+        }
+
+        // row-level write permission: the author, and only the author
         private async ValueTask ValidateUserCanModifyStorageApprovalCommentAsync(
             ApprovalComment storageApprovalComment,
             SecurityContext securityContext)
@@ -77,15 +151,18 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalComment.CreatedBy == actorUserId;
 
-            if (isOwner is false && HasReviewRole(securityContext) is false)
+            // Owner only. This replaces "the author may edit their own comment and a review role
+            // may write it too — reviewers flip IsResolved on a submitter's comment": that model is
+            // withdrawn (§14.7 rule 5). IsResolved now has its own operation, which an Admin may
+            // use on someone else's row; the wording itself belongs to whoever wrote it.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalCommentException(
                     message: "The current user is not allowed to modify this approval comment.");
             }
         }
 
-        // removing a comment retracts it from the review record — the author may retract
-        // their own and an Admin may retract anyone's; reviewers resolve threads instead
+        // removing a comment retracts it from the review record — only its author may do so
         private async ValueTask ValidateUserCanRemoveStorageApprovalCommentAsync(
             ApprovalComment storageApprovalComment,
             SecurityContext securityContext)
@@ -96,7 +173,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalComment.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            // Owner only, matching modify. An Admin who needs past an unresolved comment resolves
+            // it or bypasses the block; withdrawing someone else's words is neither.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalCommentException(
                     message: "The current user is not allowed to remove this approval comment.");
@@ -136,7 +215,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 message: "Approval comment is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalComment.Id), Parameter: nameof(ApprovalComment.Id)),
                 (Rule: IsInvalid(approvalComment.ApprovalId), Parameter: nameof(ApprovalComment.ApprovalId)),
-                (Rule: IsInvalid(approvalComment.UserId), Parameter: nameof(ApprovalComment.UserId)),
                 (Rule: IsInvalid(approvalComment.CreatedBy), Parameter: nameof(ApprovalComment.CreatedBy)),
                 (Rule: IsInvalid(approvalComment.UpdatedBy), Parameter: nameof(ApprovalComment.UpdatedBy)),
                 (Rule: IsInvalid(approvalComment.CreatedWhen), Parameter: nameof(ApprovalComment.CreatedWhen)),
@@ -159,21 +237,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         second: approvalComment.CreatedBy),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
 
-                // The commenter is the caller, not a label the caller chooses. Comments became
-                // load-bearing for the approval gate once
-                // RequireReviewCommentResolutionBeforeApprovals settled: that setting blocks
-                // approval until every ApprovalComment.IsResolved is true, so a comment
-                // attributed to someone else moves a gate rather than merely misreporting who
-                // spoke.
-                //
-                // Bound rather than stamped, matching how every other actor fact in this
-                // codebase is handled: a caller who meant to attribute the comment elsewhere
-                // gets the mismatch back by name instead of a silent re-attribution.
-                (Rule: IsNotSame(
-                        first: currentUserId,
-                        second: approvalComment.UserId),
-                    Parameter: nameof(ApprovalComment.UserId)),
-
                 (Rule: IsNotSame(
                         first: approvalComment.UpdatedBy,
                         second: approvalComment.CreatedBy,
@@ -195,7 +258,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 message: "Approval comment is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalComment.Id), Parameter: nameof(ApprovalComment.Id)),
                 (Rule: IsInvalid(approvalComment.ApprovalId), Parameter: nameof(ApprovalComment.ApprovalId)),
-                (Rule: IsInvalid(approvalComment.UserId), Parameter: nameof(ApprovalComment.UserId)),
                 (Rule: IsInvalid(approvalComment.CreatedBy), Parameter: nameof(ApprovalComment.CreatedBy)),
                 (Rule: IsInvalid(approvalComment.UpdatedBy), Parameter: nameof(ApprovalComment.UpdatedBy)),
                 (Rule: IsInvalid(approvalComment.CreatedWhen), Parameter: nameof(ApprovalComment.CreatedWhen)),
@@ -268,24 +330,33 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         secondName: nameof(ApprovalComment.CreatedBy)),
                     Parameter: nameof(ApprovalComment.CreatedBy)),
 
-                // Both are fixed at add. Pinned against STORAGE rather than against the caller
-                // because a review-role caller or an Admin may legitimately amend someone
-                // else's comment (ValidateUserCanModifyStorageApprovalCommentAsync) — but
-                // correcting the text must not mean moving the comment onto another person's
-                // name, or onto a different approval. Re-pointing ApprovalId would walk an
-                // unresolved comment off the approval it is blocking, which is the gate
-                // RequireReviewCommentResolutionBeforeApprovals exists to hold shut.
-                (Rule: IsNotSame(
-                        first: inputApprovalComment.UserId,
-                        second: storageApprovalComment.UserId,
-                        secondName: nameof(ApprovalComment.UserId)),
-                    Parameter: nameof(ApprovalComment.UserId)),
-
+                // CreatedBy is pinned above; ApprovalId is pinned here. Both are fixed at add and
+                // pinned against STORAGE rather than against the caller: correcting the text
+                // must not mean moving the comment onto a different approval. Re-pointing
+                // ApprovalId would walk an unresolved comment off the approval it is blocking,
+                // which is the gate RequireReviewCommentResolutionBeforeApprovals exists to hold
+                // shut.
                 (Rule: IsNotSame(
                         first: inputApprovalComment.ApprovalId,
                         second: storageApprovalComment.ApprovalId,
                         secondName: nameof(ApprovalComment.ApprovalId)),
                     Parameter: nameof(ApprovalComment.ApprovalId)),
+
+                // IsResolved is deliberately NOT pinned. Modify is owner-only, and the owner may
+                // settle (or re-open) their own comment here as readily as through the resolve
+                // transition — pinning it would leave them unable to change a field that is
+                // theirs. What Resolve adds is the Admin route (§14.7 rule 5), not exclusivity
+                // over the field.
+                //
+                // The two paths publish different facts, and that costs nothing PROVIDED the
+                // approval workflow subscribes to BOTH ApprovalComment-Modified and -Resolved to
+                // re-test whether an approval blocked on
+                // RequireReviewCommentResolutionBeforeApprovals can now complete.
+                //
+                // NOT YET WIRED: ApprovalOrchestrationService does not exist and nothing in the
+                // repo subscribes to any fact address. §10.17 inbound item (a) records the
+                // contract it must honour. Until then a flip through modify moves the gate with
+                // no consumer listening — which is a missing consumer, not a reason to pin.
 
                 (Rule: IsSame(
                         firstDate: inputApprovalComment.UpdatedWhen,
@@ -299,10 +370,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 message: "Approval comment is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalCommentId), Parameter: nameof(ApprovalComment.Id)));
 
-        private static void ValidateOnRemoveApprovalCommentById(Guid approvalCommentId) =>
+        // the deletion reason is caller-supplied free text that lands on the row unchanged,
+        // so its storage cap is enforced here rather than left to the column to reject
+        private static void ValidateOnRemoveApprovalCommentById(
+            Guid approvalCommentId,
+            string? deletionReason) =>
             Validate(
                 message: "Approval comment is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(approvalCommentId), Parameter: nameof(ApprovalComment.Id)));
+                (Rule: IsInvalid(approvalCommentId), Parameter: nameof(ApprovalComment.Id)),
+
+                (Rule: IsGreaterThan(deletionReason, 500),
+                    Parameter: nameof(ApprovalComment.DeletionReason)));
 
         private static void ValidateOnHardRemoveApprovalCommentById(Guid approvalCommentId) =>
             Validate(
@@ -379,7 +457,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 Message = $"Date is not the same as {secondDateName}"
             };
 
-        private static dynamic IsGreaterThan(string text, int maxLength) => new
+        private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"

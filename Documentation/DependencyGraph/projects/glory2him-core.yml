@@ -1,0 +1,2926 @@
+# Glory2Him.Core — components and flows
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+
+project: core
+components:
+  - id: StorageBroker
+    name: StorageBroker
+    layer: broker
+    col: 6
+    description: "EF Core DbContext (derives from EFxceptionsContext) exposing per-entity Insert/Select/Update/Delete plus ProcessedEvents bookkeeping. It passes ITSELF into G2H.StorageClient's EFCoreClient for the actual persistence operations."
+    methods: []
+    calls:
+      - from: InsertProcessedEventAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectProcessedEventExistsAsync
+        to: STC.EFCoreClient
+        method: ExistsAsync
+      - from: InsertContentItemAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllContentItemsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectContentItemByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateContentItemAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteContentItemAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertAssociationAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllAssociationsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectAssociationByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateAssociationAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteAssociationAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertBibleReferenceAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllBibleReferencesAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectBibleReferenceByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateBibleReferenceAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteBibleReferenceAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertCommentAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllCommentsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectCommentByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateCommentAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteCommentAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertLinkAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllLinksAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectLinkByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateLinkAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteLinkAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertReactionAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllReactionsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectReactionByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateReactionAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteReactionAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertTagAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllTagsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectTagByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateTagAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteTagAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertApprovalAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllApprovalsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectApprovalByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateApprovalAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteApprovalAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertApprovalCommentAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllApprovalCommentsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectApprovalCommentByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateApprovalCommentAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteApprovalCommentAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertApprovalReviewAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllApprovalReviewsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectApprovalReviewByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateApprovalReviewAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteApprovalReviewAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertApprovalSettingAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllApprovalSettingsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectApprovalSettingByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateApprovalSettingAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteApprovalSettingAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+      - from: InsertContentItemSettingAsync
+        to: STC.EFCoreClient
+        method: InsertAsync
+      - from: SelectAllContentItemSettingsAsync
+        to: STC.EFCoreClient
+        method: SelectAllAsync
+      - from: SelectContentItemSettingByIdAsync
+        to: STC.EFCoreClient
+        method: SelectAsync
+      - from: UpdateContentItemSettingAsync
+        to: STC.EFCoreClient
+        method: UpdateAsync
+      - from: DeleteContentItemSettingAsync
+        to: STC.EFCoreClient
+        method: DeleteAsync
+  - id: SecurityAuditBroker
+    name: SecurityAuditBroker
+    layer: broker
+    col: 6
+    description: "Wraps G2H.Security.Client's AuditClient (ISecurityClient.Audits); each method also has a SecurityContext overload used during event replay."
+    methods:
+      - ApplyAddAuditValuesAsync
+      - ApplyModifyAuditValuesAsync
+      - ApplyRemoveAuditValuesAsync
+      - EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - GetUserIdAsync
+    calls:
+      - from: ApplyAddAuditValuesAsync
+        to: SC.AuditClient
+        method: ApplyAddAuditValuesAsync
+      - from: ApplyModifyAuditValuesAsync
+        to: SC.AuditClient
+        method: ApplyModifyAuditValuesAsync
+      - from: ApplyRemoveAuditValuesAsync
+        to: SC.AuditClient
+        method: ApplyRemoveAuditValuesAsync
+      - from: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+        to: SC.AuditClient
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: GetUserIdAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+  - id: AccessBroker
+    name: AccessBroker
+    layer: broker
+    col: 6
+    description: "Gathers what an approval decision needs (the approval, its reviews, comments and settings, plus the target entity) from storage, then asks G2H.Security.Client's AccessClient — the pure policy decision function — for the verdict. Consumed by AssociationService's transition validations and ApprovalReviewService."
+    methods:
+      - MayDecideApprovalAsync
+      - MayRecordApprovalReviewAsync
+      - MayRecordApprovalCommentAsync
+      - MayAmendApprovalCommentAsync
+      - MayResolveApprovalCommentAsync
+    calls:
+      - from: MayDecideApprovalAsync
+        to: SC.AccessClient
+        method: MayDecideApprovalAsync
+      - from: MayDecideApprovalAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectAllApprovalsAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectAllApprovalReviewsAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectAllApprovalCommentsAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectAllApprovalSettingsAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: MayRecordApprovalCommentAsync
+        to: SC.AccessClient
+        method: MayRecordApprovalCommentAsync
+      - from: MayRecordApprovalCommentAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayRecordApprovalCommentAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: MayAmendApprovalCommentAsync
+        to: SC.AccessClient
+        method: MayAmendApprovalCommentAsync
+      - from: MayAmendApprovalCommentAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayAmendApprovalCommentAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: MayResolveApprovalCommentAsync
+        to: SC.AccessClient
+        method: MayResolveApprovalCommentAsync
+      - from: MayResolveApprovalCommentAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayResolveApprovalCommentAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: MayRecordApprovalReviewAsync
+        to: SC.AccessClient
+        method: MayRecordApprovalReviewAsync
+      - from: MayRecordApprovalReviewAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+      - from: MayRecordApprovalReviewAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: MayRecordApprovalReviewAsync
+        to: StorageBroker
+        method: SelectAllApprovalsAsync
+      - from: MayRecordApprovalReviewAsync
+        to: StorageBroker
+        method: SelectAllApprovalReviewsAsync
+      - from: MayRecordApprovalReviewAsync
+        to: StorageBroker
+        method: SelectAllApprovalCommentsAsync
+      - from: MayRecordApprovalReviewAsync
+        to: StorageBroker
+        method: SelectAllApprovalSettingsAsync
+      - from: MayRecordApprovalReviewAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectTagByIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectReactionByIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectBibleReferenceByIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectCommentByIdAsync
+      - from: MayDecideApprovalAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+  - id: SecurityBroker
+    name: SecurityBroker
+    layer: broker
+    col: 6
+    description: "Wraps G2H.Security.Client's UserClient (ISecurityClient.Users); resolves the ClaimsPrincipal from IHttpContextAccessor or a JWT access token. Not yet consumed by any Core service."
+    methods:
+      - GetCurrentUserAsync
+      - IsCurrentUserAuthenticatedAsync
+      - IsInRoleAsync
+      - UserHasClaimAsync
+      - GetCurrentSecurityContextAsync
+    calls:
+      - from: GetCurrentUserAsync
+        to: SC.UserClient
+        method: GetUserAsync
+      - from: IsCurrentUserAuthenticatedAsync
+        to: SC.UserClient
+        method: IsUserAuthenticatedAsync
+      - from: IsInRoleAsync
+        to: SC.UserClient
+        method: IsUserInRoleAsync
+      - from: UserHasClaimAsync
+        to: SC.UserClient
+        method: UserHasClaimAsync
+      - from: GetCurrentSecurityContextAsync
+        to: SC.UserClient
+        method: GetUserAsync
+  - id: EventEnvelopeBroker
+    name: EventEnvelopeBroker
+    layer: broker
+    col: 6
+    description: "Wraps G2H.EventEnvelope.Client — mints sealed envelopes (identity, integrity hash, causation chain) for every operation and event."
+    methods:
+      - CreateAsync
+      - CreateNextAsync
+    calls:
+      - from: CreateAsync
+        to: EEC.Client
+        method: CreateAsync
+      - from: CreateNextAsync
+        to: EEC.Client
+        method: CreateNextAsync
+  - id: EventBroker
+    name: EventBroker
+    layer: broker
+    col: 6
+    description: "Singleton wrapper over EventHighway (SQL Server). One Publish<Entity>Async / SubscribeTo<Entity>EventAsync pair per entity — the operation (Adding…HardRemoved) selects the event address. Request addresses (…ing) are subscribed by services; fact addresses (…ed) currently have no subscribers, so no circular flows exist."
+    methods:
+      - RegisterEventParticipantAsync
+      - RegisterEventAddressesAsync
+      - FireScheduledPendingEventsAsync
+    calls:
+      - from: RegisterEventParticipantAsync
+        to: EXT.EventHighway
+        method: V2.EventParticipantV2Client.RetrieveOrAddEventParticipantV2Async
+      - from: RegisterEventAddressesAsync
+        to: EXT.EventHighway
+        method: V2.EventAddressV2Client.RetrieveOrRegisterEventAddressV2Async
+      - from: FireScheduledPendingEventsAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.FireScheduledPendingEventV2sAsync
+      - from: PublishContentItemAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToContentItemEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToContentItemEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishAssociationAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToAssociationEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToAssociationEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishBibleReferenceAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToBibleReferenceEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToBibleReferenceEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishCommentAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToCommentEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToCommentEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishLinkAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToLinkEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToLinkEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishReactionAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToReactionEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToReactionEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishTagAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToTagEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToTagEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishApprovalAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToApprovalEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToApprovalEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishApprovalCommentAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToApprovalCommentEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToApprovalCommentEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishApprovalReviewAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToApprovalReviewEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToApprovalReviewEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishApprovalSettingAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToApprovalSettingEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToApprovalSettingEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishContentItemSettingAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToContentItemSettingEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToContentItemSettingEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishContentItemProcessingAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToContentItemProcessingEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToContentItemProcessingEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+  - id: DateTimeBroker
+    name: DateTimeBroker
+    layer: broker
+    col: 6
+    utility: true
+    methods:
+      - GetCurrentDateTimeOffsetAsync
+  - id: IdentifierBroker
+    name: IdentifierBroker
+    layer: broker
+    col: 6
+    utility: true
+    methods:
+      - GetIdentifierAsync
+  - id: HashBroker
+    name: HashBroker
+    layer: broker
+    col: 6
+    utility: true
+    methods:
+      - ComputeSha256HashAsync
+  - id: LoggingBroker
+    name: LoggingBroker
+    layer: broker
+    col: 6
+    utility: true
+    description: "Happy-path denial logging on reads is drawn; exception-path logging (TryCatch) is not."
+    methods:
+      - LogInformationAsync
+      - LogWarningAsync
+      - LogErrorAsync
+      - LogCriticalAsync
+  - id: FS.ContentItem
+    name: ContentItemService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for ContentItem. Reads apply publish-date visibility + ownership checks. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddContentItemAsync
+      - CheckContentItemContentExistsAsync
+      - RetrieveAllContentItemsAsync
+      - RetrieveContentItemByIdAsync
+      - ModifyContentItemAsync
+      - RemoveContentItemByIdAsync
+      - HardRemoveContentItemByIdAsync
+      - OnAddingContentItemAsync
+      - OnModifyingContentItemAsync
+      - OnRemovingContentItemByIdAsync
+      - OnHardRemovingContentItemByIdAsync
+      - OnRetrievingContentItemByIdAsync
+    calls:
+      - from: AddContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddContentItemAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddContentItemAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddContentItemAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddContentItemAsync
+        to: StorageBroker
+        method: InsertContentItemAsync
+      - from: AddContentItemAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddContentItemAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: CheckContentItemContentExistsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: CheckContentItemContentExistsAsync
+        to: StorageBroker
+        method: SelectAllContentItemsAsync
+      - from: RetrieveAllContentItemsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllContentItemsAsync
+        to: StorageBroker
+        method: SelectAllContentItemsAsync
+      - from: RetrieveAllContentItemsAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllContentItemsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveContentItemByIdAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: RetrieveContentItemByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveContentItemByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveContentItemByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveContentItemByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyContentItemAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyContentItemAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyContentItemAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyContentItemAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: ModifyContentItemAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyContentItemAsync
+        to: StorageBroker
+        method: UpdateContentItemAsync
+      - from: ModifyContentItemAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyContentItemAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveContentItemByIdAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: RemoveContentItemByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveContentItemByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveContentItemByIdAsync
+        to: StorageBroker
+        method: UpdateContentItemAsync
+      - from: RemoveContentItemByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveContentItemByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveContentItemByIdAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: HardRemoveContentItemByIdAsync
+        to: StorageBroker
+        method: DeleteContentItemAsync
+      - from: HardRemoveContentItemByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveContentItemByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingContentItemAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingContentItemAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingContentItemByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingContentItemByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddContentItemAsync
+        event: ContentItem.Added
+      - method: ModifyContentItemAsync
+        event: ContentItem.Modified
+      - method: RemoveContentItemByIdAsync
+        event: ContentItem.Removed
+      - method: HardRemoveContentItemByIdAsync
+        event: ContentItem.HardRemoved
+    subscribes:
+      - event: ContentItem.Adding
+        handler: OnAddingContentItemAsync
+      - event: ContentItem.Modifying
+        handler: OnModifyingContentItemAsync
+      - event: ContentItem.RemovingById
+        handler: OnRemovingContentItemByIdAsync
+      - event: ContentItem.HardRemovingById
+        handler: OnHardRemovingContentItemByIdAsync
+      - event: ContentItem.RetrievingById
+        handler: OnRetrievingContentItemByIdAsync
+  - id: FS.Association
+    name: AssociationService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for Association. Reads apply publish-date visibility + ownership checks. Also exposes 5 approval state-transition verbs, each publishing its own fact (Approved/Rejected/Sorted/ConfidenceSet/Scoped); the approval verdicts ask IAccessBroker for the decision. Sort has no request event — it is call-only. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddAssociationAsync
+      - RetrieveAllAssociationsAsync
+      - RetrieveAssociationByIdAsync
+      - ModifyAssociationAsync
+      - RemoveAssociationByIdAsync
+      - HardRemoveAssociationByIdAsync
+      - ApproveAssociationAsync
+      - BypassApproveAssociationAsync
+      - SortAssociationAsync
+      - SetAssociationConfidenceAsync
+      - SetAssociationScopeAsync
+      - OnAddingAssociationAsync
+      - OnModifyingAssociationAsync
+      - OnRemovingAssociationByIdAsync
+      - OnHardRemovingAssociationByIdAsync
+      - OnRetrievingAssociationByIdAsync
+      - OnApprovingAssociationAsync
+      - OnBypassApprovingAssociationAsync
+      - OnSettingAssociationConfidenceAsync
+      - OnSettingAssociationScopeAsync
+    calls:
+      - from: AddAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddAssociationAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddAssociationAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddAssociationAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddAssociationAsync
+        to: StorageBroker
+        method: InsertAssociationAsync
+      - from: AddAssociationAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddAssociationAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllAssociationsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllAssociationsAsync
+        to: StorageBroker
+        method: SelectAllAssociationsAsync
+      - from: RetrieveAllAssociationsAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllAssociationsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveAssociationByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAssociationByIdAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: RetrieveAssociationByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAssociationByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveAssociationByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveAssociationByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyAssociationAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyAssociationAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyAssociationAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyAssociationAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: ModifyAssociationAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyAssociationAsync
+        to: StorageBroker
+        method: UpdateAssociationAsync
+      - from: ModifyAssociationAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyAssociationAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveAssociationByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveAssociationByIdAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: RemoveAssociationByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveAssociationByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveAssociationByIdAsync
+        to: StorageBroker
+        method: UpdateAssociationAsync
+      - from: RemoveAssociationByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveAssociationByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveAssociationByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveAssociationByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveAssociationByIdAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: HardRemoveAssociationByIdAsync
+        to: StorageBroker
+        method: DeleteAssociationAsync
+      - from: HardRemoveAssociationByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveAssociationByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveAssociationByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: ApproveAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ApproveAssociationAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: ApproveAssociationAsync
+        to: AccessBroker
+        method: MayDecideApprovalAsync
+      - from: ApproveAssociationAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ApproveAssociationAsync
+        to: StorageBroker
+        method: UpdateAssociationAsync
+      - from: ApproveAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnApprovingAssociationAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: BypassApproveAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: BypassApproveAssociationAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: BypassApproveAssociationAsync
+        to: AccessBroker
+        method: MayDecideApprovalAsync
+      - from: BypassApproveAssociationAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: BypassApproveAssociationAsync
+        to: StorageBroker
+        method: UpdateAssociationAsync
+      - from: BypassApproveAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnBypassApprovingAssociationAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: SortAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: SortAssociationAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: SortAssociationAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: SortAssociationAsync
+        to: StorageBroker
+        method: UpdateAssociationAsync
+      - from: SortAssociationAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: SetAssociationConfidenceAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: SetAssociationConfidenceAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: SetAssociationConfidenceAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: SetAssociationConfidenceAsync
+        to: StorageBroker
+        method: UpdateAssociationAsync
+      - from: SetAssociationConfidenceAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnSettingAssociationConfidenceAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: SetAssociationScopeAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: SetAssociationScopeAsync
+        to: StorageBroker
+        method: SelectAssociationByIdAsync
+      - from: SetAssociationScopeAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: SetAssociationScopeAsync
+        to: StorageBroker
+        method: UpdateAssociationAsync
+      - from: SetAssociationScopeAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnSettingAssociationScopeAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnAddingAssociationAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingAssociationAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingAssociationByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingAssociationByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddAssociationAsync
+        event: Association.Added
+      - method: ModifyAssociationAsync
+        event: Association.Modified
+      - method: RemoveAssociationByIdAsync
+        event: Association.Removed
+      - method: HardRemoveAssociationByIdAsync
+        event: Association.HardRemoved
+      - method: ApproveAssociationAsync
+        event: Association.Approved
+      - method: ApproveAssociationAsync
+        event: Association.Rejected
+      - method: BypassApproveAssociationAsync
+        event: Association.Approved
+      - method: SortAssociationAsync
+        event: Association.Sorted
+      - method: SetAssociationConfidenceAsync
+        event: Association.ConfidenceSet
+      - method: SetAssociationScopeAsync
+        event: Association.Scoped
+    subscribes:
+      - event: Association.Approving
+        handler: OnApprovingAssociationAsync
+      - event: Association.BypassApproving
+        handler: OnBypassApprovingAssociationAsync
+      - event: Association.SettingConfidence
+        handler: OnSettingAssociationConfidenceAsync
+      - event: Association.SettingScope
+        handler: OnSettingAssociationScopeAsync
+      - event: Association.Adding
+        handler: OnAddingAssociationAsync
+      - event: Association.Modifying
+        handler: OnModifyingAssociationAsync
+      - event: Association.RemovingById
+        handler: OnRemovingAssociationByIdAsync
+      - event: Association.HardRemovingById
+        handler: OnHardRemovingAssociationByIdAsync
+      - event: Association.RetrievingById
+        handler: OnRetrievingAssociationByIdAsync
+  - id: FS.BibleReference
+    name: BibleReferenceService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for BibleReference. Reads apply publish-date visibility + ownership checks. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddBibleReferenceAsync
+      - RetrieveAllBibleReferencesAsync
+      - RetrieveBibleReferenceByIdAsync
+      - ModifyBibleReferenceAsync
+      - RemoveBibleReferenceByIdAsync
+      - HardRemoveBibleReferenceByIdAsync
+      - OnAddingBibleReferenceAsync
+      - OnModifyingBibleReferenceAsync
+      - OnRemovingBibleReferenceByIdAsync
+      - OnHardRemovingBibleReferenceByIdAsync
+      - OnRetrievingBibleReferenceByIdAsync
+    calls:
+      - from: AddBibleReferenceAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddBibleReferenceAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddBibleReferenceAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddBibleReferenceAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddBibleReferenceAsync
+        to: StorageBroker
+        method: InsertBibleReferenceAsync
+      - from: AddBibleReferenceAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddBibleReferenceAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddBibleReferenceAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllBibleReferencesAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllBibleReferencesAsync
+        to: StorageBroker
+        method: SelectAllBibleReferencesAsync
+      - from: RetrieveAllBibleReferencesAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllBibleReferencesAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveBibleReferenceByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveBibleReferenceByIdAsync
+        to: StorageBroker
+        method: SelectBibleReferenceByIdAsync
+      - from: RetrieveBibleReferenceByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveBibleReferenceByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveBibleReferenceByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveBibleReferenceByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyBibleReferenceAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyBibleReferenceAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyBibleReferenceAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyBibleReferenceAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyBibleReferenceAsync
+        to: StorageBroker
+        method: SelectBibleReferenceByIdAsync
+      - from: ModifyBibleReferenceAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyBibleReferenceAsync
+        to: StorageBroker
+        method: UpdateBibleReferenceAsync
+      - from: ModifyBibleReferenceAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyBibleReferenceAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyBibleReferenceAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: StorageBroker
+        method: SelectBibleReferenceByIdAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: StorageBroker
+        method: UpdateBibleReferenceAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveBibleReferenceByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveBibleReferenceByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveBibleReferenceByIdAsync
+        to: StorageBroker
+        method: SelectBibleReferenceByIdAsync
+      - from: HardRemoveBibleReferenceByIdAsync
+        to: StorageBroker
+        method: DeleteBibleReferenceAsync
+      - from: HardRemoveBibleReferenceByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveBibleReferenceByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveBibleReferenceByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingBibleReferenceAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingBibleReferenceAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingBibleReferenceByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingBibleReferenceByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddBibleReferenceAsync
+        event: BibleReference.Added
+      - method: ModifyBibleReferenceAsync
+        event: BibleReference.Modified
+      - method: RemoveBibleReferenceByIdAsync
+        event: BibleReference.Removed
+      - method: HardRemoveBibleReferenceByIdAsync
+        event: BibleReference.HardRemoved
+    subscribes:
+      - event: BibleReference.Adding
+        handler: OnAddingBibleReferenceAsync
+      - event: BibleReference.Modifying
+        handler: OnModifyingBibleReferenceAsync
+      - event: BibleReference.RemovingById
+        handler: OnRemovingBibleReferenceByIdAsync
+      - event: BibleReference.HardRemovingById
+        handler: OnHardRemovingBibleReferenceByIdAsync
+      - event: BibleReference.RetrievingById
+        handler: OnRetrievingBibleReferenceByIdAsync
+  - id: FS.Comment
+    name: CommentService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for Comment. Reads apply publish-date visibility + ownership checks. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddCommentAsync
+      - RetrieveAllCommentsAsync
+      - RetrieveCommentByIdAsync
+      - ModifyCommentAsync
+      - RemoveCommentByIdAsync
+      - HardRemoveCommentByIdAsync
+      - OnAddingCommentAsync
+      - OnModifyingCommentAsync
+      - OnRemovingCommentByIdAsync
+      - OnHardRemovingCommentByIdAsync
+      - OnRetrievingCommentByIdAsync
+    calls:
+      - from: AddCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddCommentAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddCommentAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddCommentAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddCommentAsync
+        to: StorageBroker
+        method: InsertCommentAsync
+      - from: AddCommentAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddCommentAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllCommentsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllCommentsAsync
+        to: StorageBroker
+        method: SelectAllCommentsAsync
+      - from: RetrieveAllCommentsAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllCommentsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveCommentByIdAsync
+        to: StorageBroker
+        method: SelectCommentByIdAsync
+      - from: RetrieveCommentByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveCommentByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveCommentByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveCommentByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyCommentAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyCommentAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyCommentAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyCommentAsync
+        to: StorageBroker
+        method: SelectCommentByIdAsync
+      - from: ModifyCommentAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyCommentAsync
+        to: StorageBroker
+        method: UpdateCommentAsync
+      - from: ModifyCommentAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyCommentAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveCommentByIdAsync
+        to: StorageBroker
+        method: SelectCommentByIdAsync
+      - from: RemoveCommentByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveCommentByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveCommentByIdAsync
+        to: StorageBroker
+        method: UpdateCommentAsync
+      - from: RemoveCommentByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveCommentByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveCommentByIdAsync
+        to: StorageBroker
+        method: SelectCommentByIdAsync
+      - from: HardRemoveCommentByIdAsync
+        to: StorageBroker
+        method: DeleteCommentAsync
+      - from: HardRemoveCommentByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveCommentByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingCommentAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingCommentAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingCommentByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingCommentByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddCommentAsync
+        event: Comment.Added
+      - method: ModifyCommentAsync
+        event: Comment.Modified
+      - method: RemoveCommentByIdAsync
+        event: Comment.Removed
+      - method: HardRemoveCommentByIdAsync
+        event: Comment.HardRemoved
+    subscribes:
+      - event: Comment.Adding
+        handler: OnAddingCommentAsync
+      - event: Comment.Modifying
+        handler: OnModifyingCommentAsync
+      - event: Comment.RemovingById
+        handler: OnRemovingCommentByIdAsync
+      - event: Comment.HardRemovingById
+        handler: OnHardRemovingCommentByIdAsync
+      - event: Comment.RetrievingById
+        handler: OnRetrievingCommentByIdAsync
+  - id: FS.Link
+    name: LinkService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for Link. Reads apply publish-date visibility + ownership checks. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddLinkAsync
+      - RetrieveAllLinksAsync
+      - RetrieveLinkByIdAsync
+      - ModifyLinkAsync
+      - RemoveLinkByIdAsync
+      - HardRemoveLinkByIdAsync
+      - OnAddingLinkAsync
+      - OnModifyingLinkAsync
+      - OnRemovingLinkByIdAsync
+      - OnHardRemovingLinkByIdAsync
+      - OnRetrievingLinkByIdAsync
+    calls:
+      - from: AddLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddLinkAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddLinkAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddLinkAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddLinkAsync
+        to: StorageBroker
+        method: InsertLinkAsync
+      - from: AddLinkAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddLinkAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllLinksAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllLinksAsync
+        to: StorageBroker
+        method: SelectAllLinksAsync
+      - from: RetrieveAllLinksAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllLinksAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveLinkByIdAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+      - from: RetrieveLinkByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveLinkByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveLinkByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveLinkByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyLinkAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyLinkAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyLinkAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyLinkAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+      - from: ModifyLinkAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyLinkAsync
+        to: StorageBroker
+        method: UpdateLinkAsync
+      - from: ModifyLinkAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyLinkAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveLinkByIdAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+      - from: RemoveLinkByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveLinkByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveLinkByIdAsync
+        to: StorageBroker
+        method: UpdateLinkAsync
+      - from: RemoveLinkByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveLinkByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveLinkByIdAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+      - from: HardRemoveLinkByIdAsync
+        to: StorageBroker
+        method: DeleteLinkAsync
+      - from: HardRemoveLinkByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveLinkByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingLinkAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingLinkAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingLinkByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingLinkByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddLinkAsync
+        event: Link.Added
+      - method: ModifyLinkAsync
+        event: Link.Modified
+      - method: RemoveLinkByIdAsync
+        event: Link.Removed
+      - method: HardRemoveLinkByIdAsync
+        event: Link.HardRemoved
+    subscribes:
+      - event: Link.Adding
+        handler: OnAddingLinkAsync
+      - event: Link.Modifying
+        handler: OnModifyingLinkAsync
+      - event: Link.RemovingById
+        handler: OnRemovingLinkByIdAsync
+      - event: Link.HardRemovingById
+        handler: OnHardRemovingLinkByIdAsync
+      - event: Link.RetrievingById
+        handler: OnRetrievingLinkByIdAsync
+  - id: FS.Reaction
+    name: ReactionService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for Reaction. Reads apply publish-date visibility + ownership checks. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddReactionAsync
+      - RetrieveAllReactionsAsync
+      - RetrieveReactionByIdAsync
+      - ModifyReactionAsync
+      - RemoveReactionByIdAsync
+      - HardRemoveReactionByIdAsync
+      - OnAddingReactionAsync
+      - OnModifyingReactionAsync
+      - OnRemovingReactionByIdAsync
+      - OnHardRemovingReactionByIdAsync
+      - OnRetrievingReactionByIdAsync
+    calls:
+      - from: AddReactionAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddReactionAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddReactionAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddReactionAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddReactionAsync
+        to: StorageBroker
+        method: InsertReactionAsync
+      - from: AddReactionAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddReactionAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddReactionAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllReactionsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllReactionsAsync
+        to: StorageBroker
+        method: SelectAllReactionsAsync
+      - from: RetrieveAllReactionsAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllReactionsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveReactionByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveReactionByIdAsync
+        to: StorageBroker
+        method: SelectReactionByIdAsync
+      - from: RetrieveReactionByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveReactionByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveReactionByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveReactionByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyReactionAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyReactionAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyReactionAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyReactionAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyReactionAsync
+        to: StorageBroker
+        method: SelectReactionByIdAsync
+      - from: ModifyReactionAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyReactionAsync
+        to: StorageBroker
+        method: UpdateReactionAsync
+      - from: ModifyReactionAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyReactionAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyReactionAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveReactionByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveReactionByIdAsync
+        to: StorageBroker
+        method: SelectReactionByIdAsync
+      - from: RemoveReactionByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveReactionByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveReactionByIdAsync
+        to: StorageBroker
+        method: UpdateReactionAsync
+      - from: RemoveReactionByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveReactionByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveReactionByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveReactionByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveReactionByIdAsync
+        to: StorageBroker
+        method: SelectReactionByIdAsync
+      - from: HardRemoveReactionByIdAsync
+        to: StorageBroker
+        method: DeleteReactionAsync
+      - from: HardRemoveReactionByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveReactionByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveReactionByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingReactionAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingReactionAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingReactionByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingReactionByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddReactionAsync
+        event: Reaction.Added
+      - method: ModifyReactionAsync
+        event: Reaction.Modified
+      - method: RemoveReactionByIdAsync
+        event: Reaction.Removed
+      - method: HardRemoveReactionByIdAsync
+        event: Reaction.HardRemoved
+    subscribes:
+      - event: Reaction.Adding
+        handler: OnAddingReactionAsync
+      - event: Reaction.Modifying
+        handler: OnModifyingReactionAsync
+      - event: Reaction.RemovingById
+        handler: OnRemovingReactionByIdAsync
+      - event: Reaction.HardRemovingById
+        handler: OnHardRemovingReactionByIdAsync
+      - event: Reaction.RetrievingById
+        handler: OnRetrievingReactionByIdAsync
+  - id: FS.Tag
+    name: TagService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for Tag. Reads apply publish-date visibility + ownership checks. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddTagAsync
+      - RetrieveAllTagsAsync
+      - RetrieveTagByIdAsync
+      - ModifyTagAsync
+      - RemoveTagByIdAsync
+      - HardRemoveTagByIdAsync
+      - OnAddingTagAsync
+      - OnModifyingTagAsync
+      - OnRemovingTagByIdAsync
+      - OnHardRemovingTagByIdAsync
+      - OnRetrievingTagByIdAsync
+    calls:
+      - from: AddTagAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddTagAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddTagAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddTagAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddTagAsync
+        to: StorageBroker
+        method: InsertTagAsync
+      - from: AddTagAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddTagAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddTagAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllTagsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllTagsAsync
+        to: StorageBroker
+        method: SelectAllTagsAsync
+      - from: RetrieveAllTagsAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllTagsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveTagByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveTagByIdAsync
+        to: StorageBroker
+        method: SelectTagByIdAsync
+      - from: RetrieveTagByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveTagByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveTagByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveTagByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyTagAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyTagAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyTagAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyTagAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyTagAsync
+        to: StorageBroker
+        method: SelectTagByIdAsync
+      - from: ModifyTagAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyTagAsync
+        to: StorageBroker
+        method: UpdateTagAsync
+      - from: ModifyTagAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyTagAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyTagAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveTagByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveTagByIdAsync
+        to: StorageBroker
+        method: SelectTagByIdAsync
+      - from: RemoveTagByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveTagByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveTagByIdAsync
+        to: StorageBroker
+        method: UpdateTagAsync
+      - from: RemoveTagByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveTagByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveTagByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveTagByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveTagByIdAsync
+        to: StorageBroker
+        method: SelectTagByIdAsync
+      - from: HardRemoveTagByIdAsync
+        to: StorageBroker
+        method: DeleteTagAsync
+      - from: HardRemoveTagByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveTagByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveTagByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingTagAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingTagAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingTagByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingTagByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddTagAsync
+        event: Tag.Added
+      - method: ModifyTagAsync
+        event: Tag.Modified
+      - method: RemoveTagByIdAsync
+        event: Tag.Removed
+      - method: HardRemoveTagByIdAsync
+        event: Tag.HardRemoved
+    subscribes:
+      - event: Tag.Adding
+        handler: OnAddingTagAsync
+      - event: Tag.Modifying
+        handler: OnModifyingTagAsync
+      - event: Tag.RemovingById
+        handler: OnRemovingTagByIdAsync
+      - event: Tag.HardRemovingById
+        handler: OnHardRemovingTagByIdAsync
+      - event: Tag.RetrievingById
+        handler: OnRetrievingTagByIdAsync
+  - id: FS.Approval
+    name: ApprovalService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for Approval. Reads apply ownership checks (no publish-date rule). The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddApprovalAsync
+      - RetrieveAllApprovalsAsync
+      - RetrieveApprovalByIdAsync
+      - ModifyApprovalAsync
+      - RemoveApprovalByIdAsync
+      - HardRemoveApprovalByIdAsync
+      - OnAddingApprovalAsync
+      - OnModifyingApprovalAsync
+      - OnRemovingApprovalByIdAsync
+      - OnHardRemovingApprovalByIdAsync
+      - OnRetrievingApprovalByIdAsync
+    calls:
+      - from: AddApprovalAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddApprovalAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddApprovalAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddApprovalAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddApprovalAsync
+        to: StorageBroker
+        method: InsertApprovalAsync
+      - from: AddApprovalAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddApprovalAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddApprovalAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllApprovalsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllApprovalsAsync
+        to: StorageBroker
+        method: SelectAllApprovalsAsync
+      - from: RetrieveAllApprovalsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalByIdAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: RetrieveApprovalByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveApprovalByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyApprovalAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyApprovalAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyApprovalAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyApprovalAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyApprovalAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: ModifyApprovalAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyApprovalAsync
+        to: StorageBroker
+        method: UpdateApprovalAsync
+      - from: ModifyApprovalAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyApprovalAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyApprovalAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveApprovalByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveApprovalByIdAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: RemoveApprovalByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveApprovalByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveApprovalByIdAsync
+        to: StorageBroker
+        method: UpdateApprovalAsync
+      - from: RemoveApprovalByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveApprovalByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveApprovalByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveApprovalByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveApprovalByIdAsync
+        to: StorageBroker
+        method: SelectApprovalByIdAsync
+      - from: HardRemoveApprovalByIdAsync
+        to: StorageBroker
+        method: DeleteApprovalAsync
+      - from: HardRemoveApprovalByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveApprovalByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveApprovalByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingApprovalAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingApprovalAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingApprovalByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingApprovalByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddApprovalAsync
+        event: Approval.Added
+      - method: ModifyApprovalAsync
+        event: Approval.Modified
+      - method: RemoveApprovalByIdAsync
+        event: Approval.Removed
+      - method: HardRemoveApprovalByIdAsync
+        event: Approval.HardRemoved
+    subscribes:
+      - event: Approval.Adding
+        handler: OnAddingApprovalAsync
+      - event: Approval.Modifying
+        handler: OnModifyingApprovalAsync
+      - event: Approval.RemovingById
+        handler: OnRemovingApprovalByIdAsync
+      - event: Approval.HardRemovingById
+        handler: OnHardRemovingApprovalByIdAsync
+      - event: Approval.RetrievingById
+        handler: OnRetrievingApprovalByIdAsync
+  - id: FS.ApprovalComment
+    name: ApprovalCommentService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for ApprovalComment. Reads apply ownership checks (no publish-date rule). The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddApprovalCommentAsync
+      - RetrieveAllApprovalCommentsAsync
+      - RetrieveApprovalCommentByIdAsync
+      - ModifyApprovalCommentAsync
+      - RemoveApprovalCommentByIdAsync
+      - HardRemoveApprovalCommentByIdAsync
+      - OnAddingApprovalCommentAsync
+      - OnModifyingApprovalCommentAsync
+      - OnRemovingApprovalCommentByIdAsync
+      - OnHardRemovingApprovalCommentByIdAsync
+      - OnRetrievingApprovalCommentByIdAsync
+    calls:
+      - from: AddApprovalCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddApprovalCommentAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddApprovalCommentAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddApprovalCommentAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddApprovalCommentAsync
+        to: StorageBroker
+        method: InsertApprovalCommentAsync
+      - from: AddApprovalCommentAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddApprovalCommentAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddApprovalCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllApprovalCommentsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllApprovalCommentsAsync
+        to: StorageBroker
+        method: SelectAllApprovalCommentsAsync
+      - from: RetrieveAllApprovalCommentsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalCommentByIdAsync
+        to: StorageBroker
+        method: SelectApprovalCommentByIdAsync
+      - from: RetrieveApprovalCommentByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalCommentByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveApprovalCommentByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyApprovalCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyApprovalCommentAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyApprovalCommentAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyApprovalCommentAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyApprovalCommentAsync
+        to: StorageBroker
+        method: SelectApprovalCommentByIdAsync
+      - from: ModifyApprovalCommentAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyApprovalCommentAsync
+        to: StorageBroker
+        method: UpdateApprovalCommentAsync
+      - from: ModifyApprovalCommentAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyApprovalCommentAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyApprovalCommentAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: StorageBroker
+        method: SelectApprovalCommentByIdAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: StorageBroker
+        method: UpdateApprovalCommentAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveApprovalCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveApprovalCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveApprovalCommentByIdAsync
+        to: StorageBroker
+        method: SelectApprovalCommentByIdAsync
+      - from: HardRemoveApprovalCommentByIdAsync
+        to: StorageBroker
+        method: DeleteApprovalCommentAsync
+      - from: HardRemoveApprovalCommentByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveApprovalCommentByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveApprovalCommentByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingApprovalCommentAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingApprovalCommentAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingApprovalCommentByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingApprovalCommentByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddApprovalCommentAsync
+        event: ApprovalComment.Added
+      - method: ModifyApprovalCommentAsync
+        event: ApprovalComment.Modified
+      - method: RemoveApprovalCommentByIdAsync
+        event: ApprovalComment.Removed
+      - method: HardRemoveApprovalCommentByIdAsync
+        event: ApprovalComment.HardRemoved
+    subscribes:
+      - event: ApprovalComment.Adding
+        handler: OnAddingApprovalCommentAsync
+      - event: ApprovalComment.Modifying
+        handler: OnModifyingApprovalCommentAsync
+      - event: ApprovalComment.RemovingById
+        handler: OnRemovingApprovalCommentByIdAsync
+      - event: ApprovalComment.HardRemovingById
+        handler: OnHardRemovingApprovalCommentByIdAsync
+      - event: ApprovalComment.RetrievingById
+        handler: OnRetrievingApprovalCommentByIdAsync
+  - id: FS.ApprovalReview
+    name: ApprovalReviewService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for ApprovalReview. Reads apply ownership checks (no publish-date rule). Its validations ask IAccessBroker whether the actor may record the review. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddApprovalReviewAsync
+      - RetrieveAllApprovalReviewsAsync
+      - RetrieveApprovalReviewByIdAsync
+      - ModifyApprovalReviewAsync
+      - RemoveApprovalReviewByIdAsync
+      - HardRemoveApprovalReviewByIdAsync
+      - OnAddingApprovalReviewAsync
+      - OnModifyingApprovalReviewAsync
+      - OnRemovingApprovalReviewByIdAsync
+      - OnHardRemovingApprovalReviewByIdAsync
+      - OnRetrievingApprovalReviewByIdAsync
+    calls:
+      - from: AddApprovalReviewAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddApprovalReviewAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddApprovalReviewAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddApprovalReviewAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddApprovalReviewAsync
+        to: StorageBroker
+        method: InsertApprovalReviewAsync
+      - from: AddApprovalReviewAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddApprovalReviewAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddApprovalReviewAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllApprovalReviewsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllApprovalReviewsAsync
+        to: StorageBroker
+        method: SelectAllApprovalReviewsAsync
+      - from: RetrieveAllApprovalReviewsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalReviewByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalReviewByIdAsync
+        to: StorageBroker
+        method: SelectApprovalReviewByIdAsync
+      - from: RetrieveApprovalReviewByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalReviewByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveApprovalReviewByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyApprovalReviewAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyApprovalReviewAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyApprovalReviewAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyApprovalReviewAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyApprovalReviewAsync
+        to: StorageBroker
+        method: SelectApprovalReviewByIdAsync
+      - from: ModifyApprovalReviewAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyApprovalReviewAsync
+        to: StorageBroker
+        method: UpdateApprovalReviewAsync
+      - from: ModifyApprovalReviewAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyApprovalReviewAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyApprovalReviewAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: StorageBroker
+        method: SelectApprovalReviewByIdAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: StorageBroker
+        method: UpdateApprovalReviewAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveApprovalReviewByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveApprovalReviewByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveApprovalReviewByIdAsync
+        to: StorageBroker
+        method: SelectApprovalReviewByIdAsync
+      - from: HardRemoveApprovalReviewByIdAsync
+        to: StorageBroker
+        method: DeleteApprovalReviewAsync
+      - from: HardRemoveApprovalReviewByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveApprovalReviewByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveApprovalReviewByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: AddApprovalReviewAsync
+        to: AccessBroker
+        method: MayRecordApprovalReviewAsync
+      - from: OnAddingApprovalReviewAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingApprovalReviewAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingApprovalReviewByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingApprovalReviewByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddApprovalReviewAsync
+        event: ApprovalReview.Added
+      - method: ModifyApprovalReviewAsync
+        event: ApprovalReview.Modified
+      - method: RemoveApprovalReviewByIdAsync
+        event: ApprovalReview.Removed
+      - method: HardRemoveApprovalReviewByIdAsync
+        event: ApprovalReview.HardRemoved
+    subscribes:
+      - event: ApprovalReview.Adding
+        handler: OnAddingApprovalReviewAsync
+      - event: ApprovalReview.Modifying
+        handler: OnModifyingApprovalReviewAsync
+      - event: ApprovalReview.RemovingById
+        handler: OnRemovingApprovalReviewByIdAsync
+      - event: ApprovalReview.HardRemovingById
+        handler: OnHardRemovingApprovalReviewByIdAsync
+      - event: ApprovalReview.RetrievingById
+        handler: OnRetrievingApprovalReviewByIdAsync
+  - id: FS.ApprovalSetting
+    name: ApprovalSettingService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for ApprovalSetting. Admin-gated settings entity — reads are storage-only with denial logging. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddApprovalSettingAsync
+      - RetrieveAllApprovalSettingsAsync
+      - RetrieveApprovalSettingByIdAsync
+      - ModifyApprovalSettingAsync
+      - RemoveApprovalSettingByIdAsync
+      - HardRemoveApprovalSettingByIdAsync
+      - OnAddingApprovalSettingAsync
+      - OnModifyingApprovalSettingAsync
+      - OnRemovingApprovalSettingByIdAsync
+      - OnHardRemovingApprovalSettingByIdAsync
+      - OnRetrievingApprovalSettingByIdAsync
+    calls:
+      - from: AddApprovalSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddApprovalSettingAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddApprovalSettingAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddApprovalSettingAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddApprovalSettingAsync
+        to: StorageBroker
+        method: InsertApprovalSettingAsync
+      - from: AddApprovalSettingAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddApprovalSettingAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddApprovalSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllApprovalSettingsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllApprovalSettingsAsync
+        to: StorageBroker
+        method: SelectAllApprovalSettingsAsync
+      - from: RetrieveApprovalSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalSettingByIdAsync
+        to: StorageBroker
+        method: SelectApprovalSettingByIdAsync
+      - from: RetrieveApprovalSettingByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveApprovalSettingByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: ModifyApprovalSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyApprovalSettingAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyApprovalSettingAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyApprovalSettingAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyApprovalSettingAsync
+        to: StorageBroker
+        method: SelectApprovalSettingByIdAsync
+      - from: ModifyApprovalSettingAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyApprovalSettingAsync
+        to: StorageBroker
+        method: UpdateApprovalSettingAsync
+      - from: ModifyApprovalSettingAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyApprovalSettingAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyApprovalSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveApprovalSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveApprovalSettingByIdAsync
+        to: StorageBroker
+        method: SelectApprovalSettingByIdAsync
+      - from: RemoveApprovalSettingByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveApprovalSettingByIdAsync
+        to: StorageBroker
+        method: UpdateApprovalSettingAsync
+      - from: RemoveApprovalSettingByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveApprovalSettingByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveApprovalSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveApprovalSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveApprovalSettingByIdAsync
+        to: StorageBroker
+        method: SelectApprovalSettingByIdAsync
+      - from: HardRemoveApprovalSettingByIdAsync
+        to: StorageBroker
+        method: DeleteApprovalSettingAsync
+      - from: HardRemoveApprovalSettingByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveApprovalSettingByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveApprovalSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingApprovalSettingAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingApprovalSettingAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingApprovalSettingByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingApprovalSettingByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddApprovalSettingAsync
+        event: ApprovalSetting.Added
+      - method: ModifyApprovalSettingAsync
+        event: ApprovalSetting.Modified
+      - method: RemoveApprovalSettingByIdAsync
+        event: ApprovalSetting.Removed
+      - method: HardRemoveApprovalSettingByIdAsync
+        event: ApprovalSetting.HardRemoved
+    subscribes:
+      - event: ApprovalSetting.Adding
+        handler: OnAddingApprovalSettingAsync
+      - event: ApprovalSetting.Modifying
+        handler: OnModifyingApprovalSettingAsync
+      - event: ApprovalSetting.RemovingById
+        handler: OnRemovingApprovalSettingByIdAsync
+      - event: ApprovalSetting.HardRemovingById
+        handler: OnHardRemovingApprovalSettingByIdAsync
+      - event: ApprovalSetting.RetrievingById
+        handler: OnRetrievingApprovalSettingByIdAsync
+  - id: FS.ContentItemSetting
+    name: ContentItemSettingService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for ContentItemSetting. Fully public reads — read paths take no security context and mint no envelope. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddContentItemSettingAsync
+      - RetrieveAllContentItemSettingsAsync
+      - RetrieveContentItemSettingByIdAsync
+      - ModifyContentItemSettingAsync
+      - RemoveContentItemSettingByIdAsync
+      - HardRemoveContentItemSettingByIdAsync
+      - OnAddingContentItemSettingAsync
+      - OnModifyingContentItemSettingAsync
+      - OnRemovingContentItemSettingByIdAsync
+      - OnHardRemovingContentItemSettingByIdAsync
+      - OnRetrievingContentItemSettingByIdAsync
+    calls:
+      - from: AddContentItemSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddContentItemSettingAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddContentItemSettingAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddContentItemSettingAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddContentItemSettingAsync
+        to: StorageBroker
+        method: InsertContentItemSettingAsync
+      - from: AddContentItemSettingAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddContentItemSettingAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddContentItemSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllContentItemSettingsAsync
+        to: StorageBroker
+        method: SelectAllContentItemSettingsAsync
+      - from: RetrieveContentItemSettingByIdAsync
+        to: StorageBroker
+        method: SelectContentItemSettingByIdAsync
+      - from: RetrieveContentItemSettingByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: ModifyContentItemSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyContentItemSettingAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: ModifyContentItemSettingAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: ModifyContentItemSettingAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ModifyContentItemSettingAsync
+        to: StorageBroker
+        method: SelectContentItemSettingByIdAsync
+      - from: ModifyContentItemSettingAsync
+        to: SecurityAuditBroker
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: ModifyContentItemSettingAsync
+        to: StorageBroker
+        method: UpdateContentItemSettingAsync
+      - from: ModifyContentItemSettingAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyContentItemSettingAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: ModifyContentItemSettingAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: StorageBroker
+        method: SelectContentItemSettingByIdAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: StorageBroker
+        method: UpdateContentItemSettingAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveContentItemSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveContentItemSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveContentItemSettingByIdAsync
+        to: StorageBroker
+        method: SelectContentItemSettingByIdAsync
+      - from: HardRemoveContentItemSettingByIdAsync
+        to: StorageBroker
+        method: DeleteContentItemSettingAsync
+      - from: HardRemoveContentItemSettingByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveContentItemSettingByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveContentItemSettingByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingContentItemSettingAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnModifyingContentItemSettingAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingContentItemSettingByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingContentItemSettingByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddContentItemSettingAsync
+        event: ContentItemSetting.Added
+      - method: ModifyContentItemSettingAsync
+        event: ContentItemSetting.Modified
+      - method: RemoveContentItemSettingByIdAsync
+        event: ContentItemSetting.Removed
+      - method: HardRemoveContentItemSettingByIdAsync
+        event: ContentItemSetting.HardRemoved
+    subscribes:
+      - event: ContentItemSetting.Adding
+        handler: OnAddingContentItemSettingAsync
+      - event: ContentItemSetting.Modifying
+        handler: OnModifyingContentItemSettingAsync
+      - event: ContentItemSetting.RemovingById
+        handler: OnRemovingContentItemSettingByIdAsync
+      - event: ContentItemSetting.HardRemovingById
+        handler: OnHardRemovingContentItemSettingByIdAsync
+      - event: ContentItemSetting.RetrievingById
+        handler: OnRetrievingContentItemSettingByIdAsync
+  - id: CIP
+    name: ContentItemProcessingService
+    layer: processing
+    col: 4
+    description: "Core's public write/read surface for content: dedupe-by-hash, immutable-version forking on modify, group-based reads. Publishes ContentItemProcessing facts (Added/Modified/Removed) exactly once per operation. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation services."
+    methods:
+      - AddContentItemAsync
+      - ModifyContentItemAsync
+      - RemoveContentItemByIdAsync
+      - RetrieveContentItemByIdAsync
+      - RetrieveAllContentItemsAsync
+      - RetrieveAllPublicContentItemsAsync
+      - RetrieveContentItemsByGroupIdAsync
+      - RetrieveLatestContentItemByGroupIdAsync
+      - RetrievePublishedContentItemByGroupIdAsync
+      - OnAddingContentItemAsync
+      - OnModifyingContentItemAsync
+      - OnRemovingContentItemByIdAsync
+      - OnRetrievingContentItemByIdAsync
+    calls:
+      - from: AddContentItemAsync
+        to: FS.ContentItem
+        method: CheckContentItemContentExistsAsync
+      - from: AddContentItemAsync
+        to: FS.ContentItem
+        method: AddContentItemAsync
+      - from: ModifyContentItemAsync
+        to: FS.ContentItem
+        method: RetrieveContentItemByIdAsync
+      - from: ModifyContentItemAsync
+        to: FS.ContentItem
+        method: CheckContentItemContentExistsAsync
+      - from: ModifyContentItemAsync
+        to: FS.ContentItem
+        method: ModifyContentItemAsync
+      - from: ModifyContentItemAsync
+        to: FS.ContentItem
+        method: AddContentItemAsync
+      - from: RemoveContentItemByIdAsync
+        to: FS.ContentItem
+        method: RetrieveContentItemByIdAsync
+      - from: RemoveContentItemByIdAsync
+        to: FS.ContentItem
+        method: RemoveContentItemByIdAsync
+      - from: RetrieveContentItemByIdAsync
+        to: FS.ContentItem
+        method: RetrieveContentItemByIdAsync
+      - from: RetrieveAllContentItemsAsync
+        to: FS.ContentItem
+        method: RetrieveAllContentItemsAsync
+      - from: RetrieveAllPublicContentItemsAsync
+        to: FS.ContentItem
+        method: RetrieveAllContentItemsAsync
+      - from: RetrieveContentItemsByGroupIdAsync
+        to: FS.ContentItem
+        method: RetrieveAllContentItemsAsync
+      - from: RetrieveLatestContentItemByGroupIdAsync
+        to: FS.ContentItem
+        method: RetrieveAllContentItemsAsync
+      - from: RetrievePublishedContentItemByGroupIdAsync
+        to: FS.ContentItem
+        method: RetrieveAllContentItemsAsync
+      - from: AddContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllContentItemsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveContentItemsByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveLatestContentItemByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrievePublishedContentItemByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: ModifyContentItemAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveContentItemByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: AddContentItemAsync
+        to: HashBroker
+        method: ComputeSha256HashAsync
+      - from: AddContentItemAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyContentItemAsync
+        to: HashBroker
+        method: ComputeSha256HashAsync
+      - from: ModifyContentItemAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyContentItemAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveContentItemByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveContentItemByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveAllContentItemsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveContentItemsByGroupIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveLatestContentItemByGroupIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrievePublishedContentItemByGroupIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveContentItemByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllContentItemsAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllPublicContentItemsAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveContentItemsByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveLatestContentItemByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrievePublishedContentItemByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveContentItemByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveContentItemByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: RetrieveLatestContentItemByGroupIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveLatestContentItemByGroupIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: RetrievePublishedContentItemByGroupIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrievePublishedContentItemByGroupIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+    publishes:
+      - method: AddContentItemAsync
+        event: ContentItemProcessing.Added
+      - method: ModifyContentItemAsync
+        event: ContentItemProcessing.Modified
+      - method: RemoveContentItemByIdAsync
+        event: ContentItemProcessing.Removed
+    subscribes:
+      - event: ContentItemProcessing.Adding
+        handler: OnAddingContentItemAsync
+      - event: ContentItemProcessing.Modifying
+        handler: OnModifyingContentItemAsync
+      - event: ContentItemProcessing.RemovingById
+        handler: OnRemovingContentItemByIdAsync
+      - event: ContentItemProcessing.RetrievingById
+        handler: OnRetrievingContentItemByIdAsync
+  - id: ESR
+    name: EventSubscriptionRegistration
+    layer: registration
+    col: 4
+    description: "Core's public event entry point for hosts: registers the Glory2Him participant + all event addresses on EventHighway, then wires all 74 subscriptions (every purple line in this graph). Not yet called by any production host in this repo — only the unit tests."
+    methods:
+      - RegisterAsync
+    calls:
+      - from: RegisterAsync
+        to: EventBroker
+        method: RegisterEventParticipantAsync
+      - from: RegisterAsync
+        to: EventBroker
+        method: RegisterEventAddressesAsync

@@ -1,0 +1,213 @@
+# G2H.StorageClient — components and flows
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+
+project: storage-client
+components:
+  - id: STC.EFCoreClient
+    name: EFCoreClient (IEFCoreClient)
+    layer: exposer
+    col: 7
+    shared: true
+    description: "Generic relational persistence client. Glory2Him.Core's StorageBroker constructs it with itself as the DbContext."
+    methods:
+      - InsertAsync
+      - SelectAllAsync
+      - SelectAsync
+      - UpdateAsync
+      - DeleteAsync
+      - BulkInsertAsync
+      - BulkReadAsync
+      - BulkUpdateAsync
+      - BulkDeleteAsync
+      - BulkUpsertAsync
+      - ExistsAsync
+    calls:
+      - from: InsertAsync
+        to: STC.OperationService
+        method: InsertAsync
+      - from: SelectAllAsync
+        to: STC.OperationService
+        method: SelectAllAsync
+      - from: SelectAsync
+        to: STC.OperationService
+        method: SelectAsync
+      - from: UpdateAsync
+        to: STC.OperationService
+        method: UpdateAsync
+      - from: DeleteAsync
+        to: STC.OperationService
+        method: DeleteAsync
+      - from: BulkInsertAsync
+        to: STC.OperationService
+        method: BulkInsertAsync
+      - from: BulkReadAsync
+        to: STC.OperationService
+        method: BulkReadAsync
+      - from: BulkUpdateAsync
+        to: STC.OperationService
+        method: BulkUpdateAsync
+      - from: BulkDeleteAsync
+        to: STC.OperationService
+        method: BulkDeleteAsync
+      - from: BulkUpsertAsync
+        to: STC.OperationService
+        method: BulkUpsertAsync
+      - from: ExistsAsync
+        to: STC.OperationService
+        method: ExistsAsync
+  - id: STC.OperationService
+    name: OperationService
+    layer: foundation
+    col: 9
+    methods:
+      - InsertAsync
+      - SelectAllAsync
+      - SelectAsync
+      - UpdateAsync
+      - DeleteAsync
+      - BulkInsertAsync
+      - BulkReadAsync
+      - BulkUpdateAsync
+      - BulkDeleteAsync
+      - BulkUpsertAsync
+      - ExistsAsync
+    calls:
+      - from: InsertAsync
+        to: STC.StorageBroker
+        method: UpdateObjectStateAsync
+      - from: InsertAsync
+        to: STC.StorageBroker
+        method: SaveChangesAsync
+      - from: SelectAllAsync
+        to: STC.StorageBroker
+        method: SelectAllAsync
+      - from: SelectAsync
+        to: STC.StorageBroker
+        method: SelectAsync
+      - from: UpdateAsync
+        to: STC.StorageBroker
+        method: UpdateObjectStateAsync
+      - from: UpdateAsync
+        to: STC.StorageBroker
+        method: SaveChangesAsync
+      - from: DeleteAsync
+        to: STC.StorageBroker
+        method: UpdateObjectStateAsync
+      - from: DeleteAsync
+        to: STC.StorageBroker
+        method: SaveChangesAsync
+      - from: BulkInsertAsync
+        to: STC.StorageBroker
+        method: BeginTransactionAsync
+      - from: BulkInsertAsync
+        to: STC.StorageBroker
+        method: BulkInsertAsync
+      - from: BulkInsertAsync
+        to: STC.StorageBroker
+        method: SaveChangesAsync
+      - from: BulkInsertAsync
+        to: STC.StorageBroker
+        method: UpdateObjectStateAsync
+      - from: BulkReadAsync
+        to: STC.StorageBroker
+        method: FindEntityTypeAsync
+      - from: BulkReadAsync
+        to: STC.StorageBroker
+        method: SelectAllAsync
+      - from: BulkUpdateAsync
+        to: STC.StorageBroker
+        method: BeginTransactionAsync
+      - from: BulkUpdateAsync
+        to: STC.StorageBroker
+        method: BulkUpdateAsync
+      - from: BulkUpdateAsync
+        to: STC.StorageBroker
+        method: SaveChangesAsync
+      - from: BulkUpdateAsync
+        to: STC.StorageBroker
+        method: UpdateObjectStateAsync
+      - from: BulkDeleteAsync
+        to: STC.StorageBroker
+        method: BeginTransactionAsync
+      - from: BulkDeleteAsync
+        to: STC.StorageBroker
+        method: BulkDeleteAsync
+      - from: BulkDeleteAsync
+        to: STC.StorageBroker
+        method: SaveChangesAsync
+      - from: BulkDeleteAsync
+        to: STC.StorageBroker
+        method: UpdateObjectStateAsync
+      - from: BulkUpsertAsync
+        to: STC.StorageBroker
+        method: FindEntityTypeAsync
+      - from: BulkUpsertAsync
+        to: STC.StorageBroker
+        method: BeginTransactionAsync
+      - from: BulkUpsertAsync
+        to: STC.StorageBroker
+        method: SelectAllAsync
+      - from: BulkUpsertAsync
+        to: STC.StorageBroker
+        method: BulkInsertAsync
+      - from: BulkUpsertAsync
+        to: STC.StorageBroker
+        method: BulkUpdateAsync
+      - from: BulkUpsertAsync
+        to: STC.StorageBroker
+        method: SaveChangesAsync
+      - from: BulkUpsertAsync
+        to: STC.StorageBroker
+        method: UpdateObjectStateAsync
+      - from: ExistsAsync
+        to: STC.StorageBroker
+        method: FindEntityTypeAsync
+      - from: ExistsAsync
+        to: STC.StorageBroker
+        method: SelectAllAsync
+  - id: STC.StorageBroker
+    name: StorageBroker (client)
+    layer: broker
+    col: 10
+    shared: true
+    description: "G2H.StorageClient's internal broker over the supplied DbContext (change tracking, transactions, bulk operations)."
+    methods:
+      - FindEntityTypeAsync
+      - SelectAllAsync
+      - SelectAsync
+      - UpdateObjectStateAsync
+      - SaveChangesAsync
+      - BeginTransactionAsync
+      - BulkInsertAsync
+      - BulkUpdateAsync
+      - BulkDeleteAsync
+    calls:
+      - from: FindEntityTypeAsync
+        to: EXT.EFCore
+        method: Model.FindEntityType
+      - from: SaveChangesAsync
+        to: EXT.EFCore
+        method: SaveChangesAsync
+      - from: BeginTransactionAsync
+        to: EXT.EFCore
+        method: Database.BeginTransactionAsync
+      - from: SelectAllAsync
+        to: EXT.EFCore
+        method: "Set<T>()"
+      - from: SelectAsync
+        to: EXT.EFCore
+        method: FindAsync
+      - from: UpdateObjectStateAsync
+        to: EXT.EFCore
+        method: Entry(object).State
+      - from: BulkInsertAsync
+        to: EXT.EFCore
+        method: AddRangeAsync
+      - from: BulkUpdateAsync
+        to: EXT.EFCore
+        method: UpdateRange
+      - from: BulkDeleteAsync
+        to: EXT.EFCore
+        method: RemoveRange

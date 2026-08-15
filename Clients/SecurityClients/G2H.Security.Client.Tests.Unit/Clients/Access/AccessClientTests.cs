@@ -75,7 +75,7 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 EntityType = GetRandomString(),
                 ContentType = null,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<CommentRecord>(),
+                ApprovalComments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
             };
 
@@ -102,7 +102,7 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 EntityCreatedBy = GetRandomString(),
                 ApprovalState = ApprovalState.Submitted,
                 Reviews = new List<ReviewRecord>(),
-                Comments = new List<CommentRecord>(),
+                ApprovalComments = new List<ApprovalCommentRecord>(),
                 ConfidenceScore = null,
                 IsBypassRequested = false,
                 BypassReason = null,
@@ -117,6 +117,32 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 ApprovalCount = GetRandomNumber(),
                 RequiredNumberOfApprovals = GetRandomNumber(),
                 Explanation = GetRandomString(),
+            };
+
+        private static RecordApprovalCommentRequest CreateRandomRecordApprovalCommentRequest() =>
+            new RecordApprovalCommentRequest
+            {
+                Actor = CreateRandomAccessActor(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
+        private static AmendApprovalCommentRequest CreateRandomAmendApprovalCommentRequest() =>
+            new AmendApprovalCommentRequest
+            {
+                Actor = CreateRandomAccessActor(),
+                CommentCreatedBy = GetRandomString(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
+            };
+
+        private static ResolveApprovalCommentRequest CreateRandomResolveApprovalCommentRequest() =>
+            new ResolveApprovalCommentRequest
+            {
+                Actor = CreateRandomAccessActor(),
+                CommentCreatedBy = GetRandomString(),
+                ApprovalState = ApprovalState.Submitted,
+                IsParentApprovalDeleted = false,
             };
 
         private static AccessVerdict CreateRandomAccessVerdict() =>

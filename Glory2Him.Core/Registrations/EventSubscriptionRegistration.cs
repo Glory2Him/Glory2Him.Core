@@ -15,7 +15,7 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Events.Orchestrations;
+using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Approvals;
@@ -28,7 +28,7 @@ using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
-using Glory2Him.Core.Services.Orchestrations.ContentItems;
+using Glory2Him.Core.Services.Processings.ContentItems;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -75,7 +75,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IApprovalSettingService approvalSettingService;
         private readonly IAssociationService associationService;
         private readonly IContentItemSettingService contentItemSettingService;
-        private readonly IContentItemOrchestrationService contentItemOrchestrationService;
+        private readonly IContentItemProcessingService contentItemProcessingService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -91,7 +91,7 @@ namespace Glory2Him.Core.Registrations
             IApprovalSettingService approvalSettingService,
             IAssociationService associationService,
             IContentItemSettingService contentItemSettingService,
-            IContentItemOrchestrationService contentItemOrchestrationService)
+            IContentItemProcessingService contentItemProcessingService)
         {
             this.eventBroker = eventBroker;
             this.contentItemService = contentItemService;
@@ -106,7 +106,7 @@ namespace Glory2Him.Core.Registrations
             this.approvalSettingService = approvalSettingService;
             this.associationService = associationService;
             this.contentItemSettingService = contentItemSettingService;
-            this.contentItemOrchestrationService = contentItemOrchestrationService;
+            this.contentItemProcessingService = contentItemProcessingService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -225,27 +225,27 @@ namespace Glory2Him.Core.Registrations
                 contentItemEventHandler: this.contentItemService.OnApprovingContentItemAsync,
                 cancellationToken: cancellationToken);
 
-            // ── ContentItem orchestration request handlers ───────────────────────
-            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
+            // ── ContentItem processing request handlers ───────────────────────
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
                 subscription: new EventSubscription
                 {
-                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnAddingContentItemSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnAddingContentItemSubscriptionName,
+                    Id = EventBrokerIdentifiers.ContentItemProcessingOnAddingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemProcessingOnAddingContentItemSubscriptionName,
 
                     Description = "Handles add requests: runs the contribution gate and the " +
                         "duplicate-content rule, adds the content item via the foundation " +
                         "service (which publishes ContentItem-Added), and replies with the " +
                         "created entity; duplicate adds fail as already existing."
                 },
-                operation: ContentItemOrchestrationEventOperation.Adding,
-                contentItemOrchestrationEventHandler: this.contentItemOrchestrationService.OnAddingContentItemAsync,
+                operation: ContentItemProcessingEventOperation.Adding,
+                contentItemProcessingEventHandler: this.contentItemProcessingService.OnAddingContentItemAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
                 subscription: new EventSubscription
                 {
-                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnModifyingContentItemSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnModifyingContentItemSubscriptionName,
+                    Id = EventBrokerIdentifiers.ContentItemProcessingOnModifyingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemProcessingOnModifyingContentItemSubscriptionName,
 
                     Description = "Handles modify requests: runs the contribution gate, the " +
                         "ownership/role permission rules and the duplicate-content rule, then " +
@@ -253,40 +253,40 @@ namespace Glory2Him.Core.Registrations
                         "or forks a new version for an owner modify of an approved item (which " +
                         "publishes ContentItem-Added), and replies with the resulting entity."
                 },
-                operation: ContentItemOrchestrationEventOperation.Modifying,
-                contentItemOrchestrationEventHandler: this.contentItemOrchestrationService.OnModifyingContentItemAsync,
+                operation: ContentItemProcessingEventOperation.Modifying,
+                contentItemProcessingEventHandler: this.contentItemProcessingService.OnModifyingContentItemAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
                 subscription: new EventSubscription
                 {
-                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnRemovingContentItemByIdSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnRemovingContentItemByIdSubscriptionName,
+                    Id = EventBrokerIdentifiers.ContentItemProcessingOnRemovingContentItemByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemProcessingOnRemovingContentItemByIdSubscriptionName,
 
                     Description = "Handles remove requests: runs the contribution gate and the " +
                         "owner/Admin permission rule, then soft deletes the content item via " +
                         "the foundation service (which publishes ContentItem-Removed), and " +
                         "replies with the removed entity; ApprovalStatus is left untouched."
                 },
-                operation: ContentItemOrchestrationEventOperation.RemovingById,
-                contentItemOrchestrationEventHandler: this.contentItemOrchestrationService.OnRemovingContentItemByIdAsync,
+                operation: ContentItemProcessingEventOperation.RemovingById,
+                contentItemProcessingEventHandler: this.contentItemProcessingService.OnRemovingContentItemByIdAsync,
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToContentItemOrchestrationEventAsync(
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
                 subscription: new EventSubscription
                 {
-                    Id = EventBrokerIdentifiers.ContentItemOrchestrationOnRetrievingContentItemByIdSubscriptionId,
-                    Name = EventBrokerIdentifiers.ContentItemOrchestrationOnRetrievingContentItemByIdSubscriptionName,
+                    Id = EventBrokerIdentifiers.ContentItemProcessingOnRetrievingContentItemByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemProcessingOnRetrievingContentItemByIdSubscriptionName,
 
                     Description = "Handles retrieve requests: applies the canonical content " +
                         "visibility rules — public versions reply for any caller, non-public " +
                         "versions only for the owner or a review role — and replies with the " +
                         "retrieved entity on the delivery; no completion fact is published."
                 },
-                operation: ContentItemOrchestrationEventOperation.RetrievingById,
+                operation: ContentItemProcessingEventOperation.RetrievingById,
 
-                contentItemOrchestrationEventHandler:
-                    this.contentItemOrchestrationService.OnRetrievingContentItemByIdAsync,
+                contentItemProcessingEventHandler:
+                    this.contentItemProcessingService.OnRetrievingContentItemByIdAsync,
 
                 cancellationToken: cancellationToken);
 
@@ -906,6 +906,22 @@ namespace Glory2Him.Core.Registrations
                 approvalCommentEventHandler:
                     this.approvalCommentService.OnRetrievingApprovalCommentByIdAsync,
 
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnResolvingApprovalCommentSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalCommentOnResolvingApprovalCommentSubscriptionName,
+
+                    Description = "Handles resolve requests: records whether a comment is " +
+                        "settled or still outstanding, publishes ApprovalComment-Resolved, " +
+                        "and replies with the updated entity."
+                },
+                operation: ApprovalCommentEventOperation.Resolving,
+                approvalCommentEventHandler: this.approvalCommentService.OnResolvingApprovalCommentAsync,
                 cancellationToken: cancellationToken);
 
             // ── ApprovalReview request handlers ──────────────────────────────────

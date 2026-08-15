@@ -22,7 +22,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// <summary>
     /// The event path of the service: request handlers the event substrate dispatches to,
     /// one per request address (<c>ApprovalComment-Adding</c>, <c>-Modifying</c>,
-    /// <c>-RemovingById</c>, <c>-HardRemovingById</c>, <c>-RetrievingById</c>). Handlers
+    /// <c>-RemovingById</c>, <c>-HardRemovingById</c>, <c>-RetrievingById</c>,
+    /// <c>-Resolving</c>). Handlers
     /// receive the full request envelope — including the original caller's
     /// <c>SecurityContext</c> — converge on the same private <c>DoXAsync</c> methods the
     /// non-event path uses (which publish the past-tense facts and record both the inbound
@@ -165,6 +166,38 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: retrievedApprovalComment);
+            });
+
+        public ValueTask<EventEnvelope<ApprovalComment>?> OnResolvingApprovalCommentAsync(
+            EventEnvelope<ApprovalComment> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateApprovalCommentEventEnvelopeAsync(
+                    envelope, ApprovalCommentEventOperation.Resolving);
+
+                bool alreadyProcessed = await AlreadyProcessedAsync(
+                    envelope: envelope,
+                    receiverName: EventBrokerIdentifiers
+                        .ApprovalCommentOnResolvingApprovalCommentSubscriptionName,
+                    cancellationToken: cancellationToken);
+
+                if (alreadyProcessed)
+                    return null;
+
+                // Resolve owns only IsResolved, so the id and that flag are the whole request;
+                // the envelope's other fields are the caller's copy and never trusted by the
+                // do-work.
+                ApprovalComment resolvedApprovalComment = await DoResolveApprovalCommentAsync(
+                    approvalCommentId: envelope.Content.Id,
+                    isResolved: envelope.Content.IsResolved,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: resolvedApprovalComment);
             });
 
         private async ValueTask<bool> AlreadyProcessedAsync(

@@ -1,0 +1,173 @@
+# G2H.Security.Client — components and flows
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+
+project: security-client
+components:
+  - id: SC.UserClient
+    name: UserClient (ISecurityClient.Users)
+    layer: exposer
+    col: 7
+    shared: true
+    description: "Public user/claims surface of G2H.Security.Client. Shown once — every consumer links to this copy."
+    methods:
+      - GetUserAsync
+      - GetUserIdAsync
+      - IsUserAuthenticatedAsync
+      - IsUserInRoleAsync
+      - UserHasClaimAsync
+      - GetUserClaimValueAsync
+      - GetUserClaimValuesAsync
+    calls:
+      - from: GetUserAsync
+        to: SC.UserService
+        method: GetUserAsync
+      - from: GetUserIdAsync
+        to: SC.UserService
+        method: GetUserIdAsync
+      - from: IsUserAuthenticatedAsync
+        to: SC.UserService
+        method: IsUserAuthenticatedAsync
+      - from: IsUserInRoleAsync
+        to: SC.UserService
+        method: IsUserInRoleAsync
+      - from: UserHasClaimAsync
+        to: SC.UserService
+        method: UserHasClaimAsync
+      - from: GetUserClaimValueAsync
+        to: SC.UserService
+        method: GetUserClaimValueAsync
+      - from: GetUserClaimValuesAsync
+        to: SC.UserService
+        method: GetUserClaimValuesAsync
+  - id: SC.AccessClient
+    name: AccessClient (ISecurityClient.Access)
+    layer: exposer
+    col: 7
+    shared: true
+    description: "The approval-policy decision function: a pure verdict over the state its caller gathers — it reads nothing itself. Core's AccessBroker does the gathering."
+    methods:
+      - EvaluateApprovalConditionsAsync
+      - MayRecordApprovalReviewAsync
+      - MayDecideApprovalAsync
+    calls:
+      - from: EvaluateApprovalConditionsAsync
+        to: SC.AccessService
+        method: EvaluateApprovalConditionsAsync
+      - from: MayRecordApprovalReviewAsync
+        to: SC.AccessService
+        method: MayRecordApprovalReviewAsync
+      - from: MayDecideApprovalAsync
+        to: SC.AccessService
+        method: MayDecideApprovalAsync
+  - id: SC.AccessService
+    name: AccessService
+    layer: foundation
+    col: 9
+    methods:
+      - EvaluateApprovalConditionsAsync
+      - MayRecordApprovalReviewAsync
+      - MayDecideApprovalAsync
+  - id: SC.AuditClient
+    name: AuditClient (ISecurityClient.Audits)
+    layer: exposer
+    col: 7
+    shared: true
+    description: Public audit-stamping surface of G2H.Security.Client.
+    methods:
+      - ApplyAddAuditValuesAsync
+      - ApplyModifyAuditValuesAsync
+      - ApplyRemoveAuditValuesAsync
+      - EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - EnsureOtherAuditValuesRemainsUnchangedOnRemoveAsync
+      - GetUserIdAsync
+    calls:
+      - from: ApplyAddAuditValuesAsync
+        to: SC.AuditOrchestration
+        method: ApplyAddAuditValuesAsync
+      - from: ApplyModifyAuditValuesAsync
+        to: SC.AuditOrchestration
+        method: ApplyModifyAuditValuesAsync
+      - from: ApplyRemoveAuditValuesAsync
+        to: SC.AuditOrchestration
+        method: ApplyRemoveAuditValuesAsync
+      - from: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+        to: SC.AuditOrchestration
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: GetUserIdAsync
+        to: SC.AuditOrchestration
+        method: GetCurrentUserIdAsync
+  - id: SC.AuditOrchestration
+    name: AuditOrchestrationService
+    layer: orchestration
+    col: 8
+    methods:
+      - ApplyAddAuditValuesAsync
+      - ApplyModifyAuditValuesAsync
+      - ApplyRemoveAuditValuesAsync
+      - EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - GetCurrentUserIdAsync
+    calls:
+      - from: ApplyAddAuditValuesAsync
+        to: SC.UserService
+        method: GetUserIdAsync
+      - from: ApplyAddAuditValuesAsync
+        to: SC.AuditService
+        method: ApplyAddAuditValuesAsync
+      - from: ApplyModifyAuditValuesAsync
+        to: SC.UserService
+        method: GetUserIdAsync
+      - from: ApplyModifyAuditValuesAsync
+        to: SC.AuditService
+        method: ApplyModifyAuditValuesAsync
+      - from: ApplyRemoveAuditValuesAsync
+        to: SC.UserService
+        method: GetUserIdAsync
+      - from: ApplyRemoveAuditValuesAsync
+        to: SC.AuditService
+        method: ApplyRemoveAuditValuesAsync
+      - from: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+        to: SC.AuditService
+        method: EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+      - from: GetCurrentUserIdAsync
+        to: SC.UserService
+        method: GetUserIdAsync
+  - id: SC.UserService
+    name: UserService
+    layer: foundation
+    col: 9
+    methods:
+      - GetUserAsync
+      - GetUserIdAsync
+      - IsUserAuthenticatedAsync
+      - IsUserInRoleAsync
+      - UserHasClaimAsync
+      - GetUserClaimValueAsync
+      - GetUserClaimValuesAsync
+  - id: SC.AuditService
+    name: AuditService
+    layer: foundation
+    col: 9
+    methods:
+      - ApplyAddAuditValuesAsync
+      - ApplyModifyAuditValuesAsync
+      - ApplyRemoveAuditValuesAsync
+      - EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync
+    calls:
+      - from: ApplyAddAuditValuesAsync
+        to: SC.DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ApplyModifyAuditValuesAsync
+        to: SC.DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: ApplyRemoveAuditValuesAsync
+        to: SC.DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+  - id: SC.DateTimeBroker
+    name: DateTimeBroker
+    layer: broker
+    col: 10
+    utility: true
+    methods:
+      - GetCurrentDateTimeOffsetAsync

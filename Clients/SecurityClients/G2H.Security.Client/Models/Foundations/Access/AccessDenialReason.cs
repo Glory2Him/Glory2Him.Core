@@ -97,10 +97,38 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <summary>An active rejection blocks the approval under the policy (§8.7).</summary>
         BlockedByRejection = 14,
 
-        /// <summary>An unresolved approval comment is outstanding (§8.5 rule 7).</summary>
-        BlockedByUnresolvedComment = 15,
+        /// <summary>
+        /// An approval comment is still outstanding — it asks for something that has not been
+        /// settled (§8.5 rule 7). Informational comments are created settled and never count.
+        /// </summary>
+        BlockedByUnresolvedApprovalComment = 15,
 
         /// <summary>The entity's confidence score is exactly zero (§8.5 rule 8).</summary>
         BlockedByZeroConfidenceScore = 16,
+
+        /// <summary>
+        /// The parent approval has closed, so its comment thread is closed with it. Separate from
+        /// <see cref="ApprovalNotOpenForReview"/> because the two windows are asked about by
+        /// different operations and a shared reason would report a review problem for a comment.
+        /// </summary>
+        ApprovalNotOpenForComment = 17,
+
+        /// <summary>
+        /// The parent approval cannot be acted against: either it is soft-deleted, or the
+        /// gatherer could not find it at all.
+        ///
+        /// <para>Soft deletion is the half of "existing, non-deleted parent" that a foreign key
+        /// cannot express — the key still resolves, because deletion is a flag rather than a row
+        /// removal (§10.4). The missing case is reported through the same reason deliberately: a
+        /// caller learns only that the parent is unusable, never which of the two it was.</para>
+        /// </summary>
+        ParentApprovalUnavailable = 18,
+
+        /// <summary>
+        /// The actor did not write the comment. Comments are owned by whoever submitted them: no
+        /// role amends another person's words. An <c>Admin</c> who needs past an outstanding one
+        /// settles it through the resolve operation, or bypasses the block — never by editing it.
+        /// </summary>
+        NotApprovalCommentAuthor = 19,
     }
 }

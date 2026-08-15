@@ -199,6 +199,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired(false);
 
             model.Property(association => association.DeletionReason)
+                 .HasMaxLength(500)
                  .IsRequired(false);
 
             model.Property(association => association.PublishDate)

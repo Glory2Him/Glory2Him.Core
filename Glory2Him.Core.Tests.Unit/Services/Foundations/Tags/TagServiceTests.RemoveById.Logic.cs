@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     .ReturnsAsync(storageTag.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>()))
+                broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>(), someDeletionReason))
                     .ReturnsAsync(auditedTag);
 
             this.storageBrokerMock.Setup(broker =>
@@ -178,7 +178,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>()),
+                broker.ApplyRemoveAuditValuesAsync(storageTag, It.IsAny<SecurityContext>(), someDeletionReason),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

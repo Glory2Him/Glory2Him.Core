@@ -83,7 +83,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 Name = invalidText,
                 Url = invalidText,
                 LinkType = invalidText,
-                ContentItemGroupId = Guid.Empty,
+                GroupId = Guid.Empty,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -111,7 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 values: "Text is required");
 
             invalidLinkException.AddData(
-                key: nameof(Link.ContentItemGroupId),
+                key: nameof(Link.GroupId),
                 values: "Id is required");
 
             invalidLinkException.AddData(

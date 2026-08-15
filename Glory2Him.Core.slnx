@@ -33,7 +33,10 @@
     <File Path="Documentation/Prompt-CreateFoundationService.md" />
   </Folder>
   <Folder Name="/Websites/">
-    <Project Path="Websites/Glory2Him.WebApp.React/Glory2Him.WebApp.React.esproj" />
+    <Project Path="Websites/Glory2Him.WebApp.React/Glory2Him.WebApp.React.esproj">
+      <Build />
+      <Deploy />
+    </Project>
     <Project Path="Websites/Glory2Him.WebApp.Tests.Acceptance/Glory2Him.WebApp.Tests.Acceptance.csproj" />
     <Project Path="Websites/Glory2Him.WebApp.Tests.Unit/Glory2Him.WebApp.Tests.Unit.csproj" />
     <Project Path="Websites/Glory2Him.WebApp/Glory2Him.WebApp.csproj" />

@@ -22,19 +22,14 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalReviews
     public class ApprovalReview : IKey, IAudit
     {
         /// <summary>
-        /// Primary key identifier for the approval comment.
+        /// Primary key identifier for the approval review.
         /// </summary>
         public Guid Id { get; set; }
 
         /// <summary>
-        /// Identifier of the approval record this comment belongs to.
+        /// Identifier of the approval record this review belongs to.
         /// </summary>
         public Guid ApprovalId { get; set; }
-
-        /// <summary>
-        /// Identifier of the user who made the review.
-        /// </summary>
-        public string ReviewerId { get; set; } = string.Empty;
 
         /// <summary>
         /// The status associated with this approval review.
@@ -42,7 +37,13 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalReviews
         public ApprovalStatus StatusId { get; set; }
 
         /// <summary>
-        /// Text content of the comment.
+        /// Optional free text explaining why this reviewer reached this <see cref="StatusId"/>.
+        ///
+        /// <para>It is rationale attached to a verdict and is <b>never resolvable</b> — nothing
+        /// waits on it and no setting reads it. A reviewer who wants reasoning that other
+        /// reviewers can see and act on writes an <c>ApprovalComment</c> instead; that entity
+        /// carries <c>IsResolved</c> and can be either outstanding or purely informational
+        /// (§7.8).</para>
         /// </summary>
         public string Comment { get; set; } = string.Empty;
 

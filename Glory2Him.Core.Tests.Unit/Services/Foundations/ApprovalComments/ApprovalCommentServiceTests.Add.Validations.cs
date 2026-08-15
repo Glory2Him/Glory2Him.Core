@@ -78,7 +78,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             {
                 Id = Guid.Empty,
                 ApprovalId = Guid.Empty,
-                UserId = invalidText,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -96,10 +95,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             invalidApprovalCommentException.AddData(
                 key: nameof(ApprovalComment.ApprovalId),
                 values: "Id is required");
-
-            invalidApprovalCommentException.AddData(
-                key: nameof(ApprovalComment.UserId),
-                values: "Text is required");
 
             invalidApprovalCommentException.AddData(
                 key: nameof(ApprovalComment.CreatedBy),

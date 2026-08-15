@@ -115,7 +115,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         public ValueTask<bool> CheckContentItemContentExistsAsync(
             ContentType contentType,
             string contentHash,
-            Guid? excludedContentItemGroupId = null,
+            Guid? excludedGroupId = null,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
@@ -143,8 +143,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     contentItem.ContentType == contentType
                         && contentItem.ContentHash == contentHash
                         && contentItem.IsDeleted == false
-                        && (excludedContentItemGroupId == null
-                            || contentItem.ContentItemGroupId != excludedContentItemGroupId));
+                        && (excludedGroupId == null
+                            || contentItem.GroupId != excludedGroupId));
             });
 
         public ValueTask<ContentItem> RetrieveContentItemByIdAsync(
@@ -450,7 +450,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnRemoveContentItemById(contentItemId);
+            ValidateOnRemoveContentItemById(contentItemId, deletionReason);
 
             ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
                 contentItemId: contentItemId,
@@ -469,10 +469,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             maybeContentItem = await this.securityAuditBroker.ApplyRemoveAuditValuesAsync(
                 entity: maybeContentItem,
-                securityContext: inboundEnvelope.SecurityContext);
+                securityContext: inboundEnvelope.SecurityContext,
+                deletionReason: deletionReason);
 
             maybeContentItem.IsDeleted = true;
-            maybeContentItem.DeletionReason = deletionReason;
 
             ContentItem deletedContentItem = await this.storageBroker.UpdateContentItemAsync(
                 contentItem: maybeContentItem,

@@ -80,7 +80,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             {
                 Id = Guid.Empty,
                 ApprovalId = Guid.Empty,
-                UserId = invalidText,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -98,10 +97,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             invalidApprovalCommentException.AddData(
                 key: nameof(ApprovalComment.ApprovalId),
                 values: "Id is required");
-
-            invalidApprovalCommentException.AddData(
-                key: nameof(ApprovalComment.UserId),
-                values: "Text is required");
 
             invalidApprovalCommentException.AddData(
                 key: nameof(ApprovalComment.CreatedBy),
@@ -364,9 +359,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
-            // given: the storage row belongs to someone else, so only a review-role
-            // caller reaches the audit-comparison rule under test
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            // given: the caller owns the stored row but sends a different CreatedBy in the
+            // payload. With the gate now owner-only this is the only route to the pin, and it is
+            // the leg that matters — storage, payload and actor must all agree.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalComment randomApprovalComment =
@@ -374,7 +370,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 
             ApprovalComment invalidApprovalComment = randomApprovalComment;
             ApprovalComment storageApprovalComment = randomApprovalComment.DeepClone();
-            storageApprovalComment.CreatedBy = GetRandomString();
+            invalidApprovalComment.CreatedBy = GetRandomString();
             storageApprovalComment.UpdatedWhen = storageApprovalComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
             var invalidApprovalCommentException =
@@ -1053,11 +1049,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 
         [Theory]
         [MemberData(nameof(ReviewRoles))]
-        public async Task ShouldModifySomeoneElsesApprovalCommentWhenUserHasReviewRoleAsync(
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerWhateverTheRoleAndLogItAsync(
             string reviewRole)
         {
-            // given: a reviewer resolving a submitter's comment writes a row they do
-            // not own — the gate lets it through and the audit rules still apply
+            // given: no role widens the amend gate. This used to assert the opposite — that a
+            // review role could write a row it did not own, reaching the CreatedBy pin instead of
+            // the ownership refusal — and that model is withdrawn (§14.7 rule 5).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
@@ -1070,16 +1067,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             storageApprovalComment.CreatedBy = GetRandomString();
             storageApprovalComment.UpdatedWhen = storageApprovalComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
-            var invalidApprovalCommentException = new InvalidApprovalCommentException(
-                message: "Approval comment is invalid, fix the errors and try again.");
-
-            invalidApprovalCommentException.AddData(
-                key: nameof(ApprovalComment.CreatedBy),
-                values: $"Text is not the same as {nameof(ApprovalComment.CreatedBy)}");
+            var unauthorizedApprovalCommentException = new UnauthorizedApprovalCommentException(
+                message: "The current user is not allowed to modify this approval comment.");
 
             var expectedApprovalCommentValidationException = new ApprovalCommentValidationException(
                 message: "Approval comment validation error occurred, fix the errors and try again.",
-                innerException: invalidApprovalCommentException);
+                innerException: unauthorizedApprovalCommentException);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(inputApprovalComment, It.IsAny<SecurityContext>()))
@@ -1099,12 +1092,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     TestContext.Current.CancellationToken))
                         .ReturnsAsync(storageApprovalComment);
 
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
-                    inputApprovalComment,
-                    storageApprovalComment))
-                        .ReturnsAsync(inputApprovalComment);
-
             // when
             ValueTask<ApprovalComment> modifyApprovalCommentTask =
                 this.approvalCommentService.ModifyApprovalCommentAsync(
@@ -1115,15 +1102,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 await Assert.ThrowsAsync<ApprovalCommentValidationException>(
                     modifyApprovalCommentTask.AsTask);
 
-            // then: the write got past the permission gate and failed on the audit rule
+            // then
             actualApprovalCommentValidationException.Should().BeEquivalentTo(
                 expectedApprovalCommentValidationException);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
-                    inputApprovalComment,
-                    storageApprovalComment),
-                Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyModifyAuditValuesAsync(inputApprovalComment, It.IsAny<SecurityContext>()),
@@ -1142,6 +1123,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     inputApprovalComment.Id,
                     TestContext.Current.CancellationToken),
                 Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalCommentAsync(
+                    It.IsAny<ApprovalComment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

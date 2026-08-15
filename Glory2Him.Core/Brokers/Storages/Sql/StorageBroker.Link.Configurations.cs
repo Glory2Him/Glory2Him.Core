@@ -65,9 +65,10 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired(false);
 
             model.Property(link => link.DeletionReason)
+                 .HasMaxLength(500)
                  .IsRequired(false);
 
-            model.Property(link => link.ContentItemGroupId)
+            model.Property(link => link.GroupId)
                  .IsRequired();
 
             model.Property(link => link.Version)
@@ -98,21 +99,21 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired(false);
 
             // Unique version per group
-            model.HasIndex(link => new { link.ContentItemGroupId, link.Version })
+            model.HasIndex(link => new { link.GroupId, link.Version })
                  .IsUnique()
-                 .HasDatabaseName("UX_Links_ContentItemGroupId_Version");
+                 .HasDatabaseName("UX_Links_GroupId_Version");
 
             // Exactly one latest version per group
-            model.HasIndex(link => new { link.ContentItemGroupId, link.IsLatestVersion })
+            model.HasIndex(link => new { link.GroupId, link.IsLatestVersion })
                  .IsUnique()
                  .HasFilter($"[{nameof(Link.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("UX_Links_ContentItemGroupId_G2Hatest");
+                 .HasDatabaseName("UX_Links_GroupId_IsLatestVersion");
 
             // Exactly one published version per group
-            model.HasIndex(link => new { link.ContentItemGroupId, link.IsPublished })
+            model.HasIndex(link => new { link.GroupId, link.IsPublished })
                  .IsUnique()
                  .HasFilter($"[{nameof(Link.IsPublished)}] = 1")
-                 .HasDatabaseName("UX_Links_ContentItemGroupId_IsPublished");
+                 .HasDatabaseName("UX_Links_GroupId_IsPublished");
         }
     }
 }

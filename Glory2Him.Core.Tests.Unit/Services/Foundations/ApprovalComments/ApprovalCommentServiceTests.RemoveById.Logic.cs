@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     .ReturnsAsync(storageApprovalComment.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageApprovalComment, It.IsAny<SecurityContext>()))
+                broker.ApplyRemoveAuditValuesAsync(storageApprovalComment, It.IsAny<SecurityContext>(), someDeletionReason))
                     .ReturnsAsync(auditedApprovalComment);
 
             this.storageBrokerMock.Setup(broker =>
@@ -178,7 +178,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageApprovalComment, It.IsAny<SecurityContext>()),
+                broker.ApplyRemoveAuditValuesAsync(storageApprovalComment, It.IsAny<SecurityContext>(), someDeletionReason),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -247,99 +247,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
-
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
-        public async Task ShouldRemoveSomeoneElsesApprovalCommentByIdWhenUserIsAdminAsync()
-        {
-            // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
-            string randomActorUserId = GetRandomString();
-            ApprovalComment randomApprovalComment = CreateRandomApprovalComment();
-            randomApprovalComment.IsDeleted = false;
-            ApprovalComment storageApprovalComment = randomApprovalComment;
-
-            ApprovalComment auditedApprovalComment = storageApprovalComment.DeepClone();
-            auditedApprovalComment.IsDeleted = true;
-
-            ApprovalComment expectedApprovalComment = auditedApprovalComment.DeepClone();
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectApprovalCommentByIdAsync(
-                    randomApprovalComment.Id,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(storageApprovalComment);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(randomActorUserId);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageApprovalComment, It.IsAny<SecurityContext>()))
-                    .ReturnsAsync(auditedApprovalComment);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.UpdateApprovalCommentAsync(auditedApprovalComment, It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(expectedApprovalComment);
-
-            this.eventBrokerMock.Setup(broker =>
-                broker.PublishApprovalCommentAsync(
-                    It.IsAny<EventEnvelope<ApprovalComment>>(),
-                    ApprovalCommentEventOperation.Removed))
-                    .Returns(new ValueTask<EventPublishResult<ApprovalComment>>(
-                        new EventPublishResult<ApprovalComment>()));
-
-            // when
-            ApprovalComment actualApprovalComment =
-                await this.approvalCommentService.RemoveApprovalCommentByIdAsync(
-                    randomApprovalComment.Id,
-                    deletionReason: null,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualApprovalComment.Should().BeEquivalentTo(expectedApprovalComment);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.SelectApprovalCommentByIdAsync(
-                    randomApprovalComment.Id,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                broker.ApplyRemoveAuditValuesAsync(storageApprovalComment, It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.UpdateApprovalCommentAsync(auditedApprovalComment, It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.eventBrokerMock.Verify(broker =>
-                broker.PublishApprovalCommentAsync(
-                    It.IsAny<EventEnvelope<ApprovalComment>>(),
-                    ApprovalCommentEventOperation.Removed),
-                Times.Once);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.InsertProcessedEventAsync(
-                    It.Is<ProcessedEvent>(processedEvent =>
-                        processedEvent.ReceiverName ==
-                            EventBrokerIdentifiers.ApprovalCommentOnRemovingApprovalCommentByIdSubscriptionName),
-                    It.IsAny<CancellationToken>()),
-                Times.Exactly(2));
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                    broker.GetCurrentDateTimeOffsetAsync(),
-                Times.Exactly(2));
 
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

@@ -1,0 +1,115 @@
+# G2H.EventEnvelope.Client — components and flows
+# Part of the solution dependency graph — see README.md in this folder.
+# Data only: index.html fetches graph.yml, then each project file, and
+# assembles them. Strings with special characters are double-quoted JSON.
+
+project: ee-client
+components:
+  - id: EEC.Client
+    name: EventEnvelopeClient
+    layer: exposer
+    col: 7
+    shared: true
+    description: "Creates sealed, integrity-hashed event envelopes (identity, security context, causation chain). Validation and sealing happen inside Create/CreateNext."
+    methods:
+      - CreateAsync
+      - CreateNextAsync
+    calls:
+      - from: CreateAsync
+        to: EEC.Service
+        method: CreateAsync
+      - from: CreateNextAsync
+        to: EEC.Service
+        method: CreateNextAsync
+  - id: EEC.Service
+    name: EventEnvelopeService
+    layer: foundation
+    col: 9
+    methods:
+      - CreateAsync
+      - CreateNextAsync
+    calls:
+      - from: CreateAsync
+        to: EEC.SecurityBroker
+        method: GetCurrentSecurityContextAsync
+      - from: CreateAsync
+        to: EEC.IdentifierBroker
+        method: GetIdentifierAsync
+      - from: CreateAsync
+        to: EEC.DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: CreateNextAsync
+        to: EEC.IdentifierBroker
+        method: GetIdentifierAsync
+  - id: EEC.SecurityBroker
+    name: SecurityBroker
+    layer: broker
+    col: 10
+    description: "The envelope client's own security broker — wraps G2H.Security.Client's UserClient. CreateAsync uses it to resolve the security context stamped into each envelope."
+    methods:
+      - GetCurrentSecurityContextAsync
+      - GetUserAsync
+      - IsUserAuthenticatedAsync
+      - IsUserInRoleAsync
+      - UserHasClaimAsync
+    calls:
+      - from: GetCurrentSecurityContextAsync
+        to: SC.UserClient
+        method: GetUserAsync
+      - from: GetUserAsync
+        to: SC.UserClient
+        method: GetUserAsync
+      - from: IsUserAuthenticatedAsync
+        to: SC.UserClient
+        method: IsUserAuthenticatedAsync
+      - from: IsUserInRoleAsync
+        to: SC.UserClient
+        method: IsUserInRoleAsync
+      - from: UserHasClaimAsync
+        to: SC.UserClient
+        method: UserHasClaimAsync
+  - id: EEC.SecurityAuditBroker
+    name: SecurityAuditBroker
+    layer: broker
+    col: 10
+    description: "Wraps G2H.Security.Client's AuditClient. Registered in the envelope client's DI but not yet called by EventEnvelopeService."
+    methods:
+      - ApplyAddAuditValuesAsync
+      - ApplyModifyAuditValuesAsync
+      - ApplyRemoveAuditValuesAsync
+      - GetUserIdAsync
+    calls:
+      - from: ApplyAddAuditValuesAsync
+        to: SC.AuditClient
+        method: ApplyAddAuditValuesAsync
+      - from: ApplyModifyAuditValuesAsync
+        to: SC.AuditClient
+        method: ApplyModifyAuditValuesAsync
+      - from: ApplyRemoveAuditValuesAsync
+        to: SC.AuditClient
+        method: ApplyRemoveAuditValuesAsync
+      - from: GetUserIdAsync
+        to: SC.AuditClient
+        method: GetUserIdAsync
+  - id: EEC.DateTimeBroker
+    name: DateTimeBroker
+    layer: broker
+    col: 10
+    utility: true
+    methods:
+      - GetCurrentDateTimeOffsetAsync
+  - id: EEC.IdentifierBroker
+    name: IdentifierBroker
+    layer: broker
+    col: 10
+    utility: true
+    methods:
+      - GetIdentifierAsync
+  - id: EEC.LoggingBroker
+    name: LoggingBroker
+    layer: broker
+    col: 10
+    utility: true
+    methods:
+      - LogErrorAsync
+      - LogCriticalAsync

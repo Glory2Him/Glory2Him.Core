@@ -48,7 +48,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     someContentType,
                     someContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemDependencyException actualContentItemDependencyException =
@@ -105,7 +105,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     someContentType,
                     someContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemDependencyException actualContentItemDependencyException =
@@ -145,7 +145,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     someContentType,
                     someContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     cancellationToken);
 
             // then
@@ -185,7 +185,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 this.contentItemService.CheckContentItemContentExistsAsync(
                     someContentType,
                     someContentHash,
-                    excludedContentItemGroupId: null,
+                    excludedGroupId: null,
                     TestContext.Current.CancellationToken);
 
             ContentItemServiceException actualContentItemServiceException =

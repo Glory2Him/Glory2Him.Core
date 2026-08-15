@@ -203,7 +203,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             string bypassReason = $"argument-{Guid.NewGuid()}";
 
-            SetupAccessBrokerToPermitByBypass(AccessDenialReason.BlockedByUnresolvedComment);
+            SetupAccessBrokerToPermitByBypass(AccessDenialReason.BlockedByUnresolvedApprovalComment);
 
             // when
             Association savedAssociation = await CaptureSavedAssociationOnBypassApproveAsync(
@@ -269,7 +269,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Theory]
-        [InlineData(AccessDenialReason.BlockedByUnresolvedComment)]
+        [InlineData(AccessDenialReason.BlockedByUnresolvedApprovalComment)]
         [InlineData(AccessDenialReason.BlockedByRejection)]
         public async Task ShouldLogWhichConditionWasWaivedOnBypassApproveAsync(
             AccessDenialReason bypassedBlockReason)
