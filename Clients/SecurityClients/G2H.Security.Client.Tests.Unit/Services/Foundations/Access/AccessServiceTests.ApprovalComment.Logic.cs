@@ -379,7 +379,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         [Fact]
         public async Task ShouldPermitAnAdminResolvingAnotherPersonsCommentAsync()
         {
-            // given: resolving records that a question was answered, which changes no words —
+            // given: resolving records that a comment is settled, which changes no words —
             // the one comment operation an Admin may perform on someone else's row
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(

@@ -25,26 +25,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
 {
     public partial class ApprovalCommentServiceTests
     {
-        // ── IsResolved has TWO legitimate routes, and that is the design ─────────────
+        // ── IsResolved is written on three legitimate routes, and that is the design ──
         //
-        // Modify is owner-only, so the owner may answer their own question there; the resolve
-        // transition admits the owner OR an Admin. What Resolve adds is the Admin route, not
-        // exclusivity over the field — pinning IsResolved against storage on modify would leave
-        // the owner unable to change something that is theirs.
+        // The field records whether a comment is SETTLED — whether it still requires something
+        // before the approval can proceed. Not every comment asks for anything: an observation,
+        // or a reviewer recording rationale so others can see the thinking behind a verdict, is
+        // informational and never blocks (§7.8). So "resolved" does not mean "a question was
+        // answered", and both birth values are legitimate.
         //
-        // The two routes publish different facts, which costs nothing because the approval
-        // workflow subscribes to BOTH ApprovalComment-Modified and -Resolved and re-tests the
-        // §8.5 conditions on either. These tests exist so that contract cannot be narrowed by
-        // accident: pinning the field again fails the first, and collapsing the two addresses
-        // into one fails the second.
+        //   Add     — the author, choosing whether their new comment is outstanding
+        //   Modify  — the owner, on their own row
+        //   Resolve — the owner OR an Admin
+        //
+        // What Resolve adds is the ADMIN route, not exclusivity over the field. Pinning
+        // IsResolved against storage on modify would leave the owner unable to change something
+        // that is theirs; pinning it false on add would make it impossible to leave a remark
+        // without blocking the approval.
+        //
+        // The routes publish different facts, which costs nothing because the approval workflow
+        // subscribes to every ApprovalComment address and re-tests the §8.5 conditions on each
+        // (§10.17 inbound item (a)). These tests exist so that contract cannot be narrowed by
+        // accident: pinning the field fails them, and collapsing the addresses into one fails
+        // the last.
 
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
         public async Task ShouldLetTheOwnerChangeIsResolvedThroughModifyAsync(bool newResolution)
         {
-            // given: the owner edits their comment and answers (or reopens) their own question in
-            // the same write. Modify carries IsResolved through unpinned, in both directions.
+            // given: the owner edits their comment and settles (or re-opens) it in the same
+            // write. Modify carries IsResolved through unpinned, in both directions.
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -206,15 +216,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [InlineData(false)]
         public async Task ShouldCarryTheCallersIsResolvedThroughAddAsync(bool bornResolved)
         {
-            // given: the THIRD route, recorded here so it stays a decision rather than an
-            // accident. Add applies no rule to IsResolved, so a caller may raise a comment
-            // already answered. CreatedBy is pinned to the acting user (ValidateOnAdd), so this
-            // only ever births one's OWN comment resolved — it cannot pre-answer someone else's
-            // question. A comment born resolved never blocks its approval, which is the same
-            // outcome as not commenting at all; what it does not do is publish -Resolved.
+            // given: a comment born SETTLED is an intended capability, not a missing validation.
+            // Not every comment asks for anything — an observation, or a reviewer recording
+            // rationale so others can see the thinking behind a verdict, requires no response and
+            // must not hold the approval shut (§7.8). Add therefore applies no rule to
+            // IsResolved, and both birth values are correct.
             //
-            // If this should instead be pinned false at creation the way IsDeleted is, this test
-            // is the one to change, and the change is then deliberate.
+            // DO NOT "fix" this by pinning IsResolved false at creation the way IsDeleted is.
+            // The analogy is false: IsDeleted has exactly one legitimate birth value and this
+            // field has two. Pinning it would make it impossible to leave a remark without
+            // blocking the approval, which is the whole case the informational comment serves.
+            //
+            // The column still defaults to false, so a caller who says nothing gets the
+            // fail-closed answer: silence means outstanding.
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 

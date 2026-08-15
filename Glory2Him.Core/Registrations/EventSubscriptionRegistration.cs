@@ -916,8 +916,8 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers
                         .ApprovalCommentOnResolvingApprovalCommentSubscriptionName,
 
-                    Description = "Handles resolve requests: records whether the question a " +
-                        "comment raised has been answered, publishes ApprovalComment-Resolved, " +
+                    Description = "Handles resolve requests: records whether a comment is " +
+                        "settled or still outstanding, publishes ApprovalComment-Resolved, " +
                         "and replies with the updated entity."
                 },
                 operation: ApprovalCommentEventOperation.Resolving,

@@ -165,7 +165,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
         }
 
         // The one comment operation an Admin may perform on someone else's row, and deliberately
-        // the only one: resolving records that a question was answered, which changes no words.
+        // the only one: resolving records that a comment is settled — that it no longer requires
+        // anything before the approval can proceed — which changes no words.
         private static AccessVerdict DecideMayResolveApprovalComment(
             ResolveApprovalCommentRequest request)
         {

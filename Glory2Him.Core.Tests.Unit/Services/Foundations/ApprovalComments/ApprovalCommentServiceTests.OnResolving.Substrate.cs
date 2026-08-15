@@ -102,8 +102,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [Fact]
         public async Task ShouldReopenOnResolvingApprovalCommentEventWhenTheFlagIsFalseAsync()
         {
-            // given: the flag comes off the envelope, so the event path can reopen a question as
-            // well as answer it — a handler hard-wired to true would make the address one-way
+            // given: the flag comes off the envelope, so the event path can make a comment
+            // outstanding again as well as settle it — a handler hard-wired to true would make
+            // the address one-way
             string randomUserId = GetRandomString();
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();

@@ -97,7 +97,10 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <summary>An active rejection blocks the approval under the policy (§8.7).</summary>
         BlockedByRejection = 14,
 
-        /// <summary>An unresolved approval comment is outstanding (§8.5 rule 7).</summary>
+        /// <summary>
+        /// An approval comment is still outstanding — it asks for something that has not been
+        /// settled (§8.5 rule 7). Informational comments are created settled and never count.
+        /// </summary>
         BlockedByUnresolvedApprovalComment = 15,
 
         /// <summary>The entity's confidence score is exactly zero (§8.5 rule 8).</summary>
@@ -123,8 +126,8 @@ namespace G2H.Security.Client.Models.Foundations.Access
 
         /// <summary>
         /// The actor did not write the comment. Comments are owned by whoever submitted them: no
-        /// role amends another person's words, and an <c>Admin</c> who needs past an unresolved
-        /// one bypasses rather than edits it.
+        /// role amends another person's words. An <c>Admin</c> who needs past an outstanding one
+        /// settles it through the resolve operation, or bypasses the block — never by editing it.
         /// </summary>
         NotApprovalCommentAuthor = 19,
     }

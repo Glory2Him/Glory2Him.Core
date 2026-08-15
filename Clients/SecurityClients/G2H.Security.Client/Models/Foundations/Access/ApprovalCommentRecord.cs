@@ -14,23 +14,27 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// <summary>
     /// One approval comment, reduced to the two fields the comment-resolution rule consults.
     ///
-    /// <para>The comment <i>text</i> deliberately does not cross. Whether a question is still open
-    /// is answered by <see cref="IsResolved"/>, and handing a decision function prose it cannot
-    /// act on invites someone to start reading it.</para>
+    /// <para>The comment <i>text</i> deliberately does not cross. Whether a comment is still
+    /// outstanding is answered by <see cref="IsResolved"/>, and handing a decision function prose
+    /// it cannot act on invites someone to start reading it.</para>
     /// </summary>
     public class ApprovalCommentRecord
     {
         /// <summary>
-        /// Whether the question this comment raised has been answered. An unresolved comment
-        /// blocks the approval as a whole when the policy requires resolution — never an
-        /// individual reviewer's verdict (§8.5 rule 7).
+        /// Whether this comment is settled — whether it still requires something before the
+        /// approval can proceed. An outstanding comment blocks the approval as a whole when the
+        /// policy requires resolution — never an individual reviewer's verdict (§8.5 rule 7).
+        ///
+        /// <para>Not every comment asks for anything: an observation, or a reviewer recording
+        /// rationale for others to see, is created settled and never blocks. So a <c>true</c>
+        /// here does not imply anyone resolved anything.</para>
         /// </summary>
         public required bool IsResolved { get; init; }
 
         /// <summary>
-        /// Whether the row is soft-deleted. A withdrawn question is not an open one, so a deleted
-        /// comment does not block — but the caller passes it rather than filtering, so the rule
-        /// lives in one place.
+        /// Whether the row is soft-deleted. A withdrawn comment is not an outstanding one, so a
+        /// deleted comment does not block — but the caller passes it rather than filtering, so
+        /// the rule lives in one place.
         /// </summary>
         public required bool IsDeleted { get; init; }
     }

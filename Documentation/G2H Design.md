@@ -739,7 +739,7 @@ Rules:
 | `Id` | Unique review identifier. |
 | `ApprovalId` | Parent approval record. |
 | `StatusId` | Review decision status. |
-| `Comment` | Optional free text explaining **why** this reviewer reached this `StatusId`. It is rationale attached to a verdict, not a question — it has no resolved state and nothing waits on it. Discussion between reviewers is `ApprovalComment`, which is a different thing (§7.8). |
+| `Comment` | Optional free text explaining **why** this reviewer reached this `StatusId`. It is rationale attached to *this reviewer's own verdict*: it has no settled state, nothing reads it and nothing waits on it. A reviewer who wants reasoning that other reviewers can see and act on writes an `ApprovalComment` instead — that entity carries `IsResolved` and may be either outstanding or purely informational (§7.8). |
 | `IsDeleted` | Soft-delete flag. When `true` the review is excluded from threshold calculations. |
 | `CreatedBy` | User who created the review. |
 | `CreatedWhen` | Creation timestamp. |
@@ -773,7 +773,7 @@ The following rules apply:
 | `Id` | Unique comment identifier. |
 | `ApprovalId` | Parent approval record. |
 | `Comment` | Comment text. |
-| `IsResolved` | Whether the question this comment raised has been answered and is no longer open. An `ApprovalComment` is **open discussion between reviewers**, unlike `ApprovalReview.Comment`, which is one reviewer's rationale for their own verdict and is never resolvable. When `ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals = true`, no unanswered question may be outstanding before the approval conditions are met. |
+| `IsResolved` | Whether this comment is **settled** — whether it still requires something before the approval can proceed. See the note below the table; the distinction is load-bearing and both birth values are legitimate. When `ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals = true`, no **outstanding** comment may remain before the approval conditions are met. |
 | `IsDeleted` | Soft-delete flag. When `true` the comment is excluded from public visibility. |
 | `CreatedBy` | User who created the comment. |
 | `CreatedWhen` | Creation timestamp. |
@@ -782,6 +782,18 @@ The following rules apply:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+
+**`IsResolved` means settled, not answered.** The distinction matters because it decides what the add path is allowed to do.
+
+**Not every comment asks for anything.** An observation, or a reviewer recording their rationale so other reviewers can see the thinking behind a verdict, is informational — others may act on it or not, and nothing waits on it. That comment is created `IsResolved = true` and never blocks. A comment that *does* ask for something — a question, a change request — is created `false` and holds the approval shut until it is settled.
+
+Three consequences follow, and each is easy to get wrong by reading the flag as "has the question been answered":
+
+1. **Both birth values are legitimate**, so the add path applies **no rule** to the field. A comment born settled is the informational case, not a missing validation. Pinning it `false` at creation — the way `IsDeleted` is pinned — would make it impossible to leave a remark without holding the approval shut, and is the single most tempting wrong "fix" in this area.
+2. **The column still defaults to `false`**, which is the fail-closed choice for a caller who says nothing: silence means outstanding.
+3. **Settling runs both ways.** A comment recorded as an observation may later turn out to need action, and one settled prematurely must be able to block again — so `ResolveApprovalCommentAsync` is a two-way transition (§14.7 rule 5), not a one-shot.
+
+Distinct from `ApprovalReview.Comment`, which is one reviewer's rationale for their **own** verdict and is never resolvable at all — nothing reads it and nothing waits on it. A reviewer who wants reasoning that others can see and act on writes an `ApprovalComment`; that is exactly the informational case above.
 
 ## 8. Approval Settings Design
 
@@ -805,7 +817,7 @@ Recommended properties:
 | `BlockOnReject` | Whether a single rejection blocks the approval. |
 | `RequireReapprovalOnChange` | Whether edits reset approval status. |
 | `AutoApproveIfAllApprovalRequirementsMet` | Whether the entity is automatically approved when all approval requirements are met. |
-| `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be resolved before approval can be granted. It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
+| `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be **settled** before approval can be granted. Only comments that ask for something ever hold it shut — an informational comment is created settled (§7.8). It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
 | `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a `Publisher`/`Admin` may still bypass it (§12.5.3 business rule 11) or correct the score first (§9.7.1 rule 5). |
 | `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Admin`. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from policy resolution. |
@@ -871,7 +883,7 @@ conditionsMet =
 4. While the conditions are not met, status remains `Submitted`.
 5. Meeting the conditions enables the manual approve action for `Publisher`/`Admin` (the UI approve button).
 6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
-7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment raised during review must be resolved (`ApprovalComment.IsResolved = true`) before the conditions are met. This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a question is still open; the approval simply cannot complete until it is answered.
+7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment on the approval must be **settled** (`ApprovalComment.IsResolved = true`) before the conditions are met. Only comments that ask for something ever hold this shut: an informational comment is created settled and never counts against it (§7.8). This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a comment is still outstanding; the approval simply cannot complete until it is settled.
 8. When `BlockOnZeroApprovalScore = true`, an entity whose `ConfidenceScore` is `0` cannot meet the conditions. **A `null` score does not block** — it means the confidence process has not run yet, not that the association was judged worthless. Treating `null` as blocking would deadlock every approval until §13.4 ships, and would strand anything the process failed on. If a scored gate is wanted before that point, the setting to reach for is `RequireApprovals`, not this one.
 9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.5.3 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
 
@@ -1019,7 +1031,7 @@ Reviewing requires a review-tier role and deciding requires the `Publisher` tier
 
 1. Recording an `ApprovalReview` requires a global `Reviewer`/`Publisher`/`Admin`, or a `%EntityType%-Reviewer` / `%EntityType%-Publisher` matching the entity under review.
 2. Approving, rejecting and bypassing require the `Publisher` tier — global `Publisher`/`Admin` or `%EntityType%-Publisher`. Reviewer-tier roles are excluded at every tier by HR-3.
-3. Commenting is not gated by either tier. An open question is not a verdict, and the submitter must be able to answer one.
+3. Commenting is not gated by either tier. A comment is not a verdict — it may be a question, a change request, an observation, or a reviewer's rationale put where others can see it — and the submitter must be able to respond on their own submission.
 
 ## 9. Approval Lifecycle
 
@@ -1869,16 +1881,16 @@ An entity's **top-layer service** is the highest business layer that owns its wr
 
   | Fact | How it moves the gate |
   | --- | --- |
-  | `ApprovalComment-Added` | a new unresolved comment **blocks** an approval that was clear |
+  | `ApprovalComment-Added` | a comment born **outstanding** blocks an approval that was clear; one born settled (§7.8) moves nothing, which the re-test establishes rather than assumes |
   | `ApprovalComment-Modified` | the owner flipped `IsResolved` through the general modify |
   | `ApprovalComment-Resolved` | the owner **or** an `Admin` flipped it through the resolve transition |
-  | `ApprovalComment-Removed` | soft-deleting an unresolved comment **unblocks**; `-HardRemoved` shares this address |
+  | `ApprovalComment-Removed` | soft-deleting an outstanding comment **unblocks**; `-HardRemoved` shares this address |
   | `ApprovalReview-Added` / `-Modified` | moves the approval count or raises a blocking rejection |
   | `ApprovalReview-Removed` | withdrawing an approving review drops the count; withdrawing a rejection unblocks |
   | `ApprovalReview-Dismissed` | a dismissed verdict leaves the active set (§9.5) |
 
   **Both comment resolution addresses are required.** `IsResolved` has two writers by design: the owner through modify, the owner or an `Admin` through the transition (§14.7 rule 5). Which one carried a given change depends on nothing more than which UI control was clicked, so watching one address would leave the gate movable unnoticed.
-- (b) **Re-test, do not assume.** No fact means "the approval may now complete" — it means the inputs changed. The handler re-runs the whole §8.5 evaluation. Facts that move the gate *shut* matter as much as those that open it: a new unresolved comment, or a withdrawn approving review, can re-block an approval that was clear, which is exactly the case `AutoApproveIfAllApprovalRequirementsMet` would otherwise get wrong.
+- (b) **Re-test, do not assume.** No fact means "the approval may now complete" — it means the inputs changed. The handler re-runs the whole §8.5 evaluation. Facts that move the gate *shut* matter as much as those that open it: a comment born outstanding, or a withdrawn approving review, can re-block an approval that was clear, which is exactly the case `AutoApproveIfAllApprovalRequirementsMet` would otherwise get wrong. Equally, a fact may move nothing at all — a comment born settled is the common case — which is why the handler re-evaluates instead of inferring a direction from the address.
 - (c) **`-Dismissed` is a distinct address precisely so this reaction can tell a withdrawn verdict from an amended one** (§9.7.1), and `-Resolved` serves the same purpose for a comment.
 - (d) **The cycle rule still binds.** Re-testing may cause an approval decision, and that decision must go out through the transition verb of rules 4–5, never as a `-Modified` on the workflow record that triggered it.
 
@@ -2135,7 +2147,7 @@ Current intended foundation services:
 
 **`ApprovalComment`** — control fields `ApprovalId`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`; the only permitted caller field on update is `Comment`. Approval comments do not participate in the threshold or status-transition workflow. A comment may only be created against an existing, non-deleted approval record — enforce that with the foreign key rather than a read of `Approval`, so the service does not acquire a second entity dependency for an existence check.
 
-`IsResolved` is a **second permitted caller field on update**, alongside `Comment`. Modify is owner-only, and the owner may answer their own question there as readily as through `ResolveApprovalCommentAsync` — it is their row. `IsResolved` is deliberately **not** pinned against storage: pinning it would leave the owner unable to change a field that is theirs, and would have deadlocked every approval under the fail-closed `RequireReviewCommentResolutionBeforeApprovals` (§8.4 rule 2) in the window before the transition existed.
+`IsResolved` is a **second permitted caller field on update**, alongside `Comment`, and is **also unconstrained on add** — a comment may legitimately be created settled (§7.8). Modify is owner-only, and the owner may settle or re-open their own comment there as readily as through `ResolveApprovalCommentAsync` — it is their row. `IsResolved` is deliberately **not** pinned against storage: pinning it would leave the owner unable to change a field that is theirs, and would have deadlocked every approval under the fail-closed `RequireReviewCommentResolutionBeforeApprovals` (§8.4 rule 2) in the window before the transition existed.
 
 What the transition adds is the **`Admin` route**, not exclusivity over the field (§14.7 rule 5).
 
@@ -2279,7 +2291,7 @@ Responsibilities:
 4. Orchestrate approval submission by moving `ApprovalStatus` from `Draft` to `Submitted`.
 5. Evaluate approval threshold after each review decision using `ApprovalSettingsService`.
 
-    **Subscribe to every fact on both workflow records, and re-test on each.** All four `ApprovalComment` addresses (`-Added`, `-Modified`, `-Resolved`, `-Removed`) and all four `ApprovalReview` addresses (`-Added`, `-Modified`, `-Removed`, `-Dismissed`) can move a §8.5 predicate, because the evaluation reads comments through `IsDeleted is false && IsResolved is false` and reviews through `IsDeleted is false && Verdict != Dismissed`. **Both comment resolution addresses are required**: `IsResolved` has two writers by design — the owner through the general modify, the owner or an `Admin` through the resolve transition (§14.7 rule 5) — so watching one would leave the gate movable unnoticed, decided by nothing more than which UI control was clicked. Each fact means "the inputs changed", never "the approval may complete": re-run the whole evaluation, and treat gate-shutting facts (a new unresolved comment, a withdrawn approving review) as seriously as gate-opening ones, since they can re-block an approval that was clear under `AutoApproveIfAllApprovalRequirementsMet`. These are foundation-tier subscriptions — neither record is approvable and neither has a layer above its foundation (§12.3.1), so §10.17 rules 1–2 do not apply. See §10.17 inbound items (a)–(d) for the full table.
+    **Subscribe to every fact on both workflow records, and re-test on each.** All four `ApprovalComment` addresses (`-Added`, `-Modified`, `-Resolved`, `-Removed`) and all four `ApprovalReview` addresses (`-Added`, `-Modified`, `-Removed`, `-Dismissed`) can move a §8.5 predicate, because the evaluation reads comments through `IsDeleted is false && IsResolved is false` and reviews through `IsDeleted is false && Verdict != Dismissed`. **Both comment resolution addresses are required**: `IsResolved` has two writers by design — the owner through the general modify, the owner or an `Admin` through the resolve transition (§14.7 rule 5) — so watching one would leave the gate movable unnoticed, decided by nothing more than which UI control was clicked. Each fact means "the inputs changed", never "the approval may complete": re-run the whole evaluation, and treat gate-shutting facts (a comment born outstanding, a withdrawn approving review) as seriously as gate-opening ones, since they can re-block an approval that was clear under `AutoApproveIfAllApprovalRequirementsMet`. A fact may also move nothing — a comment born settled (§7.8) is the common case — so never infer a direction from the address. These are foundation-tier subscriptions — neither record is approvable and neither has a layer above its foundation (§12.3.1), so §10.17 rules 1–2 do not apply. See §10.17 inbound items (a)–(d) for the full table.
 6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
 7. Write the denormalized `ApprovalStatus` onto the owning entity itself, through that entity's state-transition operation rather than a general modify (§10.17 rules 4–5). The two values must never diverge (§9.8).
 8. On `Approved`, set `IsPublished = true` on the newly approved version.
@@ -2594,7 +2606,7 @@ Sort takes an anchor and a side rather than a target index, because a pairwise s
 2. Because these entities carry no entity-type scoping row-locally, the foundation accepts the global review roles plus any granular role following the `%EntityType%-Reviewer` / `%EntityType%-Publisher` convention; enforcing that the granular role matches the approval's target `EntityType` is an orchestration (process-level) rule.
 3. `Approval`: add/modify/remove gate is the global contribution gate; modify by owner or review role (resubmission by the submitter, status transitions by reviewers); remove by owner or `Admin`; hard remove `Admin` only.
 4. `ApprovalReview`: adding requires a review role (§8.9 — only reviewers review); a review is its reviewer's own verdict, so modify and remove are owner-or-`Admin`; hard remove `Admin` only.
-5. `ApprovalComment`: adding requires only the contribution gate (submitters converse in review threads); **modify and remove by the owner alone**; hard remove `Admin` only. No role widens the amend gate — a comment belongs to whoever wrote it, and an `Admin` who needs past an unresolved one resolves it or bypasses the block rather than editing another person's words. The single exception is `IsResolved`, which the owner **or** an `Admin` may set through the dedicated resolve operation, because resolving records that a question was answered and changes no wording. This replaces "modify by owner or review role (reviewers resolve comments); remove by owner or `Admin`", which predates that decision and is the same reviewers-flip-IsResolved model withdrawn from `ApprovalCommentService` (§12.3.1).
+5. `ApprovalComment`: adding requires only the contribution gate (submitters converse in review threads); **modify and remove by the owner alone**; hard remove `Admin` only. No role widens the amend gate — a comment belongs to whoever wrote it, and an `Admin` who needs past an unresolved one resolves it or bypasses the block rather than editing another person's words. The single exception is `IsResolved`, which the owner **or** an `Admin` may set through the dedicated resolve operation, because resolving records that a comment is **settled** — that it no longer requires anything before the approval can proceed — and changes no wording. This replaces "modify by owner or review role (reviewers resolve comments); remove by owner or `Admin`", which predates that decision and is the same reviewers-flip-IsResolved model withdrawn from `ApprovalCommentService` (§12.3.1).
 
 **The resolve operation is built.** `ResolveApprovalCommentAsync` owns `IsResolved` and nothing else, answers on `ApprovalComment-Resolving` and publishes `ApprovalComment-Resolved`.
 
@@ -2605,11 +2617,11 @@ Sort takes an anchor and a side rather than a target index, because a pairwise s
 Four further things are load-bearing rather than incidental.
 
 1. **The subject is `ApprovalComment`, never `Comment`.** `CommentService` owns a separate entity, and the broker composes the stored event name as subject + operation, so `Comment-Resolving` would attribute this service's facts to the wrong entity.
-2. **`Admin` is the global role alone** — not the review tier, and not an entity-scoped `%EntityType%-Publisher`. A `Reviewer` who sees an unanswered question answers it in a comment of their own; declaring it answered is the author's call or an administrator's, and lifting the block that setting holds shut is an administrative override rather than part of deciding the approval.
-3. **It is two-way.** Reopening rides the same operation, because a question wrongly marked answered must be answerable again — a one-way resolve would let a mistaken click permanently defeat the setting for that comment, and the setting exists precisely to hold approval shut on unanswered questions.
+2. **`Admin` is the global role alone** — not the review tier, and not an entity-scoped `%EntityType%-Publisher`. A `Reviewer` who wants to respond to an outstanding comment writes one of their own; declaring somebody else's comment settled is the author's call or an administrator's, and lifting the block that setting holds shut is an administrative override rather than part of deciding the approval.
+3. **It is two-way**, and not merely as error-correction. A comment recorded as an observation may later turn out to need action, and one settled prematurely must be able to block again. Without the reverse direction a single mistaken resolve would permanently defeat the setting for that comment — the setting that exists to hold approval shut on outstanding ones.
 4. **A no-op is refused, not absorbed.** Resolving an already-resolved comment errors rather than silently re-stamping the audit values and re-publishing the fact. That matters more here than for a display flag: a spurious `-Resolved` announces to anything watching the setting that a gate moved when it did not.
 
-Both gates run, per §14.6 rule 2: the row-local owner-or-`Admin` check, and an `IAccessBroker` decision that adds what a single-entity service may not read for itself — the round must still be open and the parent approval must not be soft-deleted. Permission is settled before the resolution state is looked at, so a caller who may not act cannot use the "already resolved" answer to probe whether a question on a thread is still open.
+Both gates run, per §14.6 rule 2: the row-local owner-or-`Admin` check, and an `IAccessBroker` decision that adds what a single-entity service may not read for itself — the round must still be open and the parent approval must not be soft-deleted. Permission is decided before the resolution state is looked at, so a caller who may not act cannot use the "already resolved" response to probe whether a comment on a thread is still outstanding.
 
 Soft-deleted rows follow §14.5 for every posture: not found for every caller including `Admin`, with the state-based miss logged as information.
 

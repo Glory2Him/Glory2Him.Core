@@ -22,13 +22,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// <summary>
     /// The narrow state-transition operation (design §9.7.1, §14.7 rule 5).
     ///
-    /// <para>This operation exists for the <c>Admin</c> route, not for exclusivity over the
-    /// field. The owner may change <c>IsResolved</c> through the general modify as readily as
-    /// through here — it is their row and their question. What modify cannot express is an
-    /// <c>Admin</c> resolving on the author's behalf: widening modify to admit one would have
-    /// handed that role the author's words too, which §14.7 rule 5 withdraws. So resolution
-    /// gets its own operation, owning exactly <c>IsResolved</c>, admitting owner-or-<c>Admin</c>,
-    /// and publishing its own fact.</para>
+    /// <para><c>IsResolved</c> records whether a comment is <b>settled</b> — whether it still
+    /// requires something before the approval can proceed. Not every comment asks for anything:
+    /// an observation, or a reviewer recording rationale for others to see, is created settled
+    /// and never blocks (§7.8). So this operation is a settled/outstanding transition in both
+    /// directions, not "declaring a question answered".</para>
+    ///
+    /// <para>It exists for the <c>Admin</c> route, not for exclusivity over the field. The owner
+    /// may change <c>IsResolved</c> through the general modify as readily as through here — it is
+    /// their row. What modify cannot express is an <c>Admin</c> settling a comment on the
+    /// author's behalf: widening modify to admit one would have handed that role the author's
+    /// words too, which §14.7 rule 5 withdraws. So resolution gets its own operation, owning
+    /// exactly <c>IsResolved</c>, admitting owner-or-<c>Admin</c>, and publishing its own
+    /// fact.</para>
     ///
     /// <para>Two paths writing one field costs nothing here: the approval workflow subscribes to
     /// both <c>ApprovalComment-Modified</c> and <c>ApprovalComment-Resolved</c> to re-test an
@@ -83,7 +89,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
             // the row-local half: the author, or an Admin acting on their behalf. Narrower than
             // the read posture on purpose — a Reviewer may see the thread without owning the
-            // power to declare someone else's question answered.
+            // power to declare someone else's comment settled.
             await ValidateUserCanResolveStorageApprovalCommentAsync(
                 storageApprovalComment: storageApprovalComment,
                 securityContext: inboundEnvelope.SecurityContext);
@@ -96,8 +102,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 
-            // Permission is settled before the state is looked at, so a caller who may not act
-            // learns nothing about whether the question is currently open.
+            // Permission is decided before the state is looked at, so a caller who may not act
+            // learns nothing about whether the comment is currently outstanding.
             ValidateStorageApprovalCommentResolutionChanges(storageApprovalComment, isResolved);
 
             // the whole of the operation's remit is this one field
@@ -123,7 +129,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
             ValidateStorageApprovalComment(maybeApprovalComment, approvalCommentId);
 
-            // A withdrawn comment blocks nothing, so there is no question left on it to answer.
+            // A withdrawn comment blocks nothing, so there is nothing left on it to settle.
             // Reported as not-found, matching the read posture, so a removed id is not
             // distinguishable from one that never existed.
             ValidateStorageApprovalCommentIsNotDeleted(maybeApprovalComment, approvalCommentId);
@@ -139,8 +145,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             CancellationToken cancellationToken)
         {
             // stamps UpdatedBy with the ACTING user, which is the whole audit story when an
-            // Admin resolves on the author's behalf: CreatedBy still names who asked the
-            // question, UpdatedBy names who declared it answered
+            // Admin settles a comment on the author's behalf: CreatedBy still names who wrote
+            // it, UpdatedBy names who declared it settled
             approvalComment = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(
                     entity: approvalComment,

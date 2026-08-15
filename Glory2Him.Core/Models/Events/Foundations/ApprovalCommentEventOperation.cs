@@ -34,12 +34,15 @@ namespace Glory2Him.Core.Models.Events.Foundations
         RetrievingById,
 
         // The narrow state-transition request (design §9.7.1). Resolving owns
-        // <c>IsResolved</c> and nothing else: it records whether the question a comment raised
-        // has been answered, which is a different act from correcting the words. It answers on
-        // its own address because it is the one comment operation an <c>Admin</c> may perform
-        // on another person's row, and because
-        // <c>RequireReviewCommentResolutionBeforeApprovals</c> reads that flag — a consumer
-        // watching for the gate to lift must not have to sift it out of general modifications.
+        // <c>IsResolved</c> and nothing else: it records whether a comment is settled — whether
+        // it still requires something before the approval can proceed — which is a different act
+        // from correcting the words. It answers on its own address because it is the one comment
+        // operation an <c>Admin</c> may perform on another person's row.
+        //
+        // Not every comment asks for anything: an observation, or a reviewer recording rationale
+        // for others to see, is created settled and never blocks. So a Resolving request is not
+        // "a question was answered" — it is a settled/outstanding transition, and it runs in both
+        // directions.
         Resolving,
         Added,
         Modified,

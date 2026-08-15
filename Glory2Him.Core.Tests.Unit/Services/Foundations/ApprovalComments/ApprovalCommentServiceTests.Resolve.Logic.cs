@@ -31,9 +31,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [InlineData(false)]
         public async Task ShouldResolveApprovalCommentAsync(bool isResolved)
         {
-            // given: the author records whether the question they raised has been answered.
-            // Reopening rides the same operation — a question wrongly marked answered must be
-            // answerable again, or a mistaken resolve permanently defeats the approval gate.
+            // given: the author records whether their comment is settled — whether it still
+            // requires something before the approval can proceed. Un-settling rides the same
+            // operation: an observation may later need action, and one settled prematurely
+            // must be able to block again — without it a mistaken resolve permanently defeats
+            // the gate.
             string randomUserId = GetRandomString();
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
 
@@ -133,7 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldResolveOnBehalfOfTheAuthorWhenTheCallerIsAnAdminAsync()
         {
             // given: the one comment operation an Admin may run against another person's row.
-            // Resolving records that a question was answered, which changes no words — amending
+            // Resolving records that a comment is settled, which changes no words — amending
             // or withdrawing someone else's comment stays refused (§14.7 rule 5).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
 
@@ -185,7 +187,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             actualApprovalComment.IsResolved.Should().BeTrue();
 
             // the audit values are stamped for the ACTING user, so UpdatedBy records who
-            // declared the question answered while CreatedBy still names who asked it
+            // declared it settled while CreatedBy still names who wrote it
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyModifyAuditValuesAsync(
                     It.IsAny<ApprovalComment>(),

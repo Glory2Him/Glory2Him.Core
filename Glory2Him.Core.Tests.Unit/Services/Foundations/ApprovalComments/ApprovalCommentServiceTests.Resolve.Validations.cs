@@ -26,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
     public partial class ApprovalCommentServiceTests
     {
         // The review roles read a comment thread without owning it, so none of them may declare
-        // someone else's question answered. Admin is the GLOBAL role only — an entity-scoped
+        // someone else's comment settled. Admin is the GLOBAL role only — an entity-scoped
         // "-Publisher" decides approvals, which is not the same as lifting the block
         // RequireReviewCommentResolutionBeforeApprovals holds shut.
         public static TheoryData<string[]> NonResolverRoleSets() =>
@@ -192,8 +192,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         [Fact]
         public async Task ShouldThrowNotFoundOnResolveIfTheApprovalCommentIsSoftDeletedAsync()
         {
-            // given: a withdrawn comment blocks nothing, so there is no question left on it to
-            // answer. Reported as not-found, matching the read posture.
+            // given: a withdrawn comment blocks nothing, so there is nothing left on it to
+            // settle. Reported as not-found, matching the read posture.
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
             storageApprovalComment.IsDeleted = true;
 
@@ -237,8 +237,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowUnauthorizedOnResolveIfCallerIsNeitherTheAuthorNorAnAdminAsync(
             string[] roles)
         {
-            // given: a reviewer seeing an unanswered question answers it in a comment of their
-            // own — declaring it answered is the author's call, or an administrator's
+            // given: a reviewer who wants to respond to an outstanding comment writes one of their
+            // own — declaring somebody else's comment settled is the author's call, or an
+            // administrator's
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
@@ -460,7 +461,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldRefuseAnUnauthorizedResolveBeforeLookingAtTheResolutionStateAsync()
         {
             // given: permission is settled first, so a caller who may not act cannot use the
-            // "already resolved" answer to learn whether a question on a thread is still open
+            // "already resolved" response to learn whether a comment on a thread is still
+            // outstanding
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();

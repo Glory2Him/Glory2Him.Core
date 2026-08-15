@@ -32,10 +32,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
         private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
 
-        // commenting on a review thread is a conversation, not a moderation step: the
-        // submitter answers the reviewer's questions on their own submission, so any
-        // authenticated caller who is not globally blocked may comment. No entity-scoped
-        // ReadOnly role exists for approval workflow records, so only the global one blocks.
+        // commenting on a review thread is a conversation, not a moderation step: a reviewer
+        // raises a point or records their thinking, the submitter responds on their own
+        // submission, so any authenticated caller who is not globally blocked may comment. No
+        // entity-scoped ReadOnly role exists for approval workflow records, so only the global
+        // one blocks.
         private static void ValidateUserIsAllowedToComment(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -342,9 +343,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     Parameter: nameof(ApprovalComment.ApprovalId)),
 
                 // IsResolved is deliberately NOT pinned. Modify is owner-only, and the owner may
-                // answer their own question here as readily as through the resolve transition —
-                // pinning it would leave them unable to change a field that is theirs. What
-                // Resolve adds is the Admin route (§14.7 rule 5), not exclusivity over the field.
+                // settle (or re-open) their own comment here as readily as through the resolve
+                // transition — pinning it would leave them unable to change a field that is
+                // theirs. What Resolve adds is the Admin route (§14.7 rule 5), not exclusivity
+                // over the field.
                 //
                 // The two paths publish different facts, and that costs nothing: the approval
                 // workflow subscribes to BOTH ApprovalComment-Modified and -Resolved to re-test
