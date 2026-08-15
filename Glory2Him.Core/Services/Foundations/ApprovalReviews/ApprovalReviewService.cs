@@ -435,6 +435,16 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 
+            // A dismissed review is closed and may not be touched — withdrawal included. Modify
+            // already refused it; remove did not, which left the shorter route open: rather than
+            // edit the stale verdict a reviewer could simply delete it. §9.5 retains a dismissed
+            // review precisely as evidence that a verdict once applied to superseded content, so
+            // soft-deleting one destroys the record the dismissal exists to keep.
+            //
+            // Hard remove is deliberately still exempt: it is Admin-only maintenance whose whole
+            // purpose is to destroy the row.
+            ValidateStorageApprovalReviewIsNotDismissed(maybeApprovalReview);
+
             if (maybeApprovalReview.IsDeleted)
                 return maybeApprovalReview;
 

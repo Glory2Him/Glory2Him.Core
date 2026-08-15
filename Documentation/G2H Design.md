@@ -753,7 +753,11 @@ Rules:
 
 The following rules apply:
 
-1. A reviewer may only have one active review per approval record. A second active review by the same reviewer must be rejected by validation — review decisions are not superseded or replaced.
+1. A reviewer may only have one active review per approval record. A second active review by the same reviewer is refused — review decisions are not superseded or replaced. It is enforced in **two** places, not by one validation: `IAccessClient` refuses it on the add path, and the filtered unique index `UX_ApprovalReviews_ApprovalId_CreatedBy` is the backstop for every write that lands an active row. See §12.3.1, which records why the two surface differently.
+
+    **The write window.** A reviewer may add, modify and withdraw their **active** review for as long as the parent approval is **not terminal** — that is, while it is not `Approved` or `Rejected`. Once the round closes, the review record stands as filed.
+
+    **A dismissed review may not be touched at all** — not amended, not withdrawn. §9.5 retains it as evidence that a verdict once applied to superseded content, so editing it would rewrite history in place and withdrawing it would destroy the very record the dismissal exists to keep. Both routes are refused; only `Admin` hard removal, which is destructive maintenance, gets past it.
 2. A review can approve, reject, or become dismissed. The verdict a **reviewer** may record is closed to `Approved` or `Rejected`; `Dismissed` is what *happens to* a review when an entity-scoped change invalidates it (§9.5), never something its author declares. A reviewer who could dismiss their own review would retract a rejection without recording a verdict, which is the same outcome as changing it but leaves no trace of the change.
 2a. **A dismissed review is closed.** It is retained for audit and may not be amended — the reviewer files a new one (rule 7). Amending it instead would re-attach a stale judgement to text nobody re-read, because dismissal is precisely the record that the verdict no longer describes the current content.
 2b. **A review may only be written while its `Approval` is `Submitted`** — this is the window, and it is enforced. Once the `Approval` reaches `Approved` or `Rejected` the round is over, and a verdict changed afterwards would not re-run the workflow: an entity could sit `Approved` with a standing rejection against it and nothing would notice. The check needs the parent `Approval`'s status, which is another entity's row, so it goes through `IAccessBroker` to `IAccessClient` (§8.6.1). Rules 2 and 2a are row-local and are enforced in the service itself.
@@ -762,6 +766,10 @@ The following rules apply:
 5. Self-approval is controlled by `ApprovalSetting.AllowSelfApproval`.
 6. Dismissed reviews must not count toward the approval threshold.
 7. A reviewer may submit a new review only after their previous review was dismissed.
+
+    **Dismissal is not a user action, so this is not a route a reviewer can walk.** `Dismissed` is driven by the approval process: when an item subject to approval is amended, the orchestration receives the fact, determines from the approval settings that the existing verdicts are now stale, and sets every active `ApprovalReview` on that approval to `Dismissed` (§8.8, §12.5.3). A reviewer waits for that; they never trigger it. The dismiss verb exists so the workflow has something to call — it is not a control anyone drives by hand.
+
+    **Consequence for a departed reviewer.** Reviews are owner-only, so a verdict recorded by someone who has since left stands: no `Admin`, `Publisher` or peer reviewer may edit or withdraw it. Exactly two routes get past a review that is blocking an approval — an `Admin` **bypass** (§8.6.1), or a **change to the item under review**, which makes every active review stale and dismisses them. Nothing else clears it, and that is the intended shape rather than a gap.
 8. A user who has filed an active review on an entity must not also set that entity's `ApprovalStatus` — reviewing is vouching, deciding is deciding, and one person doing both meets a threshold of `1` single-handed (§8.6 regardless-rule 1). This replaces an earlier bar on anyone recorded in the entity's `UpdatedBy` reviewing it; that bar was withdrawn as unimplementable, and §8.6's *Why this is not written against `UpdatedBy`* records why.
 
 ### 7.8 ApprovalComment
@@ -884,6 +892,14 @@ conditionsMet =
 5. Meeting the conditions enables the manual approve action for `Publisher`/`Admin` (the UI approve button).
 6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
 7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment on the approval must be **settled** (`ApprovalComment.IsResolved = true`) before the conditions are met. Only comments that ask for something ever hold this shut: an informational comment is created settled and never counts against it (§7.8). This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a comment is still outstanding; the approval simply cannot complete until it is settled.
+
+    **The three routes past an outstanding comment**, and there are no others. A submitter whose content is blocked by a comment left at `IsResolved = false` is unblocked when:
+
+    1. **The thread resolves itself.** Another reviewer answers in a comment of their own — created settled, so it adds no new block — and then **the author of the blocking comment marks theirs settled**. Only they can: comments are owner-only, and no reviewer may settle a peer's (§14.7 rule 5).
+    2. **An `Admin` settles it on the author's behalf**, through the resolve operation. This is the one comment operation an `Admin` may perform on someone else's row, and it changes no words.
+    3. **An `Admin` bypasses**, moving to approval and waiving the §8.5 conditions outright rather than satisfying them (§8.6.1, HR-4). The comment stays outstanding and the waiver is recorded on the row.
+
+    Note what is *not* a route: nobody may edit or withdraw the blocking comment to make it go away. Route 1 keeps the conversation intact, route 2 records who overrode it in `UpdatedBy`, and route 3 records that the conditions were waived at all. Every escape leaves a trace, which is the point.
 8. When `BlockOnZeroApprovalScore = true`, an entity whose `ConfidenceScore` is `0` cannot meet the conditions. **A `null` score does not block** — it means the confidence process has not run yet, not that the association was judged worthless. Treating `null` as blocking would deadlock every approval until §13.4 ships, and would strand anything the process failed on. If a scored gate is wanted before that point, the setting to reach for is `RequireApprovals`, not this one.
 9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.5.3 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
 
@@ -1892,7 +1908,12 @@ An entity's **top-layer service** is the highest business layer that owns its wr
   | `ApprovalReview-Dismissed` | a dismissed verdict leaves the active set (§9.5) |
 
   **Both comment resolution addresses are required.** `IsResolved` has two writers by design: the owner through modify, the owner or an `Admin` through the transition (§14.7 rule 5). Which one carried a given change depends on nothing more than which UI control was clicked, so watching one address would leave the gate movable unnoticed.
+
+  **These subscriptions arrive incrementally.** None is wired today, and they are expected to land alongside the API components that produce them rather than in one pass. What this table fixes is the *contract* — which addresses must eventually be subscribed and why — so that a later reviewer can check the wiring against a list rather than rediscover it. A closing audit that every address here has a subscriber belongs with the completion of the API surface (#196).
 - (b) **Re-test, do not assume.** No fact means "the approval may now complete" — it means the inputs changed. The handler re-runs the whole §8.5 evaluation. Facts that move the gate *shut* matter as much as those that open it: a comment born outstanding, or a withdrawn approving review, can re-block an approval that was clear, which is exactly the case `AutoApproveIfAllApprovalRequirementsMet` would otherwise get wrong. Equally, a fact may move nothing at all — a comment born settled is the common case — which is why the handler re-evaluates instead of inferring a direction from the address.
+- (b1) **The entity under review is a fourth inbound source, and it is the one that causes dismissal.** When an item subject to approval is added or amended, the orchestration receives that fact (rules 1–3 above decide at which tier) and, from the effective `ApprovalSetting`, determines that the existing verdicts no longer describe the current content. It then sets **every active `ApprovalReview` on that approval to `Dismissed`** (§8.8, §9.5). This is the only thing that dismisses a review — no user action does, and §7.7 rule 7's re-file route depends entirely on it.
+- (b2) **`Approval` itself is a fifth.** Its own `-Added` / `-Modified` facts re-enter the same evaluation, because a status or setting change can move the outcome without any review or comment changing.
+- (b3) **The decision is not the orchestration's to compute.** It receives a fact, gathers what the evaluation needs, and asks; the answer — block, permit, or auto-approve — comes back from the decision function (§8.5, §12.3.1). The orchestration owns the *reaction*, never the *rule*.
 - (c) **`-Dismissed` is a distinct address precisely so this reaction can tell a withdrawn verdict from an amended one** (§9.7.1), and `-Resolved` serves the same purpose for a comment.
 - (d) **The cycle rule still binds.** Re-testing may cause an approval decision, and that decision must go out through the transition verb of rules 4–5, never as a `-Modified` on the workflow record that triggered it.
 

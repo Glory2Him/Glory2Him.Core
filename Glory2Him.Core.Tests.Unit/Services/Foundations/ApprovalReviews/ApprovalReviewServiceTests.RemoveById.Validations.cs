@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using Glory2Him.Core.Models.Enums;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -505,6 +506,62 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                         Times.Once);
 
             // the soft delete never lands
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveIfTheReviewIsDismissedAsync()
+        {
+            // given: a dismissed review is closed and may not be touched — withdrawal included.
+            // §9.5 retains it as evidence that a verdict once applied to superseded content, so
+            // soft-deleting one destroys the record the dismissal exists to keep. Modify already
+            // refused this; without the same guard here, deleting was the shorter route to the
+            // same outcome.
+            string randomUserId = GetRandomString();
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.CreatedBy = randomUserId;
+            storageApprovalReview.IsDeleted = false;
+            storageApprovalReview.StatusId = ApprovalStatus.Dismissed;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReview);
+
+            var invalidApprovalReviewException =
+                new InvalidApprovalReviewException(
+                    message: "A dismissed approval review cannot be amended. " +
+                        "Submit a new review instead.");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, fix the errors and try again.",
+                    innerException: invalidApprovalReviewException);
+
+            // when
+            ValueTask<ApprovalReview> removeApprovalReviewByIdTask =
+                this.approvalReviewService.RemoveApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    removeApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedApprovalReviewValidationException);
+
+            // nothing written — the audit record stands
             this.storageBrokerMock.Verify(broker =>
                 broker.UpdateApprovalReviewAsync(
                     It.IsAny<ApprovalReview>(),
