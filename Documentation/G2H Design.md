@@ -2218,6 +2218,10 @@ The resolution is not a second entity dependency but `IAccessBroker`, which does
 
 What the transition adds is the **`Admin` route**, not exclusivity over the field (§14.7 rule 5).
 
+**The update mechanism is pin-against-storage, not load-and-map** — the same correction as shared rule 2 above, verified here separately. `DoModifyApprovalCommentAsync` reads the stored row, refuses changes to an enumerated pin list (`CreatedWhen`, `CreatedBy`, `ApprovalId`, `UpdatedWhen`) and then writes **the caller's own object**. Nothing maps permitted fields onto the stored row. This is why `IsResolved` is writable through modify at all: it is absent from the pin list, and a pin list is open by default.
+
+Its facts are all live: `-Added`, `-Modified`, `-Removed` (shared by `-HardRemoved`) and `-Resolved`, plus the soft-delete operation behind `-Removed`.
+
 **Deleted, not relocated: the versioning rules.** The withdrawn subsections gave `Tag`, `Reaction`, `Comment` and `BibleReference` a full versioning model — fork on modify of an `Approved` row, `IsLatestVersion` demotion, one latest and one published row per `GroupId`, and `GroupId` / `Version` / `IsLatestVersion` in the control-field list. None of the four implements `IVersion` today; all four carry `IApproval` only, and `EntityTypeVersioning` (§7.5.1) declares all four Single-Row.
 
 **But they did not all arrive there the same way, and an earlier single sentence — "describing properties those types never had" — was false for one of them.** §7.5.1 rule 1 already draws this distinction; this is the split it implies.
