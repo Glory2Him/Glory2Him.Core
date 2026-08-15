@@ -9,32 +9,38 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System.Net.Http;
-using Glory2Him.Core.Brokers.Storages.Sql;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Glory2Him.WebApp.Models.Foundations.Roles;
+using Glory2Him.WebApp.Models.Foundations.Users;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
-using RESTFulSense.Clients;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     public partial class ApiBroker
     {
-        private readonly TestWebApplicationFactory webApplicationFactory;
-        private readonly HttpClient httpClient;
-        private readonly IRESTFulApiFactoryClient apiFactoryClient;
-
-        // The host's own storage broker, for arranging and tearing down state that no endpoint
-        // can produce — an approval round, for instance, which the approve decision reads but
-        // which only the approval orchestration would normally create. Real rows in the real
-        // database, written through the same broker the request will read back through, so this
-        // arranges the system rather than mocking it.
-        internal readonly IStorageBroker storageBroker;
-
-        public ApiBroker()
+        public async ValueTask<bool> RoleExistsAsync(string roleName)
         {
-            webApplicationFactory = new TestWebApplicationFactory();
-            httpClient = webApplicationFactory.CreateClient();
-            apiFactoryClient = new RESTFulApiFactoryClient(httpClient);
-            storageBroker = webApplicationFactory.Services.GetService<IStorageBroker>();
+            using IServiceScope scope = this.webApplicationFactory.Services.CreateScope();
+
+            RoleManager<AppRole> roleManager =
+                scope.ServiceProvider.GetRequiredService<RoleManager<AppRole>>();
+
+            return await roleManager.RoleExistsAsync(roleName);
+        }
+
+        public async ValueTask<IList<string>> GetSeededAdministratorRolesAsync()
+        {
+            using IServiceScope scope = this.webApplicationFactory.Services.CreateScope();
+
+            UserManager<AppUser> userManager =
+                scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
+
+            AppUser administrator =
+                await userManager.FindByNameAsync(TestAuthHandler.SeededAdministratorUserName);
+
+            return await userManager.GetRolesAsync(administrator);
         }
     }
 }
