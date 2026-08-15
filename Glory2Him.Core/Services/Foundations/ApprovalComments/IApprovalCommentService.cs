@@ -47,6 +47,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         /// Records whether the question this comment raised has been answered. Owns
         /// <see cref="ApprovalComment.IsResolved"/> and nothing else — the wording belongs to
         /// whoever wrote it and is only ever changed through modify.
+        ///
+        /// <para>Open to the owner <b>or</b> an <c>Admin</c>. That widening is the operation's
+        /// reason to exist: the owner can equally flip the flag through modify, but an
+        /// <c>Admin</c> cannot, because modify is owner-only and admitting them there would hand
+        /// them the author's words as well (§14.7 rule 5).</para>
         /// </summary>
         /// <param name="isResolved">
         /// The resolution state to record. Reopening (<c>false</c>) rides the same operation as

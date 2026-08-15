@@ -341,18 +341,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         secondName: nameof(ApprovalComment.ApprovalId)),
                     Parameter: nameof(ApprovalComment.ApprovalId)),
 
-                // IsResolved belongs to the Resolve transition, so modify may carry it but never
-                // change it. Two write paths to one field would mean an author flipping it
-                // through modify publishes ApprovalComment-Modified where a consumer watching
-                // RequireReviewCommentResolutionBeforeApprovals is waiting for
-                // ApprovalComment-Resolved — the gate would move with nothing announcing it.
-                // Pinning was withheld until Resolve existed: on its own it would have left the
-                // flag unsettable and deadlocked every approval under that setting.
-                (Rule: IsNotSame(
-                        first: inputApprovalComment.IsResolved,
-                        second: storageApprovalComment.IsResolved,
-                        secondName: nameof(ApprovalComment.IsResolved)),
-                    Parameter: nameof(ApprovalComment.IsResolved)),
+                // IsResolved is deliberately NOT pinned. Modify is owner-only, and the owner may
+                // answer their own question here as readily as through the resolve transition —
+                // pinning it would leave them unable to change a field that is theirs. What
+                // Resolve adds is the Admin route (§14.7 rule 5), not exclusivity over the field.
+                //
+                // The two paths publish different facts, and that costs nothing: the approval
+                // workflow subscribes to BOTH ApprovalComment-Modified and -Resolved to re-test
+                // whether an approval blocked on RequireReviewCommentResolutionBeforeApprovals
+                // can now complete. A gate move is announced on whichever address carried it.
 
                 (Rule: IsSame(
                         firstDate: inputApprovalComment.UpdatedWhen,
@@ -451,15 +448,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             {
                 Condition = firstDate != secondDate,
                 Message = $"Date is not the same as {secondDateName}"
-            };
-
-        private static dynamic IsNotSame(
-            bool first,
-            bool second,
-            string secondName) => new
-            {
-                Condition = first != second,
-                Message = $"Flag is not the same as {secondName}"
             };
 
         private static dynamic IsGreaterThan(string? text, int maxLength) => new

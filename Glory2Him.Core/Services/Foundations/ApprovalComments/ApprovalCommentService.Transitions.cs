@@ -22,13 +22,18 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// <summary>
     /// The narrow state-transition operation (design §9.7.1, §14.7 rule 5).
     ///
-    /// <para>Modify is the author's wording path — it owns the text and refuses to touch
-    /// anything fixed at add. <c>IsResolved</c> is not part of that: recording that a question
-    /// was answered changes no words, and it is the one comment operation an <c>Admin</c> may
-    /// perform on another person's row. So it gets its own operation, owning exactly
-    /// <c>IsResolved</c> and publishing its own fact. That separation is what makes the
-    /// <c>Admin</c> exception expressible at all — widening modify would have handed the same
-    /// role the author's words, which §14.7 rule 5 withdraws.</para>
+    /// <para>This operation exists for the <c>Admin</c> route, not for exclusivity over the
+    /// field. The owner may change <c>IsResolved</c> through the general modify as readily as
+    /// through here — it is their row and their question. What modify cannot express is an
+    /// <c>Admin</c> resolving on the author's behalf: widening modify to admit one would have
+    /// handed that role the author's words too, which §14.7 rule 5 withdraws. So resolution
+    /// gets its own operation, owning exactly <c>IsResolved</c>, admitting owner-or-<c>Admin</c>,
+    /// and publishing its own fact.</para>
+    ///
+    /// <para>Two paths writing one field costs nothing here: the approval workflow subscribes to
+    /// both <c>ApprovalComment-Modified</c> and <c>ApprovalComment-Resolved</c> to re-test an
+    /// approval blocked on <c>RequireReviewCommentResolutionBeforeApprovals</c>, so a gate move
+    /// is announced on whichever address carried it.</para>
     ///
     /// <para>Like every transition it loads the row FIRST and authorizes against what is
     /// STORED; the request carries only the id and the flag to record.</para>

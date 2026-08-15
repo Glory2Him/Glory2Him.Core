@@ -41,9 +41,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// Admin, hard removal by Admin only), and the §14.1/§14.5 read posture, under which a
     /// review thread is never public and answers not found to anyone but its author and the
     /// review roles — never assuming an upstream orchestration already gated the caller.
-    /// <c>IsResolved</c> is not writable through modify: it belongs to the resolve transition
-    /// in the <c>.Transitions</c> partial, which is the one operation an <c>Admin</c> may run
-    /// against another person's row.
+    /// <c>IsResolved</c> is writable through modify by the owner, and through the resolve
+    /// transition in the <c>.Transitions</c> partial by the owner <i>or</i> an <c>Admin</c> —
+    /// that widening is what the transition exists for, not exclusivity over the field.
     /// </summary>
     internal partial class ApprovalCommentService : IApprovalCommentService
     {

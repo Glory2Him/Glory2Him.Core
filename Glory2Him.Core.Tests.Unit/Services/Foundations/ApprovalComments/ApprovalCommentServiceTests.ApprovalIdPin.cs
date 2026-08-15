@@ -66,48 +66,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 randomDateTimeOffset);
         }
 
-        [Theory]
-        [InlineData(true)]
-        [InlineData(false)]
-        public async Task ShouldThrowValidationExceptionOnModifyIfIsResolvedWasChangedAndLogItAsync(
-            bool storedResolution)
-        {
-            // given: IsResolved belongs to the resolve transition. Flipping it through modify
-            // would move the gate RequireReviewCommentResolutionBeforeApprovals holds shut while
-            // publishing ApprovalComment-Modified — anything watching the resolution address for
-            // that gate would never hear about it. Both directions are pinned: reopening a
-            // question by stealth is the same hole as answering one.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
-            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-            string randomUserId = GetRandomString();
-
-            ApprovalComment invalidApprovalComment =
-                CreateRandomModifyApprovalComment(randomDateTimeOffset, randomUserId);
-
-            invalidApprovalComment.IsResolved = storedResolution is false;
-
-            ApprovalComment storageApprovalComment = invalidApprovalComment.DeepClone();
-            storageApprovalComment.UpdatedWhen =
-                storageApprovalComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
-
-            storageApprovalComment.IsResolved = storedResolution;
-
-            var invalidApprovalCommentException =
-                new InvalidApprovalCommentException(
-                    message: "Approval comment is invalid, fix the errors and try again.");
-
-            invalidApprovalCommentException.AddData(
-                key: nameof(ApprovalComment.IsResolved),
-                values: $"Flag is not the same as {nameof(ApprovalComment.IsResolved)}");
-
-            await AssertModifyIsRefusedAsync(
-                invalidApprovalComment,
-                storageApprovalComment,
-                invalidApprovalCommentException,
-                randomUserId,
-                randomDateTimeOffset);
-        }
-
         private async Task AssertModifyIsRefusedAsync(
             ApprovalComment invalidApprovalComment,
             ApprovalComment storageApprovalComment,
