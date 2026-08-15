@@ -25,18 +25,30 @@ using RESTFulSense.Controllers;
 namespace Glory2Him.WebApp.Controllers.Tags
 {
     /// <summary>
-    /// The tag exposure point (design §12.5). Thin by construction: it authenticates through
+    /// The tag exposure point (design §12.6). Thin by construction: it authenticates through
     /// middleware, hands the request to <see cref="ITagService"/>, and maps the service's typed
     /// exceptions onto HTTP status codes. It carries no business logic and builds no
     /// <c>SecurityContext</c>, <c>RequestContext</c> or <c>EventEnvelope&lt;T&gt;</c> — those are
     /// created only inside the service (design §10.12).
     ///
-    /// <para>The <c>[Authorize]</c> attributes are a <b>coarse</b> gate only (design §11 rule 2):
-    /// they establish that a caller is authenticated and, where the design names a fixed tier,
-    /// that the caller holds a role in it. Every row-level rule — the contribution gate,
+    /// <para>It binds to the foundation rather than an orchestration because <c>Tag</c> is
+    /// approvable but Single-Row, so it needs nothing above its foundation service — the
+    /// withdrawn <c>TagOrchestration</c> of the old §12.4.7 is not coming (design §12.1 rule 3,
+    /// §12.3.1, §10.17 rule 3, which requires binding to the entity's <i>top-layer</i> service).</para>
+    ///
+    /// <para>The <c>[Authorize]</c> attributes are a <b>coarse</b> gate only (design §10.16
+    /// rule 2): they establish that a caller is authenticated and, where the design names a fixed
+    /// tier, that the caller holds a role in it. Every row-level rule — the contribution gate,
     /// owner-or-moderation write permission, read visibility, no self-approval — is decided by
     /// the foundation service against the stored row, which never assumes an upstream layer
     /// gated the caller (design §14.6).</para>
+    ///
+    /// <para>The two reads are <c>[AllowAnonymous]</c> on purpose. Tag is a §14.7 posture A
+    /// entity, and rule 4 of that posture is "anonymous callers see public only" — the service
+    /// implements it directly, returning a publicly visible row before it consults the security
+    /// context at all and degrading the collection filter to the public predicate when the caller
+    /// is unauthenticated. An <c>[Authorize]</c> here would answer 401 before the service was
+    /// reached and make the entire public read surface unreachable over HTTP.</para>
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -95,7 +107,7 @@ namespace Glory2Him.WebApp.Controllers.Tags
 #if DEBUG
         [EnableQuery(PageSize = 5000)]
 #endif
-        [Authorize]
+        [AllowAnonymous]
         public async ValueTask<ActionResult<IQueryable<Tag>>> Get(CancellationToken cancellationToken)
         {
             try
@@ -116,7 +128,7 @@ namespace Glory2Him.WebApp.Controllers.Tags
         }
 
         [HttpGet("{tagId}")]
-        [Authorize]
+        [AllowAnonymous]
         public async ValueTask<ActionResult<Tag>> GetTagByIdAsync(
             Guid tagId,
             CancellationToken cancellationToken)
@@ -234,6 +246,12 @@ namespace Glory2Him.WebApp.Controllers.Tags
                 return BadRequest(tagValidationException.InnerException);
             }
             catch (TagDependencyValidationException tagDependencyValidationException)
+                when (tagDependencyValidationException.InnerException is AlreadyExistsTagException)
+            {
+                return Conflict(tagDependencyValidationException.InnerException);
+            }
+
+            catch (TagDependencyValidationException tagDependencyValidationException)
                 when (tagDependencyValidationException.InnerException is LockedTagException)
             {
                 return Locked(tagDependencyValidationException.InnerException);
@@ -283,6 +301,12 @@ namespace Glory2Him.WebApp.Controllers.Tags
             {
                 return BadRequest(tagValidationException.InnerException);
             }
+            catch (TagDependencyValidationException tagDependencyValidationException)
+                when (tagDependencyValidationException.InnerException is AlreadyExistsTagException)
+            {
+                return Conflict(tagDependencyValidationException.InnerException);
+            }
+
             catch (TagDependencyValidationException tagDependencyValidationException)
                 when (tagDependencyValidationException.InnerException is LockedTagException)
             {
@@ -335,6 +359,12 @@ namespace Glory2Him.WebApp.Controllers.Tags
                 return BadRequest(tagValidationException.InnerException);
             }
             catch (TagDependencyValidationException tagDependencyValidationException)
+                when (tagDependencyValidationException.InnerException is AlreadyExistsTagException)
+            {
+                return Conflict(tagDependencyValidationException.InnerException);
+            }
+
+            catch (TagDependencyValidationException tagDependencyValidationException)
                 when (tagDependencyValidationException.InnerException is LockedTagException)
             {
                 return Locked(tagDependencyValidationException.InnerException);
@@ -385,6 +415,12 @@ namespace Glory2Him.WebApp.Controllers.Tags
             {
                 return BadRequest(tagValidationException.InnerException);
             }
+            catch (TagDependencyValidationException tagDependencyValidationException)
+                when (tagDependencyValidationException.InnerException is AlreadyExistsTagException)
+            {
+                return Conflict(tagDependencyValidationException.InnerException);
+            }
+
             catch (TagDependencyValidationException tagDependencyValidationException)
                 when (tagDependencyValidationException.InnerException is LockedTagException)
             {

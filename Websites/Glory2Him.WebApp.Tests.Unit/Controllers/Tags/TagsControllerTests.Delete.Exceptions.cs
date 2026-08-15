@@ -270,5 +270,51 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             this.tagServiceMock.VerifyNoOtherCalls();
         }
+        [Fact]
+        public async Task ShouldReturnConflictOnDeleteIfAlreadyExistsTagErrorOccurredAsync()
+        {
+            // given
+            Guid someId = Guid.NewGuid();
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsTagException =
+                new AlreadyExistsTagException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var tagDependencyValidationException =
+                new TagDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsTagException);
+
+            ConflictObjectResult expectedConflictObjectResult =
+                Conflict(alreadyExistsTagException);
+
+            var expectedActionResult =
+                new ActionResult<Tag>(expectedConflictObjectResult);
+
+            this.tagServiceMock.Setup(service =>
+                service.RemoveTagByIdAsync(It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(tagDependencyValidationException);
+
+            // when
+            ActionResult<Tag> actualActionResult =
+                await this.tagsController.DeleteTagByIdAsync(someId, null, default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.tagServiceMock.Verify(service =>
+                service.RemoveTagByIdAsync(It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                    Times.Once);
+
+            this.tagServiceMock.VerifyNoOtherCalls();
+        }
     }
 }

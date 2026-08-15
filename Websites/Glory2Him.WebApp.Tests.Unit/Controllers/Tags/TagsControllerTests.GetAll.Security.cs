@@ -10,7 +10,6 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Glory2Him.WebApp.Controllers.Tags;
 using FluentAssertions;
@@ -21,17 +20,29 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
     public partial class TagsControllerTests
     {
         [Fact]
-        public void GetAllShouldHaveRoleAttributeWithRoles()
+        public void GetAllShouldAllowAnonymous()
+        {
+            // Given
+            var controllerType = typeof(TagsController);
+            var methodInfo = controllerType.GetMethod("Get");
+            Type attributeType = typeof(AllowAnonymousAttribute);
+
+            // When
+            var attribute = methodInfo?
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault();
+
+            // Then
+            attribute.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void GetAllShouldNotHaveRoleAttributeWithRoles()
         {
             // Given
             var controllerType = typeof(TagsController);
             var methodInfo = controllerType.GetMethod("Get");
             Type attributeType = typeof(AuthorizeAttribute);
-            string attributeProperty = "Roles";
-
-            List<string> expectedAttributeValues = new List<string>
-            {
-            };
 
             // When
             var methodAttribute = methodInfo?
@@ -45,19 +56,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
             var attribute = methodAttribute ?? controllerAttribute;
 
             // Then
-            attribute.Should().NotBeNull();
-
-            var actualAttributeValue = attributeType
-                .GetProperty(attributeProperty)?
-                .GetValue(attribute) as string ?? string.Empty;
-
-            var actualAttributeValues = actualAttributeValue?
-                .Split(',')
-                .Select(role => role.Trim())
-                .Where(role => !string.IsNullOrEmpty(role))
-                .ToList();
-
-            actualAttributeValues.Should().BeEquivalentTo(expectedAttributeValues);
+            attribute.Should().BeNull();
         }
     }
 }

@@ -241,5 +241,47 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             this.tagServiceMock.VerifyNoOtherCalls();
         }
+        [Fact]
+        public async Task ShouldReturnConflictOnApproveIfAlreadyExistsTagErrorOccurredAsync()
+        {
+            // given
+            Tag someTag = CreateRandomTag();
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsTagException =
+                new AlreadyExistsTagException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var tagDependencyValidationException =
+                new TagDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsTagException);
+
+            ConflictObjectResult expectedConflictObjectResult =
+                Conflict(alreadyExistsTagException);
+
+            var expectedActionResult =
+                new ActionResult<Tag>(expectedConflictObjectResult);
+
+            this.tagServiceMock.Setup(service =>
+                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                    .ThrowsAsync(tagDependencyValidationException);
+
+            // when
+            ActionResult<Tag> actualActionResult =
+                await this.tagsController.ApproveTagAsync(someTag, default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.tagServiceMock.Verify(service =>
+                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                    Times.Once);
+
+            this.tagServiceMock.VerifyNoOtherCalls();
+        }
     }
 }
