@@ -41,6 +41,16 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ApprovalCommentRemovedEventAddressId =
             new Guid("019f814e-89c1-75a9-a79a-6c332280526c");
 
+        // The subject is ApprovalComment, never Comment. CommentService owns a separate entity
+        // with its own addresses, and the broker composes the stored event name as
+        // subject + operation — "Comment-Resolving" would collide with that subject's namespace
+        // and attribute this service's facts to the wrong entity.
+        public static readonly Guid ApprovalCommentResolvingEventAddressId =
+            new Guid("6571e6c1-e16c-48da-8bcf-9d8b3dcc7dbf");
+
+        public static readonly Guid ApprovalCommentResolvedEventAddressId =
+            new Guid("42698c5a-4c70-4564-b819-cd549041acc3");
+
         internal static readonly IReadOnlyDictionary<ApprovalCommentEventOperation, Guid>
             ApprovalCommentEventAddressIds = new Dictionary<ApprovalCommentEventOperation, Guid>
             {
@@ -49,6 +59,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalCommentEventOperation.RemovingById, ApprovalCommentRemovingByIdEventAddressId },
                 { ApprovalCommentEventOperation.HardRemovingById, ApprovalCommentHardRemovingByIdEventAddressId },
                 { ApprovalCommentEventOperation.RetrievingById, ApprovalCommentRetrievingByIdEventAddressId },
+                { ApprovalCommentEventOperation.Resolving, ApprovalCommentResolvingEventAddressId },
                 { ApprovalCommentEventOperation.Added, ApprovalCommentAddedEventAddressId },
                 { ApprovalCommentEventOperation.Modified, ApprovalCommentModifiedEventAddressId },
 
@@ -56,7 +67,9 @@ namespace Glory2Him.Core.Models.Configurations
                 // consumers subscribe to one removal address and distinguish hard removals
                 // by the composed event name ("ApprovalCommentHardRemoved" vs "ApprovalCommentRemoved").
                 { ApprovalCommentEventOperation.Removed, ApprovalCommentRemovedEventAddressId },
-                { ApprovalCommentEventOperation.HardRemoved, ApprovalCommentRemovedEventAddressId }
+                { ApprovalCommentEventOperation.HardRemoved, ApprovalCommentRemovedEventAddressId },
+
+                { ApprovalCommentEventOperation.Resolved, ApprovalCommentResolvedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ApprovalCommentEventAddresses =
@@ -69,7 +82,9 @@ namespace Glory2Him.Core.Models.Configurations
                 { ApprovalCommentRetrievingByIdEventAddressId, "ApprovalComment-RetrievingById" },
                 { ApprovalCommentAddedEventAddressId, "ApprovalComment-Added" },
                 { ApprovalCommentModifiedEventAddressId, "ApprovalComment-Modified" },
-                { ApprovalCommentRemovedEventAddressId, "ApprovalComment-Removed" }
+                { ApprovalCommentRemovedEventAddressId, "ApprovalComment-Removed" },
+                { ApprovalCommentResolvingEventAddressId, "ApprovalComment-Resolving" },
+                { ApprovalCommentResolvedEventAddressId, "ApprovalComment-Resolved" }
             };
 
         public static readonly Guid ApprovalCommentOnAddingApprovalCommentSubscriptionId =
@@ -98,5 +113,11 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ApprovalCommentOnRetrievingApprovalCommentByIdSubscriptionName =
             "ApprovalCommentService.OnRetrievingApprovalCommentById";
+
+        public static readonly Guid ApprovalCommentOnResolvingApprovalCommentSubscriptionId =
+            new Guid("49cd2631-4485-491f-a13c-2e84f9afa0b6");
+
+        public const string ApprovalCommentOnResolvingApprovalCommentSubscriptionName =
+            "ApprovalCommentService.OnResolvingApprovalComment";
     }
 }

@@ -120,8 +120,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         }
 
         // row-level write permission: a review is the reviewer's own verdict, so only its
-        // author may amend it — another reviewer records their own review instead; an
-        // Admin may correct anyone's for support and moderation
+        // author may amend it — another reviewer records their own review instead
         private async ValueTask ValidateUserCanModifyStorageApprovalReviewAsync(
             ApprovalReview storageApprovalReview,
             SecurityContext securityContext)
@@ -132,15 +131,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalReview.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            // Owner only. A verdict belongs to the reviewer who recorded it, and no role amends
+            // another person's — not Publisher, not Admin. An Admin who needs past a standing
+            // rejection bypasses the block (§8.6.1) rather than editing the review out of the way,
+            // which keeps the record of what was actually said intact.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalReviewException(
                     message: "The current user is not allowed to modify this approval review.");
             }
         }
 
-        // withdrawing a review is the author's own retraction — the owner may remove their
-        // verdict and an Admin may remove anyone's; other reviewers cannot erase a peer's
+        // withdrawing a review is the author's own retraction — only the owner may remove
+        // their verdict; no other role, reviewer or Admin, can erase a peer's
         private async ValueTask ValidateUserCanRemoveStorageApprovalReviewAsync(
             ApprovalReview storageApprovalReview,
             SecurityContext securityContext)
@@ -151,7 +154,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalReview.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            // Owner only, for the same reason as modify. Withdrawing someone else's verdict is
+            // amending the review record by deletion.
+            if (isOwner is false)
             {
                 throw new UnauthorizedApprovalReviewException(
                     message: "The current user is not allowed to remove this approval review.");

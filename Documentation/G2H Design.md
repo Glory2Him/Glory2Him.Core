@@ -739,7 +739,7 @@ Rules:
 | `Id` | Unique review identifier. |
 | `ApprovalId` | Parent approval record. |
 | `StatusId` | Review decision status. |
-| `Comment` | Optional free text explaining **why** this reviewer reached this `StatusId`. It is rationale attached to a verdict, not a question — it has no resolved state and nothing waits on it. Discussion between reviewers is `ApprovalComment`, which is a different thing (§7.8). |
+| `Comment` | Optional free text explaining **why** this reviewer reached this `StatusId`. It is rationale attached to *this reviewer's own verdict*: it has no settled state, nothing reads it and nothing waits on it. A reviewer who wants reasoning that other reviewers can see and act on writes an `ApprovalComment` instead — that entity carries `IsResolved` and may be either outstanding or purely informational (§7.8). |
 | `IsDeleted` | Soft-delete flag. When `true` the review is excluded from threshold calculations. |
 | `CreatedBy` | User who created the review. |
 | `CreatedWhen` | Creation timestamp. |
@@ -753,7 +753,11 @@ Rules:
 
 The following rules apply:
 
-1. A reviewer may only have one active review per approval record. A second active review by the same reviewer must be rejected by validation — review decisions are not superseded or replaced.
+1. A reviewer may only have one active review per approval record. A second active review by the same reviewer is refused — review decisions are not superseded or replaced. It is enforced in **two** places, not by one validation: `IAccessClient` refuses it on the add path, and the filtered unique index `UX_ApprovalReviews_ApprovalId_CreatedBy` is the backstop for every write that lands an active row. See §12.3.1, which records why the two surface differently.
+
+    **The write window.** A reviewer may add, modify and withdraw their **active** review for as long as the parent approval is **`Submitted`** — the same window rule 2b states below. Note this is *narrower* than "not terminal": `Draft` is not terminal but is also not open, and the decision function refuses anything that is not `Submitted`. Before submission there is nothing to review; once the round closes the review record stands as filed.
+
+    **A dismissed review may not be touched at all** — not amended, not withdrawn. §9.5 retains it as evidence that a verdict once applied to superseded content, so editing it would rewrite history in place and withdrawing it would destroy the very record the dismissal exists to keep. Both routes are refused; only `Admin` hard removal, which is destructive maintenance, gets past it.
 2. A review can approve, reject, or become dismissed. The verdict a **reviewer** may record is closed to `Approved` or `Rejected`; `Dismissed` is what *happens to* a review when an entity-scoped change invalidates it (§9.5), never something its author declares. A reviewer who could dismiss their own review would retract a rejection without recording a verdict, which is the same outcome as changing it but leaves no trace of the change.
 2a. **A dismissed review is closed.** It is retained for audit and may not be amended — the reviewer files a new one (rule 7). Amending it instead would re-attach a stale judgement to text nobody re-read, because dismissal is precisely the record that the verdict no longer describes the current content.
 2b. **A review may only be written while its `Approval` is `Submitted`** — this is the window, and it is enforced. Once the `Approval` reaches `Approved` or `Rejected` the round is over, and a verdict changed afterwards would not re-run the workflow: an entity could sit `Approved` with a standing rejection against it and nothing would notice. The check needs the parent `Approval`'s status, which is another entity's row, so it goes through `IAccessBroker` to `IAccessClient` (§8.6.1). Rules 2 and 2a are row-local and are enforced in the service itself.
@@ -762,6 +766,17 @@ The following rules apply:
 5. Self-approval is controlled by `ApprovalSetting.AllowSelfApproval`.
 6. Dismissed reviews must not count toward the approval threshold.
 7. A reviewer may submit a new review only after their previous review was dismissed.
+
+    **Dismissal is not a user action, so this is not a route a reviewer can walk.** `Dismissed` is driven by the approval process: when an item subject to approval is amended, the orchestration receives the fact, determines from the approval settings that the existing verdicts are now stale, and sets every active `ApprovalReview` on that approval to `Dismissed` (§8.8, §12.5.3). A reviewer waits for that; they never trigger it. The dismiss verb exists so the workflow has something to call — it is not a control anyone drives by hand.
+
+    **Consequence for a departed reviewer.** Reviews are owner-only, so a verdict recorded by someone who has since left stands: no `Admin`, `Publisher` or peer reviewer may **edit or withdraw** it. That absolute is about *amendment*, and it holds. Clearing the block is a different question, and four routes exist:
+
+    1. An `Admin` **bypass** (§8.6.1), waiving the §8.5 conditions and recording the waiver.
+    2. A **change to the item under review**, which makes every active review stale and dismisses them — the intended route.
+    3. The **dismiss verb**, called directly by the publisher tier. Intended as the workflow's instrument, but it is a public operation on `IApprovalReviewService` and its address is registered, so a global `Publisher` — or, because the check is a suffix match, a bare `%EntityType%-Publisher` for an unrelated entity type — can drive a standing verdict to `Dismissed` by hand. It takes **no** `IAccessBroker` decision, so unlike add, modify and remove it is never narrowed to the entity behind the approval.
+    4. `Admin` **hard removal**, which destroys the row and likewise takes no access decision.
+
+    Routes 3 and 4 are recorded rather than endorsed. Neither edits the verdict — the amendment absolute survives — but both clear the block without the change-and-dismiss cycle, and whether route 3 should be narrowed the way the other write paths now are is an open design question (§12.5.1).
 8. A user who has filed an active review on an entity must not also set that entity's `ApprovalStatus` — reviewing is vouching, deciding is deciding, and one person doing both meets a threshold of `1` single-handed (§8.6 regardless-rule 1). This replaces an earlier bar on anyone recorded in the entity's `UpdatedBy` reviewing it; that bar was withdrawn as unimplementable, and §8.6's *Why this is not written against `UpdatedBy`* records why.
 
 ### 7.8 ApprovalComment
@@ -773,7 +788,7 @@ The following rules apply:
 | `Id` | Unique comment identifier. |
 | `ApprovalId` | Parent approval record. |
 | `Comment` | Comment text. |
-| `IsResolved` | Whether the question this comment raised has been answered and is no longer open. An `ApprovalComment` is **open discussion between reviewers**, unlike `ApprovalReview.Comment`, which is one reviewer's rationale for their own verdict and is never resolvable. When `ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals = true`, no unanswered question may be outstanding before the approval conditions are met. |
+| `IsResolved` | Whether this comment is **settled** — whether it still requires something before the approval can proceed. See the note below the table; the distinction is load-bearing and both birth values are legitimate. When `ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals = true`, no **outstanding** comment may remain before the approval conditions are met. |
 | `IsDeleted` | Soft-delete flag. When `true` the comment is excluded from public visibility. |
 | `CreatedBy` | User who created the comment. |
 | `CreatedWhen` | Creation timestamp. |
@@ -782,6 +797,18 @@ The following rules apply:
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+
+**`IsResolved` means settled, not answered.** The distinction matters because it decides what the add path is allowed to do.
+
+**Not every comment asks for anything.** An observation, or a reviewer recording their rationale so other reviewers can see the thinking behind a verdict, is informational — others may act on it or not, and nothing waits on it. That comment is created `IsResolved = true` and never blocks. A comment that *does* ask for something — a question, a change request — is created `false` and holds the approval shut until it is settled.
+
+Three consequences follow, and each is easy to get wrong by reading the flag as "has the question been answered":
+
+1. **Both birth values are legitimate**, so the add path applies **no rule** to the field. A comment born settled is the informational case, not a missing validation. Pinning it `false` at creation — the way `IsDeleted` is pinned — would make it impossible to leave a remark without holding the approval shut, and is the single most tempting wrong "fix" in this area.
+2. **The column still defaults to `false`**, which is the fail-closed choice for a caller who says nothing: silence means outstanding.
+3. **Settling runs both ways.** A comment recorded as an observation may later turn out to need action, and one settled prematurely must be able to block again — so `ResolveApprovalCommentAsync` is a two-way transition (§14.7 rule 5), not a one-shot.
+
+Distinct from `ApprovalReview.Comment`, which is one reviewer's rationale for their **own** verdict and is never resolvable at all — nothing reads it and nothing waits on it. A reviewer who wants reasoning that others can see and act on writes an `ApprovalComment`; that is exactly the informational case above.
 
 ## 8. Approval Settings Design
 
@@ -805,7 +832,7 @@ Recommended properties:
 | `BlockOnReject` | Whether a single rejection blocks the approval. |
 | `RequireReapprovalOnChange` | Whether edits reset approval status. |
 | `AutoApproveIfAllApprovalRequirementsMet` | Whether the entity is automatically approved when all approval requirements are met. |
-| `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be resolved before approval can be granted. It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
+| `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be **settled** before approval can be granted. Only comments that ask for something ever hold it shut — an informational comment is created settled (§7.8). It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
 | `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a `Publisher`/`Admin` may still bypass it (§12.5.3 business rule 11) or correct the score first (§9.7.1 rule 5). |
 | `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Admin`. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from policy resolution. |
@@ -871,7 +898,19 @@ conditionsMet =
 4. While the conditions are not met, status remains `Submitted`.
 5. Meeting the conditions enables the manual approve action for `Publisher`/`Admin` (the UI approve button).
 6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
-7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment raised during review must be resolved (`ApprovalComment.IsResolved = true`) before the conditions are met. This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a question is still open; the approval simply cannot complete until it is answered.
+7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment on the approval must be **settled** (`ApprovalComment.IsResolved = true`) before the conditions are met. Only comments that ask for something ever hold this shut: an informational comment is created settled and never counts against it (§7.8). This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a comment is still outstanding; the approval simply cannot complete until it is settled.
+
+    **The routes past an outstanding comment.** A submitter whose content is blocked by a comment left at `IsResolved = false` is unblocked when:
+
+    1. **The thread resolves itself.** Another reviewer answers in a comment of their own — created settled, so it adds no new block — and then **the author of the blocking comment marks theirs settled**. Only they can: comments are owner-only, and no reviewer may settle a peer's (§14.7 rule 5).
+    2. **An `Admin` settles it on the author's behalf**, through the resolve operation. This is the one comment operation an `Admin` may perform on someone else's row, and it changes no words.
+    3. **An `Admin` bypasses**, moving to approval and waiving the §8.5 conditions outright rather than satisfying them (§8.6.1, HR-4). The comment stays outstanding and the waiver is recorded on the row.
+
+    4. **The author withdraws it.** A soft-deleted comment leaves the block: §8.5 counts only comments where `IsDeleted is false && IsResolved is false`, which is also why `ApprovalComment-Removed` appears in the §10.17 re-test table as an unblocking fact. Owner-only, like every other write to the row.
+
+    What is *not* a route: **nobody other than the author** may edit, settle or withdraw the blocking comment. That is the absolute — it is about who, not about which verb. Every route leaves a trace: route 1 keeps the conversation intact, route 2 records the overriding `Admin` in `UpdatedBy`, route 3 records that the conditions were waived, and route 4 records `IsDeleted` / `DeletedBy` / `DeletionReason` and announces `-Removed`.
+
+    Route 4 is the mirror of route 1 — if an author may settle their own comment, they may equally retract it — but it is worth naming, because an auditor tracing why a blocked approval completed will look for a `-Resolved` fact or a bypass flag and find neither.
 8. When `BlockOnZeroApprovalScore = true`, an entity whose `ConfidenceScore` is `0` cannot meet the conditions. **A `null` score does not block** — it means the confidence process has not run yet, not that the association was judged worthless. Treating `null` as blocking would deadlock every approval until §13.4 ships, and would strand anything the process failed on. If a scored gate is wanted before that point, the setting to reach for is `RequireApprovals`, not this one.
 9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.5.3 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
 
@@ -962,7 +1001,9 @@ One prerequisite was closed ahead of it, and has since been closed more thorough
 
 **A conflict that binding surfaced, since resolved.** The index was unfiltered — no predicate on `StatusId` or `IsDeleted` — so it enforced one review per reviewer per approval *ever*, not §7.7 rule 1's one *active* review. That was harmless while `ReviewerId` was free text, because a reviewer could re-file under a different id; once it was bound to the actor, §7.7 rule 7's re-file-after-dismissal had no route at all, and rule 1 forbids superseding the dismissed row in place. It now carries `StatusId <> Dismissed AND IsDeleted = 0`, so a withdrawn or dismissed review releases the slot and the re-file has somewhere to go.
 
-Two things about that filter are worth stating, because nothing else in the suite would catch them. It uses the **same** definition of *active* as `IAccessClient`'s own review counting — not dismissed, not soft-deleted — and the two must not be allowed to drift, since one refuses the second review politely and the other is the backstop when something reaches storage anyway. And because the rule lives in an index rather than in code, no ordinary test exercises it and `has-pending-model-changes` would not notice a wrong predicate — it detects a model the migrations do not match, not a model that is wrong. A model-configuration test asserts the filter directly for that reason.
+Two things about that filter are worth stating, because nothing else in the suite would catch them. It is *meant* to use the same definition of *active* as `IAccessClient`'s own review counting — not dismissed, not soft-deleted — since one refuses the second review politely and the other is the backstop when something reaches storage anyway.
+
+**The two have already drifted, and this paragraph used to assert they had not.** The index says `StatusId <> Dismissed AND IsDeleted = 0`. The counter maps `ApprovalStatus` to a verdict with everything that is not `Approved`/`Rejected` folding to `Dismissed`, so a review row at `Draft` or `Submitted` **occupies the index slot while being invisible to the counter**. Such a row is corrupt by construction — a review is filed with a verdict — so the sets agree on well-formed data, and the drift is latent rather than live. It is recorded because "they must not be allowed to drift" is not a mechanism, and nothing enforces the correspondence. And because the rule lives in an index rather than in code, no ordinary test exercises it and `has-pending-model-changes` would not notice a wrong predicate — it detects a model the migrations do not match, not a model that is wrong. A model-configuration test asserts the filter directly for that reason.
 
 **The regardless-clause is enforced, and it cost nothing of its own.** §8.6's regardless-rules were rewritten — see *Why this is not written against `UpdatedBy`* there — precisely so they ask only questions `IAccessClient` already has to answer, and that held. Rule 1 ("no one may both review and decide the same round") is answered from the very `ApprovalReview` rows the client already reads to count approvals: one extra predicate on `CreatedBy`, folded into the same verdict. It is checked **before** the self-approval setting, because no setting relaxes it — a `Publisher` who filed a review has spent their vote on that round whatever `AllowSelfApproval` says. Rule 2 needed no additional read at all, being a consequence of §8.8's dismissal plus §8.5 rule 3. **No new column, no migration, and no per-entity cost beyond the `IAccessBroker` call.**
 
@@ -1019,7 +1060,7 @@ Reviewing requires a review-tier role and deciding requires the `Publisher` tier
 
 1. Recording an `ApprovalReview` requires a global `Reviewer`/`Publisher`/`Admin`, or a `%EntityType%-Reviewer` / `%EntityType%-Publisher` matching the entity under review.
 2. Approving, rejecting and bypassing require the `Publisher` tier — global `Publisher`/`Admin` or `%EntityType%-Publisher`. Reviewer-tier roles are excluded at every tier by HR-3.
-3. Commenting is not gated by either tier. An open question is not a verdict, and the submitter must be able to answer one.
+3. Commenting is not gated by either tier. A comment is not a verdict — it may be a question, a change request, an observation, or a reviewer's rationale put where others can see it — and the submitter must be able to respond on their own submission.
 
 ## 9. Approval Lifecycle
 
@@ -1863,6 +1904,30 @@ An entity's **top-layer service** is the highest business layer that owns its wr
 2. The reason is §10.2 rule 5. A version fork writes two foundation rows and therefore emits two foundation facts — a `-Modified` for the previous latest row being demoted, and an `-Added` for the new version. Reacting to the demotion would reset the still-published previous version's approval and dismiss its review history, for a write that changed only `IsLatestVersion`. The top-layer service emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about — and it is the fork that makes this a *layer* question rather than an *orchestration* question, since the fork is single-entity processing work.
 3. The consequence to accept deliberately: a write made directly against a foundation service bypasses approval invalidation. Approvable entities are therefore written through their top-layer service, and an exposer must bind to that service rather than the foundation for any approvable entity.
 
+**Inbound — the workflow's own records.** `ApprovalReview` and `ApprovalComment` are a second inbound channel, and a different one: their facts do not *invalidate* an approval, they prompt the workflow to **re-test the §8.5 conditions** on an approval that may have been blocked. Both are foundation-tier subscriptions — neither is an approvable entity and neither has a layer above its foundation (§12.3.1), so rules 1 and 2 do not apply and there is no fork to misread. Lettered here so the numbered rules above keep their cross-references.
+
+- (a) **Subscribe to every fact address on both records — not a subset.** The §8.5 evaluation reads comments through `IsDeleted is false && IsResolved is false`, and reviews through `IsDeleted is false && Verdict != Dismissed`. Every published fact can move one of those predicates, so all of them re-test:
+
+  | Fact | How it moves the gate |
+  | --- | --- |
+  | `ApprovalComment-Added` | a comment born **outstanding** blocks an approval that was clear; one born settled (§7.8) moves nothing, which the re-test establishes rather than assumes |
+  | `ApprovalComment-Modified` | the owner flipped `IsResolved` through the general modify |
+  | `ApprovalComment-Resolved` | the owner **or** an `Admin` flipped it through the resolve transition |
+  | `ApprovalComment-Removed` | soft-deleting an outstanding comment **unblocks**; `-HardRemoved` shares this address |
+  | `ApprovalReview-Added` / `-Modified` | moves the approval count or raises a blocking rejection |
+  | `ApprovalReview-Removed` | withdrawing an approving review drops the count; withdrawing a rejection unblocks |
+  | `ApprovalReview-Dismissed` | a dismissed verdict leaves the active set (§9.5) |
+
+  **Both comment resolution addresses are required.** `IsResolved` has two writers by design: the owner through modify, the owner or an `Admin` through the transition (§14.7 rule 5). Which one carried a given change depends on nothing more than which UI control was clicked, so watching one address would leave the gate movable unnoticed.
+
+  **These subscriptions arrive incrementally.** None is wired today, and they are expected to land alongside the API components that produce them rather than in one pass. What this table fixes is the *contract* — which addresses must eventually be subscribed and why — so that a later reviewer can check the wiring against a list rather than rediscover it. A closing audit that every address here has a subscriber belongs with the completion of the API surface (#196).
+- (b) **Re-test, do not assume.** No fact means "the approval may now complete" — it means the inputs changed. The handler re-runs the whole §8.5 evaluation. Facts that move the gate *shut* matter as much as those that open it: a comment born outstanding, or a withdrawn approving review, can re-block an approval that was clear, which is exactly the case `AutoApproveIfAllApprovalRequirementsMet` would otherwise get wrong. Equally, a fact may move nothing at all — a comment born settled is the common case — which is why the handler re-evaluates instead of inferring a direction from the address.
+- (b1) **The entity under review is a fourth inbound source, and it is the one that causes dismissal.** When an item subject to approval is added or amended, the orchestration receives that fact (rules 1–3 above decide at which tier) and, from the effective `ApprovalSetting`, determines that the existing verdicts no longer describe the current content. It then sets **every active `ApprovalReview` on that approval to `Dismissed`** (§8.8, §9.5). This is the only thing that dismisses a review — no user action does, and §7.7 rule 7's re-file route depends entirely on it.
+- (b2) **`Approval` itself is a fifth.** Its own `-Added` / `-Modified` facts re-enter the same evaluation, because a status or setting change can move the outcome without any review or comment changing.
+- (b3) **The decision is not the orchestration's to compute.** It receives a fact, gathers what the evaluation needs, and asks; the answer — block, permit, or auto-approve — comes back from the decision function (§8.5, §12.3.1). The orchestration owns the *reaction*, never the *rule*.
+- (c) **`-Dismissed` is a distinct address precisely so this reaction can tell a withdrawn verdict from an amended one** (§9.7.1), and `-Resolved` serves the same purpose for a comment.
+- (d) **The cycle rule still binds.** Re-testing may cause an approval decision, and that decision must go out through the transition verb of rules 4–5, never as a `-Modified` on the workflow record that triggered it.
+
 **Outbound — approval-caused writes use a transition verb, never `-Modifying`.**
 
 4. Every write the approval workflow causes on an entity's approval state goes through `Approve<Entity>Async` on the owning foundation service, published as `<Entity>-Approving` / `-Approved`. §10.2 rule 7 already establishes this vocabulary — a transition owning a narrower field scope than a general modify is a separate method and therefore a separate verb. Its scope is the whole of `IApproval`, so no separate publish verb is required.
@@ -2076,7 +2141,7 @@ Current intended foundation services:
 | 3 | `ApprovalService` | Approval record creation, status transitions, and uniqueness enforcement. |
 | 4 | `ApprovalSettingsService` | Approval policy rule management and effective setting resolution. |
 | 5 | `ApprovalCommentService` | CRUD for approval comments. |
-| 6 | `ApprovalReviewService` | Reviewer decision recording, eligibility validation, and threshold evaluation. |
+| 6 | `ApprovalReviewService` | Reviewer decision recording, the row-local half of eligibility validation, and owner-only write permission. Threshold evaluation is **not** here (§12.3.1). |
 | 7 | `TagService` | CRUD and validation for tags. |
 | 8 | `ReactionService` | CRUD and validation for reaction definitions. |
 | 9 | `CommentService` | CRUD and validation for comments. |
@@ -2094,14 +2159,41 @@ Current intended foundation services:
 
 **Shared rules — `Tag`, `Reaction`, `Comment`, `BibleReference`:**
 
-1. The following are control fields and must never be accepted from an external caller — they are set internally by the foundation or by the approval workflow (§8.6.1): `ApprovalStatus`, `IsPublished`, `PublishDate`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`.
-2. On every update the foundation loads the current entity from storage and maps only the permitted caller-supplied fields onto it: `Name` (`Tag`), `Name` and `UnicodeEmoji` (`Reaction`), `Content` (`Comment`), `Reference`, `Translation` and `Scripture` (`BibleReference`).
+1. **Control fields are defined by the §9.7.1 rule 2 subtraction test, not by a list here.** A property is caller-editable content unless it is a member of `IKey`, `IAudit`, `IApproval` (or `IVersion` / `ISortOrder` / `IConfidence` where present), is derived, or is declared create-only. An enumerated list is what fell behind the model last time — it omitted `IsApprovedByBypass`, `ApprovedByBypassReason`, `UpdatedBy` and `UpdatedWhen` — so this section deliberately does not restate one.
+
+    **Three interface members are nonetheless caller-supplied on some path, and "never accepted from an external caller" was false for them:**
+    - `ApprovalStatus` **is** accepted on add, restricted to `Draft` or `Submitted` (§14.7 posture A.1), and on modify through the `Draft` ↔ `Submitted` carve-out (§9.2 rules 4–6).
+    - `DeletionReason` **is** accepted on the remove path, as caller-supplied free text capped at 500.
+    - `IsApprovedByBypass` / `ApprovedByBypassReason` are pinned against storage on modify but **unguarded on add** on these four entities — a gap, recorded here rather than asserted away.
+
+2. **On update the foundation pins named fields against storage; it does not load-and-map.** The earlier wording — *"loads the current entity from storage and maps only the permitted caller-supplied fields onto it"* — describes a mechanism **no service implements**. Each service reads the stored row, runs `ValidateAgainstStorage<Entity>OnModify` to refuse changes to an enumerated pin list, and then writes **the caller's own object**.
+
+    The difference is not academic: a load-and-map is closed by default and a pin list is open by default, so anything absent from the pin list is silently writable. That is exactly why the gaps in rule 1 exist, and why the natural-key question in rule 2a below has the answer it does. The permitted content fields remain `Name` (`Tag`), `Name` and `UnicodeEmoji` (`Reaction`), `Content` (`Comment`), and `Reference`, `Translation`, `Scripture` (`BibleReference`).
+
+2a. **Natural keys are not uniformly protected, and the asymmetry is real.** These three fields are the §7.5.1 rule 4 ground for their types being Single-Row, so a rename is a structural act rather than an edit:
+
+    | Field | Pinned on modify? | Unique index | Filtered on `IsDeleted`? |
+    | --- | --- | --- | --- |
+    | `BibleReference.USFM` | **Yes** — refused, "immutable after creation" | `UX_BibleReferences_USFM` | **Yes** |
+    | `Tag.Name` | **No** — rename permitted today | `IX_Tags_Name` | **No** |
+    | `Reaction.Name` | **No** — rename permitted today | `IX_Reactions_Name` | **No** |
+
+    Two consequences follow and neither is intended. A `Tag` rename to an unused name succeeds and silently re-points everything that resolved that tag by name. And because the two `IX_*_Name` indexes are unfiltered, a **soft-deleted** `Tag` named "Grace" permanently blocks any new or renamed tag from taking that name — `BibleReference` does not have this problem. The rename question interacts with #201, which covers the same unfiltered indexes; it is recorded here and decided there.
 3. Soft delete follows §10.4. **Dependent associations are left untouched** — a soft delete breaks no link, and association visibility is the read-time composite of §14.3 rules 3–4, not a flag written on delete (the §12.4.1 responsibility 5 correction).
 4. A soft-deleted row must not be visible on any content item.
-5. **A soft-deleted row must also not be usable as an endpoint for a *new* association.** This is distinct from rule 4: rule 4 hides existing links, this one refuses new ones. It is enforced where associations are created, not here — `AssociationOrchestrationService` already resolves each endpoint through its own service and a visibility-filtered read reports a soft-deleted row as not-found.
+5. **A soft-deleted row must also not be usable as an endpoint for a *new* association.** This is distinct from rule 4: rule 4 hides existing links, this one refuses new ones. It is enforced where associations are created, not here.
+
+    The rule is stated as an **invariant, not as a mechanism.** Today it holds because `AssociationOrchestrationService` resolves each endpoint through that endpoint's own foundation service, whose single-row read posture reports a soft-deleted row as not-found. #211 proposes replacing exactly that read — so whatever replaces it must preserve the invariant, and this section must not be read as requiring the current mechanism.
+
+5a. **The precondition is "resolvable and not deleted", never "approved".** The withdrawn subsections said to *"associate an **approved** X"*. That does not survive, and its absence is deliberate rather than an oversight: `AssociationOrchestrationService` reads no endpoint's `ApprovalStatus`, `IsPublished` or `PublishDate` at all. What the visibility-filtered read does enforce is that the endpoint exists, is not soft-deleted, and is **visible to the caller** — public, or the caller's own, or the caller holds a review role.
+
+    So an owner or reviewer **can** associate their own `Draft`, `Submitted` or `Rejected` endpoint, and that is correct: the association carries its own independent approval lifecycle, and whether the pair *renders* is the read-time composite of §14.3 rules 3–4. Approval is deferred to read time, not required at write time. An unrelated caller still cannot, because the endpoint reports not-found to them.
 6. Each publishes its own `-Added` / `-Modified` / `-Removed` facts on its own addresses (§10.2), and `ApprovalOrchestrationService` subscribes to them to manage approval records and workflow state (§10.17 rule 1 — the foundation tier is the correct one for a Single-Row entity).
 7. Review dismissal is not their responsibility. Publishing the entity's own `-Modified` fact is sufficient; `ApprovalOrchestrationService` handles dismissal when it receives that fact (§10.17).
 8. State transitions (submit, approve, reject) are the foundation's own operations, each owning a narrower field scope than the general modify (§9.7.1 rule 3, §10.2 rule 7).
+9. **An amendment of a terminal row must be refused — and no service does this.** §7.5.1 rule 3: `Single-Row` means the row that is edited **is** the published row, so there is nothing to fork into and an amendment of a terminal (`Approved` or `Rejected`) row is refused instead, the only route back being an `Admin` override to `Submitted` that dismisses active reviews (§8.8 regardless-rule 1). §3.4 rule 7 generalises it: a terminal row's content is immutable.
+
+    **Recorded as unimplemented.** None of `Tag`, `Reaction`, `Comment`, `BibleReference`, `Link`, `ContentItem` or `Association` refuses it. Do not confuse it with the rule that *is* implemented: every one of them refuses a **change** to `ApprovalStatus` outside the `Draft` ↔ `Submitted` carve-out. What is missing is refusing the amendment itself when the stored row is already terminal — a caller who echoes the stored status back unchanged edits the body of an approved row, with `IsPublished` and `PublishDate` still pinned at their approved values, so the new content goes public without re-review. The row-level write gate bounds the exposure to the owner or a review role; it does not close it.
 
 **Associating them with a content item is not their work.** The withdrawn subsections gave each entity a responsibility to "associate an approved X with a content item by creating an `Association`, validating that X is permitted by resolving the effective `ContentItemSetting`". Creating the link is `Association`'s own flow (§4, §12.5 entry 1), and the rules that governed it survive there rather than here:
 
@@ -2112,11 +2204,46 @@ Current intended foundation services:
 
 **Neither gate is implemented today.** `AssociationOrchestrationService` takes no `IContentItemSettingService`, so the §6.10 settings gate is unenforced, exactly as the §14.3 composite visibility rule is unenforced (§12.5 entry 1). Moving these rules here does not implement them; it records where they belong.
 
-**`ApprovalReview`** — `ApprovalReviewService` carries the whole of it: reviewer eligibility via `IAccessBroker` (the reviewer must hold the review tier for the entity under review, §8.3, and must never review their own content — §8.6 HR-1 is unconditional, and `AllowSelfApproval` does not relax it, because that setting governs HR-2 approval rather than review), one active review per reviewer per approval record — a second active review is refused rather than superseding the first — the decision record itself, dismissal retention for audit (a dismissed review is never deleted), and a new review permitted after a dismissal. Threshold evaluation is **not** here — it belongs to `ApprovalOrchestrationService` (§12.5.3 R5), which is what made a separate orchestration redundant. The rule that a user with an active review may not also set the entity's `ApprovalStatus` is answered from the `ApprovalReview` rows the approval policy already reads (§8.6 regardless-rule 1).
+**`ApprovalReview`** — `ApprovalReviewService` owns the decision record, dismissal retention for audit (a dismissed review is never deleted), and a new review permitted after a dismissal. It publishes five facts on four addresses: `-Added`, `-Modified`, `-Removed` (shared by `-HardRemoved`, distinguished by event name) and `-Dismissed`, which is the fact the approval workflow most needs and which the dismiss transition publishes **instead of** `-Modified` (§9.7.1).
 
-**`ApprovalComment`** — control fields `ApprovalId`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`; the only permitted caller field on update is `Comment`. Approval comments do not participate in the threshold or status-transition workflow. A comment may only be created against an existing, non-deleted approval record — enforce that with the foreign key rather than a read of `Approval`, so the service does not acquire a second entity dependency for an existence check.
+Three responsibilities were previously misattributed here, in both directions. The corrected split:
 
-**Deleted, not relocated: the versioning rules.** The withdrawn subsections gave `Tag`, `Reaction`, `Comment` and `BibleReference` a full versioning model — fork on modify of an `Approved` row, `IsLatestVersion` demotion, one latest and one published row per `GroupId`, and `GroupId` / `Version` / `IsLatestVersion` in the control-field list. **None of those four types implements `IVersion`**; they carry `IApproval` only, and `EntityTypeVersioning` (§7.5.1) declares all four Single-Row. The rules described properties that do not exist, which is precisely the drift `EntityTypeVersioning`'s own documentation warns about, and they are removed rather than carried forward.
+| Rule | Where it actually lives |
+| --- | --- |
+| **Reviewer eligibility** | **Two tiers, and both are real** (§14.6 rule 2). Tier 1 is in the service: `ValidateUserIsAllowedToReviewApprovals` runs the contribution gate and a coarse, entity-**agnostic** `EndsWith("-Reviewer")`/`"-Publisher"` role match. Tier 2 is `IAccessClient` behind `IAccessBroker`, which narrows that to an **exact** composed role for the entity actually resolved behind the approval, and adds HR-1 self-review, the open-round check and the one-active-review bar. **Tier 1 covers the add path only** — modify and remove run the plain contribution gate, so on those paths tier 2 is the only role check. |
+| **Row-level write permission** | The service, and it is **ownership, not eligibility** — owner-only on modify and remove, no role widening (see §14.7 posture D rule 4). Grouping it with the eligibility checks, as earlier drafts did, misdescribes both. |
+| **One active review per reviewer** | **Not the service's, and not one place either.** `IAccessClient` refuses it as `ActiveReviewAlreadyRecorded` — but only on **add**, since amend and withdraw pass `IsAmendingOwnReview: true` and skip the bar. The filtered unique index `UX_ApprovalReviews_ApprovalId_CreatedBy` is the backstop and applies to every write that lands an active row. The two surface differently: the decision function yields an unauthorized error that says nothing about duplication, the index yields a dependency-validation error naming a uniqueness rule. **Any statement of the form "this is enforced by X" is wrong whichever X is chosen.** The service's own contribution is a supporting guard — it pins both halves of the index key against storage on modify, so a review cannot be walked onto another approval or have its `CreatedBy` rewritten. |
+| **Threshold evaluation** | `IAccessClient`'s `EvaluateConditions`, reached from Core only through `IAccessBroker.MayDecideApprovalAsync` (§8.5, §8.6.1). **Not** `ApprovalOrchestrationService` — see §12.5.3 R5, which this section previously deferred to and which is itself unbuilt. |
+
+**A drift worth naming, because §8.6.1 asserts it cannot happen.** The index's definition of *active* is `StatusId <> Dismissed AND IsDeleted = 0`; the decision function's is *not deleted, verdict not `Dismissed`*, where the verdict is mapped from `ApprovalStatus` with everything that is not `Approved`/`Rejected` folding to `Dismissed`. A review row sitting at `Draft` or `Submitted` therefore **occupies the index slot while being invisible to the counter**. Such a row is corrupt by construction and the sets agree in practice, but the definitions do not, and only the index is authoritative for rows that exist.
+
+The rule that a user with an active review may not also set the entity's `ApprovalStatus` is answered from the `ApprovalReview` rows the approval policy already reads (§8.6 regardless-rule 1).
+
+**`ApprovalComment`** — control fields `ApprovalId`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason`. Approval comments do not participate in the threshold or status-transition workflow.
+
+A comment may only be created against an **existing, non-deleted** approval record. This section previously said to *"enforce that with the foreign key rather than a read of `Approval`, so the service does not acquire a second entity dependency for an existence check"* — **that is withdrawn, and the reason it failed is instructive.** The foreign key enforces only the *existing* half. Soft deletion is a flag and the row stays (§10.4), so the key still resolves against a taken-down parent, and no constraint can express the *non-deleted* half. Nor could it express the round being open (§7.7 rule 2b), which the same gate needs.
+
+The resolution is not a second entity dependency but `IAccessBroker`, which does the **gathering** so the single-entity service does not (§8.6.1). `ApprovalCommentService` therefore takes `IAccessBroker` and consults it on add, modify, remove and resolve; the parent's state and deletion arrive as an `AccessVerdict`, and the service still never reads the `Approval` table itself.
+
+`IsResolved` is a **second permitted caller field on update**, alongside `Comment`, and is **also unconstrained on add** — a comment may legitimately be created settled (§7.8). Modify is owner-only, and the owner may settle or re-open their own comment there as readily as through `ResolveApprovalCommentAsync` — it is their row. `IsResolved` is deliberately **not** pinned against storage: pinning it would leave the owner unable to change a field that is theirs, and would have deadlocked every approval under the fail-closed `RequireReviewCommentResolutionBeforeApprovals` (§8.4 rule 2) in the window before the transition existed.
+
+What the transition adds is the **`Admin` route**, not exclusivity over the field (§14.7 rule 5).
+
+**The update mechanism is pin-against-storage, not load-and-map** — the same correction as shared rule 2 above, verified here separately. `DoModifyApprovalCommentAsync` reads the stored row, refuses changes to an enumerated pin list (`CreatedWhen`, `CreatedBy`, `ApprovalId`, `UpdatedWhen`) and then writes **the caller's own object**. Nothing maps permitted fields onto the stored row. This is why `IsResolved` is writable through modify at all: it is absent from the pin list, and a pin list is open by default.
+
+Its facts are all live: `-Added`, `-Modified`, `-Removed` (shared by `-HardRemoved`) and `-Resolved`, plus the soft-delete operation behind `-Removed`.
+
+**Deleted, not relocated: the versioning rules.** The withdrawn subsections gave `Tag`, `Reaction`, `Comment` and `BibleReference` a full versioning model — fork on modify of an `Approved` row, `IsLatestVersion` demotion, one latest and one published row per `GroupId`, and `GroupId` / `Version` / `IsLatestVersion` in the control-field list. None of the four implements `IVersion` today; all four carry `IApproval` only, and `EntityTypeVersioning` (§7.5.1) declares all four Single-Row.
+
+**But they did not all arrive there the same way, and an earlier single sentence — "describing properties those types never had" — was false for one of them.** §7.5.1 rule 1 already draws this distinction; this is the split it implies.
+
+| Entity | Did it ever have versioning? | Why the rules are stale |
+| --- | --- | --- |
+| `Tag`, `Reaction` | **No — never.** Neither the interface nor the properties has existed at any commit. | §5.1 and §5.2 *describe* `GroupId` / `Version` / `IsLatestVersion` on them, but the code never implemented them. The rules described properties that never existed — the documentation drift §7.5.1 rule 1 cites as its first example. |
+| `Comment` | **No — never.** Same as above; it gained `IApproval`, never `IVersion`. | As above. |
+| `BibleReference` | **Yes.** It was born `IKey, IAudit, IVersion, IApproval` with real `ContentItemGroupId`, `Version` and `IsLatestVersion` columns and their unique indexes. | **Withdrawn deliberately**, not never-existed. Commit `91c6571` removed the interface and all three properties together and added `USFM`; migration `20260806014655_DeversionBibleReferenceAndAddUsfmUniqueIndex` dropped the three columns and their indexes and added `UX_BibleReferences_USFM`. The reason is §7.5.1 rule 4 — the natural key a fork would violate. §7.5.1 rule 1 cites this as its *second*, sharper example: the storage configuration and validations kept referencing the versioning after the model dropped it. |
+
+So for three of the four the rules were never true; for `BibleReference` they were true and were **decided away**. Both are grounds for deletion, but only the second is a design decision worth being able to find again.
 
 ### 12.4 Processing Layer
 
@@ -2192,7 +2319,7 @@ Current intended orchestrations:
 | 2 | ~~`ContentItemSettingsOrchestration`~~ | **Not an orchestration** — single-entity, so it belongs in §12.4 as `ContentItemSettingsProcessingService`. The layer above its foundation is earned by effective-setting resolution (merging the content type default with any item override), not by versioning. §12.5.2 below and its rules move to §12.4 when the service is built. |
 | 3 | `ApprovalOrchestrationService` | Orchestrates approval submission, review decisions, policy outcomes, and denormalized state updates. |
 
-> **Entries 4–9 were withdrawn.** `ApprovalReviewOrchestration`, `ApprovalCommentOrchestration`, `TagOrchestration`, `ReactionOrchestration`, `CommentOrchestration` and `BibleReferenceOrchestration` were each planned here before the §12.1 rule was applied. Every one touches a single entity type, so none needs anything above its foundation — `Tag`, `Reaction`, `Comment` and `BibleReference` are additionally Single-Row (§7.5.1) so they never fork, while `ApprovalReview` and `ApprovalComment` are not approvable entities at all; their surviving rules moved to §12.3.1, and their versioning rules were deleted as describing properties those types never had.
+> **Entries 4–9 were withdrawn.** `ApprovalReviewOrchestration`, `ApprovalCommentOrchestration`, `TagOrchestration`, `ReactionOrchestration`, `CommentOrchestration` and `BibleReferenceOrchestration` were each planned here before the §12.1 rule was applied. Every one touches a single entity type, so none needs anything above its foundation — `Tag`, `Reaction`, `Comment` and `BibleReference` are additionally Single-Row (§7.5.1) so they never fork, while `ApprovalReview` and `ApprovalComment` are not approvable entities at all; their surviving rules moved to §12.3.1, and their versioning rules were deleted. **Why they were deleted is not the same for all four**, and the single sentence that used to be here — "describing properties those types never had" — was true of three and false of the fourth. See §12.3.1's split, which §7.5.1 rule 1 already anticipated.
 >
 > **Entry 1 (`Association`) is provisional.** It does read several entity types, so it is not a processing service as written, but it takes seven entity services for a single operation, which breaks the dependency-count guidance regardless of which layer it sits in — four of its seven endpoint branches read a row only to discard it. Its endpoint-resolution design is being revisited and its classification is re-tested when that settles.
 >
@@ -2254,7 +2381,11 @@ Responsibilities:
 2. On receiving a `CreatedEvent`, check whether an approval record already exists for the entity. If none exists, create one with `ApprovalStatus = Draft` via `ApprovalService`.
 3. On receiving an `UpdatedEvent`, check whether an approval record exists for the entity. If none exists, create one with `ApprovalStatus = Draft`. If one exists, evaluate whether existing reviews must be dismissed based on the effective `ApprovalSetting.RequireReapprovalOnChange` policy.
 4. Orchestrate approval submission by moving `ApprovalStatus` from `Draft` to `Submitted`.
-5. Evaluate approval threshold after each review decision using `ApprovalSettingsService`.
+5. React to a review or comment fact by **re-testing** whether the approval can now complete.
+
+    **This responsibility does not own the threshold, and the timing here was wrong.** The only threshold comparison in the codebase is `IAccessClient`'s `EvaluateConditions`, reached through `IAccessBroker.MayDecideApprovalAsync` (§8.5, §12.3.1) — and it runs **when an approve is attempted**, not "after each review decision". This orchestration's job is to notice that the inputs changed and ask; the answer is not its to compute. Earlier wording ("evaluate approval threshold after each review decision using `ApprovalSettingsService`") was wrong on the owner *and* on the trigger.
+
+    **Subscribe to every fact on both workflow records, and re-test on each.** All four `ApprovalComment` addresses (`-Added`, `-Modified`, `-Resolved`, `-Removed`) and all four `ApprovalReview` addresses (`-Added`, `-Modified`, `-Removed`, `-Dismissed`) can move a §8.5 predicate, because the evaluation reads comments through `IsDeleted is false && IsResolved is false` and reviews through `IsDeleted is false && Verdict != Dismissed`. **Both comment resolution addresses are required**: `IsResolved` has two writers by design — the owner through the general modify, the owner or an `Admin` through the resolve transition (§14.7 rule 5) — so watching one would leave the gate movable unnoticed, decided by nothing more than which UI control was clicked. Each fact means "the inputs changed", never "the approval may complete": re-run the whole evaluation, and treat gate-shutting facts (a comment born outstanding, a withdrawn approving review) as seriously as gate-opening ones, since they can re-block an approval that was clear under `AutoApproveIfAllApprovalRequirementsMet`. A fact may also move nothing — a comment born settled (§7.8) is the common case — so never infer a direction from the address. These are foundation-tier subscriptions — neither record is approvable and neither has a layer above its foundation (§12.3.1), so §10.17 rules 1–2 do not apply. See §10.17 inbound items (a)–(d) for the full table.
 6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
 7. Write the denormalized `ApprovalStatus` onto the owning entity itself, through that entity's state-transition operation rather than a general modify (§10.17 rules 4–5). The two values must never diverge (§9.8).
 8. On `Approved`, set `IsPublished = true` on the newly approved version.
@@ -2551,7 +2682,9 @@ Submission is deliberately absent: it is the `Draft` ↔ `Submitted` carve-out o
 
 Sort takes an anchor and a side rather than a target index, because a pairwise swap cannot express a drag. Values are sparse (100, 200, 300 …) and landing beside an anchor is a half-step away, which at the default spacing is the midpoint between the anchor and its neighbour — so exactly one row is written and the operation stays single-entity. Ties are legal and fall through the §11.7 tie-break chain. Sort is the one transition with no request address: its signature needs a second entity and an envelope carries one, so it is direct-call only and publishes its fact like the others. Set-scope re-runs the same duplicate check an add does, because a scope toggle recomputes the effective id and can move the row onto a key `UX_Associations_Pair` already holds.
 
-**Known gap — the approval workflow does not re-apply the endpoint rule.** `ApprovalService`, `ApprovalReviewService` and `ApprovalCommentService` identify a reviewer by generic suffix match (`role.EndsWith("-Reviewer")`), so a bare `Tag-Reviewer` can act on the *approval record* of a `ContentItem` ↔ `BibleReference` association even though rule 2 above would refuse them on the association itself. Those services carry no entity-type scoping row-locally (§14.7 posture D rule 2), so the check has to be re-enforced where the approval is acted on. Recorded here rather than fixed with the endpoint rules.
+**Known gap — narrowed, not closed.** `ApprovalService`, `ApprovalReviewService` and `ApprovalCommentService` identify a reviewer **row-locally** by generic suffix match (`role.EndsWith("-Reviewer")`), so on that check alone a bare `Tag-Reviewer` would reach the *approval record* of a `ContentItem` ↔ `BibleReference` association that rule 2 above refuses them on the association itself. Those services carry no entity-type scoping row-locally (§14.7 posture D rule 2).
+
+**`ApprovalReview` has since closed this on its own paths**: tier 2 resolves the entity behind the approval and matches the exact composed role for it, so the suffix match is now the coarse first half of a two-tier check rather than the whole of it (§8.6.1, §12.3.1). The gap survives wherever a write is **not** routed through `IAccessBroker` — including `ApprovalReviewService`'s own hard-remove path, which takes no access decision at all. Recorded here rather than fixed with the endpoint rules.
 
 **B. Reference data** — `ContentType`:
 
@@ -2568,8 +2701,23 @@ Sort takes an anchor and a side rather than a target index, because a pairwise s
 1. These records are never public. Reads: owner (`CreatedBy`) or a review role; everyone else gets not-found (§14.5). Collections: review roles see all non-deleted rows; authenticated callers see their own; anonymous callers see an empty set.
 2. Because these entities carry no entity-type scoping row-locally, the foundation accepts the global review roles plus any granular role following the `%EntityType%-Reviewer` / `%EntityType%-Publisher` convention; enforcing that the granular role matches the approval's target `EntityType` is an orchestration (process-level) rule.
 3. `Approval`: add/modify/remove gate is the global contribution gate; modify by owner or review role (resubmission by the submitter, status transitions by reviewers); remove by owner or `Admin`; hard remove `Admin` only.
-4. `ApprovalReview`: adding requires a review role (§8.9 — only reviewers review); a review is its reviewer's own verdict, so modify and remove are owner-or-`Admin`; hard remove `Admin` only.
-5. `ApprovalComment`: adding requires only the contribution gate (submitters converse in review threads); **modify and remove by the owner alone**; hard remove `Admin` only. No role widens the amend gate — a comment belongs to whoever wrote it, and an `Admin` who needs past an unresolved one resolves it or bypasses the block rather than editing another person's words. The single exception is `IsResolved`, which the owner **or** an `Admin` may set through the dedicated resolve operation, because resolving records that a question was answered and changes no wording. This replaces "modify by owner or review role (reviewers resolve comments); remove by owner or `Admin`", which predates that decision and is the same reviewers-flip-IsResolved model withdrawn from `ApprovalCommentService` (§12.3.1).
+4. `ApprovalReview`: adding requires a review role (§8.9 — only reviewers review); a review is its reviewer's own verdict, so modify and remove are **by the owner alone** — not `Publisher`, not `Admin`. An `Admin` who needs past a standing rejection **bypasses** (§8.6.1) rather than editing the review out of the way, which keeps the record of what was actually said intact. Hard remove is `Admin` only. *(This replaces "owner-or-`Admin`", which predates the owner-only narrowing and was contradicted by the code it described.)*
+5. `ApprovalComment`: adding requires only the contribution gate (submitters converse in review threads); **modify and remove by the owner alone**; hard remove `Admin` only. No role widens the amend gate — a comment belongs to whoever wrote it, and an `Admin` who needs past an unresolved one resolves it or bypasses the block rather than editing another person's words. The single exception is `IsResolved`, which the owner **or** an `Admin` may set through the dedicated resolve operation, because resolving records that a comment is **settled** — that it no longer requires anything before the approval can proceed — and changes no wording. This replaces "modify by owner or review role (reviewers resolve comments); remove by owner or `Admin`", which predates that decision and is the same reviewers-flip-IsResolved model withdrawn from `ApprovalCommentService` (§12.3.1).
+
+**The resolve operation is built.** `ResolveApprovalCommentAsync` owns `IsResolved` and nothing else, answers on `ApprovalComment-Resolving` and publishes `ApprovalComment-Resolved`.
+
+**It is not the only route to the field, and is not meant to be.** Modify is owner-only, so the owner may flip `IsResolved` there too; `IsResolved` is therefore not pinned against storage the way `ApprovalId` and `CreatedBy` are (§12.3.1). What the operation adds is the **`Admin` route**: modify cannot express an `Admin` acting on another person's row without also handing them the author's words, which rule 5 above withdraws. It also gives the UI a single action to target for a resolve control regardless of who is acting.
+
+**Two write paths, two facts, and that costs nothing.** The approval workflow subscribes to **both** `ApprovalComment-Modified` and `ApprovalComment-Resolved` and re-tests, on either, whether an approval previously blocked by `RequireReviewCommentResolutionBeforeApprovals` can now complete. A gate move is announced on whichever address carried it, so neither path can move the gate silently. *(Not yet wired — `ApprovalOrchestrationService` does not exist; this is the subscription contract it must honour when built, and §10.17 governs which tier it subscribes at.)*
+
+Four further things are load-bearing rather than incidental.
+
+1. **The subject is `ApprovalComment`, never `Comment`.** `CommentService` owns a separate entity, and the broker composes the stored event name as subject + operation, so `Comment-Resolving` would attribute this service's facts to the wrong entity.
+2. **`Admin` is the global role alone** — not the review tier, and not an entity-scoped `%EntityType%-Publisher`. A `Reviewer` who wants to respond to an outstanding comment writes one of their own; declaring somebody else's comment settled is the author's call or an administrator's, and lifting the block that setting holds shut is an administrative override rather than part of deciding the approval.
+3. **It is two-way**, and not merely as error-correction. A comment recorded as an observation may later turn out to need action, and one settled prematurely must be able to block again. Without the reverse direction a single mistaken resolve would permanently defeat the setting for that comment — the setting that exists to hold approval shut on outstanding ones.
+4. **A no-op is refused, not absorbed.** Resolving an already-resolved comment errors rather than silently re-stamping the audit values and re-publishing the fact. That matters more here than for a display flag: a spurious `-Resolved` announces to anything watching the setting that a gate moved when it did not.
+
+Both gates run, per §14.6 rule 2: the row-local owner-or-`Admin` check, and an `IAccessBroker` decision that adds what a single-entity service may not read for itself — the round must still be open and the parent approval must not be soft-deleted. Permission is decided before the resolution state is looked at, so a caller who may not act cannot use the "already resolved" response to probe whether a comment on a thread is still outstanding.
 
 Soft-deleted rows follow §14.5 for every posture: not found for every caller including `Admin`, with the state-based miss logged as information.
 
@@ -2673,9 +2821,15 @@ Responsible for:
 Responsible for:
 
 1. Recording reviewer decisions, with `CreatedBy` bound to the acting user and pinned against storage on modify.
-2. Validating reviewer eligibility — the review-role gate, and owner-or-`Admin` for amending or withdrawing a verdict.
+2. Validating reviewer eligibility — **the row-local half only**: the contribution gate and the coarse suffix-matched review-role gate, and **on the add path only**. Modify and remove run the plain contribution gate; the role question on those paths is answered solely by `IAccessClient` (§12.3.1).
+3. Row-level write permission, which is **ownership and not eligibility**: modify and remove are **owner-only** — not `Publisher`, not `Admin`. An `Admin` who needs past a standing rejection bypasses (§8.6.1) rather than editing the review. Hard remove is `Admin` only and takes no access decision at all. *(This replaces "owner-or-`Admin` for amending or withdrawing a verdict", which the code has never done.)*
 
-Explicitly **not** its responsibility, despite earlier drafts of this list: enforcing one active review per reviewer (that is `UX_ApprovalReviews_ApprovalId_CreatedBy`, §7.7 rule 1), evaluating approval thresholds, and excluding dismissed reviews from those calculations. All three need `ApprovalSetting` and the whole review set, which a single-entity foundation service may not read — they belong to `IAccessClient` behind `IAccessBroker` (§8.6.1).
+Explicitly **not** its responsibility, despite earlier drafts of this list: enforcing one active review per reviewer, evaluating approval thresholds, and excluding dismissed reviews from those calculations.
+
+Earlier drafts justified all three with one reason — *"all three need `ApprovalSetting` and the whole review set, which a single-entity foundation service may not read"*. That is **true of the last two and false of the first**, and the difference matters:
+
+- **Threshold evaluation and the dismissed-review exclusion** do need the policy and the whole review set, so they belong to `IAccessClient` behind `IAccessBroker` (§8.6.1) — which is where they are.
+- **One active review per reviewer** needs neither. The decision function reads only the gathered review list and the actor id; the index needs nothing at all. It is excluded from this service for a different reason — the service cannot read its sibling rows, which is a *reach* limit rather than a *policy* one — and it is enforced in **two** places with two different caller-visible failures. §12.3.1 records the split; do not restate it as belonging to one layer.
 
 ### 16.6 ApprovalSettingsService
 

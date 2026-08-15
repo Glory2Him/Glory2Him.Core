@@ -41,6 +41,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// Admin, hard removal by Admin only), and the §14.1/§14.5 read posture, under which a
     /// review thread is never public and answers not found to anyone but its author and the
     /// review roles — never assuming an upstream orchestration already gated the caller.
+    /// <c>IsResolved</c> is writable through modify by the owner, and through the resolve
+    /// transition in the <c>.Transitions</c> partial by the owner <i>or</i> an <c>Admin</c> —
+    /// that widening is what the transition exists for, not exclusivity over the field.
     /// </summary>
     internal partial class ApprovalCommentService : IApprovalCommentService
     {
@@ -50,6 +53,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         private readonly IEventBroker eventBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IAccessBroker accessBroker;
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -60,6 +64,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             IEventBroker eventBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IAccessBroker accessBroker,
             IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
@@ -69,6 +74,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             this.eventBroker = eventBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.accessBroker = accessBroker;
             this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -299,6 +305,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 approvalComment: approvalComment,
                 securityContext: inboundEnvelope.SecurityContext);
 
+            await ValidateUserMayRecordApprovalCommentAsync(
+                approvalId: approvalComment.ApprovalId,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
             ApprovalComment addedApprovalComment =
                 await this.storageBroker.InsertApprovalCommentAsync(approvalComment, cancellationToken);
 
@@ -347,6 +358,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             await ValidateUserCanModifyStorageApprovalCommentAsync(
                 storageApprovalComment: maybeApprovalComment,
                 securityContext: inboundEnvelope.SecurityContext);
+
+            await ValidateUserMayAmendApprovalCommentAsync(
+                approvalId: maybeApprovalComment.ApprovalId,
+                commentCreatedBy: maybeApprovalComment.CreatedBy,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             approvalComment = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -401,6 +418,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             await ValidateUserCanRemoveStorageApprovalCommentAsync(
                 storageApprovalComment: maybeApprovalComment,
                 securityContext: inboundEnvelope.SecurityContext);
+
+            await ValidateUserMayAmendApprovalCommentAsync(
+                approvalId: maybeApprovalComment.ApprovalId,
+                commentCreatedBy: maybeApprovalComment.CreatedBy,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             if (maybeApprovalComment.IsDeleted)
                 return maybeApprovalComment;

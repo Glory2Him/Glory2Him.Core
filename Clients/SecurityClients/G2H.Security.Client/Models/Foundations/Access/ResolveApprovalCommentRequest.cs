@@ -23,10 +23,10 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// </para>
     ///
     /// <para>This is the one comment operation an <c>Admin</c> may perform on someone else's row,
-    /// and it is deliberately the only one: resolving records that a question was answered, which
-    /// changes no words. <c>UpdatedBy</c> then carries the admin's identity, so the intervention
-    /// is visible rather than silent, and the owner may set it back while the round is open.
-    /// </para>
+    /// and it is deliberately the only one: resolving records that a comment is settled — that it
+    /// no longer requires anything before the approval can proceed — which changes no words.
+    /// <c>UpdatedBy</c> then carries the admin's identity, so the intervention is visible rather
+    /// than silent, and the owner may set it back while the round is open.</para>
     ///
     /// <para>Every property is <c>required</c> for the reason given on
     /// <see cref="ApprovalConditionsRequest"/>.</para>

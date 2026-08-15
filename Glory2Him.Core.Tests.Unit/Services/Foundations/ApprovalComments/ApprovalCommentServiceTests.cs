@@ -13,8 +13,10 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
@@ -44,6 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
+        private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalCommentService approvalCommentService;
@@ -57,6 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
+            this.accessBrokerMock = new Mock<IAccessBroker>();
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
@@ -102,8 +106,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 eventBroker: this.eventBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
+                accessBroker: this.accessBrokerMock.Object,
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
+
+            SetupAccessBrokerToPermit();
         }
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
@@ -323,6 +330,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                 .OnProperty(approvalComment => approvalComment.UpdatedBy).Use(userId);
 
             return filler;
+        }
+
+        private void SetupAccessBrokerToRefuse(AccessDenialReason denialReason)
+        {
+            var refused = new AccessVerdict
+            {
+                IsPermitted = false,
+                DenialReason = denialReason,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = GetRandomString(),
+            };
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayRecordApprovalCommentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(refused);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalCommentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(refused);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayResolveApprovalCommentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(refused);
+        }
+
+        // Permissive by default so a test only states the gate when the gate is what it is
+        // about. A test that needs a refusal overrides this with its own setup.
+        private void SetupAccessBrokerToPermit()
+        {
+            var permitted = new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "Permitted.",
+            };
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayRecordApprovalCommentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(permitted);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalCommentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(permitted);
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayResolveApprovalCommentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(permitted);
         }
     }
 }
