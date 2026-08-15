@@ -120,8 +120,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         }
 
         // row-level write permission: a review is the reviewer's own verdict, so only its
-        // author may amend it — another reviewer records their own review instead; an
-        // Admin may correct anyone's for support and moderation
+        // author may amend it — another reviewer records their own review instead
         private async ValueTask ValidateUserCanModifyStorageApprovalReviewAsync(
             ApprovalReview storageApprovalReview,
             SecurityContext securityContext)
@@ -143,8 +142,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             }
         }
 
-        // withdrawing a review is the author's own retraction — the owner may remove their
-        // verdict and an Admin may remove anyone's; other reviewers cannot erase a peer's
+        // withdrawing a review is the author's own retraction — only the owner may remove
+        // their verdict; no other role, reviewer or Admin, can erase a peer's
         private async ValueTask ValidateUserCanRemoveStorageApprovalReviewAsync(
             ApprovalReview storageApprovalReview,
             SecurityContext securityContext)
