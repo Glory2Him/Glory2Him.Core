@@ -469,8 +469,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // longer describes the current content, so amending it re-attaches a stale
             // judgement to text nobody re-read.
             //
-            // The caller is an Admin, who may otherwise amend anyone's review — the bar is on
-            // the row's state, not on who is asking.
+            // The caller here is the review's OWN author, so the ownership gate passes and the
+            // dismissed-state bar is what refuses them — which is the point: the bar is on the
+            // row's state, not on who is asking. (This comment used to say an Admin "may
+            // otherwise amend anyone's review"; that model is withdrawn — modify is owner-only.)
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
@@ -1139,12 +1141,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerAndNotAdminAndLogItAsync()
+        [Theory]
+        [MemberData(nameof(ReviewRoles))]
+        public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotOwnerWhateverTheRoleAndLogItAsync(
+            string reviewRole)
         {
-            // given: a review is the reviewer's own verdict — a peer reviewer records
-            // their own review instead of amending someone else's
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            // given: a review is the reviewer's own verdict — a peer reviewer records their own
+            // review instead of amending someone else's, and NO role widens that. This used to
+            // run only as a plain Reviewer, which is refused by the withdrawn owner-or-Admin
+            // predicate just as it is by the owner-only one — so the narrowing that is the point
+            // of this branch was not pinned by anything. Admin is the member that matters here:
+            // restoring "|| Roles.Contains(Roles.Admin)" now fails this theory.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalReview randomApprovalReview = CreateRandomModifyApprovalReview(randomDateTimeOffset, randomUserId);

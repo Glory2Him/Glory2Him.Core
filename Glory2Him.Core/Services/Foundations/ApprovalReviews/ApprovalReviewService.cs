@@ -37,10 +37,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — recording
-    /// a verdict requires a review role (§8.9), a review is amended or withdrawn only by its
-    /// author or an Admin, hard removal is Admin-only, and reads are never public: an
-    /// approval review answers not-found to everyone but its owner and the review roles —
-    /// never assuming an upstream orchestration already gated the caller.
+    /// a verdict requires a review role (§8.9), a review is amended or withdrawn <b>only by its
+    /// author</b> (not <c>Publisher</c>, not <c>Admin</c> — an <c>Admin</c> who needs past a
+    /// standing rejection bypasses rather than editing the review), a <b>dismissed</b> review
+    /// may not be touched at all, hard removal is <c>Admin</c>-only, and reads are never
+    /// public: an approval review answers not-found to everyone but its owner and the review
+    /// roles — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class ApprovalReviewService : IApprovalReviewService
     {

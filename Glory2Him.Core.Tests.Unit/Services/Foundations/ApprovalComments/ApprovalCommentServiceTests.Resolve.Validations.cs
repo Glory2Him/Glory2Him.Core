@@ -289,6 +289,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     It.IsAny<EventEnvelope<ApprovalComment>>(),
                     It.IsAny<ApprovalCommentEventOperation>()),
                 Times.Never);
+
+            // The row-local gate runs FIRST, so a non-owner is refused without the parent
+            // Approval ever being read. Without this the two gates can be swapped and nothing
+            // fails — the caller sees the same refusal while a cross-entity read has already
+            // happened on their behalf. The suite's usual VerifyNoOtherCalls tail cannot catch
+            // it: that convention deliberately excludes accessBrokerMock.
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayResolveApprovalCommentAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Theory]

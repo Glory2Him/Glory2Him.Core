@@ -16,6 +16,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments.Exceptions;
 using Moq;
@@ -83,11 +84,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            // the row is never written when the parent refuses it
+            // the row is never written when the parent refuses it, and nothing is announced
             this.storageBrokerMock.Verify(broker =>
                 broker.InsertApprovalCommentAsync(
                     It.IsAny<ApprovalComment>(),
                     It.IsAny<CancellationToken>()),
+                        Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalCommentAsync(
+                    It.IsAny<EventEnvelope<ApprovalComment>>(),
+                    It.IsAny<ApprovalCommentEventOperation>()),
                         Times.Never);
 
             VerifyTheRefusalWasLoggedWithoutReachingTheCaller();
@@ -169,6 +176,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     It.IsAny<CancellationToken>()),
                         Times.Never);
 
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalCommentAsync(
+                    It.IsAny<EventEnvelope<ApprovalComment>>(),
+                    It.IsAny<ApprovalCommentEventOperation>()),
+                        Times.Never);
+
             VerifyTheRefusalWasLoggedWithoutReachingTheCaller();
         }
 
@@ -220,6 +233,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
+
+            // The gate must refuse BEFORE the row is written and before the fact is announced.
+            // Without these two, moving the gate below the write still passes: the caller sees
+            // the same refusal while the soft delete has already landed and
+            // ApprovalComment-Removed has already gone out to everything re-testing an approval
+            // blocked on RequireReviewCommentResolutionBeforeApprovals.
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalCommentAsync(
+                    It.IsAny<ApprovalComment>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalCommentAsync(
+                    It.IsAny<EventEnvelope<ApprovalComment>>(),
+                    It.IsAny<ApprovalCommentEventOperation>()),
+                        Times.Never);
 
             VerifyTheRefusalWasLoggedWithoutReachingTheCaller();
         }

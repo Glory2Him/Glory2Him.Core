@@ -348,10 +348,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 // theirs. What Resolve adds is the Admin route (§14.7 rule 5), not exclusivity
                 // over the field.
                 //
-                // The two paths publish different facts, and that costs nothing: the approval
-                // workflow subscribes to BOTH ApprovalComment-Modified and -Resolved to re-test
-                // whether an approval blocked on RequireReviewCommentResolutionBeforeApprovals
-                // can now complete. A gate move is announced on whichever address carried it.
+                // The two paths publish different facts, and that costs nothing PROVIDED the
+                // approval workflow subscribes to BOTH ApprovalComment-Modified and -Resolved to
+                // re-test whether an approval blocked on
+                // RequireReviewCommentResolutionBeforeApprovals can now complete.
+                //
+                // NOT YET WIRED: ApprovalOrchestrationService does not exist and nothing in the
+                // repo subscribes to any fact address. §10.17 inbound item (a) records the
+                // contract it must honour. Until then a flip through modify moves the gate with
+                // no consumer listening — which is a missing consumer, not a reason to pin.
 
                 (Rule: IsSame(
                         firstDate: inputApprovalComment.UpdatedWhen,

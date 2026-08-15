@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -505,16 +506,36 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
-            // the soft delete never lands
+            // the soft delete never lands, and nothing is announced
             this.storageBrokerMock.Verify(broker =>
                 broker.UpdateApprovalReviewAsync(
                     It.IsAny<ApprovalReview>(),
                     It.IsAny<CancellationToken>()),
                         Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalReviewAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    It.IsAny<ApprovalReviewEventOperation>()),
+                        Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                        Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnRemoveIfTheReviewIsDismissedAsync()
+        public async Task ShouldThrowValidationExceptionOnRemoveIfTheReviewIsDismissedAndLogItAsync()
         {
             // given: a dismissed review is closed and may not be touched — withdrawal included.
             // §9.5 retains it as evidence that a verdict once applied to superseded content, so
@@ -561,12 +582,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             actualException.Should()
                 .BeEquivalentTo(expectedApprovalReviewValidationException);
 
-            // nothing written — the audit record stands
+            // nothing written — the audit record stands — and nothing announced
             this.storageBrokerMock.Verify(broker =>
                 broker.UpdateApprovalReviewAsync(
                     It.IsAny<ApprovalReview>(),
                     It.IsAny<CancellationToken>()),
                         Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishApprovalReviewAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    It.IsAny<ApprovalReviewEventOperation>()),
+                        Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedApprovalReviewValidationException))),
+                        Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
         }
     }
 }

@@ -755,7 +755,7 @@ The following rules apply:
 
 1. A reviewer may only have one active review per approval record. A second active review by the same reviewer is refused — review decisions are not superseded or replaced. It is enforced in **two** places, not by one validation: `IAccessClient` refuses it on the add path, and the filtered unique index `UX_ApprovalReviews_ApprovalId_CreatedBy` is the backstop for every write that lands an active row. See §12.3.1, which records why the two surface differently.
 
-    **The write window.** A reviewer may add, modify and withdraw their **active** review for as long as the parent approval is **not terminal** — that is, while it is not `Approved` or `Rejected`. Once the round closes, the review record stands as filed.
+    **The write window.** A reviewer may add, modify and withdraw their **active** review for as long as the parent approval is **`Submitted`** — the same window rule 2b states below. Note this is *narrower* than "not terminal": `Draft` is not terminal but is also not open, and the decision function refuses anything that is not `Submitted`. Before submission there is nothing to review; once the round closes the review record stands as filed.
 
     **A dismissed review may not be touched at all** — not amended, not withdrawn. §9.5 retains it as evidence that a verdict once applied to superseded content, so editing it would rewrite history in place and withdrawing it would destroy the very record the dismissal exists to keep. Both routes are refused; only `Admin` hard removal, which is destructive maintenance, gets past it.
 2. A review can approve, reject, or become dismissed. The verdict a **reviewer** may record is closed to `Approved` or `Rejected`; `Dismissed` is what *happens to* a review when an entity-scoped change invalidates it (§9.5), never something its author declares. A reviewer who could dismiss their own review would retract a rejection without recording a verdict, which is the same outcome as changing it but leaves no trace of the change.
@@ -769,7 +769,14 @@ The following rules apply:
 
     **Dismissal is not a user action, so this is not a route a reviewer can walk.** `Dismissed` is driven by the approval process: when an item subject to approval is amended, the orchestration receives the fact, determines from the approval settings that the existing verdicts are now stale, and sets every active `ApprovalReview` on that approval to `Dismissed` (§8.8, §12.5.3). A reviewer waits for that; they never trigger it. The dismiss verb exists so the workflow has something to call — it is not a control anyone drives by hand.
 
-    **Consequence for a departed reviewer.** Reviews are owner-only, so a verdict recorded by someone who has since left stands: no `Admin`, `Publisher` or peer reviewer may edit or withdraw it. Exactly two routes get past a review that is blocking an approval — an `Admin` **bypass** (§8.6.1), or a **change to the item under review**, which makes every active review stale and dismisses them. Nothing else clears it, and that is the intended shape rather than a gap.
+    **Consequence for a departed reviewer.** Reviews are owner-only, so a verdict recorded by someone who has since left stands: no `Admin`, `Publisher` or peer reviewer may **edit or withdraw** it. That absolute is about *amendment*, and it holds. Clearing the block is a different question, and four routes exist:
+
+    1. An `Admin` **bypass** (§8.6.1), waiving the §8.5 conditions and recording the waiver.
+    2. A **change to the item under review**, which makes every active review stale and dismisses them — the intended route.
+    3. The **dismiss verb**, called directly by the publisher tier. Intended as the workflow's instrument, but it is a public operation on `IApprovalReviewService` and its address is registered, so a global `Publisher` — or, because the check is a suffix match, a bare `%EntityType%-Publisher` for an unrelated entity type — can drive a standing verdict to `Dismissed` by hand. It takes **no** `IAccessBroker` decision, so unlike add, modify and remove it is never narrowed to the entity behind the approval.
+    4. `Admin` **hard removal**, which destroys the row and likewise takes no access decision.
+
+    Routes 3 and 4 are recorded rather than endorsed. Neither edits the verdict — the amendment absolute survives — but both clear the block without the change-and-dismiss cycle, and whether route 3 should be narrowed the way the other write paths now are is an open design question (§12.5.1).
 8. A user who has filed an active review on an entity must not also set that entity's `ApprovalStatus` — reviewing is vouching, deciding is deciding, and one person doing both meets a threshold of `1` single-handed (§8.6 regardless-rule 1). This replaces an earlier bar on anyone recorded in the entity's `UpdatedBy` reviewing it; that bar was withdrawn as unimplementable, and §8.6's *Why this is not written against `UpdatedBy`* records why.
 
 ### 7.8 ApprovalComment
@@ -893,13 +900,17 @@ conditionsMet =
 6. If the conditions are met and `AutoApproveIfAllApprovalRequirementsMet = true`, the system applies `Approved` automatically — no human click; `IsApprovedByBypass` remains `false`.
 7. When `RequireReviewCommentResolutionBeforeApprovals = true`, every comment on the approval must be **settled** (`ApprovalComment.IsResolved = true`) before the conditions are met. Only comments that ask for something ever hold this shut: an informational comment is created settled and never counts against it (§7.8). This gates the `Approval` entity, not any individual reviewer's verdict — a reviewer may record `Approved` while a comment is still outstanding; the approval simply cannot complete until it is settled.
 
-    **The three routes past an outstanding comment**, and there are no others. A submitter whose content is blocked by a comment left at `IsResolved = false` is unblocked when:
+    **The routes past an outstanding comment.** A submitter whose content is blocked by a comment left at `IsResolved = false` is unblocked when:
 
     1. **The thread resolves itself.** Another reviewer answers in a comment of their own — created settled, so it adds no new block — and then **the author of the blocking comment marks theirs settled**. Only they can: comments are owner-only, and no reviewer may settle a peer's (§14.7 rule 5).
     2. **An `Admin` settles it on the author's behalf**, through the resolve operation. This is the one comment operation an `Admin` may perform on someone else's row, and it changes no words.
     3. **An `Admin` bypasses**, moving to approval and waiving the §8.5 conditions outright rather than satisfying them (§8.6.1, HR-4). The comment stays outstanding and the waiver is recorded on the row.
 
-    Note what is *not* a route: nobody may edit or withdraw the blocking comment to make it go away. Route 1 keeps the conversation intact, route 2 records who overrode it in `UpdatedBy`, and route 3 records that the conditions were waived at all. Every escape leaves a trace, which is the point.
+    4. **The author withdraws it.** A soft-deleted comment leaves the block: §8.5 counts only comments where `IsDeleted is false && IsResolved is false`, which is also why `ApprovalComment-Removed` appears in the §10.17 re-test table as an unblocking fact. Owner-only, like every other write to the row.
+
+    What is *not* a route: **nobody other than the author** may edit, settle or withdraw the blocking comment. That is the absolute — it is about who, not about which verb. Every route leaves a trace: route 1 keeps the conversation intact, route 2 records the overriding `Admin` in `UpdatedBy`, route 3 records that the conditions were waived, and route 4 records `IsDeleted` / `DeletedBy` / `DeletionReason` and announces `-Removed`.
+
+    Route 4 is the mirror of route 1 — if an author may settle their own comment, they may equally retract it — but it is worth naming, because an auditor tracing why a blocked approval completed will look for a `-Resolved` fact or a bypass flag and find neither.
 8. When `BlockOnZeroApprovalScore = true`, an entity whose `ConfidenceScore` is `0` cannot meet the conditions. **A `null` score does not block** — it means the confidence process has not run yet, not that the association was judged worthless. Treating `null` as blocking would deadlock every approval until §13.4 ships, and would strand anything the process failed on. If a scored gate is wanted before that point, the setting to reach for is `RequireApprovals`, not this one.
 9. A blocked entity is not `Rejected` — it remains `Submitted` with the conditions unmet. A `Publisher`/`Admin` may bypass (§12.5.3 business rule 11), or correct the score through the set-confidence operation (§9.7.1 rule 5) and let the conditions re-evaluate.
 

@@ -36,10 +36,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// exactly <c>IsResolved</c>, admitting owner-or-<c>Admin</c>, and publishing its own
     /// fact.</para>
     ///
-    /// <para>Two paths writing one field costs nothing here: the approval workflow subscribes to
-    /// both <c>ApprovalComment-Modified</c> and <c>ApprovalComment-Resolved</c> to re-test an
-    /// approval blocked on <c>RequireReviewCommentResolutionBeforeApprovals</c>, so a gate move
-    /// is announced on whichever address carried it.</para>
+    /// <para>Two paths writing one field costs nothing <i>provided</i> the approval workflow
+    /// subscribes to both <c>ApprovalComment-Modified</c> and <c>ApprovalComment-Resolved</c> to
+    /// re-test an approval blocked on <c>RequireReviewCommentResolutionBeforeApprovals</c>, so a
+    /// gate move is announced on whichever address carried it. <b>That is not yet wired</b> —
+    /// <c>ApprovalOrchestrationService</c> does not exist and nothing subscribes to any fact
+    /// address; §10.17 inbound item (a) records the contract it must honour.</para>
     ///
     /// <para>Like every transition it loads the row FIRST and authorizes against what is
     /// STORED; the request carries only the id and the flag to record.</para>
