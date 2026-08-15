@@ -42,5 +42,21 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         ValueTask<ApprovalComment> HardRemoveApprovalCommentByIdAsync(
             Guid approvalCommentId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Records whether the question this comment raised has been answered. Owns
+        /// <see cref="ApprovalComment.IsResolved"/> and nothing else — the wording belongs to
+        /// whoever wrote it and is only ever changed through modify.
+        /// </summary>
+        /// <param name="isResolved">
+        /// The resolution state to record. Reopening (<c>false</c>) rides the same operation as
+        /// resolving: a question wrongly marked answered must be answerable again, or a mistaken
+        /// resolve would permanently defeat
+        /// <c>RequireReviewCommentResolutionBeforeApprovals</c> for that comment.
+        /// </param>
+        ValueTask<ApprovalComment> ResolveApprovalCommentAsync(
+            Guid approvalCommentId,
+            bool isResolved,
+            CancellationToken cancellationToken = default);
     }
 }

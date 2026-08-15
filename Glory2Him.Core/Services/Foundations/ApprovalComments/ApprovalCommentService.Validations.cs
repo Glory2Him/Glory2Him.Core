@@ -341,6 +341,19 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                         secondName: nameof(ApprovalComment.ApprovalId)),
                     Parameter: nameof(ApprovalComment.ApprovalId)),
 
+                // IsResolved belongs to the Resolve transition, so modify may carry it but never
+                // change it. Two write paths to one field would mean an author flipping it
+                // through modify publishes ApprovalComment-Modified where a consumer watching
+                // RequireReviewCommentResolutionBeforeApprovals is waiting for
+                // ApprovalComment-Resolved — the gate would move with nothing announcing it.
+                // Pinning was withheld until Resolve existed: on its own it would have left the
+                // flag unsettable and deadlocked every approval under that setting.
+                (Rule: IsNotSame(
+                        first: inputApprovalComment.IsResolved,
+                        second: storageApprovalComment.IsResolved,
+                        secondName: nameof(ApprovalComment.IsResolved)),
+                    Parameter: nameof(ApprovalComment.IsResolved)),
+
                 (Rule: IsSame(
                         firstDate: inputApprovalComment.UpdatedWhen,
                         secondDate: storageApprovalComment.UpdatedWhen,
@@ -438,6 +451,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             {
                 Condition = firstDate != secondDate,
                 Message = $"Date is not the same as {secondDateName}"
+            };
+
+        private static dynamic IsNotSame(
+            bool first,
+            bool second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Flag is not the same as {secondName}"
             };
 
         private static dynamic IsGreaterThan(string? text, int maxLength) => new

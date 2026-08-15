@@ -908,6 +908,22 @@ namespace Glory2Him.Core.Registrations
 
                 cancellationToken: cancellationToken);
 
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalCommentOnResolvingApprovalCommentSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalCommentOnResolvingApprovalCommentSubscriptionName,
+
+                    Description = "Handles resolve requests: records whether the question a " +
+                        "comment raised has been answered, publishes ApprovalComment-Resolved, " +
+                        "and replies with the updated entity."
+                },
+                operation: ApprovalCommentEventOperation.Resolving,
+                approvalCommentEventHandler: this.approvalCommentService.OnResolvingApprovalCommentAsync,
+                cancellationToken: cancellationToken);
+
             // ── ApprovalReview request handlers ──────────────────────────────────
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
                 subscription: new EventSubscription

@@ -32,9 +32,22 @@ namespace Glory2Him.Core.Models.Events.Foundations
         RemovingById,
         HardRemovingById,
         RetrievingById,
+
+        // The narrow state-transition request (design §9.7.1). Resolving owns
+        // <c>IsResolved</c> and nothing else: it records whether the question a comment raised
+        // has been answered, which is a different act from correcting the words. It answers on
+        // its own address because it is the one comment operation an <c>Admin</c> may perform
+        // on another person's row, and because
+        // <c>RequireReviewCommentResolutionBeforeApprovals</c> reads that flag — a consumer
+        // watching for the gate to lift must not have to sift it out of general modifications.
+        Resolving,
         Added,
         Modified,
         Removed,
-        HardRemoved
+        HardRemoved,
+
+        // The fact the resolution transition publishes. Carries the whole row, so a consumer
+        // reads the new IsResolved off the content rather than inferring it from the address.
+        Resolved
     }
 }
