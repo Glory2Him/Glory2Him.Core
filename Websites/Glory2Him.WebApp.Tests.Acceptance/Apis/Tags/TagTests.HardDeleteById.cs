@@ -27,15 +27,22 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             Tag inputTag = randomTag;
             Tag expectedTag = inputTag;
 
-            // when
-            Tag deletedTag =
-                await this.apiBroker.HardDeleteTagByIdAsync(inputTag.Id);
+            try
+            {
+                // when
+                Tag deletedTag =
+                    await this.apiBroker.HardDeleteTagByIdAsync(inputTag.Id);
 
-            List<Tag> actualResult =
-                await this.apiBroker.GetSpecificTagByIdAsync(inputTag.Id);
+                List<Tag> actualResult =
+                    await this.apiBroker.GetSpecificTagByIdAsync(inputTag.Id);
 
-            // then
-            actualResult.Count().Should().Be(0);
+                // then
+                actualResult.Count().Should().Be(0);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreTagByIdAsync(inputTag.Id);
+            }
         }
     }
 }

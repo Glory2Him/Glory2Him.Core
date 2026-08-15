@@ -106,5 +106,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 
         public async ValueTask RemoveCoreTagAsync(CoreTag tag) =>
             await this.storageBroker.DeleteTagAsync(tag);
+
+        /// <summary>
+        /// Physically removes a tag if it is still there, whatever state it is in. Every
+        /// acceptance test finishes with this so the database is left as it was found: the API's
+        /// own delete is a SOFT delete, so a test that tore down through the endpoint still left
+        /// its row behind, and a test whose assertion threw left a live one.
+        /// </summary>
+        public async ValueTask RemoveCoreTagByIdAsync(Guid tagId)
+        {
+            CoreTag storedTag = await this.storageBroker.SelectTagByIdAsync(tagId);
+
+            if (storedTag is not null)
+            {
+                await this.storageBroker.DeleteTagAsync(storedTag);
+            }
+        }
     }
 }

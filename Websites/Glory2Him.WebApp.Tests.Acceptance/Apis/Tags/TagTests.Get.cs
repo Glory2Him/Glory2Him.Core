@@ -46,13 +46,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             }
             finally
             {
-                // Cleanup is driven off what was POSTED, not off what the read returned, and
-                // runs even when an assertion throws. Deleting inside the assertion loop left
-                // every row the loop had not reached yet live forever, and this suite runs
-                // against a persistent database that nothing else resets.
+                // Cleanup is driven off what was POSTED, not off what the read returned, runs
+                // even when an assertion throws, and removes the row rather than soft-deleting
+                // it. Deleting inside the assertion loop left every row the loop had not reached
+                // yet, and going through the API left a soft-deleted row behind either way.
                 foreach (Tag postedTag in randomTags)
                 {
-                    await this.apiBroker.DeleteTagByIdAsync(postedTag.Id);
+                    await this.apiBroker.RemoveCoreTagByIdAsync(postedTag.Id);
                 }
             }
         }

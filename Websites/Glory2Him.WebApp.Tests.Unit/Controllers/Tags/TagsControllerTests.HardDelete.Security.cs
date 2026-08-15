@@ -61,5 +61,21 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             actualAttributeValues.Should().BeEquivalentTo(expectedAttributeValues);
         }
+        [Fact]
+        public void HardDeleteShouldNotAllowAnonymous()
+        {
+            // Given
+            var controllerType = typeof(TagsController);
+            var methodInfo = controllerType.GetMethod("HardDeleteTagByIdAsync");
+            Type attributeType = typeof(AllowAnonymousAttribute);
+
+            // When
+            var attribute = methodInfo?
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault();
+
+            // Then
+            attribute.Should().BeNull();
+        }
     }
 }

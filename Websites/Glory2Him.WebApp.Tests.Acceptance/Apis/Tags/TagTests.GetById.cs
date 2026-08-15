@@ -24,18 +24,23 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             Tag randomTag = await PostRandomTagAsync();
             Tag expectedTag = randomTag;
 
-            // when
-            Tag actualTag =
-                await this.apiBroker.GetTagByIdAsync(randomTag.Id);
+            try
+            {
+                // when
+                Tag actualTag =
+                    await this.apiBroker.GetTagByIdAsync(randomTag.Id);
 
-            // then
-            actualTag.Should().BeEquivalentTo(expectedTag, options => options
-                .Excluding(property => property.CreatedBy)
-                .Excluding(property => property.CreatedWhen)
-                .Excluding(property => property.UpdatedBy)
-                .Excluding(property => property.UpdatedWhen));
-
-            await this.apiBroker.DeleteTagByIdAsync(actualTag.Id);
+                // then
+                actualTag.Should().BeEquivalentTo(expectedTag, options => options
+                    .Excluding(property => property.CreatedBy)
+                    .Excluding(property => property.CreatedWhen)
+                    .Excluding(property => property.UpdatedBy)
+                    .Excluding(property => property.UpdatedWhen));
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreTagByIdAsync(randomTag.Id);
+            }
         }
     }
 }
