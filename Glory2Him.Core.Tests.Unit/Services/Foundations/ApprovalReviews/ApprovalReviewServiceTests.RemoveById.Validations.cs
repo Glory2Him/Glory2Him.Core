@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
@@ -446,6 +447,69 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfTheRoundHasClosedAndLogItAsync()
+        {
+            // given: the owner withdrawing their own verdict after the round closed. Removal is
+            // an amendment by deletion, so it takes the same §7.7 rule 2b window as modify —
+            // otherwise an entity could sit Approved with the rejection that blocked it quietly
+            // gone, and nothing would re-run the workflow.
+            string ownerUserId = GetRandomString();
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.IsDeleted = false;
+            storageApprovalReview.CreatedBy = ownerUserId;
+            Guid someApprovalReviewId = storageApprovalReview.Id;
+
+            SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalNotOpenForReview);
+
+            var unauthorizedApprovalReviewException = new UnauthorizedApprovalReviewException(
+                message: "The current user is not allowed to review approvals.");
+
+            var expectedApprovalReviewValidationException = new ApprovalReviewValidationException(
+                message: "Approval review validation error occurred, fix the errors and try again.",
+                innerException: unauthorizedApprovalReviewException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(ownerUserId);
+
+            // when
+            ValueTask<ApprovalReview> removeApprovalReviewByIdTask =
+                this.approvalReviewService.RemoveApprovalReviewByIdAsync(
+                    someApprovalReviewId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    removeApprovalReviewByIdTask.AsTask);
+
+            // then
+            actualException.Should()
+                .BeEquivalentTo(expectedApprovalReviewValidationException);
+
+            // the ApprovalId comes from the stored row, and the call is shaped as an amendment
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayRecordApprovalReviewAsync(
+                    storageApprovalReview.ApprovalId,
+                    true,
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            // the soft delete never lands
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Never);
         }
     }
 }

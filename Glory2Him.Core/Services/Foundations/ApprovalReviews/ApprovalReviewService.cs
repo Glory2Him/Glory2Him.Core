@@ -418,6 +418,23 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 storageApprovalReview: maybeApprovalReview,
                 securityContext: inboundEnvelope.SecurityContext);
 
+            // Withdrawing a verdict is amending it by deletion, so it takes the same gate as
+            // modify — including §7.7 rule 2b's window. Once the round has closed the review
+            // record stands: a verdict removed afterwards would not re-run the workflow, and the
+            // entity could sit Approved with the rejection that blocked it quietly gone.
+            //
+            // ApprovalId comes from STORAGE. Remove takes only an id, so there is no payload to
+            // mistrust here, but reading it from the row keeps this identical to modify.
+            //
+            // Deliberately NOT applied to hard remove: that is Admin-only maintenance which
+            // destroys the row outright, and locking it to an open round would leave a closed
+            // round's rows permanently unclearable.
+            await ValidateUserMayRecordApprovalReviewAsync(
+                approvalId: maybeApprovalReview.ApprovalId,
+                isAmendingOwnReview: true,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
             if (maybeApprovalReview.IsDeleted)
                 return maybeApprovalReview;
 
