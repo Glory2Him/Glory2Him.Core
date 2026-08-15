@@ -24,8 +24,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
     {
         private readonly ApiBroker apiBroker;
 
-        public TagApiTests(ApiBroker apiBroker) =>
+        public TagApiTests(ApiBroker apiBroker)
+        {
             this.apiBroker = apiBroker;
+
+            // The acting caller is shared client state, so it is reset here rather than left to
+            // whichever test ran last.
+            this.apiBroker.ActAsSeededAdministrator();
+        }
 
         private int GetRandomNumber() =>
             new IntRange(min: 2, max: 5).GetValue();
