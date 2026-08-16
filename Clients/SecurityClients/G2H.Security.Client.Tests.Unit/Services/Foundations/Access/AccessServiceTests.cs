@@ -184,6 +184,17 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 IsAmendingOwnReview = isAmendingOwnReview,
             };
 
+        private static AmendApprovalRequest CreateRandomAmendApprovalRequest(
+            AccessActor? actor = null,
+            IReadOnlyList<RoleSubject>? roleSubjects = null) =>
+            new AmendApprovalRequest
+            {
+                Actor = actor ?? CreateRandomAccessActor(
+                    roles: new List<string> { RoleNames.Reviewer }),
+
+                RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
+            };
+
         private static DismissReviewRequest CreateRandomDismissReviewRequest(
             AccessActor? actor = null,
             IReadOnlyList<RoleSubject>? roleSubjects = null) =>

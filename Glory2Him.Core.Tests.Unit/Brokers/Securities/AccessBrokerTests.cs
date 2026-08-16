@@ -58,6 +58,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         private DecideApprovalRequest capturedDecideApprovalRequest;
         private RecordReviewRequest capturedRecordReviewRequest;
         private DismissReviewRequest capturedDismissReviewRequest;
+        private AmendApprovalRequest capturedAmendApprovalRequest;
         private RecordApprovalCommentRequest capturedRecordApprovalCommentRequest;
         private AmendApprovalCommentRequest capturedAmendApprovalCommentRequest;
         private ResolveApprovalCommentRequest capturedResolveApprovalCommentRequest;
@@ -125,6 +126,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 client.MayRecordApprovalReviewAsync(It.IsAny<RecordReviewRequest>()))
                     .Callback((RecordReviewRequest recordReviewRequest) =>
                         this.capturedRecordReviewRequest = recordReviewRequest)
+                    .ReturnsAsync(accessVerdict);
+
+            this.accessClientMock.Setup(client =>
+                client.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()))
+                    .Callback((AmendApprovalRequest amendApprovalRequest) =>
+                        this.capturedAmendApprovalRequest = amendApprovalRequest)
                     .ReturnsAsync(accessVerdict);
 
             this.accessClientMock.Setup(client =>

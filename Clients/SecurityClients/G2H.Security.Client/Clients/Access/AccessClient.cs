@@ -124,6 +124,30 @@ namespace G2H.Security.Client.Clients.Access
             }
         }
 
+        public async ValueTask<AccessVerdict> MayAmendApprovalAsync(
+            AmendApprovalRequest amendApprovalRequest)
+        {
+            try
+            {
+                return await this.accessService
+                    .MayAmendApprovalAsync(amendApprovalRequest);
+            }
+            catch (AccessValidationException accessValidationException)
+            {
+                throw CreateAccessClientValidationException(
+                    accessValidationException.InnerException as Xeption);
+            }
+            catch (AccessServiceException accessServiceException)
+            {
+                throw CreateAccessClientDependencyException(
+                    accessServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateAccessClientServiceException(exception);
+            }
+        }
+
         public async ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
             DismissReviewRequest dismissReviewRequest)
         {

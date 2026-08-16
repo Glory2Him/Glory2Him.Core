@@ -90,6 +90,13 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 IsAmendingOwnReview = false,
             };
 
+        private static AmendApprovalRequest CreateRandomAmendApprovalRequest() =>
+            new AmendApprovalRequest
+            {
+                Actor = CreateRandomAccessActor(),
+                RoleSubjects = new List<RoleSubject>(),
+            };
+
         private static DismissReviewRequest CreateRandomDismissReviewRequest() =>
             new DismissReviewRequest
             {

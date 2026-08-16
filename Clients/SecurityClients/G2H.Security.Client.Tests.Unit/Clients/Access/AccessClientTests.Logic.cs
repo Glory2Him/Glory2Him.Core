@@ -81,6 +81,35 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
         }
 
         [Fact]
+        public async Task ShouldDecideIfActorMayAmendApprovalAsync()
+        {
+            // given
+            AmendApprovalRequest randomAmendApprovalRequest =
+                CreateRandomAmendApprovalRequest();
+
+            AccessVerdict randomAccessVerdict = CreateRandomAccessVerdict();
+            AccessVerdict expectedAccessVerdict = randomAccessVerdict;
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalAsync(randomAmendApprovalRequest))
+                    .ReturnsAsync(randomAccessVerdict);
+
+            // when
+            AccessVerdict actualAccessVerdict =
+                await this.accessClient.MayAmendApprovalAsync(
+                    randomAmendApprovalRequest);
+
+            // then
+            actualAccessVerdict.Should().BeEquivalentTo(expectedAccessVerdict);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalAsync(randomAmendApprovalRequest),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
         public async Task ShouldDecideIfActorMayDismissApprovalReviewAsync()
         {
             // given

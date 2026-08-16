@@ -796,5 +796,115 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
             this.accessServiceMock.VerifyNoOtherCalls();
         }
 
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldThrowValidationExceptionOnMayAmendApprovalIfValidationErrorOccursAsync(
+            Xeption validationException)
+        {
+            // given
+            AmendApprovalRequest someAmendApprovalRequest = CreateRandomAmendApprovalRequest();
+
+            var expectedAccessClientValidationException =
+                new AccessClientValidationException(
+                    message: "Access client validation error occurred, fix the error and try again.",
+                    innerException: (validationException.InnerException as Xeption)!,
+                    data: validationException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()))
+                    .Throws(validationException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalTask =
+                this.accessClient.MayAmendApprovalAsync(someAmendApprovalRequest);
+
+            AccessClientValidationException actualAccessClientValidationException =
+                await Assert.ThrowsAsync<AccessClientValidationException>(
+                    mayAmendApprovalTask.AsTask);
+
+            // then
+            actualAccessClientValidationException.Should()
+                .BeEquivalentTo(expectedAccessClientValidationException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldThrowDependencyExceptionOnMayAmendApprovalIfDependencyErrorOccursAsync(
+            Xeption dependencyException)
+        {
+            // given
+            AmendApprovalRequest someAmendApprovalRequest = CreateRandomAmendApprovalRequest();
+
+            var expectedAccessClientDependencyException =
+                new AccessClientDependencyException(
+                    message: "Access client dependency error occurred, please contact support.",
+                    innerException: (dependencyException.InnerException as Xeption)!,
+                    data: dependencyException.InnerException?.Data!);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()))
+                    .Throws(dependencyException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalTask =
+                this.accessClient.MayAmendApprovalAsync(someAmendApprovalRequest);
+
+            AccessClientDependencyException actualAccessClientDependencyException =
+                await Assert.ThrowsAsync<AccessClientDependencyException>(
+                    mayAmendApprovalTask.AsTask);
+
+            // then
+            actualAccessClientDependencyException.Should()
+                .BeEquivalentTo(expectedAccessClientDependencyException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowServiceExceptionOnMayAmendApprovalIfServiceErrorOccursAsync()
+        {
+            // given
+            AmendApprovalRequest someAmendApprovalRequest = CreateRandomAmendApprovalRequest();
+            var serviceException = new Exception(message: GetRandomString());
+
+            var expectedAccessClientServiceException =
+                new AccessClientServiceException(
+                    message: "Access client service error occurred, please contact support.",
+                    innerException: serviceException,
+                    data: serviceException.Data);
+
+            this.accessServiceMock.Setup(service =>
+                service.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()))
+                    .Throws(serviceException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalTask =
+                this.accessClient.MayAmendApprovalAsync(someAmendApprovalRequest);
+
+            AccessClientServiceException actualAccessClientServiceException =
+                await Assert.ThrowsAsync<AccessClientServiceException>(
+                    mayAmendApprovalTask.AsTask);
+
+            // then
+            actualAccessClientServiceException.Should()
+                .BeEquivalentTo(expectedAccessClientServiceException);
+
+            this.accessServiceMock.Verify(service =>
+                service.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()),
+                    Times.Once);
+
+            this.accessServiceMock.VerifyNoOtherCalls();
+        }
+
     }
 }
