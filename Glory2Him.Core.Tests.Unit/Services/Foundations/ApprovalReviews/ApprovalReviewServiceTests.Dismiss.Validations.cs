@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
@@ -266,6 +267,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                         It.IsAny<EventEnvelope<ApprovalReview>>(),
                         It.IsAny<ApprovalReviewEventOperation>()),
                 Times.Never);
+
+            // The row-local publisher-tier gate runs FIRST, so a caller without it is refused
+            // before the Approval row and the entity behind it are ever read. Without this the
+            // two gates can be swapped and nothing fails — the caller sees the same refusal
+            // while a cross-entity read has already happened on their behalf. The suite's usual
+            // VerifyNoOtherCalls tail cannot catch it: that convention excludes accessBrokerMock.
+            this.accessBrokerMock.Verify(broker =>
+                    broker.MayDismissApprovalReviewAsync(
+                        It.IsAny<Guid>(),
+                        It.IsAny<SecurityContext>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// Permission is decided before the row's state is looked at, so a caller who fails the
+        /// entity-scoped tier is told "not allowed" rather than "already dismissed".
+        ///
+        /// <para>The distinction is the whole point: the other way round, anyone holding any
+        /// <c>-Publisher</c> role could walk arbitrary review ids and read the refusal wording to
+        /// learn which rows are already dismissed — an existence-and-state probe on approvals
+        /// they have no authority over.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseDismissalBeforeRevealingThatTheReviewIsAlreadyDismissedAsync()
+        {
+            // given: a caller who clears the row-local suffix test but not the entity-scoped
+            // tier, acting on a review that is ALREADY dismissed
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.TagPublisher);
+
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.StatusId = ApprovalStatus.Dismissed;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReview);
+
+            SetupAccessBrokerToRefuseDismissal(AccessDenialReason.NotInPublisherTier);
+
+            // when
+            ValueTask<ApprovalReview> dismissApprovalReviewTask =
+                this.approvalReviewService.DismissApprovalReviewAsync(
+                    storageApprovalReview.Id,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    dismissApprovalReviewTask.AsTask);
+
+            // then: the authorization answer, not the state answer
+            actualException.InnerException.Message.Should().Be(
+                "The current user is not allowed to dismiss this approval review.");
+
+            actualException.InnerException.Message.Should().NotContain("already dismissed");
         }
 
         [Fact]

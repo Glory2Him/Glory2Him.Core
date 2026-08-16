@@ -65,10 +65,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
-            // the cross-entity review decision defaults to permitted so a test about
-            // something else exercises its own subject rather than failing on an
-            // unstubbed verdict. Tests about the gate itself call
-            // SetupAccessBrokerToRefuse to reverse it.
+            // BOTH cross-entity decisions default to permitted — the record-review one and the
+            // dismissal one — so a test about something else exercises its own subject rather
+            // than failing on an unstubbed verdict. They are reversed SEPARATELY, and reaching
+            // for the wrong one leaves the decision permitted and the test passing for the wrong
+            // reason: SetupAccessBrokerToRefuse covers MayRecordApprovalReviewAsync (add, modify
+            // and remove), SetupAccessBrokerToRefuseDismissal covers MayDismissApprovalReviewAsync.
             SetupAccessBrokerToPermit();
 
             // the ambient caller the envelope broker captures on the direct path — tests
@@ -118,20 +120,47 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
-        private void SetupAccessBrokerToPermit() =>
+        private void SetupAccessBrokerToPermit()
+        {
             this.accessBrokerMock.Setup(broker =>
                 broker.MayRecordApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(CreatePermittedVerdict());
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayDismissApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(CreatePermittedVerdict());
+        }
+
+        private static AccessVerdict CreatePermittedVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "permitted",
+            };
+
+        private void SetupAccessBrokerToRefuseDismissal(AccessDenialReason denialReason) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayDismissApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new AccessVerdict
                         {
-                            IsPermitted = true,
-                            DenialReason = AccessDenialReason.None,
+                            IsPermitted = false,
+                            DenialReason = denialReason,
                             IsBypassUsed = false,
                             BypassedBlockReason = AccessDenialReason.None,
-                            Explanation = "permitted",
+                            Explanation = "the actor is not in the publisher tier for this entity",
                         });
 
         // A permit reached by WAIVING the conditions rather than by meeting them. Recording a

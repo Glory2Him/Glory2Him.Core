@@ -11,6 +11,9 @@
 
 using System;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
@@ -39,10 +42,46 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
 
+        // Tier 1, row-local. Kept alongside the broker decision below rather than replaced by
+        // it: §14.6 rule 2 and §8.6.1 make the coarse duplicate intentional — one role comparison
+        // instead of a table read, and a defect in the gathering can only ever make the pair
+        // stricter, never looser.
         private static void ValidateUserCanDismissApprovalReview(SecurityContext securityContext)
         {
             if (HasPublisherRole(securityContext) is false)
             {
+                throw new UnauthorizedApprovalReviewException(
+                    message: "The current user is not allowed to dismiss this approval review.");
+            }
+        }
+
+        // Tier 2, cross-entity — and the half that makes the gate mean what §8.9 rule 2 says.
+        // HasPublisherRole above matches ANY "-Publisher" suffix, because a review row names no
+        // entity type: a bare Tag-Publisher passes it for a ContentItem↔BibleReference
+        // association's approval. The broker resolves the entity behind the approval — for an
+        // association, both of its endpoints (§14.7 posture A′ rule 2) — so the tier is finally
+        // checked against the thing actually under review.
+        //
+        // Asked about the STORED approval id, never a payload value: dismissal is decided against
+        // the row as it is, and the request carries nothing but the review's own id anyway.
+        private async ValueTask ValidateUserMayDismissApprovalReviewAsync(
+            Guid approvalId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayDismissApprovalReviewAsync(
+                approvalId: approvalId,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            if (verdict.IsPermitted is false)
+            {
+                // §14.5: the true reason server-side, nothing about the policy to the caller.
+                await this.loggingBroker.LogWarningAsync(
+                    $"Approval review dismissal denied for approval {approvalId}. "
+                        + $"{verdict.DenialReason}: {verdict.Explanation} "
+                        + "Reported to the caller as unauthorized.");
+
                 throw new UnauthorizedApprovalReviewException(
                     message: "The current user is not allowed to dismiss this approval review.");
             }
