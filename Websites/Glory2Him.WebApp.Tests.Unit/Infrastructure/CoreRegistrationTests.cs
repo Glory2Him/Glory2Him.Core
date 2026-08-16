@@ -15,6 +15,7 @@ using FluentAssertions;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.WebApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,13 +36,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         [InlineData(typeof(IAccessBroker))]
         [InlineData(typeof(IStorageBroker))]
         [InlineData(typeof(ITagService))]
+        [InlineData(typeof(IApprovalCommentService))]
         public void ShouldRegisterRequestBoundServicesAsScoped(Type serviceType)
         {
             // given
             IServiceCollection services = new ServiceCollection();
 
             // when
-            services.AddCoreTagServices();
+            services.AddCoreServices();
 
             ServiceDescriptor descriptor =
                 services.Single(service => service.ServiceType == serviceType);
@@ -57,7 +59,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             IServiceCollection services = new ServiceCollection();
 
             // when
-            IServiceCollection returnedServices = services.AddCoreTagServices();
+            IServiceCollection returnedServices = services.AddCoreServices();
 
             // then
             returnedServices.Should().BeSameAs(services);

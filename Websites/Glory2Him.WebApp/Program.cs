@@ -25,13 +25,23 @@ builder.Services.AddPortalIdentity(builder.Configuration);
 builder.Services.AddPortalBrokers();
 builder.Services.AddPortalViewServices();
 
-// The Glory2Him.Core slice behind the tag endpoints.
-builder.Services.AddCoreTagServices();
+// The Glory2Him.Core slice behind the exposed endpoints.
+builder.Services.AddCoreServices();
 
 // Attribute-routed controllers alongside the SPA's minimal-API endpoints. OData is added
 // for the [EnableQuery] collection reads.
 builder.Services
-    .AddControllers()
+    .AddControllers(options =>
+        // MVC otherwise infers [Required] from C# nullability, which turns every non-nullable
+        // member of a Core entity into a mandatory field on the wire. That is wrong for entities
+        // carrying EF navigations: ApprovalComment.Approval is declared non-nullable because the
+        // foreign key guarantees it in storage, but a caller never sends it — and it points back
+        // at a graph containing the comment itself, so no caller could. Inferring the attribute
+        // rejected every valid POST before the controller was reached.
+        //
+        // Nothing is lost by turning it off: the foundation validates each field it owns and
+        // reports through the same 400 (design §10.12 — the exposer is thin, the service decides).
+        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
     .AddOData(options => options
         .Select()
         .Filter()
