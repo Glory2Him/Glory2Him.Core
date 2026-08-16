@@ -186,13 +186,18 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
         private static AmendApprovalRequest CreateRandomAmendApprovalRequest(
             AccessActor? actor = null,
-            IReadOnlyList<RoleSubject>? roleSubjects = null) =>
+            IReadOnlyList<RoleSubject>? roleSubjects = null,
+            string? approvalCreatedBy = null) =>
             new AmendApprovalRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(
                     roles: new List<string> { RoleNames.Reviewer }),
 
                 RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
+
+                // Someone else by default, so a tier test cannot pass through the owner branch
+                // and quietly stop testing the tier.
+                ApprovalCreatedBy = approvalCreatedBy ?? GetRandomString(),
             };
 
         private static DismissReviewRequest CreateRandomDismissReviewRequest(

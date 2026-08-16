@@ -178,6 +178,94 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         }
 
         /// <summary>
+        /// A role-less submitter may still amend their own approval — §14.7 posture D rule 3's
+        /// "resubmission by the submitter". This is the case the two gates nearly destroyed: tier
+        /// 1 admits owner-or-review-role, and if tier 2 answered only the tier half the AND of
+        /// the two would collapse to review-tier-only and lock every submitter out of their own
+        /// row. Run against a stub that MIRRORS the real decision rather than the fixture's
+        /// blanket permit, because a permissive default cannot tell the two designs apart.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAllowTheSubmitterToModifyTheirOwnApprovalWithNoRolesAsync()
+        {
+            // given: the arrangement of the happy path, with ONE difference — the caller holds
+            // no roles at all and is admitted purely as the approval's submitter
+            string submitterUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            Approval randomApproval =
+                CreateRandomModifyApproval(randomDateTimeOffset, submitterUserId);
+
+            Approval inputApproval = randomApproval;
+            Approval auditAppliedApproval = inputApproval.DeepClone();
+            Approval storageApproval = auditAppliedApproval.DeepClone();
+
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            Approval auditPreservedApproval = auditAppliedApproval.DeepClone();
+            Approval updatedApproval = auditPreservedApproval.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(submitterUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputApproval, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    auditAppliedApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedApproval,
+                    storageApproval))
+                        .ReturnsAsync(auditPreservedApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalAsync(auditPreservedApproval, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedApproval);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalAsync(
+                    It.IsAny<EventEnvelope<Approval>>(),
+                    ApprovalEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<Approval>>(
+                        new EventPublishResult<Approval>()));
+
+            // the decision as production computes it — owner OR review tier — rather than the
+            // fixture's blanket permit, which cannot tell the two designs apart
+            SetupAccessBrokerToMirrorTheAmendmentDecision(
+                approvalCreatedBy: storageApproval.CreatedBy,
+                actorUserId: submitterUserId);
+
+            // when
+            Approval actualApproval =
+                await this.approvalService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            // then: admitted, and the write happened
+            actualApproval.Should().NotBeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        auditPreservedApproval,
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        /// <summary>
         /// The row-local gate runs FIRST, so a caller holding no review role at all is refused
         /// without the approval's entity ever being read. Without this the two gates can be
         /// swapped and nothing fails — the caller sees the same refusal while a cross-entity read

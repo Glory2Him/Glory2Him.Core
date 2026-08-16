@@ -13,15 +13,15 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
-using G2H.Security.Client.Models.Foundations.Access;
-using System.Threading;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
@@ -130,6 +130,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                             BypassedBlockReason = AccessDenialReason.None,
                             Explanation = "permitted",
                         });
+
+        /// <summary>
+        /// Mirrors the real decision instead of blanket-permitting: owner OR review tier. A
+        /// default that permits everything cannot tell a gate that admits the submitter from one
+        /// that does not, which is exactly the defect this suite failed to catch once already.
+        /// </summary>
+        private void SetupAccessBrokerToMirrorTheAmendmentDecision(
+            string approvalCreatedBy,
+            string actorUserId) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid _, SecurityContext securityContext, CancellationToken _) =>
+                        {
+                            // the ACTOR id as the audit surface resolves it, which is what the
+                            // real broker forwards — not SecurityContext.SubjectId
+                            bool isOwner =
+                                string.IsNullOrWhiteSpace(approvalCreatedBy) is false
+                                    && approvalCreatedBy == actorUserId;
+
+                            bool hasReviewTier = securityContext.Roles.Any(role =>
+                                role == Roles.Reviewer
+                                    || role == Roles.Publisher
+                                    || role == Roles.Admin
+                                    || role.EndsWith(Roles.ReviewerSuffix, StringComparison.Ordinal)
+                                    || role.EndsWith(Roles.PublisherSuffix, StringComparison.Ordinal));
+
+                            return isOwner || hasReviewTier
+                                ? CreatePermittedAmendmentVerdict()
+                                : new AccessVerdict
+                                {
+                                    IsPermitted = false,
+                                    DenialReason = AccessDenialReason.NotInReviewTier,
+                                    IsBypassUsed = false,
+                                    BypassedBlockReason = AccessDenialReason.None,
+                                    Explanation = "neither the submitter nor in the review tier",
+                                };
+                        });
+
+        private static AccessVerdict CreatePermittedAmendmentVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "permitted",
+            };
 
         private void SetupAccessBrokerToRefuseAmendment(AccessDenialReason denialReason) =>
             this.accessBrokerMock.Setup(broker =>

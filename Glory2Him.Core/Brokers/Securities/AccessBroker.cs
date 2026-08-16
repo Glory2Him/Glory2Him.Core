@@ -260,6 +260,10 @@ namespace Glory2Him.Core.Brokers.Securities
                 {
                     Actor = actor,
                     RoleSubjects = roleSubjects,
+
+                    // From STORAGE. Taking the submitter from a caller's copy would let anyone
+                    // name themselves the owner and clear the gate on someone else's approval.
+                    ApprovalCreatedBy = maybeApproval.CreatedBy,
                 });
         }
 

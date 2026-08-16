@@ -66,6 +66,69 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotAuthenticated);
         }
 
+        /// <summary>
+        /// The submitter of an approval may amend their own, holding no role at all — §14.7
+        /// posture D rule 3 admits "resubmission by the submitter", and
+        /// <c>ModifyApprovalAsync</c> is the only verb that moves an approval Draft↔Submitted.
+        ///
+        /// <para>This is why the owner branch lives inside this decision rather than being left
+        /// to the caller to OR in: two throwing gates compose to an AND, which deletes it.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldPermitAmendingAnApprovalWhenTheActorIsItsSubmitterAsync()
+        {
+            // given: no roles whatsoever
+            AccessActor submitter = CreateRandomAccessActor(roles: new List<string>());
+
+            AmendApprovalRequest amendApprovalRequest = CreateRandomAmendApprovalRequest(
+                actor: submitter,
+                roleSubjects: new List<RoleSubject>
+                {
+                    new RoleSubject { EntityType = "ContentItem", ContentType = "Testimony" },
+                },
+                approvalCreatedBy: submitter.UserId);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalAsync(amendApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.None);
+        }
+
+        /// <summary>
+        /// A blank submitter must never match a blank actor id. The actor gate catches that first,
+        /// but the owner comparison is blank-safe in its own right so the order cannot become
+        /// load-bearing by accident.
+        /// </summary>
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task ShouldRefuseAmendingAnApprovalWhenTheSubmitterIsBlankAsync(
+            string? blankSubmitter)
+        {
+            // given
+            AccessActor actorWithoutRoles = CreateRandomAccessActor(roles: new List<string>());
+
+            AmendApprovalRequest amendApprovalRequest = CreateRandomAmendApprovalRequest(
+                actor: actorWithoutRoles,
+                roleSubjects: new List<RoleSubject>
+                {
+                    new RoleSubject { EntityType = "ContentItem", ContentType = null },
+                },
+                approvalCreatedBy: blankSubmitter!);
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalAsync(amendApprovalRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotInReviewTier);
+        }
+
         [Fact]
         public async Task ShouldRefuseAmendingAnApprovalWhenTheActorHoldsNoReviewTierRoleAsync()
         {

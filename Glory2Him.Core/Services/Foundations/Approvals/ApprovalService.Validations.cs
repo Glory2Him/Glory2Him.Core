@@ -51,17 +51,23 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             }
         }
 
-        // the review roles that may act on and read approval workflow records: the global
-        // Tier 1, row-local: Reviewer/Publisher/Admin, plus — by the §16.6 convention — any
-        // entity-scoped "{Entity}-Reviewer"/"{Entity}-Publisher" role.
+        // Tier 1, row-local: the global Reviewer/Publisher/Admin roles, plus — by the §16.6
+        // convention — any entity-scoped "{Entity}-Reviewer"/"{Entity}-Publisher" role.
         //
         // This check only ever sees the caller, so it cannot know which entity type an approval
         // targets: a Tag-Reviewer passes it for a Link's approval. Narrowing to the approval's
-        // own entity type was once described as an orchestration concern; it is not, and there
-        // is no orchestration to defer it to (§12.3.1). It lives in the foundation, one tier
-        // down, through IAccessBroker — which can read the entity behind the approval where this
-        // cannot. Both tiers run: §14.6 rule 2 and §8.6.1 make the duplicate intentional, since
-        // a defect in the gathering can only ever make the pair stricter.
+        // own entity type was once described as an orchestration concern. That is withdrawn: it
+        // lives in the foundation, one tier down, through IAccessBroker — which can read the
+        // entity behind the approval where this cannot. (§12.3.1 withdraws the orchestration for
+        // ApprovalReview and ApprovalComment; it does not list Approval, whose own orchestration
+        // is simply unbuilt. Either way there is nothing to defer to.)
+        //
+        // Both tiers run, and §14.6 rule 2 makes the duplicate intentional. Note the composition
+        // is an AND, so tier 2 must admit everyone tier 1 does — the owner branch is inside the
+        // broker decision for exactly that reason, not left here to be ORed in.
+        //
+        // WHERE THIS IS USED: the modify gate below (paired with the broker) and the two READ
+        // paths, which are still row-local. §14.7's "Known gap" paragraph records that.
         private static bool HasReviewRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Reviewer)
                 || securityContext.Roles.Contains(Roles.Publisher)
