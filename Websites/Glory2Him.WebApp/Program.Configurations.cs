@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -25,7 +25,7 @@ public partial class Program
     // Core's StorageBroker configures itself in OnConfiguring with no EnableRetryOnFailure, and a
     // sleeping LocalDB instance throws on the first connect — the same transient the identity seed
     // below already retries around. Neither of these is worth taking the whole portal down for: a
-    // failure here disables the tag endpoints, while login, the SPA and every other API keep
+    // failure here disables the Core endpoints, while login, the SPA and every other API keep
     // serving. Both operations are idempotent, so the next start retries them anyway.
     internal static async Task InitializeCoreAsync(WebApplication app)
     {
@@ -54,7 +54,7 @@ public partial class Program
             {
                 app.Logger.LogError(
                     coreInitializationException,
-                    "Core initialization failed after {MaxAttempts} attempts; the tag endpoints "
+                    "Core initialization failed after {MaxAttempts} attempts; the Core endpoints "
                         + "will not serve until this is resolved.",
                     maxAttempts);
             }

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -25,13 +25,27 @@ builder.Services.AddPortalIdentity(builder.Configuration);
 builder.Services.AddPortalBrokers();
 builder.Services.AddPortalViewServices();
 
-// The Glory2Him.Core slice behind the tag endpoints.
-builder.Services.AddCoreTagServices();
+// The Glory2Him.Core slice behind the exposed endpoints.
+builder.Services.AddCoreServices();
 
 // Attribute-routed controllers alongside the SPA's minimal-API endpoints. OData is added
 // for the [EnableQuery] collection reads.
 builder.Services
-    .AddControllers()
+    .AddControllers(options =>
+        // MVC otherwise infers [Required] from C# nullability, which turns every non-nullable
+        // member of a Core entity into a mandatory field on the wire. That is wrong for entities
+        // carrying EF navigations: ApprovalComment.Approval is declared non-nullable because the
+        // foreign key guarantees it in storage, but a caller never sends it — and it points back
+        // at a graph containing the comment itself, so no caller could. Inferring the attribute
+        // rejected every valid POST before the controller was reached.
+        //
+        // What replaces it is the foundation's own validation, which is where the decision belongs
+        // (design §10.12 — the exposer is thin, the service decides). Note that this makes the
+        // foundation's rule set the WHOLE input contract: a field no Validate(...) covers is now
+        // accepted, so a missing rule there is a hole here. See issue #238 for one such gap
+        // (ApprovalComment.Comment). A parameter that must be present to address the operation at
+        // all is still stated explicitly with [BindRequired] — that is binding, not validation.
+        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
     .AddOData(options => options
         .Select()
         .Filter()
@@ -44,7 +58,7 @@ var app = builder.Build();
 // Core's schema, and the event store's participant and addresses. Both are idempotent and both
 // run unconditionally: the acceptance suite boots this same host and depends on them to bring a
 // fresh LocalDB up to date. An event published to an unregistered address is refused by
-// EventHighway, which would surface as a 500 on every mutating tag endpoint.
+// EventHighway, which would surface as a 500 on every mutating Core endpoint.
 await Program.InitializeCoreAsync(app);
 
 // Configure the HTTP request pipeline.
@@ -73,8 +87,8 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Attribute-routed controllers (api/Tags, ...) — registered before the minimal-API
-// endpoints so a controller route wins over the /api fallback below.
+// Attribute-routed controllers (api/Tags, api/ApprovalComments, ...) — registered before the
+// minimal-API endpoints so a controller route wins over the /api fallback below.
 app.MapControllers();
 
 // Cookie-authenticated JSON endpoints consumed by the React SPA (Glory2Him.WebApp.React).

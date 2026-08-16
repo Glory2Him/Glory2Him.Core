@@ -34,6 +34,7 @@ depends-on: ["the-standard-core"]
   2. Must not inject more than one service → see validations/anti-patterns.md#multiple-service-injection
   3. Must not return raw exception messages to the client → see validations/anti-patterns.md#leaking-exceptions
   4. Must not use `[HttpGet]` for mutations or `[HttpPost]` for queries → see validations/anti-patterns.md#wrong-http-verb
+  5. Must not let inferred model-binding rules reject a request the foundation would accept → see 1.8/ below
 
 1.2/ Ask:
   - Ask when a controller endpoint needs data from more than one service — that belongs in an aggregation service above.
@@ -57,6 +58,28 @@ depends-on: ["the-standard-core"]
 
 1.7/ Contracts:
   - HTTP verb and status code contracts: see contracts/contracts.json
+
+1.8/ ALWAYS CHECK ON REVIEW — inferred model-binding rules are validation the exposer did not write:
+  `[ApiController]` runs ModelState before the action body. Any rule MVC infers from the bound
+  type therefore rejects the request before the service is reached — a validation decision made
+  outside the layer that owns validation, and one no controller test exercises, because a unit
+  test calls the action method directly and never goes through model binding.
+
+  The rule that bites is `SuppressImplicitRequiredAttributeForNonNullableReferenceTypes`, which
+  defaults to OFF: MVC infers `[Required]` from C# nullability. Bind a persistence entity and
+  every non-nullable member becomes mandatory on the wire — including EF navigation properties,
+  which are non-nullable because the foreign key guarantees them in STORAGE and which no caller
+  ever sends. `ApprovalComment.Approval` made every valid POST a 400 until it was suppressed in
+  `Program.cs`.
+
+  On every review of a controller or of host MVC configuration, verify:
+  1. Does the bound model carry a non-nullable navigation property, or any non-nullable member
+     the service fills rather than the caller? If the host has not suppressed the implicit
+     `[Required]`, that endpoint cannot be called successfully.
+  2. Is every rejection the endpoint can produce traceable to a rule the foundation states? A
+     400 that no `Validate(...)` in the service explains came from model binding.
+  3. Is there an acceptance test that POSTs and PUTs the entity over real HTTP? A unit test
+     cannot catch this class of defect — only a request through the pipeline can.
 
 ## 2/ Expected (Exposure — WHAT comes out)
 

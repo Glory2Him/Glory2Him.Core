@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -18,19 +18,20 @@ using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.Tags;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
     /// <summary>
-    /// Wires the slice of <c>Glory2Him.Core</c> that the tag endpoints need into the portal host.
+    /// Wires the slice of <c>Glory2Him.Core</c> that the exposed endpoints need into the portal host.
     /// Everything here is internal to Core and reachable only because Core names this assembly
     /// in <c>InternalsVisibleTo</c>.
     /// </summary>
     public static class CoreRegistration
     {
         /// <summary>
-        /// Registers the tag foundation service and the brokers behind it.
+        /// Registers the foundation services this host exposes and the brokers behind them.
         /// </summary>
         /// <remarks>
         /// <para><b>Lifetimes.</b> This deliberately does not call
@@ -44,20 +45,20 @@ namespace Glory2Him.WebApp.Infrastructure
         /// are therefore scoped, and only the stateless brokers are singletons.</para>
         ///
         /// <para><b>Configuration.</b> The brokers resolve lazily, so registering them costs
-        /// nothing until a tag endpoint is called. Serving one needs
+        /// nothing until a Core endpoint is called. Serving one needs
         /// <c>ConnectionStrings:Glory2HimConnectionString</c> (Core's schema),
         /// <c>ConnectionStrings:EventHighwayConnectionString</c> (the event substrate) and the
         /// envelope signing keys section.</para>
         /// </remarks>
-        public static IServiceCollection AddCoreTagServices(this IServiceCollection services)
+        public static IServiceCollection AddCoreServices(this IServiceCollection services)
         {
             // SecurityAuditBroker reads the caller's ClaimsPrincipal off the ambient
             // HttpContext in its constructor, so it needs the accessor and a per-request
             // lifetime — a longer-lived instance would freeze the first caller's identity.
             services.AddHttpContextAccessor();
 
-            // The defaults already name the audit members Tag carries (CreatedBy, UpdatedWhen,
-            // IsDeleted, DeletionReason, ...), so no overrides are needed.
+            // The defaults already name the audit members these entities carry (CreatedBy,
+            // UpdatedWhen, IsDeleted, DeletionReason, ...), so no overrides are needed.
             services.AddSingleton(new SecurityConfigurations());
 
             services.AddSingleton<IDateTimeBroker, DateTimeBroker>();
@@ -76,11 +77,12 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddScoped<IStorageBroker, StorageBroker>();
             services.AddScoped<IAccessBroker, AccessBroker>();
             services.AddScoped<ISecurityAuditBroker, SecurityAuditBroker>();
-            // ITagService is public; TagService is not. Binding the two is only possible from
-            // inside Core's friend set, which is the point — the host names the contract, Core
-            // keeps the implementation. TagsController then takes ITagService through an
-            // ordinary public constructor and the default controller activator builds it.
+            // The service INTERFACES are public; the implementations are not. Binding the two is
+            // only possible from inside Core's friend set, which is the point — the host names
+            // the contract, Core keeps the implementation. Each controller then takes its one
+            // service through an ordinary public constructor and the default activator builds it.
             services.AddScoped<ITagService, TagService>();
+            services.AddScoped<IApprovalCommentService, ApprovalCommentService>();
 
             return services;
         }

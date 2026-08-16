@@ -92,10 +92,13 @@
 		<InternalsVisibleTo Include="Glory2Him.Core.Tests.Integration" />
 
 		<!--
-			The exposer host and its test projects. ITagService itself is public so a
-			controller can bind to it, but the implementation behind it is not: registering
-			TagService, constructing the broker graph, and catching the outer Tag exceptions
-			all reach internals and only compile from inside this friend set.
+			The exposer host and its test projects. A foundation service INTERFACE is made
+			public so a controller can bind to it (ITagService, IApprovalCommentService), but
+			nothing behind it is: registering the implementation, constructing the broker
+			graph, and catching that entity's outer exception types all reach internals and
+			only compile from inside this friend set. Every exposer added to the host depends
+			on this — trimming the list breaks the controllers' catch blocks, not just their
+			DI registration.
 		-->
 		<InternalsVisibleTo Include="Glory2Him.WebApp" />
 		<InternalsVisibleTo Include="Glory2Him.WebApp.Tests.Unit" />

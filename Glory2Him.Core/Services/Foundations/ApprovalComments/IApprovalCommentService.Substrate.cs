@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    internal partial interface IApprovalCommentService
+    public partial interface IApprovalCommentService
     {
         ValueTask<EventEnvelope<ApprovalComment>?> OnAddingApprovalCommentAsync(
             EventEnvelope<ApprovalComment> envelope,
