@@ -10,17 +10,27 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Security.Cryptography;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Brokers.Identities;
 using Glory2Him.WebApp.Brokers.Loggings;
 using Glory2Him.WebApp.Models.Foundations.Users;
 using Glory2Him.WebApp.Models.Views.Users;
 using Glory2Him.WebApp.Models.Views.Users.Exceptions;
+using Microsoft.AspNetCore.Identity;
 
 namespace Glory2Him.WebApp.Services.Views.Users
 {
     public partial class UsersViewService : IUsersViewService
     {
         public const string AdministratorsRole = "Administrators";
+
+        // Two vocabularies, two surfaces, and both need protecting. "Administrators" opens
+        // /api/admin; Core's Roles.Admin opens the moderation tier — hard delete, approve, and
+        // removing another user's row. Guarding only the first let an administrator strip the
+        // last holder of the second and silently restore the state issue #193 described, with
+        // no warning and no route back but a re-seed.
+        public static readonly string[] ProtectedAdministratorRoles =
+            new[] { AdministratorsRole, Roles.Admin };
 
         private readonly IIdentityBroker identityBroker;
         private readonly ILoggingBroker loggingBroker;
@@ -122,17 +132,28 @@ namespace Glory2Him.WebApp.Services.Views.Users
 
                 if (isInRole)
                 {
-                    await this.identityBroker.InsertUserToRoleAsync(user, roleName);
+                    IdentityResult insertResult =
+                        await this.identityBroker.InsertUserToRoleAsync(user, roleName);
+
+                    EnsureIdentitySucceeded(insertResult, $"add the \"{roleName}\" role");
 
                     return;
                 }
 
-                if (roleName == AdministratorsRole)
+                if (ProtectedAdministratorRoles.Contains(roleName))
                 {
-                    await EnsureNotLastAdministratorAsync(user, "removed from the administrators");
+                    IList<string> userRoles = await this.identityBroker.SelectUserRolesAsync(user);
+
+                    await EnsureNotLastHolderAsync(
+                        userRoles,
+                        roleName,
+                        action: $"removed from the \"{roleName}\" role");
                 }
 
-                await this.identityBroker.DeleteUserFromRoleAsync(user, roleName);
+                IdentityResult deleteResult =
+                    await this.identityBroker.DeleteUserFromRoleAsync(user, roleName);
+
+                EnsureIdentitySucceeded(deleteResult, $"remove the \"{roleName}\" role");
             });
 
         public ValueTask DeleteUserAsync(Guid userId) =>
@@ -228,20 +249,49 @@ namespace Glory2Him.WebApp.Services.Views.Users
         {
             IList<string> roles = await this.identityBroker.SelectUserRolesAsync(user);
 
-            if (!roles.Contains(AdministratorsRole))
+            foreach (string administratorRole in ProtectedAdministratorRoles)
+            {
+                await EnsureNotLastHolderAsync(roles, administratorRole, action);
+            }
+        }
+
+        private async ValueTask EnsureNotLastHolderAsync(
+            IList<string> roles,
+            string roleName,
+            string action)
+        {
+            if (!roles.Contains(roleName))
             {
                 return;
             }
 
-            IList<AppUser> administrators =
-                await this.identityBroker.SelectUsersInRoleAsync(AdministratorsRole);
+            IList<AppUser> holders =
+                await this.identityBroker.SelectUsersInRoleAsync(roleName);
 
-            if (administrators.Count <= 1)
+            if (holders.Count <= 1)
             {
                 throw new UsersViewValidationException(
-                    $"This is the last administrator, so it cannot be {action}. "
-                        + "Give another account the administrators role first.");
+                    $"This is the last administrator holding the \"{roleName}\" role, so it "
+                        + $"cannot be {action}. Give another account the \"{roleName}\" role first.");
             }
+        }
+
+        // Identity reports failure by returning an unsuccessful result, not by throwing. Dropping
+        // it made granting a role that does not exist answer 200 and do nothing — which is exactly
+        // how the #193 vocabulary mismatch stayed invisible for as long as it did.
+        private static void EnsureIdentitySucceeded(IdentityResult identityResult, string action)
+        {
+            if (identityResult.Succeeded)
+            {
+                return;
+            }
+
+            string reasons = string.Join(
+                " ",
+                identityResult.Errors.Select(identityError => identityError.Description));
+
+            throw new UsersViewValidationException(
+                $"Could not {action}. {reasons}".Trim());
         }
 
         private async ValueTask<UserView> AsUserViewAsync(AppUser user)

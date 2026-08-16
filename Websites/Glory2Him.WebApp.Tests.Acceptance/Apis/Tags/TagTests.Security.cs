@@ -210,6 +210,37 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         }
 
         /// <summary>
+        /// The review tier is owner-OR-role, so a reviewer may write a tag they did not create.
+        /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
+        /// <c>Tag-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// would leave half the rule dead.
+        /// </summary>
+        [Theory]
+        [InlineData(Roles.Reviewer)]
+        [InlineData(Roles.TagReviewer)]
+        public async Task ShouldAllowReviewerToModifyAnotherUsersTagAsync(string reviewRoleName)
+        {
+            // given
+            Tag randomTag = await PostRandomTagAsync();
+            Tag modifiedTag = UpdateTagWithRandomValues(randomTag);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+
+            try
+            {
+                // when
+                Tag actualTag = await this.apiBroker.PutTagAsync(modifiedTag);
+
+                // then
+                actualTag.Name.Should().Be(modifiedTag.Name);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreTagByIdAsync(randomTag.Id);
+            }
+        }
+
+        /// <summary>
         /// Removal is owner-or-Admin, deliberately narrower than modify: a Reviewer holds write
         /// permission on someone else's tag but may not delete it.
         /// </summary>
@@ -227,6 +258,71 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
 
                 // then
                 await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => deleteTagTask);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreTagByIdAsync(randomTag.Id);
+            }
+        }
+
+        /// <summary>
+        /// The block tier (design §18.6): "assigned to users who misbehave, takes precedence over
+        /// every other role". Both the global and the tag-scoped block are refused, and the
+        /// refusal survives the caller also holding Admin — precedence is the whole point.
+        /// </summary>
+        [Theory]
+        [InlineData(Roles.ReadOnly)]
+        [InlineData(Roles.TagReadOnly)]
+        public async Task ShouldReturnUnauthorizedOnPostIfCallerIsBlockedAsync(string blockRoleName)
+        {
+            // given
+            Tag randomTag = CreateRandomTag();
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), blockRoleName);
+
+            // when
+            var postTagTask = this.apiBroker.PostTagAsync(randomTag).AsTask();
+
+            // then
+            await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => postTagTask);
+        }
+
+        [Theory]
+        [InlineData(Roles.ReadOnly)]
+        [InlineData(Roles.TagReadOnly)]
+        public async Task ShouldReturnUnauthorizedOnPostIfBlockedCallerAlsoHoldsAdminAsync(
+            string blockRoleName)
+        {
+            // given
+            Tag randomTag = CreateRandomTag();
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+
+            // when
+            var postTagTask = this.apiBroker.PostTagAsync(randomTag).AsTask();
+
+            // then
+            await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => postTagTask);
+        }
+
+        /// <summary>
+        /// Hard delete is the one write whose coarse gate is a role list, so a blocked Admin
+        /// clears the attribute and is stopped by the foundation instead.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnHardDeleteIfBlockedCallerAlsoHoldsAdminAsync()
+        {
+            // given
+            Tag randomTag = await PostRandomTagAsync();
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.TagReadOnly);
+
+            try
+            {
+                // when
+                var hardDeleteTask =
+                    this.apiBroker.HardDeleteTagByIdAsync(randomTag.Id).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => hardDeleteTask);
             }
             finally
             {

@@ -20,9 +20,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
     {
         [Theory]
         [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewer)]
         [InlineData(Roles.Publisher)]
         [InlineData(Roles.TagPublisher)]
         [InlineData(Roles.TagReviewer)]
+        [InlineData(Roles.ReadOnly)]
+        [InlineData(Roles.TagReadOnly)]
         public async Task ShouldSeedCoreRoleAsync(string roleName)
         {
             // given

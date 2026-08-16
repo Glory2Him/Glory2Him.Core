@@ -63,10 +63,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
                     .ReturnsAsync(roles);
         }
 
-        private void GivenAdministratorCount(int count)
+        private void GivenAdministratorCount(int count) =>
+            GivenUsersInRoleCount(AdministratorsRole, count);
+
+        private void GivenUsersInRoleCount(string roleName, int count)
         {
             this.identityBrokerMock.Setup(broker =>
-                broker.SelectUsersInRoleAsync(AdministratorsRole))
+                broker.SelectUsersInRoleAsync(roleName))
                     .ReturnsAsync(CreateRandomAppUsers(count));
         }
     }

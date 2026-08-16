@@ -33,15 +33,26 @@ namespace Glory2Him.WebApp.Data
         // attribute, and a moderator can neither modify another user's tag nor see non-public
         // rows. Referenced from Core rather than re-spelled here so the two cannot drift.
         //
-        // Tag-Reviewer appears in no [Authorize(Roles = ...)] list — the gates it satisfies are
-        // owner-OR-review-role and cannot be written as a fixed list — but it is what makes a
-        // reviewer's write and read reach past their own rows (design §14.7 posture A).
+        // Reviewer and Tag-Reviewer appear in no [Authorize(Roles = ...)] list — the gates they
+        // satisfy are owner-OR-review-role and cannot be written as a fixed list — but they are
+        // what makes a reviewer's write and read reach past their own rows (§14.7 posture A).
+        // Both tiers are provisioned: HasReviewRole tests the global Reviewer as well as the
+        // entity-scoped one, so seeding only the scoped role would leave half the rule dead.
         private static readonly string[] CoreRoles = new[]
         {
             Roles.Admin,
+            Roles.Reviewer,
             Roles.Publisher,
             Roles.TagPublisher,
-            Roles.TagReviewer
+            Roles.TagReviewer,
+
+            // The block tier (design §18.6): "assigned to users who misbehave, takes precedence
+            // over every other role". The foundation tests for these on every write and on hard
+            // delete, but SeedData is the only place a role can be minted — IIdentityBroker
+            // assigns and never creates — so without these rows the sanction path is code that
+            // can never be reached and an administrator has no way to restrain a contributor.
+            Roles.ReadOnly,
+            Roles.TagReadOnly
         };
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
