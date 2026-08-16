@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -469,9 +469,16 @@ namespace Glory2Him.Core.Brokers.Securities
                     // unknown. Returning empty is the fail-closed answer and not an oversight:
                     // the decision function never treats blank as matching blank, so an unknown
                     // author can never satisfy "is this the author?" — it refuses the review for
-                    // no-role reasons instead of silently permitting a self-review. The subject
-                    // it carries is the entity type's own name, which for an unmapped type no
-                    // role will match either.
+                    // no-role reasons instead of silently permitting a self-review.
+                    //
+                    // The SUBJECT is not fail-closed, and must not be read as though it were.
+                    // It is the entity type's own name, and Roles.cs issues a
+                    // "{Entity}-Reviewer"/"{Entity}-Publisher" pair for every type it supports —
+                    // so a new member whose roles were seeded but whose traversal case was
+                    // forgotten lands here and its scoped role holders still clear the tier, with
+                    // a blank author underneath. Association is the sole type with no scoped roles
+                    // of its own; a future one is not. Add the case above rather than relying on
+                    // this arm.
                     return (string.Empty, SubjectsFor(entityType, contentType: null));
             }
         }

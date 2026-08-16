@@ -152,6 +152,98 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
+        /// The gate's whole job is to relay the decision, so the refusal must come back unchanged.
+        /// Every other test here inspects the request that went out; without this one a broker
+        /// that asked the decision function and then ignored its answer would permit every
+        /// dismissal and leave the suite green, because the fixture's default verdict is permitted.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnTheDismissalVerdictUnchangedAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            var refusedVerdict = new AccessVerdict
+            {
+                IsPermitted = false,
+                DenialReason = AccessDenialReason.NotInPublisherTier,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "the actor is not in the publisher tier for this entity",
+            };
+
+            SetupAccessClientToReturn(refusedVerdict);
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.Tag,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+            SetupEntityAuthor(EntityType.Tag, entityId, createdBy: "the-entity-author");
+
+            // when
+            AccessVerdict actualVerdict = await this.accessBroker.MayDismissApprovalReviewAsync(
+                approvalId,
+                CreateAuthenticatedSecurityContext(),
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualVerdict.Should().BeSameAs(refusedVerdict);
+        }
+
+        /// <summary>
+        /// The actor is resolved through the audit surface, not read off the context. Both halves
+        /// matter and neither is decoration: the roles are the whole input to the publisher tier,
+        /// so an actor built with an empty list refuses every dismissal while looking correct; and
+        /// the user id must come from the same resolver that stamped <c>CreatedBy</c>, because two
+        /// resolvers make every actor-versus-author comparison in the system meaningless
+        /// (<c>SubjectId</c> is deliberately a different value in this fixture so the wrong source
+        /// cannot pass).
+        /// </summary>
+        [Fact]
+        public async Task ShouldResolveTheActorFromTheAuditClientOnDismissalAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+            var roles = new[] { "ContentItem-Testimony-Publisher" };
+
+            SecurityContext securityContext = CreateSecurityContext(
+                roles: roles,
+                isAuthenticated: true);
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.ContentItem,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+            SetupEntityAuthor(EntityType.ContentItem, entityId, createdBy: "the-entity-author");
+
+            // when
+            await this.accessBroker.MayDismissApprovalReviewAsync(
+                approvalId,
+                securityContext,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedDismissReviewRequest.Actor.UserId
+                .Should().Be(this.auditResolvedUserId);
+
+            this.capturedDismissReviewRequest.Actor.UserId
+                .Should().NotBe(securityContext.SubjectId);
+
+            this.capturedDismissReviewRequest.Actor.Roles.Should().BeEquivalentTo(roles);
+            this.capturedDismissReviewRequest.Actor.IsAuthenticated.Should().BeTrue();
+
+            VerifyTheActorWasResolvedFor(securityContext);
+        }
+
+        /// <summary>
         /// Dismissal consults neither the round window nor the existing reviews, and that is a
         /// rule rather than an omission: §8.8 fires it exactly as the round is re-opened by an
         /// amendment, so a decision that looked at either would refuse in the case it exists to
