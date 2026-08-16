@@ -72,5 +72,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
                 broker.SelectUsersInRoleAsync(roleName))
                     .ReturnsAsync(CreateRandomAppUsers(count));
         }
+
+        private void GivenUsersInRole(string roleName, params AppUser[] users)
+        {
+            this.identityBrokerMock.Setup(broker =>
+                broker.SelectUsersInRoleAsync(roleName))
+                    .ReturnsAsync(users.ToList());
+        }
     }
 }
