@@ -55,32 +55,26 @@
 	
 	<ItemGroup>
 		<Content Include="..\LICENSE.txt">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</Content>
 		<Content Include="..\README.md">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</Content>
 		<Content Include="..\G2HSL.md">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</Content>
 		<None Include="..\Resources\Images\Glory2Him-Banner.png">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
 		<None Include="..\Resources\Images\Glory2Him-Square.png">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
 		<None Include="..\Resources\Images\Glory2Him.ico">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 			<Pack>True</Pack>
 			<PackagePath></PackagePath>
 		</None>
