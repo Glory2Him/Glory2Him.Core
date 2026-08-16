@@ -48,7 +48,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
             ActionResult<ApprovalComment> actualActionResult =
                 await approvalCommentsController.ResolveApprovalCommentAsync(
                     randomApprovalComment.Id,
-                    inputIsResolved,
+                    isResolved: inputIsResolved,
                     default);
 
             // then

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -24,7 +24,7 @@ using Glory2Him.Core.Services.Foundations.Tags;
 namespace Glory2Him.WebApp.Infrastructure
 {
     /// <summary>
-    /// Wires the slice of <c>Glory2Him.Core</c> that the tag endpoints need into the portal host.
+    /// Wires the slice of <c>Glory2Him.Core</c> that the exposed endpoints need into the portal host.
     /// Everything here is internal to Core and reachable only because Core names this assembly
     /// in <c>InternalsVisibleTo</c>.
     /// </summary>
@@ -57,8 +57,8 @@ namespace Glory2Him.WebApp.Infrastructure
             // lifetime — a longer-lived instance would freeze the first caller's identity.
             services.AddHttpContextAccessor();
 
-            // The defaults already name the audit members Tag carries (CreatedBy, UpdatedWhen,
-            // IsDeleted, DeletionReason, ...), so no overrides are needed.
+            // The defaults already name the audit members these entities carry (CreatedBy,
+            // UpdatedWhen, IsDeleted, DeletionReason, ...), so no overrides are needed.
             services.AddSingleton(new SecurityConfigurations());
 
             services.AddSingleton<IDateTimeBroker, DateTimeBroker>();

@@ -140,50 +140,6 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
             this.approvalCommentServiceMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldReturnUnauthorizedOnGetByIdIfUnauthorizedErrorOccurredAsync()
-        {
-            // given
-            Guid someId = Guid.NewGuid();
-            string someMessage = GetRandomString();
-
-            var unauthorizedApprovalCommentException =
-                new UnauthorizedApprovalCommentException(
-                    message: someMessage);
-
-            var approvalCommentValidationException =
-                new ApprovalCommentValidationException(
-                    message: someMessage,
-                    innerException: unauthorizedApprovalCommentException);
-
-            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
-                Unauthorized(unauthorizedApprovalCommentException);
-
-            var expectedActionResult =
-                new ActionResult<ApprovalComment>(expectedUnauthorizedObjectResult);
-
-            this.approvalCommentServiceMock.Setup(service =>
-                service.RetrieveApprovalCommentByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(approvalCommentValidationException);
-
-            // when
-            ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.GetApprovalCommentByIdAsync(someId, default);
-
-            // then
-            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
-
-            this.approvalCommentServiceMock.Verify(service =>
-                service.RetrieveApprovalCommentByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                        Times.Once);
-
-            this.approvalCommentServiceMock.VerifyNoOtherCalls();
-        }
-
         [Theory]
         [MemberData(nameof(DependencyExceptions))]
         public async Task ShouldReturnFailedDependencyOnGetByIdIfDependencyErrorOccurredAsync(

@@ -47,7 +47,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, true, default);
+                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, isResolved: true, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -85,7 +85,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, true, default);
+                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, isResolved: true, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -131,7 +131,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, true, default);
+                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, isResolved: true, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -177,7 +177,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, true, default);
+                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, isResolved: true, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -226,7 +226,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, true, default);
+                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, isResolved: true, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -275,7 +275,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, true, default);
+                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, isResolved: true, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
@@ -313,7 +313,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalComments
 
             // when
             ActionResult<ApprovalComment> actualActionResult =
-                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, true, default);
+                await this.approvalCommentsController.ResolveApprovalCommentAsync(someId, isResolved: true, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);

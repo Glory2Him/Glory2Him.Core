@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.OData.Query;
 using RESTFulSense.Controllers;
 
@@ -155,17 +156,16 @@ namespace Glory2Him.WebApp.Controllers.ApprovalComments
 
                 return Ok(approvalComment);
             }
+            // No Unauthorized clause here, and that is the posture rather than an omission. Every
+            // way this read can refuse — soft-deleted, unauthenticated, neither author nor review
+            // role — throws NotFound (§14.5 rule 1), precisely so the endpoint cannot be used to
+            // probe which comments exist. Mapping an Unauthorized here would be dead code today
+            // and would leak existence the day something threw it.
             catch (ApprovalCommentValidationException approvalCommentValidationException)
                 when (approvalCommentValidationException.InnerException
                     is NotFoundApprovalCommentException)
             {
                 return NotFound(approvalCommentValidationException.InnerException);
-            }
-            catch (ApprovalCommentValidationException approvalCommentValidationException)
-                when (approvalCommentValidationException.InnerException
-                    is UnauthorizedApprovalCommentException)
-            {
-                return Unauthorized(approvalCommentValidationException.InnerException);
             }
             catch (ApprovalCommentValidationException approvalCommentValidationException)
             {
@@ -373,12 +373,24 @@ namespace Glory2Him.WebApp.Controllers.ApprovalComments
         /// the caller composes — the same reason <c>deletionReason</c> does on the soft delete.
         /// Unsettling uses this same route: the operation is symmetric by design, so a prematurely
         /// settled comment can block again.
+        ///
+        /// <para><b>The flag is bind-required, and that is load-bearing.</b> A <c>bool</c> that is
+        /// merely absent binds to <c>false</c> with a valid model state, so without this a caller
+        /// who hit the obvious URL and said nothing would <i>un</i>-resolve the comment — a 200 on
+        /// a route segment reading <c>Resolve</c>, re-blocking an approval that had been cleared
+        /// and publishing a fact announcing the gate moved. The service's own no-op guard cannot
+        /// catch that: it refuses only when the state is already what was asked for.</para>
+        ///
+        /// <para><c>[BindRequired]</c> is binding metadata, not a validation rule — it decides
+        /// whether a request is addressed to this operation at all, in the same way
+        /// <c>[FromQuery]</c> beside it decides where the value comes from. Nothing about the
+        /// stored comment is judged here; that stays in the foundation.</para>
         /// </summary>
         [HttpPost("{approvalCommentId}/Resolve")]
         [Authorize]
         public async ValueTask<ActionResult<ApprovalComment>> ResolveApprovalCommentAsync(
             Guid approvalCommentId,
-            [FromQuery] bool isResolved,
+            [FromQuery][BindRequired] bool isResolved,
             CancellationToken cancellationToken)
         {
             try

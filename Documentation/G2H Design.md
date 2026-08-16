@@ -2683,7 +2683,7 @@ This collides with `ServiceRegistration.Add*Service()`, which registers foundati
 the singleton `IEventBroker` as method groups. That trade is only sound in a host that actually
 wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
 must not use those helpers** — it registers the service and its request-bound brokers scoped
-itself, as `CoreRegistration.AddCoreTagServices` does. Only the genuinely stateless brokers
+itself, as `CoreRegistration.AddCoreServices` does. Only the genuinely stateless brokers
 (`IDateTimeBroker`, `IIdentifierBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay
 singletons there.
 

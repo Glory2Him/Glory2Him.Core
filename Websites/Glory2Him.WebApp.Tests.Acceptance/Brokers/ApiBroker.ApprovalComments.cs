@@ -54,5 +54,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 $"{approvalCommentsRelativeUrl}/{approvalCommentId}/resolve"
                     + $"?isResolved={isResolved.ToString().ToLowerInvariant()}",
                 content: new object());
+
+        /// <summary>
+        /// The same route with the flag left off entirely. Exists only so a test can prove the
+        /// request is refused: a plain <c>bool</c> that is merely absent binds to <c>false</c>,
+        /// which would make this a silent un-resolve rather than an error.
+        /// </summary>
+        public async ValueTask<ApprovalComment> ResolveApprovalCommentWithNoFlagAsync(
+            Guid approvalCommentId) =>
+            await this.apiFactoryClient.PostContentAsync<object, ApprovalComment>(
+                $"{approvalCommentsRelativeUrl}/{approvalCommentId}/resolve",
+                content: new object());
     }
 }

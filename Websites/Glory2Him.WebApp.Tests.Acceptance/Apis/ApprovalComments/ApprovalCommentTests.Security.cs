@@ -189,6 +189,95 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
+        /// Hard delete is the one write here whose coarse gate is a role list, so a blocked Admin
+        /// clears the attribute and is stopped by the foundation instead — which is the whole
+        /// point of §18.6 precedence: the block tier beats every other role, on the one operation
+        /// that destroys the row and its audit trail. Nothing but a request through the real
+        /// pipeline can prove that composition, because the attribute cannot express it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnHardDeleteIfBlockedCallerAlsoHoldsAdminAsync()
+        {
+            // given
+            (Approval randomApproval, ApprovalComment randomApprovalComment) =
+                await PostRandomApprovalCommentOnOpenApprovalAsync();
+
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.ReadOnly);
+
+            try
+            {
+                // when
+                var hardDeleteTask = this.apiBroker
+                    .HardDeleteApprovalCommentByIdAsync(randomApprovalComment.Id).AsTask();
+
+                // then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => hardDeleteTask);
+
+                this.apiBroker.ActAsSeededAdministrator();
+
+                CoreApprovalComment survivingApprovalComment =
+                    await this.apiBroker.GetCoreApprovalCommentByIdAsync(randomApprovalComment.Id);
+
+                survivingApprovalComment.Should().NotBeNull();
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                await RemoveApprovalCommentAndApprovalAsync(
+                    randomApprovalComment.Id,
+                    randomApproval.Id);
+            }
+        }
+
+        /// <summary>
+        /// The block tier on the remaining writes. Each of these reaches
+        /// <c>ValidateUserIsAllowedToComment</c>, which refuses a globally blocked caller before
+        /// anything about the stored row is looked at — so the refusal is the block, not ownership.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnWritesIfCallerIsBlockedAsync()
+        {
+            // given
+            Approval randomApproval =
+                await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
+
+            string blockedUserId = this.apiBroker.ActAsContributor();
+
+            ApprovalComment ownApprovalComment = await this.apiBroker.PostApprovalCommentAsync(
+                CreateRandomApprovalComment(randomApproval.Id));
+
+            ApprovalComment modifiedApprovalComment =
+                UpdateApprovalCommentWithRandomValues(ownApprovalComment);
+
+            // the SAME user, now blocked — so what changes the answer is the block and nothing else
+            this.apiBroker.ActAs(blockedUserId, Roles.ReadOnly);
+
+            try
+            {
+                // when / then
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() =>
+                    this.apiBroker.PutApprovalCommentAsync(modifiedApprovalComment).AsTask());
+
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() =>
+                    this.apiBroker.ResolveApprovalCommentAsync(
+                        ownApprovalComment.Id,
+                        isResolved: true).AsTask());
+
+                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() =>
+                    this.apiBroker.DeleteApprovalCommentByIdAsync(ownApprovalComment.Id).AsTask());
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+
+                await RemoveApprovalCommentAndApprovalAsync(
+                    ownApprovalComment.Id,
+                    randomApproval.Id);
+            }
+        }
+
+        /// <summary>
         /// Past the attribute, the foundation decides ownership against the STORED row. Modify is
         /// the author and nobody else — not a Reviewer, who may read the thread without owning
         /// the power to rewrite someone else's words.
