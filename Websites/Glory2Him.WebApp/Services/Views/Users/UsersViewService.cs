@@ -140,7 +140,7 @@ namespace Glory2Him.WebApp.Services.Views.Users
                     return;
                 }
 
-                if (ProtectedAdministratorRoles.Contains(roleName))
+                if (ProtectedAdministratorRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
                 {
                     IList<string> userRoles = await this.identityBroker.SelectUserRolesAsync(user);
 
@@ -163,7 +163,9 @@ namespace Glory2Him.WebApp.Services.Views.Users
 
                 await EnsureNotLastAdministratorAsync(user, "deleted");
 
-                await this.identityBroker.DeleteUserAsync(user);
+                IdentityResult deleteResult = await this.identityBroker.DeleteUserAsync(user);
+
+                EnsureIdentitySucceeded(deleteResult, "delete this user");
             });
 
         public ValueTask ConfirmUserEmailAsync(Guid userId) =>
@@ -260,20 +262,52 @@ namespace Glory2Him.WebApp.Services.Views.Users
             string roleName,
             string action)
         {
-            if (!roles.Contains(roleName))
+            // Identity resolves role names through NormalizedName, so RemoveFromRoleAsync
+            // succeeds for a differently-cased name. Matching ordinally here would let
+            // "admin" strip the Admin role while the guard concluded the role was not
+            // protected at all.
+            if (!roles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
             {
                 return;
             }
 
-            IList<AppUser> holders =
-                await this.identityBroker.SelectUsersInRoleAsync(roleName);
+            int usableHolders = await CountUsableHoldersAsync(roleName);
 
-            if (holders.Count <= 1)
+            if (usableHolders <= 1)
             {
                 throw new UsersViewValidationException(
                     $"This is the last administrator holding the \"{roleName}\" role, so it "
                         + $"cannot be {action}. Give another account the \"{roleName}\" role first.");
             }
+        }
+
+        // An account that cannot sign in cannot administer the site, so it cannot be the reason
+        // it is safe to demote somebody else. Counting rows rather than usable accounts let the
+        // last real administrator be removed as long as a disabled or locked-out one still held
+        // the role — and disabling a user deliberately leaves their role rows intact.
+        private async ValueTask<int> CountUsableHoldersAsync(string roleName)
+        {
+            IList<AppUser> holders =
+                await this.identityBroker.SelectUsersInRoleAsync(roleName);
+
+            var usableHolders = 0;
+
+            foreach (AppUser holder in holders)
+            {
+                if (holder.IsDisabled)
+                {
+                    continue;
+                }
+
+                if (await this.identityBroker.SelectIsLockedOutAsync(holder))
+                {
+                    continue;
+                }
+
+                usableHolders++;
+            }
+
+            return usableHolders;
         }
 
         // Identity reports failure by returning an unsuccessful result, not by throwing. Dropping

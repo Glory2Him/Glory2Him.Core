@@ -14,6 +14,8 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Glory2Him.WebApp.Models.Foundations.Users;
+using Glory2Him.WebApp.Models.Views.Users.Exceptions;
+using Glory2Him.WebApp.Services.Views.Users;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
@@ -482,6 +484,7 @@ namespace Glory2Him.WebApp.Infrastructure
                 HttpContext httpContext,
                 UserManager<AppUser> userManager,
                 SignInManager<AppUser> signInManager,
+                IUsersViewService usersViewService,
                 ILoggerFactory loggerFactory) =>
             {
                 AppUser? user = await userManager.GetUserAsync(httpContext.User);
@@ -503,9 +506,23 @@ namespace Glory2Him.WebApp.Infrastructure
                 }
 
                 string userId = await userManager.GetUserIdAsync(user);
-                IdentityResult deleteResult = await userManager.DeleteAsync(user);
 
-                if (!deleteResult.Succeeded)
+                // Deleted through the view service, not UserManager directly, so the
+                // last-administrator guard applies here too. Deleting your own account is the
+                // same loss to the site as an administrator deleting it for you, and going
+                // straight to UserManager was a way round the check.
+                try
+                {
+                    await usersViewService.DeleteUserAsync(user.Id);
+                }
+                catch (UsersViewValidationException usersViewValidationException)
+                {
+                    return Results.BadRequest(new
+                    {
+                        Message = usersViewValidationException.Message,
+                    });
+                }
+                catch (Exception)
                 {
                     return Results.BadRequest(new
                     {
