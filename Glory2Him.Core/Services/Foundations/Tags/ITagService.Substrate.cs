@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    internal partial interface ITagService
+    public partial interface ITagService
     {
         ValueTask<EventEnvelope<Tag>?> OnAddingTagAsync(
             EventEnvelope<Tag> envelope,

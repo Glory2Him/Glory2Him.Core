@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Data.Common;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Models.Foundations.Roles;
 using Glory2Him.WebApp.Models.Foundations.Users;
 using Microsoft.AspNetCore.Identity;
@@ -24,6 +25,24 @@ namespace Glory2Him.WebApp.Data
     {
         private const string AdministratorsRole = "Administrators";
         private const string UsersRole = "Users";
+
+        // Glory2Him.Core decides authorization against role NAMES it owns, compared by exact
+        // ordinal equality — never by suffix. The portal's own "Administrators" is a different
+        // vocabulary and satisfies none of them, so until these rows exist and somebody holds
+        // them the moderation tier is unreachable: approve and hard delete answer 403 at the
+        // attribute, and a moderator can neither modify another user's tag nor see non-public
+        // rows. Referenced from Core rather than re-spelled here so the two cannot drift.
+        //
+        // Tag-Reviewer appears in no [Authorize(Roles = ...)] list — the gates it satisfies are
+        // owner-OR-review-role and cannot be written as a fixed list — but it is what makes a
+        // reviewer's write and read reach past their own rows (design §14.7 posture A).
+        private static readonly string[] CoreRoles = new[]
+        {
+            Roles.Admin,
+            Roles.Publisher,
+            Roles.TagPublisher,
+            Roles.TagReviewer
+        };
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
@@ -40,11 +59,16 @@ namespace Glory2Him.WebApp.Data
             await EnsureRoleAsync(roleManager, AdministratorsRole);
             await EnsureRoleAsync(roleManager, UsersRole);
 
+            foreach (string coreRole in CoreRoles)
+            {
+                await EnsureRoleAsync(roleManager, coreRole);
+            }
+
             await EnsureUserAsync(
                 userManager,
                 userName: "admin",
                 password: "admin",
-                roleName: AdministratorsRole,
+                roleNames: AdministratorRoleNames(),
                 email: "admin@g2h.org",
                 name: "Admin",
                 surname: "User");
@@ -53,7 +77,7 @@ namespace Glory2Him.WebApp.Data
                 userManager,
                 userName: "user",
                 password: "user",
-                roleName: UsersRole,
+                roleNames: new[] { UsersRole },
                 email: "user@g2h.org",
                 name: "Normal",
                 surname: "User");
@@ -62,12 +86,18 @@ namespace Glory2Him.WebApp.Data
                 userManager,
                 userName: "cjdutoit",
                 password: "P@ssword!",
-                roleName: AdministratorsRole,
+                roleNames: AdministratorRoleNames(),
                 email: "christo@dutoit.co.uk",
                 name: "Christo",
                 surname: "du Toit",
                 dateOfBirth: new DateOnly(1977, 10, 8));
         }
+
+        // A site administrator holds the portal's own role AND Core's, because the two govern
+        // different surfaces: "Administrators" opens /api/admin, Roles.Admin opens the tag
+        // moderation tier. Granting only the first is the state issue #193 describes.
+        private static string[] AdministratorRoleNames() =>
+            new[] { AdministratorsRole, Roles.Admin };
 
         // LocalDB creates databases with AUTO_CLOSE ON (inherited from the model database), which
         // cold-starts the database on every connection and can surface as a transient 0x89c5010a on
@@ -113,17 +143,17 @@ namespace Glory2Him.WebApp.Data
             UserManager<AppUser> userManager,
             string userName,
             string password,
-            string roleName,
+            string[] roleNames,
             string email,
             string name,
             string surname,
             DateOnly? dateOfBirth = null)
         {
-            AppUser existingUser = await userManager.FindByNameAsync(userName);
+            AppUser user = await userManager.FindByNameAsync(userName);
 
-            if (existingUser is null)
+            if (user is null)
             {
-                var newUser = new AppUser
+                user = new AppUser
                 {
                     UserName = userName,
                     Email = email,
@@ -133,8 +163,27 @@ namespace Glory2Him.WebApp.Data
                     DateOfBirth = dateOfBirth
                 };
 
-                await userManager.CreateAsync(newUser, password);
-                await userManager.AddToRoleAsync(newUser, roleName);
+                await userManager.CreateAsync(user, password);
+            }
+
+            // Deliberately outside the creation branch. Membership used to be granted only to
+            // users this seed had just created, so adding a role name to the list changed
+            // nothing on any database that had already been seeded — the rows would appear,
+            // nobody would hold them, and the endpoints would go on answering 403.
+            foreach (string roleName in roleNames)
+            {
+                await EnsureUserInRoleAsync(userManager, user, roleName);
+            }
+        }
+
+        private static async Task EnsureUserInRoleAsync(
+            UserManager<AppUser> userManager,
+            AppUser user,
+            string roleName)
+        {
+            if ((await userManager.IsInRoleAsync(user, roleName)) is false)
+            {
+                await userManager.AddToRoleAsync(user, roleName);
             }
         }
     }

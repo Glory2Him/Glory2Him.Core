@@ -2641,10 +2641,54 @@ An exposer (controller, page, or any other host) may bind to a foundation servic
 
    **It compounds once, through a mechanism that is otherwise correct.** A single `SecurityContextPrincipalFactory` feeds both the actor `AccessBroker` sends to `IAccessClient` and the `CreatedBy` that `SecurityAuditBroker` stamps — deliberately, because HR-1 and HR-2 are `actor == CreatedBy` comparisons and two conversions would disagree in the permissive direction (§8.6.1). The consequence on an unauthenticated context is that a forged actor authors the row and then satisfies the self-review and self-approval comparisons *against itself*. The rules are not weakened; they are evaluated against a subject the caller chose.
 
-   **Nothing external can reach this today, and that is checked rather than assumed:** no host project references `Glory2Him.Core` — only its three test projects do — `new EventBroker(` appears nowhere in the repository, no `EventHighwayConnectionString` is configured in any settings file, and no code publishes to any `-ing` request address (published facts are all past-tense `-ed` notifications). This is design debt to pay before the substrate is wired, not a live hole. **The remediation is already specified:** the `IEnvelopeIntegrityBroker` in `Documentation/EventSubstrate.md` — sign on publish, verify on receive — applied at the single choke point where an envelope enters the process, `EventBroker`'s deserialization, so that no handler can be reached by an envelope whose `SecurityContext` was not signed. Until that exists, the honest reading of this rule is "enforced against the context the envelope carries", which is not the same claim as "enforced against the caller's identity", and the two must not be conflated on the way to wiring a host.
+   **Nothing external can reach this today, and that is checked rather than assumed.** Note that the first two of these checks no longer hold: `Glory2Him.WebApp` now references `Glory2Him.Core` to expose `TagsController`, registers an `EventBroker`, and configures an `EventHighwayConnectionString`. What still holds — and is what actually closes the hole — is that **no code publishes to any `-ing` request address** (published facts are all past-tense `-ed` notifications) and **no substrate subscription is wired in that host**, so no envelope enters the process from outside. The exposer reaches the foundation by the direct method path, whose `SecurityContext` comes from the authenticated `HttpContext` rather than from a caller-supplied envelope. This remains design debt to pay before the substrate is wired, not a live hole — but the guard is now the absence of subscriptions, not the absence of a host, and a future host that wires one must not assume otherwise. **The remediation is already specified:** the `IEnvelopeIntegrityBroker` in `Documentation/EventSubstrate.md` — sign on publish, verify on receive — applied at the single choke point where an envelope enters the process, `EventBroker`'s deserialization, so that no handler can be reached by an envelope whose `SecurityContext` was not signed. Until that exists, the honest reading of this rule is "enforced against the context the envelope carries", which is not the same claim as "enforced against the caller's identity", and the two must not be conflated on the way to wiring a host.
 5. **Denials follow §14.5**: reads answer not-found with the true reason logged server-side; writes answer unauthorized (revealing a write denial leaks nothing the caller did not already assert).
 
 Cross-row rules under visibility filtering: because the entity-returning collection reads are visibility-filtered per caller, a cross-row rule must never be computed over them. Instead the foundation exposes a **boolean probe** for such a rule — `CheckContentItemContentExistsAsync(contentTypeId, contentHash, excludedGroupId)` for the duplicate-content rule (§3.4.2) — which queries the unfiltered store but returns only a yes/no answer. A boolean reveals no row data: the caller must already possess the exact content to probe it, and the duplicate rule already reveals "identical content exists" to submitters. The probe still carries the contribution gate (it exists to support contribution flows), and this is the pattern for any future global rule: filtered reads for entities, gated boolean probes for cross-row facts.
+
+### 14.6.1 Dependency Lifetimes Are a Security Control
+
+Every rule in §14.6 is evaluated against a `SecurityContext` derived from the caller's
+`ClaimsPrincipal`, and every audit field is stamped from the same subject (§8.6.1). **The brokers
+that resolve that principal read it in their constructor, not per call.** Their registered
+lifetime therefore decides *whose* identity the rules run against, which makes DI lifetime a
+security control rather than a performance choice.
+
+Two brokers sit in that chain:
+
+1. `SecurityAuditBroker` assigns `httpContextAccessor.HttpContext?.User` to a field in its
+   constructor. It stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps.
+2. `EventEnvelopeBroker` constructs an `EventEnvelopeClient`, which builds its own service
+   provider and resolves `IEventEnvelopeService` **once**, and the `SecurityBroker` beneath that
+   reads `HttpContext.User` in *its* constructor. This one is easy to miss: the capture is an
+   assembly away, in `G2H.EventEnvelope.Client/Brokers/Securities/SecurityBroker.cs`, behind a
+   parameterless constructor that looks stateless — `EventEnvelopeClient` builds its own
+   `ServiceCollection` and resolves `IEventEnvelopeService` once, which pins that broker and the
+   principal it captured for the lifetime of the client. It supplies the `SecurityContext` on every envelope, which is what the foundation
+   authorises against.
+
+**Registering either as a singleton freezes the first principal the process ever saw.** The
+failure is silent and total: the service keeps enforcing every rule correctly, but against the
+wrong subject. Every subsequent caller's row is authored by that first user; ownership checks,
+the §8.6.1 `actor == CreatedBy` comparisons, the no-self-approval rule (HR-2) and the whole audit
+trail are all decided for someone who is not the caller. Nothing throws, and no test that
+excludes the audit fields from its assertions will notice.
+
+**The rule:** any broker in the identity chain — and any service that composes one — is `Scoped`
+or `Transient`, never `Singleton`. A longer-lived consumer of a scoped identity broker is the
+same defect wearing a different hat.
+
+This collides with `ServiceRegistration.Add*Service()`, which registers foundation services as
+**singletons** deliberately, so `EventSubscriptionRegistration` can bind substrate handlers into
+the singleton `IEventBroker` as method groups. That trade is only sound in a host that actually
+wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
+must not use those helpers** — it registers the service and its request-bound brokers scoped
+itself, as `CoreRegistration.AddCoreTagServices` does. Only the genuinely stateless brokers
+(`IDateTimeBroker`, `IIdentifierBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay
+singletons there.
+
+Because the failure is invisible to behavioural tests, **the guard is a registration test that
+asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
 
 ### 14.7 Per-Entity Security Rules
 
