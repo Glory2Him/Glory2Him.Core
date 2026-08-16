@@ -118,20 +118,47 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 
-        private void SetupAccessBrokerToPermit() =>
+        private void SetupAccessBrokerToPermit()
+        {
             this.accessBrokerMock.Setup(broker =>
                 broker.MayRecordApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<bool>(),
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(CreatePermittedVerdict());
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayDismissApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(CreatePermittedVerdict());
+        }
+
+        private static AccessVerdict CreatePermittedVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "permitted",
+            };
+
+        private void SetupAccessBrokerToRefuseDismissal(AccessDenialReason denialReason) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayDismissApprovalReviewAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
                         .ReturnsAsync(new AccessVerdict
                         {
-                            IsPermitted = true,
-                            DenialReason = AccessDenialReason.None,
+                            IsPermitted = false,
+                            DenialReason = denialReason,
                             IsBypassUsed = false,
                             BypassedBlockReason = AccessDenialReason.None,
-                            Explanation = "permitted",
+                            Explanation = "the actor is not in the publisher tier for this entity",
                         });
 
         // A permit reached by WAIVING the conditions rather than by meeting them. Recording a

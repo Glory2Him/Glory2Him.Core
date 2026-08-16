@@ -34,9 +34,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldDismissApprovalReviewAsync(string publisherRole)
         {
             // given: the whole publisher tier may dismiss — the global Publisher, an Admin, and
-            // any entity-scoped "-Publisher" role. Dismiss consults no access decision (it is a
-            // status flip, not an approval decision) and never resolves the actor id (the gate
-            // is role-based, not ownership-based).
+            // any entity-scoped "-Publisher" role, PROVIDED the broker also admits them for the
+            // entity behind the approval. The row-local role test cannot see that entity, so the
+            // two run together (§14.6 rule 2). The actor id is still never resolved: the gate is
+            // role-based, not ownership-based.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(publisherRole);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -127,7 +128,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     broker.GetCurrentDateTimeOffsetAsync(),
                 Times.AtLeastOnce);
 
-            // dismiss consults neither the access broker nor the actor id
+            // exactly one access decision — the dismissal gate — and no actor id resolved
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayDismissApprovalReviewAsync(
+                    storageApprovalReview.ApprovalId,
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();

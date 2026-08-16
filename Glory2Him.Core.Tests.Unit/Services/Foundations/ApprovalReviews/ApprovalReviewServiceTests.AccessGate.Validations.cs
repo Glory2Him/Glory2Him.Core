@@ -18,6 +18,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
@@ -468,5 +469,120 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             return builder.ToString();
         }
+
+        /// <summary>
+        /// The case #190 exists for. A bare <c>Tag-Publisher</c> clears the row-local suffix test
+        /// — a review row names no entity type, so that test cannot tell one approval's target
+        /// from another's — and is stopped only here, by the decision that has the entity behind
+        /// the approval in hand. Before this gate, that caller could clear a standing verdict on
+        /// a ContentItem↔BibleReference association's approval.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnDismissIfTheAccessBrokerRefusesAndLogItAsync()
+        {
+            // given: the caller holds a scoped publisher role, so the row-local publisher gate
+            // passes and the cross-entity decision is the only thing left that can refuse
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.TagPublisher);
+
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.StatusId = ApprovalStatus.Approved;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReview);
+
+            SetupAccessBrokerToRefuseDismissal(AccessDenialReason.NotInPublisherTier);
+
+            var unauthorizedApprovalReviewException =
+                new UnauthorizedApprovalReviewException(
+                    message: "The current user is not allowed to dismiss this approval review.");
+
+            var expectedApprovalReviewValidationException =
+                new ApprovalReviewValidationException(
+                    message: "Approval review validation error occurred, " +
+                        "fix the errors and try again.",
+                    innerException: unauthorizedApprovalReviewException);
+
+            // when
+            ValueTask<ApprovalReview> dismissApprovalReviewTask =
+                this.approvalReviewService.DismissApprovalReviewAsync(
+                    storageApprovalReview.Id,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    dismissApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.Should().BeEquivalentTo(
+                expectedApprovalReviewValidationException);
+
+            // asked about the STORED approval, never a caller-supplied value
+            this.accessBrokerMock.Verify(broker =>
+                    broker.MayDismissApprovalReviewAsync(
+                        storageApprovalReview.ApprovalId,
+                        It.IsAny<SecurityContext>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // nothing was written and no fact was published
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalReviewAsync(
+                        It.IsAny<ApprovalReview>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// §14.5: the caller is told "not allowed" and nothing else, while the true denial reason
+        /// and its explanation are logged server-side. The verdict's explanation is composed from
+        /// resolved policy values, so echoing it outward would leak the approval configuration.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotLeakTheDismissalDenialReasonToTheCallerAsync()
+        {
+            // given
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.TagPublisher);
+
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.StatusId = ApprovalStatus.Approved;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReview);
+
+            SetupAccessBrokerToRefuseDismissal(AccessDenialReason.NotInPublisherTier);
+
+            // when
+            ValueTask<ApprovalReview> dismissApprovalReviewTask =
+                this.approvalReviewService.DismissApprovalReviewAsync(
+                    storageApprovalReview.Id,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualApprovalReviewValidationException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
+                    dismissApprovalReviewTask.AsTask);
+
+            // then
+            actualApprovalReviewValidationException.InnerException!.Message
+                .Should().NotContain(nameof(AccessDenialReason.NotInPublisherTier));
+
+            actualApprovalReviewValidationException.InnerException!.Message
+                .Should().NotContain("publisher tier for this entity");
+
+            this.loggingBrokerMock.Verify(broker =>
+                    broker.LogWarningAsync(It.Is<string>(message =>
+                        message.Contains(nameof(AccessDenialReason.NotInPublisherTier)))),
+                Times.Once);
+        }
+
     }
 }

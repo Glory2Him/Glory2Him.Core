@@ -75,6 +75,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             // what §8.8 reserves to the entity-change machinery
             ValidateUserCanDismissApprovalReview(inboundEnvelope.SecurityContext);
 
+            // and that tier narrowed to the entity actually under review, which the row-local
+            // check above cannot see — a Tag-Publisher clears it for any approval at all
+            await ValidateUserMayDismissApprovalReviewAsync(
+                approvalId: storageApprovalReview.ApprovalId,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
             // a dismissed review stays dismissed — refuse a second dismissal rather than
             // re-publishing the fact
             ValidateStorageApprovalReviewIsDismissable(storageApprovalReview);
