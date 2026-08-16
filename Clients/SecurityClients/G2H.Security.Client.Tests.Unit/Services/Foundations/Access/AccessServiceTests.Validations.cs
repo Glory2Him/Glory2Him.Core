@@ -426,6 +426,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             {
                 Actor = null!,
                 RoleSubjects = new List<RoleSubject>(),
+                ApprovalCreatedBy = GetRandomString(),
             };
 
             var invalidArgumentAccessException = new InvalidArgumentAccessException(
@@ -464,6 +465,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             {
                 Actor = CreateRandomAccessActor(roles: new List<string> { RoleNames.Reviewer }),
                 RoleSubjects = null!,
+                ApprovalCreatedBy = GetRandomString(),
             };
 
             var invalidArgumentAccessException = new InvalidArgumentAccessException(
@@ -500,6 +502,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                     roles: new List<string> { RoleNames.ReviewerFor("ContentItem") }),
 
                 RoleSubjects = new List<RoleSubject>(),
+                ApprovalCreatedBy = GetRandomString(),
             };
 
             // when

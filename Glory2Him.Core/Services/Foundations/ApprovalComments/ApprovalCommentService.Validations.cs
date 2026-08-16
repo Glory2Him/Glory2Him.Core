@@ -57,8 +57,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // by the §16.6 convention any "{Entity}-Reviewer"/"{Entity}-Publisher" role counts:
         // the comment row alone does not say which entity type the approval targets, so the
         // foundation cannot tell a Tag-Reviewer's comment thread from a Link-Reviewer's.
-        // Narrowing a scoped reviewer to the approvals of their own entity type is an
-        // orchestration concern, where the approval and its target are read together.
+        // This gates the two READ paths only. It reaches no write gate: add carries the
+        // contribution gate, modify and remove are owner-only, resolve is owner-or-Admin, and
+        // hard remove is Admin-only — none consults this.
+        //
+        // Narrowing a scoped reviewer to the approvals of their own entity type was
+        // once called an orchestration concern; that is withdrawn (§12.3.1 leaves no
+        // orchestration to defer to, and the write paths now narrow in the foundation through
+        // IAccessBroker). Narrowing the READS is a separate question and is still open —
+        // §14.7's "Known gap" paragraph records it.
         private static bool HasReviewRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Reviewer)
                 || securityContext.Roles.Contains(Roles.Publisher)

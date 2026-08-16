@@ -95,6 +95,7 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
             {
                 Actor = CreateRandomAccessActor(),
                 RoleSubjects = new List<RoleSubject>(),
+                ApprovalCreatedBy = GetRandomString(),
             };
 
         private static DismissReviewRequest CreateRandomDismissReviewRequest() =>

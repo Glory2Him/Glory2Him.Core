@@ -167,11 +167,20 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     "Actor is not authenticated or carries no resolvable user id.");
             }
 
+            // Owner OR review tier — §14.7 posture D rule 3 admits the submitter to their own
+            // approval so they can resubmit it, and they hold no role by construction. Both
+            // halves are decided HERE rather than one here and one in the caller: two throwing
+            // gates compose to an AND, which would delete the owner branch outright.
+            if (IsSameUser(request.Actor.UserId, request.ApprovalCreatedBy))
+            {
+                return Permit("Actor is the submitter of this approval.");
+            }
+
             if (HasReviewTier(request.Actor, request.RoleSubjects) is false)
             {
                 return Refuse(
                     AccessDenialReason.NotInReviewTier,
-                    "Actor does not hold the review tier for the entity behind this approval.");
+                    "Actor is neither the submitter nor in the review tier for this approval.");
             }
 
             return Permit("Actor holds the review tier for the entity behind this approval.");

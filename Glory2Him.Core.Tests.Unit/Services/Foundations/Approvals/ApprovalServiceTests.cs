@@ -13,8 +13,10 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 using EFxceptions.Models.Exceptions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
@@ -44,6 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
+        private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalService approvalService;
@@ -57,6 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
+            this.accessBrokerMock = new Mock<IAccessBroker>();
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
@@ -95,6 +99,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     It.IsAny<EnvelopeDirection>()))
                         .ReturnsAsync(true);
 
+            // The cross-entity amendment decision defaults to permitted so a test about something
+            // else exercises its own subject rather than failing on an unstubbed verdict. Tests
+            // about the gate itself call SetupAccessBrokerToRefuseAmendment to reverse it.
+            SetupAccessBrokerToPermitAmendment();
+
             this.approvalService = new ApprovalService(
                 storageBroker: this.storageBrokerMock.Object,
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
@@ -102,9 +111,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 eventBroker: this.eventBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
+                accessBroker: this.accessBrokerMock.Object,
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
+
+        private void SetupAccessBrokerToPermitAmendment() =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = true,
+                            DenialReason = AccessDenialReason.None,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
+                            Explanation = "permitted",
+                        });
+
+        /// <summary>
+        /// Mirrors the real decision instead of blanket-permitting: owner OR review tier. A
+        /// default that permits everything cannot tell a gate that admits the submitter from one
+        /// that does not, which is exactly the defect this suite failed to catch once already.
+        /// </summary>
+        private void SetupAccessBrokerToMirrorTheAmendmentDecision(
+            string approvalCreatedBy,
+            string actorUserId) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid _, SecurityContext securityContext, CancellationToken _) =>
+                        {
+                            // the ACTOR id as the audit surface resolves it, which is what the
+                            // real broker forwards — not SecurityContext.SubjectId
+                            bool isOwner =
+                                string.IsNullOrWhiteSpace(approvalCreatedBy) is false
+                                    && approvalCreatedBy == actorUserId;
+
+                            bool hasReviewTier = securityContext.Roles.Any(role =>
+                                role == Roles.Reviewer
+                                    || role == Roles.Publisher
+                                    || role == Roles.Admin
+                                    || role.EndsWith(Roles.ReviewerSuffix, StringComparison.Ordinal)
+                                    || role.EndsWith(Roles.PublisherSuffix, StringComparison.Ordinal));
+
+                            return isOwner || hasReviewTier
+                                ? CreatePermittedAmendmentVerdict()
+                                : new AccessVerdict
+                                {
+                                    IsPermitted = false,
+                                    DenialReason = AccessDenialReason.NotInReviewTier,
+                                    IsBypassUsed = false,
+                                    BypassedBlockReason = AccessDenialReason.None,
+                                    Explanation = "neither the submitter nor in the review tier",
+                                };
+                        });
+
+        private static AccessVerdict CreatePermittedAmendmentVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = "permitted",
+            };
+
+        private void SetupAccessBrokerToRefuseAmendment(AccessDenialReason denialReason) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = false,
+                            DenialReason = denialReason,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
+                            Explanation = "the actor is not in the review tier for this entity",
+                        });
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);

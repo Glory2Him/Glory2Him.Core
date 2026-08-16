@@ -153,6 +153,41 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
+        /// The submitter comes from the STORED approval, never a caller's copy — it is what
+        /// admits the owner, so a payload-supplied value would let anyone name themselves the
+        /// submitter and clear the gate on somebody else's approval.
+        /// </summary>
+        [Fact]
+        public async Task ShouldSendTheStoredSubmitterOnAmendmentAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.Tag,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            approval.CreatedBy = "the-approval-submitter";
+
+            SetupApprovalById(approval);
+            SetupEntityAuthor(EntityType.Tag, entityId, createdBy: "the-entity-author");
+
+            // when
+            await this.accessBroker.MayAmendApprovalAsync(
+                approvalId,
+                CreateAuthenticatedSecurityContext(),
+                TestContext.Current.CancellationToken);
+
+            // then: the APPROVAL's submitter, not the entity's author — they are different
+            // people often enough that confusing them would be a live defect
+            this.capturedAmendApprovalRequest.ApprovalCreatedBy
+                .Should().Be("the-approval-submitter");
+        }
+
+        /// <summary>
         /// The gate's whole job is to relay the decision, so the refusal must come back unchanged.
         /// Without this a broker that asked the decision function and then ignored its answer
         /// would permit every amendment and leave the suite green, because the fixture's default
