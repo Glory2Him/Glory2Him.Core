@@ -210,6 +210,37 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         }
 
         /// <summary>
+        /// The review tier is owner-OR-role, so a reviewer may write a tag they did not create.
+        /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
+        /// <c>Tag-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// would leave half the rule dead.
+        /// </summary>
+        [Theory]
+        [InlineData(Roles.Reviewer)]
+        [InlineData(Roles.TagReviewer)]
+        public async Task ShouldAllowReviewerToModifyAnotherUsersTagAsync(string reviewRoleName)
+        {
+            // given
+            Tag randomTag = await PostRandomTagAsync();
+            Tag modifiedTag = UpdateTagWithRandomValues(randomTag);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), reviewRoleName);
+
+            try
+            {
+                // when
+                Tag actualTag = await this.apiBroker.PutTagAsync(modifiedTag);
+
+                // then
+                actualTag.Name.Should().Be(modifiedTag.Name);
+            }
+            finally
+            {
+                this.apiBroker.ActAsSeededAdministrator();
+                await this.apiBroker.RemoveCoreTagByIdAsync(randomTag.Id);
+            }
+        }
+
+        /// <summary>
         /// Removal is owner-or-Admin, deliberately narrower than modify: a Reviewer holds write
         /// permission on someone else's tag but may not delete it.
         /// </summary>

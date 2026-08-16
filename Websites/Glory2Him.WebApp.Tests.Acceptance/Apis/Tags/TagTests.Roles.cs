@@ -20,6 +20,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
     {
         [Theory]
         [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewer)]
         [InlineData(Roles.Publisher)]
         [InlineData(Roles.TagPublisher)]
         [InlineData(Roles.TagReviewer)]
