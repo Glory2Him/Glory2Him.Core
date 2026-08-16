@@ -50,6 +50,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         private readonly IEventBroker eventBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly ISecurityAuditBroker securityAuditBroker;
+        private readonly IAccessBroker accessBroker;
         private readonly IEnvelopeIntegrityBroker envelopeIntegrityBroker;
         private readonly ILoggingBroker loggingBroker;
 
@@ -60,6 +61,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             IEventBroker eventBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             ISecurityAuditBroker securityAuditBroker,
+            IAccessBroker accessBroker,
             IEnvelopeIntegrityBroker envelopeIntegrityBroker,
             ILoggingBroker loggingBroker)
         {
@@ -69,6 +71,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             this.eventBroker = eventBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.securityAuditBroker = securityAuditBroker;
+            this.accessBroker = accessBroker;
             this.envelopeIntegrityBroker = envelopeIntegrityBroker;
             this.loggingBroker = loggingBroker;
         }
@@ -348,6 +351,15 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             await ValidateUserCanModifyStorageApprovalAsync(
                 storageApproval: maybeApproval,
                 securityContext: inboundEnvelope.SecurityContext);
+
+            // and that tier narrowed to the entity actually under approval, which the row-local
+            // check above cannot see — a Tag-Reviewer clears it for any approval at all. Asked
+            // about the STORED row, so a payload naming a different entity cannot move the
+            // question onto something the caller does hold a role for.
+            await ValidateUserMayAmendStorageApprovalAsync(
+                storageApproval: maybeApproval,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             approval = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(

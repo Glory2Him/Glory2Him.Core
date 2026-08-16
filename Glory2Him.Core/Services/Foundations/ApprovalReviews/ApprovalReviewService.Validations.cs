@@ -69,9 +69,14 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         // Publisher and Admin roles plus — by the §16.6 naming convention — any
         // entity-scoped "%EntityType%-Reviewer"/"%EntityType%-Publisher" role. The
         // approval review row names no entity type, so the foundation cannot tell a
-        // Tag-Reviewer's verdict from a Link-Reviewer's one row-locally; narrowing a
-        // reviewer to the entity type they actually review is an orchestration concern,
-        // which reaches the approval and the item under review
+        // Tag-Reviewer's verdict from a Link-Reviewer's one row-locally.
+        //
+        // Narrowing a reviewer to the entity type they actually review was once called an
+        // orchestration concern; that is withdrawn (§12.3.1 leaves no orchestration to defer
+        // to). On the WRITE path this check is tier 1 and pairs with
+        // ValidateUserMayRecordApprovalReviewAsync, which asks the broker the same question
+        // against the entity behind the approval. On the READ paths it still stands alone —
+        // §14.7's "Known gap" paragraph records that as open.
         private static bool HasReviewRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Reviewer)
                 || securityContext.Roles.Contains(Roles.Publisher)

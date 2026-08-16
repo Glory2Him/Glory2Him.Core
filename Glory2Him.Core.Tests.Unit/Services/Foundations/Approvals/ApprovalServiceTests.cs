@@ -20,6 +20,8 @@ using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
+using G2H.Security.Client.Models.Foundations.Access;
+using System.Threading;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
@@ -44,6 +46,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<ISecurityAuditBroker> securityAuditBrokerMock;
+        private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalService approvalService;
@@ -57,6 +60,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.eventBrokerMock = new Mock<IEventBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.securityAuditBrokerMock = new Mock<ISecurityAuditBroker>();
+            this.accessBrokerMock = new Mock<IAccessBroker>();
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
@@ -95,6 +99,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     It.IsAny<EnvelopeDirection>()))
                         .ReturnsAsync(true);
 
+            // The cross-entity amendment decision defaults to permitted so a test about something
+            // else exercises its own subject rather than failing on an unstubbed verdict. Tests
+            // about the gate itself call SetupAccessBrokerToRefuseAmendment to reverse it.
+            SetupAccessBrokerToPermitAmendment();
+
             this.approvalService = new ApprovalService(
                 storageBroker: this.storageBrokerMock.Object,
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
@@ -102,9 +111,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 eventBroker: this.eventBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 securityAuditBroker: this.securityAuditBrokerMock.Object,
+                accessBroker: this.accessBrokerMock.Object,
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
+
+        private void SetupAccessBrokerToPermitAmendment() =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = true,
+                            DenialReason = AccessDenialReason.None,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
+                            Explanation = "permitted",
+                        });
+
+        private void SetupAccessBrokerToRefuseAmendment(AccessDenialReason denialReason) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new AccessVerdict
+                        {
+                            IsPermitted = false,
+                            DenialReason = denialReason,
+                            IsBypassUsed = false,
+                            BypassedBlockReason = AccessDenialReason.None,
+                            Explanation = "the actor is not in the review tier for this entity",
+                        });
 
         private static Expression<Func<Xeption, bool>> SameExceptionAs(Xeption expectedException) =>
             actualException => actualException.SameExceptionAs(expectedException);

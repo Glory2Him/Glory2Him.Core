@@ -11,7 +11,10 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -49,12 +52,16 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         }
 
         // the review roles that may act on and read approval workflow records: the global
-        // Reviewer/Publisher/Admin, plus — by the §16.6 convention — any entity-scoped
-        // "{Entity}-Reviewer"/"{Entity}-Publisher" role. This check only ever sees the
-        // caller, so the foundation cannot know row-locally which entity type an approval
-        // targets; narrowing a reviewer to the approval's own entity type (only a
-        // Tag-Reviewer may review a Tag approval) is an orchestration concern, where the
-        // reviewed entity is in hand
+        // Tier 1, row-local: Reviewer/Publisher/Admin, plus — by the §16.6 convention — any
+        // entity-scoped "{Entity}-Reviewer"/"{Entity}-Publisher" role.
+        //
+        // This check only ever sees the caller, so it cannot know which entity type an approval
+        // targets: a Tag-Reviewer passes it for a Link's approval. Narrowing to the approval's
+        // own entity type was once described as an orchestration concern; it is not, and there
+        // is no orchestration to defer it to (§12.3.1). It lives in the foundation, one tier
+        // down, through IAccessBroker — which can read the entity behind the approval where this
+        // cannot. Both tiers run: §14.6 rule 2 and §8.6.1 make the duplicate intentional, since
+        // a defect in the gathering can only ever make the pair stricter.
         private static bool HasReviewRole(SecurityContext securityContext) =>
             securityContext.Roles.Contains(Roles.Reviewer)
                 || securityContext.Roles.Contains(Roles.Publisher)
@@ -78,6 +85,37 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
             if (isOwner is false && HasReviewRole(securityContext) is false)
             {
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is not allowed to modify this approval.");
+            }
+        }
+
+        // Tier 2, cross-entity. HasReviewRole above matches ANY "-Reviewer"/"-Publisher" suffix,
+        // so a bare Tag-Reviewer clears it for a ContentItem↔BibleReference association's
+        // approval. The broker resolves the entity behind the approval — for an association,
+        // both of its endpoints, either of which is enough (§14.7 posture A′ rule 2).
+        //
+        // The REVIEW tier, not the publisher tier: §14.7 posture D rule 3 has reviewers move an
+        // approval's status through this path, so narrowing to publishers would refuse the very
+        // callers the rule admits.
+        private async ValueTask ValidateUserMayAmendStorageApprovalAsync(
+            Approval storageApproval,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            AccessVerdict verdict = await this.accessBroker.MayAmendApprovalAsync(
+                approvalId: storageApproval.Id,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            if (verdict.IsPermitted is false)
+            {
+                // §14.5: the true reason server-side, nothing about the policy to the caller.
+                await this.loggingBroker.LogWarningAsync(
+                    $"Approval modification denied for approval {storageApproval.Id}. "
+                        + $"{verdict.DenialReason}: {verdict.Explanation} "
+                        + "Reported to the caller as unauthorized.");
+
                 throw new UnauthorizedApprovalException(
                     message: "The current user is not allowed to modify this approval.");
             }
@@ -254,7 +292,28 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                         firstDate: inputApproval.UpdatedWhen,
                         secondDate: storageApproval.UpdatedWhen,
                         secondDateName: nameof(Approval.UpdatedWhen)),
-                    Parameter: nameof(Approval.UpdatedWhen)));
+                    Parameter: nameof(Approval.UpdatedWhen)),
+
+                // EntityType and EntityId are IDENTITY, not content: they say which row this
+                // approval is about, and an approval must not be repointable at a different
+                // entity. Unpinned, a caller authorized for the approval as it stands could
+                // move it onto something else in the same write — and the tier-2 gate above,
+                // which asks about the STORED row, would have answered for the old target.
+                //
+                // ApprovalStatus is deliberately NOT pinned. §14.7 posture D rule 3 has
+                // reviewers move the status through this very path; pinning it would refuse the
+                // operation's purpose. What narrows that is the authorization gate, not a pin.
+                (Rule: IsNotSame(
+                        first: inputApproval.EntityType,
+                        second: storageApproval.EntityType,
+                        secondName: nameof(Approval.EntityType)),
+                    Parameter: nameof(Approval.EntityType)),
+
+                (Rule: IsNotSame(
+                        first: inputApproval.EntityId,
+                        second: storageApproval.EntityId,
+                        secondName: nameof(Approval.EntityId)),
+                    Parameter: nameof(Approval.EntityId)));
         }
 
         private static void ValidateOnRetrieveApprovalById(Guid approvalId) =>
@@ -327,6 +386,24 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             {
                 Condition = first != second,
                 Message = $"Text is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            Guid first,
+            Guid second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Id is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            EntityType first,
+            EntityType second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
             };
 
         private static dynamic IsNotSame(
