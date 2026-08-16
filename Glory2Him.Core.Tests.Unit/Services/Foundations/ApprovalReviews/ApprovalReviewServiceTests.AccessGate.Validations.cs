@@ -539,12 +539,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         }
 
         /// <summary>
-        /// §14.5: the caller is told "not allowed" and nothing else, while the true denial reason
-        /// and its explanation are logged server-side. The verdict's explanation is composed from
-        /// resolved policy values, so echoing it outward would leak the approval configuration.
+        /// §14.5 rule 2, in the shape the add and modify denials already use: the verdict's
+        /// explanation is composed from resolved policy values and the denial reason names the
+        /// rule that fired, so both belong in the server-side log and nowhere in what is thrown —
+        /// exception messages and their <c>Data</c> surface outward through a public event
+        /// address.
         /// </summary>
         [Fact]
-        public async Task ShouldNotLeakTheDismissalDenialReasonToTheCallerAsync()
+        public async Task ShouldNotLeakTheAccessExplanationToTheCallerOnDismissDenialAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -561,6 +563,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             SetupAccessBrokerToRefuseDismissal(AccessDenialReason.NotInPublisherTier);
 
+            var logCallOrder = new List<string>();
+
+            this.loggingBrokerMock.Setup(broker =>
+                broker.LogWarningAsync(It.IsAny<string>()))
+                    .Callback<string>(message => logCallOrder.Add($"warning:{message}"))
+                    .Returns(ValueTask.CompletedTask);
+
+            this.loggingBrokerMock.Setup(broker =>
+                broker.LogErrorAsync(It.IsAny<Exception>()))
+                    .Callback<Exception>(_ => logCallOrder.Add("error"))
+                    .Returns(ValueTask.CompletedTask);
+
             // when
             ValueTask<ApprovalReview> dismissApprovalReviewTask =
                 this.approvalReviewService.DismissApprovalReviewAsync(
@@ -571,17 +585,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 await Assert.ThrowsAsync<ApprovalReviewValidationException>(
                     dismissApprovalReviewTask.AsTask);
 
-            // then
-            actualApprovalReviewValidationException.InnerException!.Message
-                .Should().NotContain(nameof(AccessDenialReason.NotInPublisherTier));
+            // then: wording of the service's own, naming no policy
+            actualApprovalReviewValidationException.InnerException.Message.Should().Be(
+                "The current user is not allowed to dismiss this approval review.");
 
-            actualApprovalReviewValidationException.InnerException!.Message
-                .Should().NotContain("publisher tier for this entity");
+            string thrownText =
+                FlattenExceptionText(actualApprovalReviewValidationException);
 
-            this.loggingBrokerMock.Verify(broker =>
-                    broker.LogWarningAsync(It.Is<string>(message =>
-                        message.Contains(nameof(AccessDenialReason.NotInPublisherTier)))),
-                Times.Once);
+            thrownText.Should().NotContain(
+                nameof(AccessDenialReason.NotInPublisherTier));
+
+            thrownText.Should().NotContain("publisher tier for this entity");
+
+            actualApprovalReviewValidationException.Data.Count.Should().Be(0);
+            actualApprovalReviewValidationException.InnerException.Data.Count.Should().Be(0);
+
+            // the reason did go somewhere — to the warning, and before the throw
+            logCallOrder.Should().HaveCount(2);
+            logCallOrder[0].Should().StartWith("warning:");
+            logCallOrder[1].Should().Be("error");
+
+            logCallOrder[0].Should().Contain(
+                nameof(AccessDenialReason.NotInPublisherTier));
+
+            logCallOrder[0].Should().Contain("publisher tier for this entity");
         }
 
     }

@@ -65,10 +65,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
-            // the cross-entity review decision defaults to permitted so a test about
-            // something else exercises its own subject rather than failing on an
-            // unstubbed verdict. Tests about the gate itself call
-            // SetupAccessBrokerToRefuse to reverse it.
+            // BOTH cross-entity decisions default to permitted — the record-review one and the
+            // dismissal one — so a test about something else exercises its own subject rather
+            // than failing on an unstubbed verdict. They are reversed SEPARATELY, and reaching
+            // for the wrong one leaves the decision permitted and the test passing for the wrong
+            // reason: SetupAccessBrokerToRefuse covers MayRecordApprovalReviewAsync (add, modify
+            // and remove), SetupAccessBrokerToRefuseDismissal covers MayDismissApprovalReviewAsync.
             SetupAccessBrokerToPermit();
 
             // the ambient caller the envelope broker captures on the direct path — tests
