@@ -60,6 +60,18 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     Parameter: nameof(RecordReviewRequest.ExistingReviews)));
         }
 
+        virtual internal void ValidateOnDismissReview(DismissReviewRequest dismissReviewRequest)
+        {
+            ValidateRequestIsNotNull(dismissReviewRequest);
+
+            Validate(
+                (Rule: IsInvalid(dismissReviewRequest.Actor),
+                    Parameter: nameof(DismissReviewRequest.Actor)),
+
+                (Rule: IsInvalid(dismissReviewRequest.RoleSubjects),
+                    Parameter: nameof(DismissReviewRequest.RoleSubjects)));
+        }
+
         virtual internal void ValidateOnRecordApprovalComment(RecordApprovalCommentRequest recordApprovalCommentRequest)
         {
             ValidateRequestIsNotNull(recordApprovalCommentRequest);

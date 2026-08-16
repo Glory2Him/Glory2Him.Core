@@ -92,6 +92,79 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotInReviewTier);
         }
 
+        /// <summary>
+        /// The review tier across an association's two endpoints — §14.7 posture A′ rule 2, and
+        /// the case the endpoint derivation exists to serve. <c>HasReviewTier</c> keeps its own
+        /// <c>.Any()</c> over the subject list, separate from the publisher tier's, so proving
+        /// either endpoint satisfies the publisher tier proves nothing here.
+        ///
+        /// <para>Both ends are exercised so neither passes by position, and both spellings of the
+        /// scoped role are, because a reviewer for one endpoint and a publisher for one endpoint
+        /// each clear the review tier by different routes (the publisher tier widens into it).</para>
+        /// </summary>
+        [Theory]
+        [InlineData("ContentItem", false)]
+        [InlineData("BibleReference", false)]
+        [InlineData("ContentItem", true)]
+        [InlineData("BibleReference", true)]
+        public async Task ShouldPermitRecordingAReviewWhenScopedToEitherAssociationEndpointAsync(
+            string scopedEndpoint,
+            bool asPublisher)
+        {
+            // given
+            string scopedRole = asPublisher
+                ? RoleNames.PublisherFor(scopedEndpoint)
+                : RoleNames.ReviewerFor(scopedEndpoint);
+
+            AccessActor endpointActor = CreateRandomAccessActor(
+                roles: new List<string> { scopedRole });
+
+            RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
+                actor: endpointActor,
+
+                roleSubjects: new List<RoleSubject>
+                {
+                    new RoleSubject { EntityType = "ContentItem", ContentType = "Testimony" },
+                    new RoleSubject { EntityType = "BibleReference", ContentType = null },
+                });
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalReviewAsync(recordReviewRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeTrue();
+        }
+
+        /// <summary>
+        /// The other side of the same rule: a role scoped to an entity type that is neither
+        /// endpoint clears nothing. This is #190's headline case at the review tier.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseRecordingAReviewWhenScopedToNeitherAssociationEndpointAsync()
+        {
+            // given
+            AccessActor unrelatedActor = CreateRandomAccessActor(
+                roles: new List<string> { RoleNames.ReviewerFor("Tag") });
+
+            RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
+                actor: unrelatedActor,
+
+                roleSubjects: new List<RoleSubject>
+                {
+                    new RoleSubject { EntityType = "ContentItem", ContentType = "Testimony" },
+                    new RoleSubject { EntityType = "BibleReference", ContentType = null },
+                });
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayRecordApprovalReviewAsync(recordReviewRequest);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotInReviewTier);
+        }
+
         [Theory]
         [InlineData(RoleNames.Reviewer)]
         [InlineData(RoleNames.Publisher)]
