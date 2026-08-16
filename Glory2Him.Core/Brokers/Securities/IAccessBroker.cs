@@ -58,13 +58,14 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The cross-entity half of the approval-modify gate: is this actor in the REVIEW tier
-        /// for the entity behind the approval. For an association that is either endpoint, which
-        /// a single-entity service cannot see for itself.
+        /// The approval-modify gate: is this actor the approval's submitter, or in the REVIEW
+        /// tier for the entity behind it. For an association that is either endpoint, which a
+        /// single-entity service cannot see for itself.
         ///
         /// <para>Asks nothing about the round — §14.7 posture D rule 3 has reviewers move the
-        /// status through this very path — and nothing about authorship, because the owner
-        /// branch of the gate is row-local and stays in the service.</para>
+        /// status through this very path. It does ask about authorship, because rule 3 admits
+        /// the submitter as well and the service composes this with its row-local check as an
+        /// AND: a decision answering only the tier half would delete the owner branch.</para>
         /// </summary>
         ValueTask<AccessVerdict> MayAmendApprovalAsync(
             Guid approvalId,
