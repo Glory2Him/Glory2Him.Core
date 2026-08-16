@@ -231,6 +231,38 @@ namespace Glory2Him.Core.Brokers.Securities
                 });
         }
 
+        public async ValueTask<AccessVerdict> MayAmendApprovalAsync(
+            Guid approvalId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            // Subjects only. The amendment decision reads neither the round nor the reviews, so
+            // gathering them would be work whose result is discarded — and would invite a later
+            // change to start consulting a window that posture D rule 3 exists to let callers move.
+            (_, IReadOnlyList<RoleSubject> roleSubjects) = await ResolveEntityAsync(
+                maybeApproval.EntityType,
+                maybeApproval.EntityId,
+                cancellationToken);
+
+            return await this.securityClient.Access.MayAmendApprovalAsync(
+                new AmendApprovalRequest
+                {
+                    Actor = actor,
+                    RoleSubjects = roleSubjects,
+                });
+        }
+
         public async ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
             Guid approvalId,
             SecurityContext securityContext,

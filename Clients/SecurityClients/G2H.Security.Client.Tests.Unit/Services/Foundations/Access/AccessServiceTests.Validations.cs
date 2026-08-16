@@ -392,6 +392,126 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 .BeEquivalentTo(expectedAccessValidationException);
         }
         [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayAmendApprovalIfRequestIsNullAsync()
+        {
+            // given
+            AmendApprovalRequest? nullAmendApprovalRequest = null;
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalTask =
+                this.accessService.MayAmendApprovalAsync(nullAmendApprovalRequest!);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayAmendApprovalTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayAmendApprovalIfActorIsNullAsync()
+        {
+            // given: an ungathered actor must be a validation error rather than a decision,
+            // because a null actor would otherwise reach IsActorUsable and read as unauthenticated
+            var requestWithoutActor = new AmendApprovalRequest
+            {
+                Actor = null!,
+                RoleSubjects = new List<RoleSubject>(),
+            };
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            invalidArgumentAccessException.UpsertDataList(
+                key: nameof(AmendApprovalRequest.Actor),
+                value: "Actor is required");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalTask =
+                this.accessService.MayAmendApprovalAsync(requestWithoutActor);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayAmendApprovalTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        /// <summary>
+        /// A null subject list would crash rather than refuse — HasReviewTier reaches straight
+        /// for .Any() on it. An EMPTY list stays legal and refuses on its own merits.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnMayAmendApprovalIfRoleSubjectsIsNullAsync()
+        {
+            // given
+            var requestWithoutRoleSubjects = new AmendApprovalRequest
+            {
+                Actor = CreateRandomAccessActor(roles: new List<string> { RoleNames.Reviewer }),
+                RoleSubjects = null!,
+            };
+
+            var invalidArgumentAccessException = new InvalidArgumentAccessException(
+                message: "Invalid access argument. Please correct the error and try again.");
+
+            invalidArgumentAccessException.UpsertDataList(
+                key: nameof(AmendApprovalRequest.RoleSubjects),
+                value: "List is required");
+
+            var expectedAccessValidationException = new AccessValidationException(
+                message: "Access validation errors occurred, please try again.",
+                innerException: invalidArgumentAccessException);
+
+            // when
+            ValueTask<AccessVerdict> mayAmendApprovalTask =
+                this.accessService.MayAmendApprovalAsync(requestWithoutRoleSubjects);
+
+            AccessValidationException actualAccessValidationException =
+                await Assert.ThrowsAsync<AccessValidationException>(
+                    mayAmendApprovalTask.AsTask);
+
+            // then
+            actualAccessValidationException.Should()
+                .BeEquivalentTo(expectedAccessValidationException);
+        }
+
+        [Fact]
+        public async Task ShouldRefuseAmendingAnApprovalWhenRoleSubjectsIsEmptyAsync()
+        {
+            // given
+            var requestWithNoSubjects = new AmendApprovalRequest
+            {
+                Actor = CreateRandomAccessActor(
+                    roles: new List<string> { RoleNames.ReviewerFor("ContentItem") }),
+
+                RoleSubjects = new List<RoleSubject>(),
+            };
+
+            // when
+            AccessVerdict actualVerdict =
+                await this.accessService.MayAmendApprovalAsync(requestWithNoSubjects);
+
+            // then
+            actualVerdict.IsPermitted.Should().BeFalse();
+            actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotInReviewTier);
+        }
+
+        [Fact]
         public async Task ShouldThrowValidationExceptionOnMayDismissApprovalReviewIfRequestIsNullAsync()
         {
             // given

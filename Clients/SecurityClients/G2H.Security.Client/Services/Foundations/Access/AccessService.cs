@@ -87,6 +87,18 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     DecideMayAmendApprovalComment(amendApprovalCommentRequest));
             });
 
+        // ── §14.7 posture D rule 3 / §14.7 posture A′ rule 2 ────────────────────────────────
+        //
+        public ValueTask<AccessVerdict> MayAmendApprovalAsync(
+            AmendApprovalRequest amendApprovalRequest) =>
+            TryCatch(() =>
+            {
+                ValidateOnAmendApproval(amendApprovalRequest);
+
+                return new ValueTask<AccessVerdict>(
+                    DecideMayAmendApproval(amendApprovalRequest));
+            });
+
         // ── §7.7 rule 7 route 3 / §8.8 / §14.7 posture A′ rule 2 ────────────────────────────
         //
         public ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
@@ -139,6 +151,30 @@ namespace G2H.Security.Client.Services.Foundations.Access
             }
 
             return Permit("Actor may add a comment to an open approval.");
+        }
+
+        // Amending the approval record carries the REVIEW tier, not the publisher tier. §14.7
+        // posture D rule 3 has reviewers move an approval's status through the ordinary modify
+        // path, so narrowing this to publishers would refuse the very callers the rule admits.
+        // It asks nothing about the round, because the round state is what is being moved, and
+        // nothing about authorship, because the owner branch is row-local.
+        private static AccessVerdict DecideMayAmendApproval(AmendApprovalRequest request)
+        {
+            if (IsActorUsable(request.Actor) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotAuthenticated,
+                    "Actor is not authenticated or carries no resolvable user id.");
+            }
+
+            if (HasReviewTier(request.Actor, request.RoleSubjects) is false)
+            {
+                return Refuse(
+                    AccessDenialReason.NotInReviewTier,
+                    "Actor does not hold the review tier for the entity behind this approval.");
+            }
+
+            return Permit("Actor holds the review tier for the entity behind this approval.");
         }
 
         // Dismissal carries the publisher tier and nothing else. It asks no question about the
