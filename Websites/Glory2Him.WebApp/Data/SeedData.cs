@@ -41,7 +41,15 @@ namespace Glory2Him.WebApp.Data
             Roles.Admin,
             Roles.Publisher,
             Roles.TagPublisher,
-            Roles.TagReviewer
+            Roles.TagReviewer,
+
+            // The block tier (design §18.6): "assigned to users who misbehave, takes precedence
+            // over every other role". The foundation tests for these on every write and on hard
+            // delete, but SeedData is the only place a role can be minted — IIdentityBroker
+            // assigns and never creates — so without these rows the sanction path is code that
+            // can never be reached and an administrator has no way to restrain a contributor.
+            Roles.ReadOnly,
+            Roles.TagReadOnly
         };
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
