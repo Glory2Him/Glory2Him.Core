@@ -21,13 +21,22 @@ jobs:
       - name: Set up .NET Core
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.x'
+          dotnet-version: '10.x'
+
+      # The publish target builds the React SPA (npm install + npm run build in
+      # Glory2Him.WebApp.React), so pin Node rather than relying on the runner image.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Build with dotnet
-        run: dotnet build --configuration Release
+        run: dotnet build Websites/Glory2Him.WebApp/Glory2Him.WebApp.csproj --configuration Release
 
+      # Publish ONLY the web host. Publishing the whole solution dumps every project
+      # (tests, NuGet libraries) into one folder and fails with NETSDK1152 collisions.
       - name: dotnet publish
-        run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+        run: dotnet publish Websites/Glory2Him.WebApp/Glory2Him.WebApp.csproj -c Release -o ${{env.DOTNET_ROOT}}/myapp
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
