@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -182,6 +182,17 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 ApprovalState = approvalState,
                 ExistingReviews = existingReviews ?? new List<ReviewRecord>(),
                 IsAmendingOwnReview = isAmendingOwnReview,
+            };
+
+        private static DismissReviewRequest CreateRandomDismissReviewRequest(
+            AccessActor? actor = null,
+            IReadOnlyList<RoleSubject>? roleSubjects = null) =>
+            new DismissReviewRequest
+            {
+                Actor = actor ?? CreateRandomAccessActor(
+                    roles: new List<string> { RoleNames.Publisher }),
+
+                RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
             };
 
         private static DecideApprovalRequest CreateRandomDecideApprovalRequest(

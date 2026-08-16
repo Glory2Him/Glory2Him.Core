@@ -73,6 +73,9 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         // The self-review bar compares the actor against the ENTITY's author, and only the entity
         // row carries it. The content type comes back on the same read, which is what lets a
         // review role scoped to one content type be recognised.
+        //
+        // Association is absent on purpose — it is the one type authorised from something other
+        // than itself, so it yields TWO subjects and has its own test below.
         [Theory]
         [InlineData(EntityType.ContentItem, "Testimony")]
         [InlineData(EntityType.Tag, null)]
@@ -81,7 +84,6 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         [InlineData(EntityType.Comment, null)]
         [InlineData(EntityType.Link, null)]
         [InlineData(EntityType.Attachment, null)]
-        [InlineData(EntityType.Association, null)]
         public async Task ShouldTraverseToTheEntityAuthorOnRecordReviewAsync(
             EntityType entityType,
             string expectedContentType)
@@ -132,6 +134,120 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.auditClientMock.VerifyNoOtherCalls();
             this.accessClientMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// An association is authorised from its two endpoints and from nothing else (§14.7
+        /// posture A′ rule 2), so the decision must name both and holding a role for either is
+        /// enough.
+        ///
+        /// <para>The subject that must NOT appear is <c>Association</c> itself. Composing one
+        /// from the approval's own <c>EntityType</c> — which is what this used to do — asks
+        /// whether the actor holds <c>Association-Reviewer</c>, a role
+        /// <c>Roles.cs</c> deliberately never issues. That is why this half of the gate failed
+        /// closed rather than open: an endpoint-scoped publisher was refused along with everyone
+        /// else, and only a global role got through.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldNameBothEndpointsAsRoleSubjectsForAnAssociationOnRecordReviewAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.Association,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+            SetupEntityAuthor(EntityType.Association, entityId, createdBy: "the-entity-author");
+
+            // when
+            await this.accessBroker.MayRecordApprovalReviewAsync(
+                approvalId,
+                isAmendingOwnReview: false,
+                CreateAuthenticatedSecurityContext(),
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedRecordReviewRequest.RoleSubjects.Should().HaveCount(2);
+
+            this.capturedRecordReviewRequest.RoleSubjects.Should().SatisfyRespectively(
+                first =>
+                {
+                    first.EntityType.Should().Be(nameof(EntityType.ContentItem));
+                    first.ContentType.Should().Be(nameof(ContentType.Testimony));
+                },
+                second =>
+                {
+                    second.EntityType.Should().Be(nameof(EntityType.BibleReference));
+                    second.ContentType.Should().BeNull();
+                });
+
+            this.capturedRecordReviewRequest.RoleSubjects.Should().NotContain(subject =>
+                subject.EntityType == nameof(EntityType.Association));
+
+            this.capturedRecordReviewRequest.EntityCreatedBy
+                .Should().Be("the-entity-author");
+
+            VerifyEntityAuthorRead(EntityType.Association, entityId);
+            VerifyRecordReviewGatherReads(approvalId);
+
+            this.auditClientMock.Verify(client =>
+                client.GetUserIdAsync(It.IsAny<ClaimsPrincipal>()),
+                    Times.Once);
+
+            this.accessClientMock.Verify(client =>
+                client.MayRecordApprovalReviewAsync(It.IsAny<RecordReviewRequest>()),
+                    Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.auditClientMock.VerifyNoOtherCalls();
+            this.accessClientMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// A missing association leaves no endpoints to derive, so the fallback is the coarse
+        /// <c>Association</c> subject — which no role can match, because none is issued. That is
+        /// the fail-closed answer stated positively: the gate refuses on role grounds rather than
+        /// silently emitting an empty subject list, which
+        /// <c>HasReviewTier</c>'s <c>.Any()</c> would read as "no scoped route" and skip past.
+        /// </summary>
+        [Fact]
+        public async Task ShouldFallBackToTheCoarseSubjectWhenTheAssociationIsMissingOnRecordReviewAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+
+            Approval approval = CreateApproval(
+                approvalId,
+                EntityType.Association,
+                entityId,
+                ApprovalStatus.Submitted);
+
+            SetupApprovalById(approval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(entityId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync((Glory2Him.Core.Models.Foundations.Associations.Association)null);
+
+            // when
+            await this.accessBroker.MayRecordApprovalReviewAsync(
+                approvalId,
+                isAmendingOwnReview: false,
+                CreateAuthenticatedSecurityContext(),
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.capturedRecordReviewRequest.RoleSubjects.Should().ContainSingle();
+
+            this.capturedRecordReviewRequest.RoleSubjects.Single().EntityType
+                .Should().Be(nameof(EntityType.Association));
+
+            this.capturedRecordReviewRequest.EntityCreatedBy.Should().BeEmpty();
         }
 
         // An entity row that has gone missing leaves the author unknown. Empty is the fail-closed

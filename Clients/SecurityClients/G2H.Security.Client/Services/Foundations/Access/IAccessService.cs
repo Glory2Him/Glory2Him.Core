@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -27,6 +27,9 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
         ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
             AmendApprovalCommentRequest amendApprovalCommentRequest);
+
+        ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
+            DismissReviewRequest dismissReviewRequest);
 
         ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
             ResolveApprovalCommentRequest resolveApprovalCommentRequest);

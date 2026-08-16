@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -54,6 +54,21 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<AccessVerdict> MayRecordApprovalReviewAsync(
             Guid approvalId,
             bool isAmendingOwnReview,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The cross-entity half of the dismissal gate: is this actor in the publisher tier for
+        /// the entity behind the approval. For an association that is either endpoint, which a
+        /// single-entity service cannot see for itself.
+        ///
+        /// <para>Deliberately asks nothing about the review being dismissed. Whether it is
+        /// already dismissed or soft-deleted is row-local and stays in the service (§7.7 rule
+        /// 2b), and authorship is not consulted at all — dismissal happens <i>to</i> a verdict
+        /// and is never its author's retraction (§7.7 rule 2).</para>
+        /// </summary>
+        ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
+            Guid approvalId,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 

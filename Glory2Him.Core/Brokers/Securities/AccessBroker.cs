@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -167,8 +167,9 @@ namespace Glory2Him.Core.Brokers.Securities
                 });
         }
 
-        // A comment whose approval cannot be found is refused rather than waved through. The
-        // caller's own not-found handling reports it; here it only has to fail closed.
+        // An action whose approval cannot be found is refused rather than waved through — the
+        // comment gates and the dismissal gate share this. The caller's own not-found handling
+        // reports it; here it only has to fail closed.
         private static AccessVerdict RefuseMissingApproval(Guid approvalId) =>
             new AccessVerdict
             {
@@ -208,7 +209,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
             ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
 
-            (string entityCreatedBy, ContentType? contentType) = await ResolveEntityAsync(
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects) = await ResolveEntityAsync(
                 maybeApproval.EntityType,
                 maybeApproval.EntityId,
                 cancellationToken);
@@ -217,18 +218,49 @@ namespace Glory2Him.Core.Brokers.Securities
                 new RecordReviewRequest
                 {
                     Actor = actor,
-                    RoleSubjects = new List<RoleSubject>
-                    {
-                        new RoleSubject
-                        {
-                            EntityType = maybeApproval.EntityType.ToString(),
-                            ContentType = contentType?.ToString(),
-                        },
-                    },
+
+                    // Not composed from the approval's own EntityType. An association has no
+                    // scoped roles of its own — every scoped question is answered from its two
+                    // endpoints (§14.7 posture A′ rule 2) — so the traversal below decides how
+                    // many subjects there are, and this must not second-guess it.
+                    RoleSubjects = roleSubjects,
                     EntityCreatedBy = entityCreatedBy,
                     ApprovalState = snapshot.State,
                     ExistingReviews = snapshot.Reviews,
                     IsAmendingOwnReview = isAmendingOwnReview,
+                });
+        }
+
+        public async ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
+            Guid approvalId,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            // Only the subjects are gathered. No snapshot: the dismissal decision consults
+            // neither the round window nor the existing reviews, so reading them would be work
+            // whose result is discarded — and would tempt a later change to start using them,
+            // which is exactly what §8.8 needs this gate not to do.
+            (_, IReadOnlyList<RoleSubject> roleSubjects) = await ResolveEntityAsync(
+                maybeApproval.EntityType,
+                maybeApproval.EntityId,
+                cancellationToken);
+
+            return await this.securityClient.Access.MayDismissApprovalReviewAsync(
+                new DismissReviewRequest
+                {
+                    Actor = actor,
+                    RoleSubjects = roleSubjects,
                 });
         }
 
@@ -346,7 +378,17 @@ namespace Glory2Him.Core.Brokers.Securities
         // The content type comes back on the same read, which is what lets a review role scoped
         // to one content type be recognised — the approval row alone could only ever have
         // supported the coarse tier.
-        private async ValueTask<(string CreatedBy, ContentType? ContentType)> ResolveEntityAsync(
+        /// <summary>
+        /// Reads the entity behind an approval and returns both facts the decision needs about
+        /// it: who authored it, and which role subjects the actor could be authorised through.
+        ///
+        /// <para>The two travel together because they come from the same read. Splitting them
+        /// would mean loading the row twice, and — worse — would let the subjects be composed
+        /// somewhere that does not have the row in hand, which is exactly the mistake this
+        /// replaces: the subjects used to be built from the approval's own <c>EntityType</c>,
+        /// which is right for every entity except the one that matters.</para>
+        /// </summary>
+        private async ValueTask<(string CreatedBy, IReadOnlyList<RoleSubject> RoleSubjects)> ResolveEntityAsync(
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken)
@@ -357,57 +399,98 @@ namespace Glory2Him.Core.Brokers.Securities
                     var contentItem =
                         await this.storageBroker.SelectContentItemByIdAsync(entityId, cancellationToken);
 
-                    return (contentItem?.CreatedBy ?? string.Empty, contentItem?.ContentType);
+                    return (
+                        contentItem?.CreatedBy ?? string.Empty,
+                        SubjectsFor(entityType, contentItem?.ContentType));
 
                 case EntityType.Tag:
                     var tag = await this.storageBroker.SelectTagByIdAsync(entityId, cancellationToken);
 
-                    return (tag?.CreatedBy ?? string.Empty, null);
+                    return (tag?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
 
                 case EntityType.Reaction:
                     var reaction =
                         await this.storageBroker.SelectReactionByIdAsync(entityId, cancellationToken);
 
-                    return (reaction?.CreatedBy ?? string.Empty, null);
+                    return (reaction?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
 
                 case EntityType.BibleReference:
                     var bibleReference =
                         await this.storageBroker.SelectBibleReferenceByIdAsync(entityId, cancellationToken);
 
-                    return (bibleReference?.CreatedBy ?? string.Empty, null);
+                    return (
+                        bibleReference?.CreatedBy ?? string.Empty,
+                        SubjectsFor(entityType, contentType: null));
 
                 case EntityType.Comment:
                     var comment =
                         await this.storageBroker.SelectCommentByIdAsync(entityId, cancellationToken);
 
-                    return (comment?.CreatedBy ?? string.Empty, null);
+                    return (comment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
 
                 case EntityType.Link:
                     var link = await this.storageBroker.SelectLinkByIdAsync(entityId, cancellationToken);
 
-                    return (link?.CreatedBy ?? string.Empty, null);
+                    return (link?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
 
                 case EntityType.Attachment:
                     var attachment =
                         await this.storageBroker.SelectAttachmentByIdAsync(entityId, cancellationToken);
 
-                    return (attachment?.CreatedBy ?? string.Empty, null);
+                    return (attachment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
 
                 case EntityType.Association:
                     var association =
                         await this.storageBroker.SelectAssociationByIdAsync(entityId, cancellationToken);
 
-                    return (association?.CreatedBy ?? string.Empty, null);
+                    // BOTH endpoints, and holding a role for either is enough (§14.7 posture A′
+                    // rule 2). An association has no scoped roles of its own — Roles.cs issues no
+                    // "Association-Reviewer" — so composing a subject from Association would ask
+                    // for a role nobody can hold, which is what the row below falls back to when
+                    // the association is missing, deliberately.
+                    return association is null
+                        ? (string.Empty, SubjectsFor(entityType, contentType: null))
+                        : (association.CreatedBy, new List<RoleSubject>
+                        {
+                            new RoleSubject
+                            {
+                                EntityType = association.EntityAType.ToString(),
+                                ContentType = association.EntityAContentType?.ToString(),
+                            },
+                            new RoleSubject
+                            {
+                                EntityType = association.EntityBType.ToString(),
+                                ContentType = association.EntityBContentType?.ToString(),
+                            },
+                        });
 
                 default:
                     // A new EntityType member reaching here has no traversal, so the author is
                     // unknown. Returning empty is the fail-closed answer and not an oversight:
                     // the decision function never treats blank as matching blank, so an unknown
                     // author can never satisfy "is this the author?" — it refuses the review for
-                    // no-role reasons instead of silently permitting a self-review.
-                    return (string.Empty, null);
+                    // no-role reasons instead of silently permitting a self-review. The subject
+                    // it carries is the entity type's own name, which for an unmapped type no
+                    // role will match either.
+                    return (string.Empty, SubjectsFor(entityType, contentType: null));
             }
         }
+
+        /// <summary>
+        /// The ordinary one-subject case: an entity is authorised from itself. Only
+        /// <c>Association</c> departs from this, and it composes its pair inline.
+        /// </summary>
+        private static IReadOnlyList<RoleSubject> SubjectsFor(
+            EntityType entityType,
+            ContentType? contentType) =>
+            new List<RoleSubject>
+            {
+                new RoleSubject
+                {
+                    EntityType = entityType.ToString(),
+                    ContentType = contentType?.ToString(),
+                },
+            };
 
         private static ApprovalState ToApprovalState(ApprovalStatus approvalStatus) =>
             approvalStatus switch

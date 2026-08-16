@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -58,6 +58,18 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
                 (Rule: IsInvalid(recordReviewRequest.ExistingReviews),
                     Parameter: nameof(RecordReviewRequest.ExistingReviews)));
+        }
+
+        virtual internal void ValidateOnDismissReview(DismissReviewRequest dismissReviewRequest)
+        {
+            ValidateRequestIsNotNull(dismissReviewRequest);
+
+            Validate(
+                (Rule: IsInvalid(dismissReviewRequest.Actor),
+                    Parameter: nameof(DismissReviewRequest.Actor)),
+
+                (Rule: IsInvalid(dismissReviewRequest.RoleSubjects),
+                    Parameter: nameof(DismissReviewRequest.RoleSubjects)));
         }
 
         virtual internal void ValidateOnRecordApprovalComment(RecordApprovalCommentRequest recordApprovalCommentRequest)

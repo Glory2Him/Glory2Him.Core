@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -107,6 +107,30 @@ namespace G2H.Security.Client.Clients.Access
             {
                 return await this.accessService
                     .MayAmendApprovalCommentAsync(amendApprovalCommentRequest);
+            }
+            catch (AccessValidationException accessValidationException)
+            {
+                throw CreateAccessClientValidationException(
+                    accessValidationException.InnerException as Xeption);
+            }
+            catch (AccessServiceException accessServiceException)
+            {
+                throw CreateAccessClientDependencyException(
+                    accessServiceException.InnerException as Xeption);
+            }
+            catch (Exception exception)
+            {
+                throw CreateAccessClientServiceException(exception);
+            }
+        }
+
+        public async ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
+            DismissReviewRequest dismissReviewRequest)
+        {
+            try
+            {
+                return await this.accessService
+                    .MayDismissApprovalReviewAsync(dismissReviewRequest);
             }
             catch (AccessValidationException accessValidationException)
             {

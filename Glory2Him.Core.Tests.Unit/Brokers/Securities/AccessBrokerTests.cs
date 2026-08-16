@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -57,6 +57,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         // is about what crossed that boundary, so it is captured rather than matched inline.
         private DecideApprovalRequest capturedDecideApprovalRequest;
         private RecordReviewRequest capturedRecordReviewRequest;
+        private DismissReviewRequest capturedDismissReviewRequest;
         private RecordApprovalCommentRequest capturedRecordApprovalCommentRequest;
         private AmendApprovalCommentRequest capturedAmendApprovalCommentRequest;
         private ResolveApprovalCommentRequest capturedResolveApprovalCommentRequest;
@@ -124,6 +125,12 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 client.MayRecordApprovalReviewAsync(It.IsAny<RecordReviewRequest>()))
                     .Callback((RecordReviewRequest recordReviewRequest) =>
                         this.capturedRecordReviewRequest = recordReviewRequest)
+                    .ReturnsAsync(accessVerdict);
+
+            this.accessClientMock.Setup(client =>
+                client.MayDismissApprovalReviewAsync(It.IsAny<DismissReviewRequest>()))
+                    .Callback((DismissReviewRequest dismissReviewRequest) =>
+                        this.capturedDismissReviewRequest = dismissReviewRequest)
                     .ReturnsAsync(accessVerdict);
 
             this.accessClientMock.Setup(client =>
@@ -231,9 +238,23 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                     break;
 
                 case EntityType.Association:
+                    // The endpoints are set deliberately rather than left at their defaults: an
+                    // association is authorised from them and from nothing else (§14.7 posture
+                    // A′ rule 2), so a row whose EntityAType and EntityBType both default to
+                    // ContentItem would let a broken traversal pass. These are the two the
+                    // design uses as its worked example, and they differ from each other and
+                    // from Association itself.
                     this.storageBrokerMock.Setup(broker =>
                         broker.SelectAssociationByIdAsync(entityId, It.IsAny<CancellationToken>()))
-                            .ReturnsAsync(new Association { Id = entityId, CreatedBy = createdBy });
+                            .ReturnsAsync(new Association
+                            {
+                                Id = entityId,
+                                CreatedBy = createdBy,
+                                EntityAType = EntityType.ContentItem,
+                                EntityAContentType = ContentType.Testimony,
+                                EntityBType = EntityType.BibleReference,
+                                EntityBContentType = null,
+                            });
 
                     break;
             }
