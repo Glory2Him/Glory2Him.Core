@@ -105,20 +105,39 @@ namespace Glory2Him.Core.Services.Foundations.Links
         //
         // A Link is Versioned, so the amendment is not lost — it becomes a new version. That
         // fork belongs to LinkProcessingService (§10.17 rule 2, §12.4.2), which reaches the
-        // terminal row first and writes a new one rather than calling this. The refusal here is
-        // what makes the fork the ONLY route: an exposer may bind straight to the foundation,
-        // and a rule enforced only above it is not enforced (§8.6.1).
+        // terminal row first and writes a new one rather than amending this one. The refusal
+        // here is what makes the fork the ONLY route: an exposer may bind straight to the
+        // foundation, and a rule enforced only above it is not enforced (§8.6.1).
+        //
+        // What is refused is an AMENDMENT — a change to the caller-editable content — and not
+        // every write that touches a terminal row. That distinction is load-bearing rather than
+        // pedantic: the fork DEMOTES the previous latest through this same modify, flipping
+        // IsLatestVersion and nothing else, so a blanket refusal would break the very fork this
+        // rule exists to redirect amendments into. Content is compared against storage rather
+        // than inferred from the status pin, because the pin's condition is guarded by
+        // inputStatus != storageStatus and a caller who echoes the stored status back passes it.
         //
         // The §9.2 Draft <-> Submitted carve-out is unreachable from here and stays that way:
-        // it is only ever reached from Draft or Submitted, so a terminal row is refused before
-        // the carve-out is consulted.
-        private static void ValidateStorageLinkIsNotTerminal(Link storageLink)
+        // it is only ever reached from Draft or Submitted, so a terminal row never consults it.
+        private static void ValidateStorageLinkIsNotTerminal(
+            Link inputLink,
+            Link storageLink)
         {
             bool isTerminal =
                 storageLink.ApprovalStatus == ApprovalStatus.Approved
                     || storageLink.ApprovalStatus == ApprovalStatus.Rejected;
 
-            if (isTerminal)
+            if (isTerminal is false)
+            {
+                return;
+            }
+
+            bool isContentAmended =
+                inputLink.Name != storageLink.Name
+                    || inputLink.Url != storageLink.Url
+                    || inputLink.LinkType != storageLink.LinkType;
+
+            if (isContentAmended)
             {
                 throw new InvalidLinkException(
                     message: "Link cannot be modified from status " +

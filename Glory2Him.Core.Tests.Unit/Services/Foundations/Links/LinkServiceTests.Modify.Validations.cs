@@ -1578,6 +1578,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             invalidLink.ApprovalStatus = terminalStatus;
             storageLink.ApprovalStatus = terminalStatus;
 
+            // the AMENDMENT itself — the rule refuses a content change on a terminal row, not
+            // every write that touches one, because the version fork demotes through this same
+            // modify and changes only IsLatestVersion
+            invalidLink.Name = GetRandomString();
+
             var invalidLinkException =
                 new InvalidLinkException(
                     message: "Link cannot be modified from status " +
@@ -1659,6 +1664,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             invalidLink.ApprovalStatus = ApprovalStatus.Approved;
             storageLink.ApprovalStatus = ApprovalStatus.Approved;
+            invalidLink.Name = GetRandomString();
             invalidLink.CreatedBy = storageLink.CreatedBy;
 
             var invalidLinkException =
@@ -1782,5 +1788,90 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldDemoteATerminalLinkWithoutAmendingItAsync(
+            ApprovalStatus terminalStatus)
+        {
+            // given: the write the terminal-row rule must NOT refuse. Link is Versioned, so an
+            // amendment of a terminal row becomes a new version — and the fork demotes the
+            // previous latest through this very modify, flipping IsLatestVersion and touching no
+            // content (§10.17 rule 2). A refusal written against the status alone rather than
+            // against the amendment would break the fork it exists to redirect amendments into.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Link randomLink =
+                CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+
+            Link inputLink = randomLink;
+            Link storageLink = randomLink.DeepClone();
+
+            storageLink.UpdatedWhen =
+                storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputLink.ApprovalStatus = terminalStatus;
+            storageLink.ApprovalStatus = terminalStatus;
+
+            // the demotion, and nothing else
+            storageLink.IsLatestVersion = true;
+            inputLink.IsLatestVersion = false;
+
+            Link updatedLink = inputLink.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    inputLink.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputLink,
+                    storageLink))
+                        .ReturnsAsync(inputLink);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateLinkAsync(
+                    inputLink,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedLink);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    LinkEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<Link>>(
+                            new EventPublishResult<Link>()));
+
+            // when
+            Link actualLink = await this.linkService.ModifyLinkAsync(
+                inputLink,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualLink.Should().BeEquivalentTo(updatedLink);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateLinkAsync(
+                    inputLink,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
     }
 }

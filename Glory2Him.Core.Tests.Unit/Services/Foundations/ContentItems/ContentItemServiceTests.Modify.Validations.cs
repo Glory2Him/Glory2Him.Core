@@ -1132,6 +1132,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             invalidContentItem.ApprovalStatus = terminalStatus;
             storageContentItem.ApprovalStatus = terminalStatus;
 
+            // the AMENDMENT itself — the rule refuses a content change on a terminal row, not
+            // every write that touches one, because the version fork demotes through this same
+            // modify and changes only IsLatestVersion
+            invalidContentItem.Content = GetRandomString();
+
             var invalidContentItemException =
                 new InvalidContentItemException(
                     message: "Content item cannot be modified from status " +
@@ -1213,6 +1218,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             invalidContentItem.ApprovalStatus = ApprovalStatus.Approved;
             storageContentItem.ApprovalStatus = ApprovalStatus.Approved;
+            invalidContentItem.Content = GetRandomString();
             invalidContentItem.CreatedBy = storageContentItem.CreatedBy;
 
             var invalidContentItemException =
@@ -1336,5 +1342,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     It.IsAny<CancellationToken>()),
                 Times.Once);
         }
+
     }
 }

@@ -369,7 +369,9 @@ namespace Glory2Him.Core.Services.Foundations.Links
 
             // Checked AFTER write permission so the refusal cannot be used to read a row's
             // approval state without the standing to see it.
-            ValidateStorageLinkIsNotTerminal(maybeLink);
+            ValidateStorageLinkIsNotTerminal(
+                inputLink: link,
+                storageLink: maybeLink);
 
             link = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(

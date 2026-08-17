@@ -176,21 +176,42 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         //
         // A ContentItem is Versioned, so the amendment is not lost — it becomes a new version.
         // That fork belongs to ContentItemProcessingService (§10.17 rule 2, §12.4.1), which
-        // reaches the terminal row first and writes a new one rather than calling this. The
+        // reaches the terminal row first and writes a new one rather than amending this one. The
         // refusal here is what makes the fork the ONLY route: an exposer may bind straight to
         // the foundation, and a rule enforced only above it is not enforced (§8.6.1).
         //
+        // What is refused is an AMENDMENT — a change to the caller-editable content — and not
+        // every write that touches a terminal row. That distinction is load-bearing rather than
+        // pedantic: the fork DEMOTES the previous latest through this same modify, flipping
+        // IsLatestVersion and nothing else, so a blanket refusal would break the very fork this
+        // rule exists to redirect amendments into. Content is compared against storage rather
+        // than inferred from the status pin, because the pin's condition is guarded by
+        // inputStatus != storageStatus and a caller who echoes the stored status back passes it.
+        //
+        // ContentType is absent from the comparison because it is create-only and pinned
+        // against storage in its own right, and ContentHash because it is derived from Content.
+        //
         // The §9.2 Draft <-> Submitted carve-out is unreachable from here and stays that way:
-        // it is only ever reached from Draft or Submitted, so a terminal row is refused before
-        // the carve-out is consulted.
+        // it is only ever reached from Draft or Submitted, so a terminal row never consults it.
         private static void ValidateStorageContentItemIsNotTerminal(
+            ContentItem inputContentItem,
             ContentItem storageContentItem)
         {
             bool isTerminal =
                 storageContentItem.ApprovalStatus == ApprovalStatus.Approved
                     || storageContentItem.ApprovalStatus == ApprovalStatus.Rejected;
 
-            if (isTerminal)
+            if (isTerminal is false)
+            {
+                return;
+            }
+
+            bool isContentAmended =
+                inputContentItem.Title != storageContentItem.Title
+                    || inputContentItem.Author != storageContentItem.Author
+                    || inputContentItem.Content != storageContentItem.Content;
+
+            if (isContentAmended)
             {
                 throw new InvalidContentItemException(
                     message: "Content item cannot be modified from status " +
