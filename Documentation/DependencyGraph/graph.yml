@@ -160,7 +160,7 @@ events:
   - id: Association.Rejected
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
-  - id: Association.BypassApproving
+  - id: Association.Submitted
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
   - id: Association.Approved

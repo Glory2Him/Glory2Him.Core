@@ -744,8 +744,7 @@ components:
       - ModifyAssociationAsync
       - RemoveAssociationByIdAsync
       - HardRemoveAssociationByIdAsync
-      - ApproveAssociationAsync
-      - BypassApproveAssociationAsync
+      - TransitionAssociationApprovalAsync
       - SortAssociationAsync
       - SetAssociationConfidenceAsync
       - SetAssociationScopeAsync
@@ -755,7 +754,6 @@ components:
       - OnHardRemovingAssociationByIdAsync
       - OnRetrievingAssociationByIdAsync
       - OnApprovingAssociationAsync
-      - OnBypassApprovingAssociationAsync
       - OnSettingAssociationConfidenceAsync
       - OnSettingAssociationScopeAsync
     calls:
@@ -885,46 +883,25 @@ components:
       - from: HardRemoveAssociationByIdAsync
         to: EventEnvelopeBroker
         method: CreateNextAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: EventEnvelopeBroker
         method: CreateAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: StorageBroker
         method: SelectAssociationByIdAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: AccessBroker
         method: MayDecideApprovalAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: SecurityAuditBroker
         method: ApplyModifyAuditValuesAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: StorageBroker
         method: UpdateAssociationAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: EventEnvelopeBroker
         method: CreateNextAsync
       - from: OnApprovingAssociationAsync
-        to: StorageBroker
-        method: SelectProcessedEventExistsAsync
-      - from: BypassApproveAssociationAsync
-        to: EventEnvelopeBroker
-        method: CreateAsync
-      - from: BypassApproveAssociationAsync
-        to: StorageBroker
-        method: SelectAssociationByIdAsync
-      - from: BypassApproveAssociationAsync
-        to: AccessBroker
-        method: MayDecideApprovalAsync
-      - from: BypassApproveAssociationAsync
-        to: SecurityAuditBroker
-        method: ApplyModifyAuditValuesAsync
-      - from: BypassApproveAssociationAsync
-        to: StorageBroker
-        method: UpdateAssociationAsync
-      - from: BypassApproveAssociationAsync
-        to: EventEnvelopeBroker
-        method: CreateNextAsync
-      - from: OnBypassApprovingAssociationAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
       - from: SortAssociationAsync
@@ -999,12 +976,12 @@ components:
         event: Association.Removed
       - method: HardRemoveAssociationByIdAsync
         event: Association.HardRemoved
-      - method: ApproveAssociationAsync
+      - method: TransitionAssociationApprovalAsync
         event: Association.Approved
-      - method: ApproveAssociationAsync
+      - method: TransitionAssociationApprovalAsync
         event: Association.Rejected
-      - method: BypassApproveAssociationAsync
-        event: Association.Approved
+      - method: TransitionAssociationApprovalAsync
+        event: Association.Submitted
       - method: SortAssociationAsync
         event: Association.Sorted
       - method: SetAssociationConfidenceAsync
@@ -1014,8 +991,6 @@ components:
     subscribes:
       - event: Association.Approving
         handler: OnApprovingAssociationAsync
-      - event: Association.BypassApproving
-        handler: OnBypassApprovingAssociationAsync
       - event: Association.SettingConfidence
         handler: OnSettingAssociationConfidenceAsync
       - event: Association.SettingScope
