@@ -162,6 +162,13 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
         /// throws <c>NotFound</c> (§14.5 rule 1), precisely so the endpoint cannot be used to
         /// probe which reviews exist. Mapping an <c>Unauthorized</c> here would be dead code
         /// today and would leak existence the day something threw it.
+        ///
+        /// <para>The <c>Conflict</c> and <c>Locked</c> dependency-validation clauses are absent for
+        /// the same reason, and both sibling exposers omit them here too: a read performs a SELECT,
+        /// and every source of <c>ApprovalReviewDependencyValidationException</c> is a write-path
+        /// fault — duplicate key, unique-index violation, foreign-key conflict, update
+        /// concurrency. Carrying them would advertise a 409 and a 423 on a read that cannot
+        /// produce either.</para>
         /// </summary>
         [HttpGet("{approvalReviewId}")]
         [Authorize]
@@ -187,18 +194,6 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
             catch (ApprovalReviewValidationException approvalReviewValidationException)
             {
                 return BadRequest(approvalReviewValidationException.InnerException);
-            }
-            catch (ApprovalReviewDependencyValidationException approvalReviewDependencyValidationException)
-                when (approvalReviewDependencyValidationException.InnerException
-                    is AlreadyExistsApprovalReviewException)
-            {
-                return Conflict(approvalReviewDependencyValidationException.InnerException);
-            }
-            catch (ApprovalReviewDependencyValidationException approvalReviewDependencyValidationException)
-                when (approvalReviewDependencyValidationException.InnerException
-                    is LockedApprovalReviewException)
-            {
-                return Locked(approvalReviewDependencyValidationException.InnerException);
             }
             catch (ApprovalReviewDependencyValidationException approvalReviewDependencyValidationException)
             {

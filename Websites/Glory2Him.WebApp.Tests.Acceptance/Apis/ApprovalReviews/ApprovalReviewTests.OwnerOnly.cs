@@ -165,5 +165,39 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 await RemoveApprovalReviewAndApprovalAsync(review.Id, approval.Id);
             }
         }
+
+        /// <summary>
+        /// The reason rides the query string, so only a request through the real pipeline proves it
+        /// binds and reaches the column. The unit test passes it as a direct method argument and
+        /// therefore cannot: model binding is skipped entirely when the action is invoked in
+        /// process (exposer skill §1.8 item 3).
+        /// </summary>
+        [Fact]
+        public async Task ShouldCarryTheDeletionReasonThroughToStorageOnDeleteAsync()
+        {
+            // given
+            (Approval approval, ApprovalReview review) =
+                await PostRandomApprovalReviewOnOpenApprovalAsync();
+
+            string deletionReason = "withdrawn by the reviewer, reason bound over the wire";
+
+            try
+            {
+                // when
+                await this.apiBroker.DeleteApprovalReviewByIdAsync(review.Id, deletionReason);
+
+                // then: read beneath HTTP, because the endpoint now reports the row as not found
+                Glory2Him.Core.Models.Foundations.ApprovalReviews.ApprovalReview storedReview =
+                    await this.apiBroker.GetCoreApprovalReviewByIdAsync(review.Id);
+
+                storedReview.IsDeleted.Should().BeTrue();
+                storedReview.DeletionReason.Should().Be(deletionReason);
+            }
+            finally
+            {
+                await RemoveApprovalReviewAndApprovalAsync(review.Id, approval.Id);
+            }
+        }
+
     }
 }

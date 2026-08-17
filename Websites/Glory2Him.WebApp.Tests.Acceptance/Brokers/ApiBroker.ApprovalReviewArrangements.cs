@@ -56,6 +56,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return await this.storageBroker.InsertApprovalReviewAsync(approvalReview);
         }
 
+
+        public async ValueTask<Glory2Him.Core.Models.Foundations.Approvals.Approval>
+            GetCoreApprovalByIdAsync(Guid approvalId) =>
+            await this.storageBroker.SelectApprovalByIdAsync(approvalId);
+
         public async ValueTask<CoreApprovalReview> GetCoreApprovalReviewByIdAsync(Guid approvalReviewId) =>
             await this.storageBroker.SelectApprovalReviewByIdAsync(approvalReviewId);
 

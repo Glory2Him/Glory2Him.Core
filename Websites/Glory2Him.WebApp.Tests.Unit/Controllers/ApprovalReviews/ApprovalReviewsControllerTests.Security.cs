@@ -73,7 +73,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviews
         }
 
         /// <summary>
-        /// Approval comments are §14.7 posture D — nothing here is public, so unlike the tag
+        /// Approval reviews are §14.7 posture D — a verdict is never public, so unlike the tag
         /// exposer no action may opt out of authentication. This is the stronger form of the
         /// "exactly one decision" check: every action must carry <c>[Authorize]</c>, and none
         /// may carry <c>[AllowAnonymous]</c> at all.

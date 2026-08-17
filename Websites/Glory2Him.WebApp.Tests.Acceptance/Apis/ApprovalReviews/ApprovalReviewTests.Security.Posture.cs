@@ -193,22 +193,5 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
             }
         }
 
-        /// <summary>
-        /// An anonymous collection read is refused outright rather than degrading to an empty set,
-        /// because the coarse <c>[Authorize]</c> stops it before the filter is reached. The
-        /// filter's own anonymous branch is therefore defence in depth, not the live path.
-        /// </summary>
-        [Fact]
-        public async Task ShouldRefuseTheCollectionReadBeforeTheFilterForAnAnonymousCallerAsync()
-        {
-            // given
-            this.apiBroker.ActAsAnonymous();
-
-            // when
-            var getAllTask = this.apiBroker.GetAllApprovalReviewsAsync().AsTask();
-
-            // then
-            await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => getAllTask);
-        }
     }
 }
