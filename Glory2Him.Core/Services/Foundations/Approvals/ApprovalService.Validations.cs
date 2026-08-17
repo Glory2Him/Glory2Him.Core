@@ -203,11 +203,15 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 // An approval is born undecided. Approved and Rejected are the workflow's to
                 // record through the modify-side §8.6.1 gate, and the bypass pair is DERIVED
                 // from that gate's verdict (§9.7.5) — so none of the three may arrive on add.
+                //
                 // Without these rules a caller could insert a row already Approved, or one
-                // attesting that conditions were waived when no decision ever ran — and unlike
-                // the entity siblings, whose ordinary approve transition rewrites the pair on
-                // every approval, nothing rewrites it on an Approval row: the forgery would be
-                // permanent.
+                // attesting that conditions were waived when no decision ever ran, and nothing
+                // downstream reliably undoes either. The derivation only fires on a status
+                // CHANGE into an outcome, so a row forged as Approved is never decided at all —
+                // IsApplyingOutcome is false for Approved-to-Approved — and its forged pair is
+                // pinned in place with it. Both are correctable only by moving the row out of
+                // Approved and back through a real decision, which is a repair nobody would
+                // know to perform on evidence that looks legitimate.
                 (Rule: IsNotContributableStatus(approval.ApprovalStatus),
                     Parameter: nameof(Approval.ApprovalStatus)),
 

@@ -693,9 +693,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// <summary>
         /// The bypass pair is the §8.6.1 decision's to derive (§9.7.5), so neither half may
         /// arrive on add — a row inserted with the pair set would attest that conditions were
-        /// waived when no decision ever ran, and nothing on an Approval row rewrites the pair
-        /// afterwards. The over-long case asserts BOTH messages so the 500 cap on the add path
-        /// cannot silently vanish behind the not-allowed rule.
+        /// waived when no decision ever ran. The derivation would not undo it either: it fires
+        /// only on a status CHANGE into an outcome, so a row forged as <c>Approved</c> is never
+        /// decided and its forged pair stays pinned alongside. The over-long case asserts BOTH
+        /// messages so the 500 cap on the add path cannot silently vanish behind the
+        /// not-allowed rule.
         /// </summary>
         [Fact]
         public async Task ShouldRefuseTheBypassPairOnAddAsync()

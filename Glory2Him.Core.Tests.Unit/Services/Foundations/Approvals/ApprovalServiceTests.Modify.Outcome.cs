@@ -172,7 +172,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// <summary>
         /// A rejection is an outcome too — HR-3 gives it to the publisher tier, and without this
         /// consult a plain reviewer, or the submitter, could set <c>Rejected</c> through modify.
-        /// Nothing is waived by refusing, so the bypass pair stays pinned on this path.
+        ///
+        /// <para>Because it IS an outcome, the pin steps aside and the pair is derived here as
+        /// well: a rejection waives nothing, so the verdict is a plain permit and the derivation
+        /// writes false/null. This test asserts the decision is consulted with
+        /// <c>Reject</c>; that the derivation then CLEARS a stale waiver is asserted by
+        /// <c>ShouldClearAStaleBypassWaiverWhenRejectingAsync</c>.</para>
         /// </summary>
         [Fact]
         public async Task ShouldConsultTheDecisionWithRejectWhenRejectingAsync()

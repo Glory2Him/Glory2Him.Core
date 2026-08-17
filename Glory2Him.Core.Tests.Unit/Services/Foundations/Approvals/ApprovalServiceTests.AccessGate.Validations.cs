@@ -386,9 +386,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// an approval bypassed, or erase an existing waiver and its stated reason, with no
         /// waiver ever decided.
         ///
-        /// <para>The one path where the pair may change is the becoming-Approved modify, where
-        /// it is DERIVED from the §8.6.1 verdict — the Modify.Outcome tests pin that side; this
-        /// one pins that every other path still refuses.</para>
+        /// <para>The paths where the pair may change are the two that apply an OUTCOME —
+        /// becoming <c>Approved</c> and becoming <c>Rejected</c> — where it is derived from the
+        /// §8.6.1 verdict rather than pinned. The Modify.Outcome tests pin that side; this one
+        /// pins that every path applying no outcome still refuses, which is what the theory
+        /// below exercises with a payload whose status matches storage.</para>
         /// </summary>
         [Theory]
         [InlineData(true)]
