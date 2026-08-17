@@ -82,7 +82,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             {
                 Id = Guid.Empty,
                 ApprovalId = Guid.Empty,
-                Comment = invalidText,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -106,10 +105,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.StatusId),
                 values: "Value must be Approved or Rejected");
-
-            invalidApprovalReviewException.AddData(
-                key: nameof(ApprovalReview.Comment),
-                values: "Text is required");
 
             invalidApprovalReviewException.AddData(
                 key: nameof(ApprovalReview.CreatedBy),

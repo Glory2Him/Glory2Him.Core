@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    [Migration("20260817065144_RequireAndCapApprovalCommentAndReviewText")]
-    partial class RequireAndCapApprovalCommentAndReviewText
+    [Migration("20260817084817_RequireApprovalCommentTextAndCapBothCommentFields")]
+    partial class RequireApprovalCommentTextAndCapBothCommentFields
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -94,7 +94,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Comment")
-                        .IsRequired()
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 

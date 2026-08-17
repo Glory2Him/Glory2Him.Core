@@ -5,7 +5,7 @@
 namespace Glory2Him.Core.Migrations
 {
     /// <inheritdoc />
-    public partial class RequireAndCapApprovalCommentAndReviewText : Migration
+    public partial class RequireApprovalCommentTextAndCapBothCommentFields : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -15,8 +15,7 @@ namespace Glory2Him.Core.Migrations
                 table: "ApprovalReviews",
                 type: "nvarchar(1000)",
                 maxLength: 1000,
-                nullable: false,
-                defaultValue: "",
+                nullable: true,
                 oldClrType: typeof(string),
                 oldType: "nvarchar(max)",
                 oldNullable: true);
@@ -43,7 +42,8 @@ namespace Glory2Him.Core.Migrations
                 nullable: true,
                 oldClrType: typeof(string),
                 oldType: "nvarchar(1000)",
-                oldMaxLength: 1000);
+                oldMaxLength: 1000,
+                oldNullable: true);
 
             migrationBuilder.AlterColumn<string>(
                 name: "Comment",

@@ -739,7 +739,7 @@ Rules:
 | `Id` | Unique review identifier. |
 | `ApprovalId` | Parent approval record. |
 | `StatusId` | Review decision status. |
-| `Comment` | Optional free text explaining **why** this reviewer reached this `StatusId`. It is rationale attached to *this reviewer's own verdict*: it has no settled state, nothing reads it and nothing waits on it. A reviewer who wants reasoning that other reviewers can see and act on writes an `ApprovalComment` instead — that entity carries `IsResolved` and may be either outstanding or purely informational (§7.8). |
+| `Comment` | Optional free text — capped at 1000 characters, never demanded — explaining **why** this reviewer reached this `StatusId`. A reviewer may approve without justifying it. It is rationale attached to *this reviewer's own verdict*: it has no settled state, nothing reads it and nothing waits on it. A reviewer who wants reasoning that other reviewers can see and act on writes an `ApprovalComment` instead — that entity carries `IsResolved` and may be either outstanding or purely informational (§7.8). |
 | `IsDeleted` | Soft-delete flag. When `true` the review is excluded from threshold calculations. |
 | `CreatedBy` | User who created the review. |
 | `CreatedWhen` | Creation timestamp. |
@@ -789,7 +789,7 @@ The following rules apply:
 | --- | --- |
 | `Id` | Unique comment identifier. |
 | `ApprovalId` | Parent approval record. |
-| `Comment` | Comment text. |
+| `Comment` | Comment text. **Required**, capped at 1000 characters. It is the substance of the record — an outstanding comment with no text holds its approval shut while saying nothing — so unlike `ApprovalReview.Comment` (§7.7, optional) it may not be blank. |
 | `IsResolved` | Whether this comment is **settled** — whether it still requires something before the approval can proceed. See the note below the table; the distinction is load-bearing and both birth values are legitimate. When `ApprovalSetting.RequireReviewCommentResolutionBeforeApprovals = true`, no **outstanding** comment may remain before the approval conditions are met. |
 | `IsDeleted` | Soft-delete flag. When `true` the comment is excluded from public visibility. |
 | `CreatedBy` | User who created the comment. |
