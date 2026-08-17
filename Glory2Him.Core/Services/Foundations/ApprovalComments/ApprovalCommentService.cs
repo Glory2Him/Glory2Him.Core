@@ -37,8 +37,10 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — the
-    /// commenting gate on writes, owner-or-review-role write permission (removal by author or
-    /// Admin, hard removal by Admin only), and the §14.1/§14.5 read posture, under which a
+    /// commenting gate on writes, amendment — modify and soft removal — by the comment's author
+    /// alone (not Reviewer, not Publisher, not Admin: a comment belongs to whoever wrote it, and
+    /// an Admin who needs past an unresolved one resolves it or bypasses the block, §14.7 posture
+    /// D rule 5), hard removal by Admin only, and the §14.1/§14.5 read posture, under which a
     /// review thread is never public and answers not found to anyone but its author and the
     /// review roles — never assuming an upstream orchestration already gated the caller.
     /// <c>IsResolved</c> is writable through modify by the owner, and through the resolve

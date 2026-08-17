@@ -90,6 +90,25 @@ namespace G2H.Security.Client.Clients.Access
             ResolveApprovalCommentRequest resolveApprovalCommentRequest);
 
         /// <summary>
+        /// Decides whether an actor may amend the approval record itself — its submitter, or the
+        /// review tier for the entity behind it.
+        ///
+        /// <para>Not a verdict, so not <see cref="MayDecideApprovalAsync"/>: §14.7 posture D
+        /// rule 3 has reviewers move an approval's status through the ordinary modify path, and
+        /// that path has no business consulting policies, conditions or a bypass. The review
+        /// tier is the right one for the same reason — narrowing to publishers would refuse the
+        /// reviewers the rule admits.</para>
+        ///
+        /// <para><b>Both branches are decided here.</b> Rule 3 admits the submitter as well —
+        /// resubmission is theirs to drive, and they hold no role. Leaving that half to the
+        /// caller to OR in does not work: the caller composes two throwing gates, which ANDs
+        /// them and deletes the owner branch outright. Consults no round state, because the
+        /// state is what is being moved.</para>
+        /// </summary>
+        ValueTask<AccessVerdict> MayAmendApprovalAsync(
+            AmendApprovalRequest amendApprovalRequest);
+
+        /// <summary>
         /// Decides whether an actor may dismiss a review — the publisher tier for the entity
         /// behind the approval, and nothing else.
         ///
@@ -102,22 +121,6 @@ namespace G2H.Security.Client.Clients.Access
         /// stops a publisher scoped to one entity type clearing a verdict on another — for an
         /// association, either endpoint (§14.7 posture A′ rule 2).</para>
         /// </summary>
-        /// <summary>
-        /// Decides whether an actor may amend the approval record itself — the review tier for
-        /// the entity behind it, and nothing else.
-        ///
-        /// <para>Not a verdict, so not <see cref="MayDecideApprovalAsync"/>: §14.7 posture D
-        /// rule 3 has reviewers move an approval's status through the ordinary modify path, and
-        /// that path has no business consulting policies, conditions or a bypass. The review
-        /// tier is the right one for the same reason — narrowing to publishers would refuse the
-        /// reviewers the rule admits.</para>
-        ///
-        /// <para>Consults no round state (the state is what is being moved) and no authorship
-        /// (the owner branch is row-local and stays in the service).</para>
-        /// </summary>
-        ValueTask<AccessVerdict> MayAmendApprovalAsync(
-            AmendApprovalRequest amendApprovalRequest);
-
         ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
             DismissReviewRequest dismissReviewRequest);
 

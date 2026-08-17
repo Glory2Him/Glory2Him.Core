@@ -156,8 +156,10 @@ namespace G2H.Security.Client.Services.Foundations.Access
         // Amending the approval record carries the REVIEW tier, not the publisher tier. §14.7
         // posture D rule 3 has reviewers move an approval's status through the ordinary modify
         // path, so narrowing this to publishers would refuse the very callers the rule admits.
-        // It asks nothing about the round, because the round state is what is being moved, and
-        // nothing about authorship, because the owner branch is row-local.
+        // It asks nothing about the round, because the round state is what is being moved. It
+        // DOES ask about authorship: rule 3 admits the submitter too, and that half is decided
+        // here rather than by the caller — two throwing gates compose to an AND, which would
+        // delete the owner branch.
         private static AccessVerdict DecideMayAmendApproval(AmendApprovalRequest request)
         {
             if (IsActorUsable(request.Actor) is false)
