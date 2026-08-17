@@ -274,14 +274,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         }
 
         /// <summary>
-        /// The pin stands on every path that is not the becoming-Approved one — a rejection
-        /// waives nothing, so even a caller the decision PERMITS to reject may not touch the
-        /// waiver record on the way through.
+        /// A rejection waives nothing, so its verdict always derives the pair to false/null —
+        /// which CLEARS a stale waiver rather than merely declining to touch it.
+        ///
+        /// <para>This is the fix for a real trap. Pinning the pair on rejection would strand it:
+        /// a row bypass-approved, reopened to Submitted (a workflow move, which the pin holds
+        /// on), then rejected would assert <c>IsApprovedByBypass = true</c> for ever, because
+        /// the only paths that may rewrite the pair are outcomes and the only outcome left to
+        /// that row would itself be pinned. The entity siblings clear on both outcomes for the
+        /// same reason.</para>
+        ///
+        /// <para>The payload deliberately carries a forged waiver here, to prove the derivation
+        /// overrides it rather than the pin refusing it — the caller's pair is never consulted
+        /// on an outcome path.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldRefuseTouchingTheBypassPairWhileRejectingAsync()
+        public async Task ShouldClearAStaleBypassWaiverWhenRejectingAsync()
         {
-            // given
+            // given: storage already holds a waiver from an earlier bypass approval
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
 
@@ -293,6 +303,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
             Approval storageApproval = randomApproval.DeepClone();
             storageApproval.ApprovalStatus = ApprovalStatus.Submitted;
+            storageApproval.IsApprovedByBypass = true;
+            storageApproval.ApprovedByBypassReason = "waived earlier, before the reopen";
+
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
+            SetupOutcomeDecisionToReturn(PermittedOutcomeVerdict(isBypassUsed: false));
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(inputApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalAsync(It.IsAny<Approval>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync((Approval approval, CancellationToken _) => approval);
+
+            // when
+            Approval actualApproval = await this.approvalService.ModifyApprovalAsync(
+                inputApproval,
+                TestContext.Current.CancellationToken);
+
+            // then: neither the payload's forged waiver nor storage's stale one survives
+            actualApproval.IsApprovedByBypass.Should().BeFalse();
+            actualApproval.ApprovedByBypassReason.Should().BeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.Is<Approval>(approval =>
+                            approval.IsApprovedByBypass == false
+                                && approval.ApprovedByBypassReason == null),
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        /// <summary>
+        /// The pin still stands on every path that applies no outcome. A workflow-status move —
+        /// here the reopen that sits between an approval and a later rejection — may not touch
+        /// the waiver record, because no decision ran to authorise a change to it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseTouchingTheBypassPairOnAWorkflowStatusMoveAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
+            Approval inputApproval = randomApproval;
+            inputApproval.ApprovalStatus = ApprovalStatus.Submitted;
+            inputApproval.IsApprovedByBypass = true;
+            inputApproval.ApprovedByBypassReason = "claimed without any decision";
+
+            Approval storageApproval = randomApproval.DeepClone();
+            storageApproval.ApprovalStatus = ApprovalStatus.Draft;
             storageApproval.IsApprovedByBypass = false;
             storageApproval.ApprovedByBypassReason = null;
 
@@ -300,7 +367,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
             SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
-            SetupOutcomeDecisionToReturn(PermittedOutcomeVerdict(isBypassUsed: false));
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
@@ -321,6 +387,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // then
             actualApprovalValidationException.InnerException!.Data.Keys
                 .Cast<string>().Should().Contain(nameof(Approval.IsApprovedByBypass));
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayDecideApprovalByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
                     broker.UpdateApprovalAsync(

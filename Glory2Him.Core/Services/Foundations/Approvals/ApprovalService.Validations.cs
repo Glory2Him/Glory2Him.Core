@@ -102,8 +102,14 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // both of its endpoints, either of which is enough (§14.7 posture A′ rule 2).
         //
         // The REVIEW tier, not the publisher tier: §14.7 posture D rule 3 has reviewers move an
-        // approval's status through this path, so narrowing to publishers would refuse the very
-        // callers the rule admits.
+        // approval between the workflow statuses through this path, so narrowing THIS gate to
+        // publishers would refuse the very callers the rule admits.
+        //
+        // It is not the whole story any more. This gate answers "may this caller touch this
+        // row"; moving the status INTO Approved or Rejected additionally asks the §8.6.1
+        // decision, which requires the PUBLISHER tier (HR-3: reviewing is vouching, deciding is
+        // deciding). So a reviewer still resubmits and reopens, and no longer decides — see
+        // ValidateUserMayDecideStorageApprovalAsync.
         private async ValueTask ValidateUserMayAmendStorageApprovalAsync(
             Approval storageApproval,
             SecurityContext securityContext,
@@ -358,15 +364,22 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         /// <para>When the modify IS the approval decision, the payload pair is the caller's
         /// bypass REQUEST rather than a write: the §8.6.1 decision refuses a bypass the policy
         /// closes or one with no reason, and what lands is derived from its verdict, never
-        /// copied from the payload. That is why the pin steps aside for exactly the
-        /// becoming-Approved path and no other — a rejection waives nothing, so it keeps the
-        /// pin, and so does every workflow-status move.</para>
+        /// copied from the payload. So the pin steps aside for exactly the paths that apply an
+        /// outcome, and holds on every workflow-status move.</para>
+        ///
+        /// <para>A rejection waives nothing, so its verdict always derives the pair to
+        /// false/null — which CLEARS a stale waiver rather than merely refusing to touch it.
+        /// Pinning the rejection instead would strand it: a row bypass-approved, reopened and
+        /// then rejected would assert <c>IsApprovedByBypass = true</c> for ever, because the
+        /// only path that can rewrite the pair is an outcome and the only outcome left to it
+        /// would be pinned. The entity siblings clear on both outcomes for this reason
+        /// (<c>AssociationService.Transitions.cs</c>).</para>
         /// </summary>
         private static void ValidateBypassPairAgainstStorageOnModify(
             Approval inputApproval,
             Approval storageApproval)
         {
-            if (IsBecomingApproved(inputApproval, storageApproval))
+            if (IsApplyingOutcome(inputApproval, storageApproval))
             {
                 return;
             }
@@ -389,12 +402,6 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                         secondName: nameof(Approval.ApprovedByBypassReason)),
                     Parameter: nameof(Approval.ApprovedByBypassReason)));
         }
-
-        // Approved is the one outcome that writes the bypass pair; Rejected waives nothing, and
-        // Draft, Submitted and Dismissed are workflow states rather than outcomes.
-        private static bool IsBecomingApproved(Approval inputApproval, Approval storageApproval) =>
-            inputApproval.ApprovalStatus == ApprovalStatus.Approved
-                && storageApproval.ApprovalStatus != ApprovalStatus.Approved;
 
         // Moving an approval INTO Approved or Rejected is applying the §8.6.1 decision, which
         // the amend gate was never asked about: it answers "may this caller touch this row",

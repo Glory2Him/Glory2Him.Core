@@ -384,14 +384,17 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 inputApproval: approval,
                 storageApproval: maybeApproval);
 
-            if (outcomeVerdict is not null && approval.ApprovalStatus == ApprovalStatus.Approved)
+            if (outcomeVerdict is not null)
             {
                 // DERIVED from the verdict, never copied from the payload. The verdict can come
                 // back IsBypassUsed = false even when a bypass was requested — the conditions
                 // happened to be met, so nothing was waived — and recording the request instead
                 // of the outcome would manufacture a waiver that never happened (§9.7.5).
-                // Approving normally over a previously bypass-approved round clears the stale
-                // pair the same way the entity transitions do.
+                //
+                // On BOTH outcomes, exactly as the entity transitions do. A rejection waives
+                // nothing, so its verdict is always a plain permit and this clears the pair:
+                // deriving only on approval would leave a row that was bypass-approved, reopened
+                // and then rejected asserting a waiver no verb could ever clear.
                 approval.IsApprovedByBypass = outcomeVerdict.IsBypassUsed;
 
                 approval.ApprovedByBypassReason = outcomeVerdict.IsBypassUsed
