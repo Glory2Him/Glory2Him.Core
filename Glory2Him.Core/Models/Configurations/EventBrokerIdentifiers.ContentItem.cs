@@ -56,6 +56,10 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ContentItemRejectedEventAddressId =
             new Guid("c9c78e35-b357-42dd-aeab-697bc05a8b7a");
 
+        // A fact address with no request address behind it — see ContentItemEventOperation.
+        public static readonly Guid ContentItemDemotedEventAddressId =
+            new Guid("019ff41d-8a52-7c64-b3f1-6ad0927e5c48");
+
         internal static readonly IReadOnlyDictionary<ContentItemEventOperation, Guid>
             ContentItemEventAddressIds = new Dictionary<ContentItemEventOperation, Guid>
             {
@@ -77,7 +81,8 @@ namespace Glory2Him.Core.Models.Configurations
 
                 { ContentItemEventOperation.Submitted, ContentItemSubmittedEventAddressId },
                 { ContentItemEventOperation.Approved, ContentItemApprovedEventAddressId },
-                { ContentItemEventOperation.Rejected, ContentItemRejectedEventAddressId }
+                { ContentItemEventOperation.Rejected, ContentItemRejectedEventAddressId },
+                { ContentItemEventOperation.Demoted, ContentItemDemotedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentItemEventAddresses =
@@ -95,7 +100,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemRemovedEventAddressId, "ContentItem-Removed" },
                 { ContentItemSubmittedEventAddressId, "ContentItem-Submitted" },
                 { ContentItemApprovedEventAddressId, "ContentItem-Approved" },
-                { ContentItemRejectedEventAddressId, "ContentItem-Rejected" }
+                { ContentItemRejectedEventAddressId, "ContentItem-Rejected" },
+                { ContentItemDemotedEventAddressId, "ContentItem-Demoted" }
             };
 
         public static readonly Guid ContentItemOnAddingContentItemSubscriptionId =
@@ -136,5 +142,11 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string ContentItemOnApprovingContentItemSubscriptionName =
             "ContentItemService.OnApprovingContentItem";
+
+        // Demote has no subscription and no request address (see ContentItemEventOperation).
+        // This name exists only as the ProcessedEvents receiver, the same way sort's does on
+        // Association.
+        public const string ContentItemOnDemotingContentItemSubscriptionName =
+            "ContentItemService.OnDemotingContentItem";
     }
 }

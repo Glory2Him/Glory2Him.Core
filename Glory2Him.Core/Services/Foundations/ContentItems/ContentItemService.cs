@@ -411,9 +411,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             // Checked AFTER write permission so the refusal cannot be used to read a row's
             // approval state without the standing to see it.
-            ValidateStorageContentItemIsNotTerminal(
-                inputContentItem: contentItem,
-                storageContentItem: maybeContentItem);
+            ValidateStorageContentItemIsNotTerminal(maybeContentItem);
 
             contentItem = await this.securityAuditBroker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                 entity: contentItem,

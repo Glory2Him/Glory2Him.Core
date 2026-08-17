@@ -638,16 +638,20 @@ namespace Glory2Him.Core.Services.Processings.Links
                 IsDeleted = false
             };
 
-            // the previous latest is demoted before the new row is inserted — the unique
+            // The previous latest is demoted before the new row is inserted — the unique
             // filtered index allows only one IsLatestVersion = true per group at any time.
             // IsLatestVersion only marks the edit tip; IsPublished is untouched here, so the
             // previously published row stays publicly visible until the new version is
             // approved and published (§3.4.1). A fork off a Rejected row has no published
             // row to preserve, so the group is simply dark until the new version lands.
-            currentLink.IsLatestVersion = false;
-
-            await this.linkService.ModifyLinkAsync(
-                link: currentLink,
+            //
+            // Through the narrow demote verb rather than the general modify: IsLatestVersion is
+            // an IVersion member, which the modify pins against storage like every other
+            // non-content field (§9.7.1 rule 2). Demoting through the modify asked the one path
+            // required to refuse this write to make it, and left the foundation unable to tell
+            // the fork apart from a caller tampering with version bookkeeping.
+            await this.linkService.DemoteLinkVersionAsync(
+                linkId: currentLink.Id,
                 cancellationToken: cancellationToken);
 
             return await this.linkService.AddLinkAsync(

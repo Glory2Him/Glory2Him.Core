@@ -215,6 +215,68 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
         }
 
+        public ValueTask<ContentItem> DemoteContentItemVersionAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Demote owns only IsLatestVersion and drives it to a fixed value, so the
+                // request carries nothing but the id — the same shape submit has, and for the
+                // same reason: there is nothing to read off a caller's copy.
+                var demoteRequest = new ContentItem { Id = contentItemId };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: demoteRequest);
+
+                return await DoDemoteContentItemVersionAsync(
+                    contentItemId: contentItemId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        // The version fork's second write, and the only operation permitted to move
+        // IsLatestVersion off a row (§3.4 rule 18, §9.7.1 rule 2). It exists because the fork
+        // previously demoted through the general modify, which pins IsLatestVersion against
+        // storage here — so the demotion was refused and forking an approved item could not
+        // complete at all. Every processing-service test mocks this service, so nothing caught
+        // it.
+        private async ValueTask<ContentItem> DoDemoteContentItemVersionAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateOnDemoteContentItemVersion(contentItemId);
+
+            ContentItem storageContentItem =
+                await LoadTransitionTargetAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
+
+            // decided against the STORED row, like every other transition: forking is the
+            // owner's act, and the author it is measured against must be the one on record
+            // rather than one the caller supplied.
+            await ValidateUserCanDemoteStorageContentItemVersionAsync(
+                storageContentItem: storageContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            ValidateStorageContentItemIsDemotable(storageContentItem);
+
+            // the whole of this operation's remit is this one field, and the target is fixed —
+            // demoting only ever means "no longer the tip"
+            storageContentItem.IsLatestVersion = false;
+
+            return await SaveTransitionAsync(
+                contentItem: storageContentItem,
+                inboundEnvelope: inboundEnvelope,
+                operation: ContentItemEventOperation.Demoted,
+                receiverName: EventBrokerIdentifiers
+                    .ContentItemOnDemotingContentItemSubscriptionName,
+                cancellationToken: cancellationToken);
+        }
+
         // Loads the row a transition acts on. Every transition authorizes against what is
         // STORED, so the load has to happen before the authorization decision rather than
         // after it, and the NotFound guard belongs with the load.

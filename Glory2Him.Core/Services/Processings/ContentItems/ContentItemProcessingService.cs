@@ -683,15 +683,18 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 IsDeleted = false
             };
 
-            // the previous latest is demoted before the new row is inserted — the unique
+            // The previous latest is demoted before the new row is inserted — the unique
             // filtered index allows only one IsLatestVersion = true per group at any time.
             // IsLatestVersion only marks the edit tip; IsPublished is untouched here, so the
             // previously published row stays publicly visible until the new version is
-            // approved and published (§3.4.1)
-            currentContentItem.IsLatestVersion = false;
-
-            await this.contentItemService.ModifyContentItemAsync(
-                contentItem: currentContentItem,
+            // approved and published (§3.4.1).
+            //
+            // Through the narrow demote verb rather than the general modify: IsLatestVersion is
+            // an IVersion member and ContentItemService PINS it against storage (§9.7.1 rule 2),
+            // so demoting through the modify was refused outright and this fork could not
+            // complete. Nothing caught it because this service's tests mock the foundation.
+            await this.contentItemService.DemoteContentItemVersionAsync(
+                contentItemId: currentContentItem.Id,
                 cancellationToken: cancellationToken);
 
             return await this.contentItemService.AddContentItemAsync(

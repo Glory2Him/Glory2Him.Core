@@ -316,15 +316,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     .ReturnsAsync(newVersionLinkId);
 
             var callOrder = new List<string>();
-            Link? capturedDemotedLink = null;
+            Guid capturedDemotedLinkId = Guid.Empty;
             Link? capturedNewVersionLink = null;
 
             this.linkServiceMock.Setup(service =>
-                service.ModifyLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()))
-                    .Callback<Link, CancellationToken>((link, cancellationToken) =>
+                service.DemoteLinkVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .Callback<Guid, CancellationToken>((linkId, cancellationToken) =>
                     {
                         callOrder.Add("demote");
-                        capturedDemotedLink = link;
+                        capturedDemotedLinkId = linkId;
                     })
                     .ReturnsAsync(expectedDemotedLink);
 
@@ -350,7 +350,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             // then
             actualLink.Should().BeEquivalentTo(expectedLink);
-            capturedDemotedLink.Should().BeEquivalentTo(expectedDemotedLink);
+            // the demotion names the row and nothing else — IsLatestVersion is the foundation
+            // verb's to write, not this service's to hand over
+            capturedDemotedLinkId.Should().Be(storageLink.Id);
             capturedNewVersionLink.Should().BeEquivalentTo(expectedNewVersionLink);
             callOrder.Should().Equal("demote", "add");
 
@@ -367,7 +369,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 Times.Once);
 
             this.linkServiceMock.Verify(service =>
-                service.ModifyLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()),
+                service.DemoteLinkVersionAsync(storageLink.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.linkServiceMock.Verify(service =>
@@ -436,13 +438,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(Guid.NewGuid());
 
-            Link? capturedDemotedLink = null;
+            Guid capturedDemotedLinkId = Guid.Empty;
             Link? capturedNewVersionLink = null;
 
             this.linkServiceMock.Setup(service =>
-                service.ModifyLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()))
-                    .Callback<Link, CancellationToken>((link, cancellationToken) =>
-                        capturedDemotedLink = link)
+                service.DemoteLinkVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .Callback<Guid, CancellationToken>((linkId, cancellationToken) =>
+                        capturedDemotedLinkId = linkId)
                     .ReturnsAsync(storageLink);
 
             this.linkServiceMock.Setup(service =>
@@ -456,9 +458,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 inputLink,
                 TestContext.Current.CancellationToken);
 
-            // then
-            capturedDemotedLink!.IsLatestVersion.Should().BeFalse();
-            capturedDemotedLink.IsPublished.Should().Be(storedIsPublished);
+            // then: the fork demotes the row it read and starts the new one dark. That the
+            // demotion leaves IsPublished alone is the demote verb's field scope to guarantee
+            // and is asserted against the foundation service, not here — this service no longer
+            // hands over an entity it could get wrong.
+            capturedDemotedLinkId.Should().Be(storageLink.Id);
+            storageLink.IsPublished.Should().Be(storedIsPublished);
             capturedNewVersionLink!.IsLatestVersion.Should().BeTrue();
             capturedNewVersionLink.IsPublished.Should().BeFalse();
         }

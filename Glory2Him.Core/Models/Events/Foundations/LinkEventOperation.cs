@@ -48,6 +48,18 @@ namespace Glory2Him.Core.Models.Events.Foundations
         // Approved.
         Submitted,
         Approved,
-        Rejected
+        Rejected,
+
+        // The version fork's demotion of the previous latest row (§3.4 rule 18, §9.7.1 rule 2).
+        // A FACT with no request address behind it, which is deliberate: the demotion is a step
+        // inside the fork rather than an act of its own, and a public request address would let
+        // a caller demote a version without creating its replacement — leaving a GroupId with no
+        // IsLatestVersion = true row and therefore no edit tip at all.
+        //
+        // It publishes here rather than on Modified so a demotion cannot be read as a content
+        // amendment. §10.17 rule 2 tolerated the Modified by having the approval workflow
+        // subscribe to the top-layer fact instead; announcing the demotion honestly is stricter
+        // than relying on nobody listening.
+        Demoted
     }
 }

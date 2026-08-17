@@ -56,6 +56,10 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid LinkRejectedEventAddressId =
             new Guid("7339041b-d413-48aa-bf27-dc63b8f50680");
 
+        // A fact address with no request address behind it — see LinkEventOperation.
+        public static readonly Guid LinkDemotedEventAddressId =
+            new Guid("019ff41d-8a53-7f10-8e26-4b7c93d0a5f2");
+
         internal static readonly IReadOnlyDictionary<LinkEventOperation, Guid>
             LinkEventAddressIds = new Dictionary<LinkEventOperation, Guid>
             {
@@ -77,7 +81,8 @@ namespace Glory2Him.Core.Models.Configurations
 
                 { LinkEventOperation.Submitted, LinkSubmittedEventAddressId },
                 { LinkEventOperation.Approved, LinkApprovedEventAddressId },
-                { LinkEventOperation.Rejected, LinkRejectedEventAddressId }
+                { LinkEventOperation.Rejected, LinkRejectedEventAddressId },
+                { LinkEventOperation.Demoted, LinkDemotedEventAddressId }
             };
 
         internal static readonly IReadOnlyDictionary<Guid, string> LinkEventAddresses =
@@ -95,7 +100,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { LinkRemovedEventAddressId, "Link-Removed" },
                 { LinkSubmittedEventAddressId, "Link-Submitted" },
                 { LinkApprovedEventAddressId, "Link-Approved" },
-                { LinkRejectedEventAddressId, "Link-Rejected" }
+                { LinkRejectedEventAddressId, "Link-Rejected" },
+                { LinkDemotedEventAddressId, "Link-Demoted" }
             };
 
         public static readonly Guid LinkOnAddingLinkSubscriptionId =
@@ -136,5 +142,10 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string LinkOnApprovingLinkSubscriptionName =
             "LinkService.OnApprovingLink";
+
+        // Demote has no subscription and no request address (see LinkEventOperation). This name
+        // exists only as the ProcessedEvents receiver, the same way sort's does on Association.
+        public const string LinkOnDemotingLinkSubscriptionName =
+            "LinkService.OnDemotingLink";
     }
 }
