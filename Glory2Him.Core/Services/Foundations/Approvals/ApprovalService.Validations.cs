@@ -191,6 +191,26 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 (Rule: IsGreaterThan(approval.UpdatedBy, 255),
                     Parameter: nameof(Approval.UpdatedBy)),
 
+                (Rule: IsGreaterThan(approval.ApprovedByBypassReason, 500),
+                    Parameter: nameof(Approval.ApprovedByBypassReason)),
+
+                // An approval is born undecided. Approved and Rejected are the workflow's to
+                // record through the modify-side §8.6.1 gate, and the bypass pair is DERIVED
+                // from that gate's verdict (§9.7.5) — so none of the three may arrive on add.
+                // Without these rules a caller could insert a row already Approved, or one
+                // attesting that conditions were waived when no decision ever ran — and unlike
+                // the entity siblings, whose ordinary approve transition rewrites the pair on
+                // every approval, nothing rewrites it on an Approval row: the forgery would be
+                // permanent.
+                (Rule: IsNotContributableStatus(approval.ApprovalStatus),
+                    Parameter: nameof(Approval.ApprovalStatus)),
+
+                (Rule: IsSetOnAdd(approval.IsApprovedByBypass),
+                    Parameter: nameof(Approval.IsApprovedByBypass)),
+
+                (Rule: IsSetOnAdd(approval.ApprovedByBypassReason),
+                    Parameter: nameof(Approval.ApprovedByBypassReason)),
+
                 (Rule: IsNotSame(
                         firstDate: approval.UpdatedWhen,
                         secondDate: approval.CreatedWhen,
@@ -233,6 +253,11 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
                 (Rule: IsGreaterThan(approval.UpdatedBy, 255),
                     Parameter: nameof(Approval.UpdatedBy)),
+
+                // Capped to the column (design §7.2) so an over-long bypass reason is refused
+                // here as bad input rather than surfacing from SQL as a dependency failure.
+                (Rule: IsGreaterThan(approval.ApprovedByBypassReason, 500),
+                    Parameter: nameof(Approval.ApprovedByBypassReason)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -308,7 +333,9 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 //
                 // ApprovalStatus is deliberately NOT pinned. §14.7 posture D rule 3 has
                 // reviewers move the status through this very path; pinning it would refuse the
-                // operation's purpose. What narrows that is the authorization gate, not a pin.
+                // operation's purpose. What narrows it is authorization, not a pin — the amend
+                // gate for the workflow statuses, and the §8.6.1 decision gate on top of it the
+                // moment the payload moves the status into Approved or Rejected.
                 (Rule: IsNotSame(
                         first: inputApproval.EntityType,
                         second: storageApproval.EntityType,
@@ -319,24 +346,33 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                         first: inputApproval.EntityId,
                         second: storageApproval.EntityId,
                         secondName: nameof(Approval.EntityId)),
-                    Parameter: nameof(Approval.EntityId)),
+                    Parameter: nameof(Approval.EntityId)));
+        }
 
-                // The bypass pair records that the §8.5 conditions were WAIVED and why. §9.7.5
-                // makes the bypass verb the only path that ever sets it, so the general modify
-                // must not: unpinned, an authorized caller could mark an approval bypassed — or
-                // erase an existing waiver and its reason — without any waiver being recorded.
-                //
-                // Nothing writes these on an Approval row today. Every setter in the repo writes
-                // them on the ENTITY, and there are two kinds: the ordinary approve transition,
-                // which derives the flag from the verdict and always clears the reason (all seven
-                // approvable entities), and Association's bypass transition — the only actual
-                // bypass verb that exists — which is the one place a waiver is ever recorded.
-                // Either way this pin blocks no legitimate writer.
-                //
-                // Should the approval-level bypass verb of §12.5 be added, the pattern to copy is
-                // AssociationService.Transitions.cs's BYPASS transition, not the ordinary approve
-                // beside it: the latter hardcodes the reason to null and so could never record a
-                // waiver. It writes through its own transition, not through here.
+        /// <summary>
+        /// The bypass pair records that the §8.5 conditions were WAIVED and why, so outside an
+        /// approval decision it is pinned to storage: unpinned, an authorized caller could mark
+        /// an approval bypassed — or erase an existing waiver and its stated reason — without
+        /// any waiver being decided.
+        ///
+        /// <para>When the modify IS the approval decision, the payload pair is the caller's
+        /// bypass REQUEST rather than a write: the §8.6.1 decision refuses a bypass the policy
+        /// closes or one with no reason, and what lands is derived from its verdict, never
+        /// copied from the payload. That is why the pin steps aside for exactly the
+        /// becoming-Approved path and no other — a rejection waives nothing, so it keeps the
+        /// pin, and so does every workflow-status move.</para>
+        /// </summary>
+        private static void ValidateBypassPairAgainstStorageOnModify(
+            Approval inputApproval,
+            Approval storageApproval)
+        {
+            if (IsBecomingApproved(inputApproval, storageApproval))
+            {
+                return;
+            }
+
+            Validate(
+                message: "Approval is invalid, fix the errors and try again.",
                 (Rule: IsNotSame(
                         first: inputApproval.IsApprovedByBypass,
                         second: storageApproval.IsApprovedByBypass,
@@ -345,14 +381,78 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
                 // Coalesced because the column is nullable and "no reason recorded" is the same
                 // fact whether it is stored as null or as empty — a caller sending one for the
-                // other is not attempting a change worth refusing. Every sibling pin on this same
-                // field coalesces for that reason; comparing raw would refuse a round-trip from
-                // any client that normalises null to empty, which is most of them.
+                // other is not attempting a change worth refusing. Every sibling pin on this
+                // same field coalesces for the same reason.
                 (Rule: IsNotSame(
                         first: inputApproval.ApprovedByBypassReason ?? string.Empty,
                         second: storageApproval.ApprovedByBypassReason ?? string.Empty,
                         secondName: nameof(Approval.ApprovedByBypassReason)),
                     Parameter: nameof(Approval.ApprovedByBypassReason)));
+        }
+
+        // Approved is the one outcome that writes the bypass pair; Rejected waives nothing, and
+        // Draft, Submitted and Dismissed are workflow states rather than outcomes.
+        private static bool IsBecomingApproved(Approval inputApproval, Approval storageApproval) =>
+            inputApproval.ApprovalStatus == ApprovalStatus.Approved
+                && storageApproval.ApprovalStatus != ApprovalStatus.Approved;
+
+        // Moving an approval INTO Approved or Rejected is applying the §8.6.1 decision, which
+        // the amend gate was never asked about: it answers "may this caller touch this row",
+        // and §14.7 posture D rule 3 admits the SUBMITTER there. Without the second question a
+        // role-less submitter could approve their own round through modify.
+        private static bool IsApplyingOutcome(Approval inputApproval, Approval storageApproval) =>
+            inputApproval.ApprovalStatus != storageApproval.ApprovalStatus
+                && (inputApproval.ApprovalStatus == ApprovalStatus.Approved
+                    || inputApproval.ApprovalStatus == ApprovalStatus.Rejected);
+
+        /// <summary>
+        /// The §8.6.1 gate for the two outcome statuses, asked of the STORED approval and
+        /// answered by the same decision function the entity transitions consult. Null when the
+        /// payload applies no outcome; the verdict otherwise, because the caller derives the
+        /// stored bypass pair from it (§9.7.5).
+        ///
+        /// <para>Runs in ADDITION to the amend gate rather than instead of it. This is a
+        /// deliberate AND of two DIFFERENT questions — may this caller touch this row; may this
+        /// caller apply this outcome — not the two-gates-one-question composition that deleted
+        /// the owner branch in #251: the submitter keeps every amendment posture D grants them,
+        /// and gains an outcome only when the decision function says so.</para>
+        /// </summary>
+        private async ValueTask<AccessVerdict> ValidateUserMayDecideStorageApprovalAsync(
+            Approval inputApproval,
+            Approval storageApproval,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
+        {
+            if (IsApplyingOutcome(inputApproval, storageApproval) is false)
+            {
+                return null;
+            }
+
+            ApprovalDecision decision = inputApproval.ApprovalStatus == ApprovalStatus.Approved
+                ? ApprovalDecision.Approve
+                : ApprovalDecision.Reject;
+
+            AccessVerdict verdict = await this.accessBroker.MayDecideApprovalByIdAsync(
+                approvalId: storageApproval.Id,
+                decision: decision,
+                isBypassRequested: inputApproval.IsApprovedByBypass,
+                bypassReason: inputApproval.ApprovedByBypassReason,
+                securityContext: securityContext,
+                cancellationToken: cancellationToken);
+
+            if (verdict.IsPermitted is false)
+            {
+                // §14.5: the true reason server-side, nothing about the policy to the caller.
+                await this.loggingBroker.LogWarningAsync(
+                    $"Approval decision denied for approval {storageApproval.Id}. "
+                        + $"{verdict.DenialReason}: {verdict.Explanation} "
+                        + "Reported to the caller as unauthorized.");
+
+                throw new UnauthorizedApprovalException(
+                    message: "The current user is not allowed to decide this approval.");
+            }
+
+            return verdict;
         }
 
         private static void ValidateOnRetrieveApprovalById(Guid approvalId) =>
@@ -462,6 +562,30 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 Condition = firstDate != secondDate,
                 Message = $"Date is not the same as {secondDateName}"
             };
+
+        private static dynamic IsSetOnAdd(bool value) => new
+        {
+            Condition = value,
+            Message = "Value is not allowed on add"
+        };
+
+        private static dynamic IsSetOnAdd(string? text) => new
+        {
+            Condition = string.IsNullOrWhiteSpace(text) is false,
+            Message = "Text is not allowed on add"
+        };
+
+        // a caller may save work in progress or submit it for review; the remaining states
+        // are verdicts, and a verdict is the approval workflow's to record (design §9.7.1
+        // rule 1)
+        private static dynamic IsNotContributableStatus(ApprovalStatus approvalStatus) => new
+        {
+            Condition = approvalStatus != ApprovalStatus.Draft
+                && approvalStatus != ApprovalStatus.Submitted,
+
+            Message = $"Value must be {nameof(ApprovalStatus.Draft)} " +
+                $"or {nameof(ApprovalStatus.Submitted)} on add"
+        };
 
         private static dynamic IsGreaterThan(string? text, int maxLength) => new
         {

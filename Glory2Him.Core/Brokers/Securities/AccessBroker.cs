@@ -209,7 +209,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
             ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
 
-            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects) = await ResolveEntityAsync(
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _) = await ResolveEntityAsync(
                 maybeApproval.EntityType,
                 maybeApproval.EntityId,
                 cancellationToken);
@@ -250,7 +250,7 @@ namespace Glory2Him.Core.Brokers.Securities
             // Subjects only. The amendment decision reads neither the round nor the reviews, so
             // gathering them would be work whose result is discarded — and would invite a later
             // change to start consulting a window that posture D rule 3 exists to let callers move.
-            (_, IReadOnlyList<RoleSubject> roleSubjects) = await ResolveEntityAsync(
+            (_, IReadOnlyList<RoleSubject> roleSubjects, _) = await ResolveEntityAsync(
                 maybeApproval.EntityType,
                 maybeApproval.EntityId,
                 cancellationToken);
@@ -264,6 +264,67 @@ namespace Glory2Him.Core.Brokers.Securities
                     // From STORAGE. Taking the submitter from a caller's copy would let anyone
                     // name themselves the owner and clear the gate on someone else's approval.
                     ApprovalCreatedBy = maybeApproval.CreatedBy,
+                });
+        }
+
+
+        public async ValueTask<AccessVerdict> MayDecideApprovalByIdAsync(
+            Guid approvalId,
+            ApprovalDecision decision,
+            bool isBypassRequested,
+            string? bypassReason,
+            SecurityContext securityContext,
+            CancellationToken cancellationToken = default)
+        {
+            AccessActor actor = await BuildActorAsync(securityContext);
+
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return RefuseMissingApproval(approvalId);
+            }
+
+            // Everything below is resolved off the STORED approval's target. A payload naming a
+            // different entity could otherwise move the question onto rows the caller does hold
+            // a role for — the same reason the amend gate reads storage.
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, decimal? confidenceScore) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
+
+            ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
+
+            IReadOnlyList<ApprovalPolicy> candidatePolicies = await GatherPoliciesAsync(
+                maybeApproval.EntityType,
+                cancellationToken);
+
+            return await this.securityClient.Access.MayDecideApprovalAsync(
+                new DecideApprovalRequest
+                {
+                    Actor = actor,
+                    Decision = decision,
+                    RoleSubjects = roleSubjects,
+                    CandidatePolicies = candidatePolicies,
+                    EntityType = maybeApproval.EntityType.ToString(),
+
+                    // The policy key's content-type half. Only ContentItem scopes its policies
+                    // this way, and its single subject carries the stored row's value — an
+                    // association's policy key is its own type, never an endpoint's (§8.4).
+                    ContentType = maybeApproval.EntityType == EntityType.ContentItem
+                        ? roleSubjects[0].ContentType
+                        : null,
+
+                    EntityCreatedBy = entityCreatedBy,
+                    ApprovalState = snapshot.State,
+                    Reviews = snapshot.Reviews,
+                    ApprovalComments = snapshot.ApprovalComments,
+                    ConfidenceScore = confidenceScore,
+                    IsBypassRequested = isBypassRequested,
+                    BypassReason = bypassReason,
                 });
         }
 
@@ -287,7 +348,7 @@ namespace Glory2Him.Core.Brokers.Securities
             // neither the round window nor the existing reviews, so reading them would be work
             // whose result is discarded — and would tempt a later change to start using them,
             // which is exactly what §8.8 needs this gate not to do.
-            (_, IReadOnlyList<RoleSubject> roleSubjects) = await ResolveEntityAsync(
+            (_, IReadOnlyList<RoleSubject> roleSubjects, _) = await ResolveEntityAsync(
                 maybeApproval.EntityType,
                 maybeApproval.EntityId,
                 cancellationToken);
@@ -424,7 +485,7 @@ namespace Glory2Him.Core.Brokers.Securities
         /// replaces: the subjects used to be built from the approval's own <c>EntityType</c>,
         /// which is right for every entity except the one that matters.</para>
         /// </summary>
-        private async ValueTask<(string CreatedBy, IReadOnlyList<RoleSubject> RoleSubjects)> ResolveEntityAsync(
+        private async ValueTask<(string CreatedBy, IReadOnlyList<RoleSubject> RoleSubjects, decimal? ConfidenceScore)> ResolveEntityAsync(
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken)
@@ -437,18 +498,19 @@ namespace Glory2Him.Core.Brokers.Securities
 
                     return (
                         contentItem?.CreatedBy ?? string.Empty,
-                        SubjectsFor(entityType, contentItem?.ContentType));
+                        SubjectsFor(entityType, contentItem?.ContentType),
+                        null);
 
                 case EntityType.Tag:
                     var tag = await this.storageBroker.SelectTagByIdAsync(entityId, cancellationToken);
 
-                    return (tag?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
+                    return (tag?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null);
 
                 case EntityType.Reaction:
                     var reaction =
                         await this.storageBroker.SelectReactionByIdAsync(entityId, cancellationToken);
 
-                    return (reaction?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
+                    return (reaction?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null);
 
                 case EntityType.BibleReference:
                     var bibleReference =
@@ -456,24 +518,24 @@ namespace Glory2Him.Core.Brokers.Securities
 
                     return (
                         bibleReference?.CreatedBy ?? string.Empty,
-                        SubjectsFor(entityType, contentType: null));
+                        SubjectsFor(entityType, contentType: null), null);
 
                 case EntityType.Comment:
                     var comment =
                         await this.storageBroker.SelectCommentByIdAsync(entityId, cancellationToken);
 
-                    return (comment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
+                    return (comment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null);
 
                 case EntityType.Link:
                     var link = await this.storageBroker.SelectLinkByIdAsync(entityId, cancellationToken);
 
-                    return (link?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
+                    return (link?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null);
 
                 case EntityType.Attachment:
                     var attachment =
                         await this.storageBroker.SelectAttachmentByIdAsync(entityId, cancellationToken);
 
-                    return (attachment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null));
+                    return (attachment?.CreatedBy ?? string.Empty, SubjectsFor(entityType, contentType: null), null);
 
                 case EntityType.Association:
                     var association =
@@ -485,7 +547,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     // for a role nobody can hold, which is what the row below falls back to when
                     // the association is missing, deliberately.
                     return association is null
-                        ? (string.Empty, SubjectsFor(entityType, contentType: null))
+                        ? (string.Empty, SubjectsFor(entityType, contentType: null), null)
                         : (association.CreatedBy, new List<RoleSubject>
                         {
                             new RoleSubject
@@ -498,7 +560,7 @@ namespace Glory2Him.Core.Brokers.Securities
                                 EntityType = association.EntityBType.ToString(),
                                 ContentType = association.EntityBContentType?.ToString(),
                             },
-                        });
+                        }, association.ConfidenceScore);
 
                 default:
                     // A new EntityType member reaching here has no traversal, so the author is
@@ -515,7 +577,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     // a blank author underneath. Association is the sole type with no scoped roles
                     // of its own; a future one is not. Add the case above rather than relying on
                     // this arm.
-                    return (string.Empty, SubjectsFor(entityType, contentType: null));
+                    return (string.Empty, SubjectsFor(entityType, contentType: null), null);
             }
         }
 

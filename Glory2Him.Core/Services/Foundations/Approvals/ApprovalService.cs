@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
@@ -22,6 +23,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -361,6 +363,14 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 
+            // Null unless the payload moves the status into Approved or Rejected; the §8.6.1
+            // verdict otherwise, which the derivation below records.
+            AccessVerdict outcomeVerdict = await ValidateUserMayDecideStorageApprovalAsync(
+                inputApproval: approval,
+                storageApproval: maybeApproval,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
             approval = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     entity: approval,
@@ -369,6 +379,25 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             ValidateAgainstStorageApprovalOnModify(
                 inputApproval: approval,
                 storageApproval: maybeApproval);
+
+            ValidateBypassPairAgainstStorageOnModify(
+                inputApproval: approval,
+                storageApproval: maybeApproval);
+
+            if (outcomeVerdict is not null && approval.ApprovalStatus == ApprovalStatus.Approved)
+            {
+                // DERIVED from the verdict, never copied from the payload. The verdict can come
+                // back IsBypassUsed = false even when a bypass was requested — the conditions
+                // happened to be met, so nothing was waived — and recording the request instead
+                // of the outcome would manufacture a waiver that never happened (§9.7.5).
+                // Approving normally over a previously bypass-approved round clears the stale
+                // pair the same way the entity transitions do.
+                approval.IsApprovedByBypass = outcomeVerdict.IsBypassUsed;
+
+                approval.ApprovedByBypassReason = outcomeVerdict.IsBypassUsed
+                    ? approval.ApprovedByBypassReason
+                    : null;
+            }
 
             Approval updatedApproval =
                 await this.storageBroker.UpdateApprovalAsync(approval, cancellationToken);

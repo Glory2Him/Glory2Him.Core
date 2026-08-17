@@ -381,13 +381,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
 
         /// <summary>
-        /// The bypass pair records that the §8.5 conditions were WAIVED and why. §9.7.5 makes the
-        /// bypass verb the only path that ever sets it, so the general modify must not — unpinned,
-        /// an authorized caller could mark an approval bypassed, or erase an existing waiver and
-        /// its stated reason, with no waiver recorded anywhere.
+        /// The bypass pair records that the §8.5 conditions were WAIVED and why, so outside an
+        /// approval decision it is pinned to storage — unpinned, an authorized caller could mark
+        /// an approval bypassed, or erase an existing waiver and its stated reason, with no
+        /// waiver ever decided.
         ///
-        /// <para>Nothing writes these on an <c>Approval</c> row today: every setter in the repo is
-        /// a bypass transition on the ENTITY. So the pin blocks no legitimate writer.</para>
+        /// <para>The one path where the pair may change is the becoming-Approved modify, where
+        /// it is DERIVED from the §8.6.1 verdict — the Modify.Outcome tests pin that side; this
+        /// one pins that every other path still refuses.</para>
         /// </summary>
         [Theory]
         [InlineData(true)]

@@ -10,8 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Collections;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
@@ -629,5 +634,121 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// An approval is born undecided: Draft and Submitted are the contributable statuses,
+        /// and the remaining three are the workflow's to record through the modify-side
+        /// decision gate. A row inserted already Approved would skip that gate entirely.
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalStatus.Draft, false)]
+        [InlineData(ApprovalStatus.Submitted, false)]
+        [InlineData(ApprovalStatus.Approved, true)]
+        [InlineData(ApprovalStatus.Rejected, true)]
+        [InlineData(ApprovalStatus.Dismissed, true)]
+        public async Task ShouldRefuseAnApprovalThatArrivesDecidedOnAddAsync(
+            ApprovalStatus approvalStatus,
+            bool expectRefusal)
+        {
+            // given: everything else deliberately blank, so the run always throws and the only
+            // question is whether ApprovalStatus is among the reported errors
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            var invalidApproval = new Approval
+            {
+                ApprovalStatus = approvalStatus,
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(invalidApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Approval> addApprovalTask =
+                this.approvalService.AddApprovalAsync(
+                    invalidApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(addApprovalTask.AsTask);
+
+            // then
+            bool statusWasRefused = actualException.InnerException!.Data.Keys
+                .Cast<string>()
+                .Contains(nameof(Approval.ApprovalStatus));
+
+            statusWasRefused.Should().Be(expectRefusal);
+        }
+
+        /// <summary>
+        /// The bypass pair is the §8.6.1 decision's to derive (§9.7.5), so neither half may
+        /// arrive on add — a row inserted with the pair set would attest that conditions were
+        /// waived when no decision ever ran, and nothing on an Approval row rewrites the pair
+        /// afterwards. The over-long case asserts BOTH messages so the 500 cap on the add path
+        /// cannot silently vanish behind the not-allowed rule.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseTheBypassPairOnAddAsync()
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            var invalidApproval = new Approval
+            {
+                IsApprovedByBypass = true,
+                ApprovedByBypassReason = new string('x', 501),
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(invalidApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Approval> addApprovalTask =
+                this.approvalService.AddApprovalAsync(
+                    invalidApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(addApprovalTask.AsTask);
+
+            // then
+            IDictionary actualData = actualException.InnerException!.Data;
+
+            actualData.Keys.Cast<string>()
+                .Should().Contain(nameof(Approval.IsApprovedByBypass));
+
+            ((IEnumerable<string>)actualData[nameof(Approval.ApprovedByBypassReason)]!)
+                .Should().BeEquivalentTo(
+                    "Text exceed max length of 500 characters",
+                    "Text is not allowed on add");
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
     }
 }
