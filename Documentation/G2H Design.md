@@ -117,6 +117,8 @@ The content item model should contain the following design-relevant properties:
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
 
+SEO and share fields — `Slug`, `MetaDescription` and `ShortCode` — are specified in §19.2, §19.3 and §19.7 and are not columns yet. `Content` may reference uploaded images inline by their media URL (§5.6.6); an inline reference is body text, not a column and not an association.
+
 ### 3.3 Content Versioning
 
 Content is versioned by using:
@@ -246,7 +248,7 @@ public enum ContentType
 
 ### 3.7 ContentType Properties
 
-Not applicable. `ContentType` has no properties of its own — it is persisted as a string (`HasConversion<string>()`, matching `EntityType`, `Scope`, and `ApprovalStatus`) wherever it is stored, and it is `ContentItem`, `ContentItemSetting`, and `ApprovalSetting` that carry a `ContentType` value, not the reverse. Adding, renaming, or removing a member is a code change and a release, not a runtime CRUD operation.
+Not applicable. `ContentType` has no properties of its own — it is persisted as a string (`HasConversion<string>()`, matching `Scope`, and matching `EntityType` on `ApprovalSettings` and `Associations`; the unconverted exceptions are `ApprovalStatus`, which has no conversion on any table, and `EntityType` on `Approvals` — both persist as `int`) wherever it is stored, and it is `ContentItem`, `ContentItemSetting`, and `ApprovalSetting` that carry a `ContentType` value, not the reverse. Adding, renaming, or removing a member is a code change and a release, not a runtime CRUD operation.
 
 ### 3.8 Content Type Rules
 
@@ -287,6 +289,8 @@ It supports:
 
 **There is no `Kind` and no `SourceEndpoint`.** The `(EntityType, ContentType)` pair on each endpoint already carries the meaning, and direction falls out of the asymmetry — a `Series` paired with a `Story` is always container-to-member, because the reverse is not a thing that exists. A separate discriminator would be a second source of truth for something the endpoints already say, and two sources of truth for one fact eventually disagree.
 
+**One narrow, structurally-constrained exception exists: `Purpose` (§4.9).** The no-discriminator rule rests on the premise that the endpoint pair carries the meaning — and for an `Attachment` endpoint the premise fails: `ContentItem` ↔ `Attachment` could equally mean header image, gallery member or downloadable file, and nothing on either endpoint can say which. `Purpose` names that slot. It is permitted **only** when an endpoint is an `Attachment` and forbidden otherwise, so it cannot grow into a general `Kind`: everywhere the pair is self-describing, a discriminator stays refused for the reason above.
+
 ### 4.2 Endpoint Shape
 
 Each endpoint carries the same six fields:
@@ -302,7 +306,7 @@ Each endpoint carries the same six fields:
 
 Plus `UserId`, set only where the association is personal rather than editorial — today a `Reaction` endpoint. Null means editorial.
 
-`Association` also implements `ISortOrder` (§11.7) and `IConfidence` (§9.7.1 rule 5).
+`Association` also implements `ISortOrder` (§11.7) and `IConfidence` (§9.7.1 rule 5), and carries `Purpose` and `IsDefault` for purposeful attachment placements (§4.9) — row-level fields like `UserId` and `SortOrder`, not part of either endpoint block.
 
 ### 4.3 Scope Rules
 
@@ -337,6 +341,8 @@ A is the endpoint with the lower `(EntityType name, GroupId)` tuple; B is the ot
 1. **It is the read predicate.** Every tag panel and related-passage panel asks "associations for this entity". Without the column that is an `OR` across `KeyId`/`GroupId` plus two scope tests per side; with it, one seekable comparison on the query that runs on every page render.
 2. **It makes uniqueness a database guarantee.** Two `AllVersions` rows for the same group differing only in `KeyId` mean the same thing; over the raw columns they are distinct rows, and the effective id collapses them. This matters because foundation services are reachable through public event addresses and cannot assume an orchestration's retrieve-or-add ran first. `UX_Associations_Pair` is the unique index over it, filtered on `IsDeleted = 0`, keyed on both endpoints' type and effective id with `UserId` last — nullable, so one index means "one per user" when set and "one globally" when null. It is paired with `CK_Association_CanonicalOrder`, without which the same pair written the other way round is a different key and the duplicate lands.
 
+   `Purpose` (§4.9 — designed, not built) joins the key: `(EntityAType, EntityAEffectiveId, EntityBType, EntityBEffectiveId, UserId, Purpose)`, so the same pair may exist once per purpose — `UserId` keeps its position and its null-collapse role, with `Purpose` extending the key behind it. The index remains **deduplication**, not selection — it answers "has this exact statement been made before", while §4.9 rule 5 answers "which candidate renders". Existing rows all carry `Purpose = NULL`, which the unique index treats as a value, so per-pair semantics on non-attachment associations are unchanged.
+
 ### 4.7 Associated Entity Types
 
 The supported entity types on either endpoint are defined by `EntityType`.
@@ -370,6 +376,29 @@ Example:
 `ContentItemSetting` is not generalised to cover that. It stays scoped to content items (§6.1), and each host entity type gets its own settings entity instead — `BibleReferenceSetting` (§6.9) for the reference page. An association resolves the allowed/show switches per endpoint, from that endpoint's own settings entity, and is permitted only when both ends allow it (§6.10).
 
 Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, ContentType)` (§8.4) and needs no host at all.
+
+### 4.9 Purposeful Placements — Purpose and IsDefault
+
+**Status: designed, not built** (agreed 2026-08-17). Two row-level fields and one narrow operation, so an attachment can be attributed to a host *for a stated reason* — the header image of a story, the verse image of a Bible reference — without reintroducing the general discriminator §4.1 refuses.
+
+| Field | Shape | Ownership |
+| --- | --- | --- |
+| `Purpose` | Nullable enum, persisted as a string via `HasConversion<string>()`, like the association's string-converted enum columns — `EntityAType` / `EntityBType`, the two `Scope`s and the two `ContentType`s — rather than its `int`-persisted `ApprovalStatus` (§3.7). Members are append-only: `Header = 0`, `Verse = 1`, `Gallery = 2` *(reserved)*. | Caller-chosen on add, then pinned against storage like the endpoints — re-purposing a row is remove + add, for the §4.5 rule 4 reason. |
+| `IsDefault` | `bit NOT NULL DEFAULT 0`. Marks the preferred row among same-purpose candidates. | Refused on add; written only by the set-default operation (rule 4); pinned on the general modify. |
+
+Rules:
+
+1. **`Purpose` is mandatory when an endpoint is an `Attachment`, and forbidden when none is.** Enforced twice: `CK_Association_PurposeMatchesAttachmentEndpoint` — `(Purpose IS NULL AND EntityAType <> 'Attachment' AND EntityBType <> 'Attachment') OR (Purpose IS NOT NULL AND (EntityAType = 'Attachment' OR EntityBType = 'Attachment'))` — and the same rule in foundation validation with a typed exception. Every attachment association must say *why* the file is attached; a future purpose-less attachment (a downloadable file, say) is a new enum member such as `Download`, never a null.
+2. **`IsDefault` requires a `Purpose`** — `CK_Association_DefaultRequiresPurpose`: `IsDefault = 0 OR Purpose IS NOT NULL`. A default with no slot to be the default *of* is meaningless.
+3. **`Purpose` joins `UX_Associations_Pair` and both retrieve-or-add probes** (§4.6). The pair index is deduplication — so the same image may be a header candidate *and* a gallery member of one host as two rows, and a header add cannot false-positive against an existing gallery row of the same pair.
+4. **`SetAssociationDefaultAsync` is the only writer of `IsDefault`.** It follows the set-scope/set-confidence shape (§14.7): it clears same-host, same-purpose siblings and then flags the target within one save — ordered so the rule 6 index never sees two flagged rows mid-flight — and publishes `Association-DefaultSet` on its own address. It **refuses a target that is not `Approved`** (or is deleted): only a vetted candidate can be promoted, so the default is always a member of the rendered set, never a hidden intention.
+
+   **Who may call it is not yet ruled.** The nearest precedents disagree: `Sort` (also presentation) admits the owner and `Admin` — but the row-local owner is the association's `CreatedBy`, who for a suggested candidate is not the host content's owner, and resolving the host's owner is not row-local (§14.7 posture A′) — while set-confidence and set-scope admit `Publisher` and `Admin`. Until ruled, the conservative reading is `Admin`, the one caller every precedent admits; whether the `Publisher` tier or the owner joins it is the open half of the ruling.
+5. **Selection is a resolution rule, not a constraint.** Any number of same-purpose candidates may exist per host. The rendered attachment for a (host, purpose) slot is chosen among **visible candidates** — §14.3's association-visibility composite, which is association `Approved` + published + not deleted, both endpoints visible under their own §14.1 rule (so the attachment group must hold a published, non-deleted version), and the host's effective settings permitting display (§6.10 — `ShowAttachments` for a content item) — by `ORDER BY IsDefault DESC, PublishDate ASC, CreatedWhen ASC, Id ASC`, take 1: the default wins, otherwise the first approved candidate, with the ordering tail making "first" deterministic on every read surface. **`IsDefault` never overrides approval** — the flag orders candidates *within* the vetted set; a row outside it (`Draft`, `Submitted`, `Rejected`, unpublished, or deleted) does not exist to the resolver, flagged or not. A flagged row that later leaves the vetted set — an `Admin` status override, a takedown of the image — simply stops being a candidate, and the fallback covers the gap without an edit.
+6. **At most one default per (host, purpose) slot** — `UX_Associations_DefaultPurpose`, unique over `(EntityBType, EntityBEffectiveId, Purpose)` filtered `WHERE IsDefault = 1 AND IsDeleted = 0`. Keying the host on the B side works because canonical ordering (§4.4) sorts on the enum *name*, and `"Attachment"` precedes every other resolvable endpoint name ordinally — so the attachment lands on A and the host on B. The one ordinal exception is `Association` itself, which sorts before `Attachment`; an `Association` ↔ `Attachment` pair is not a resolvable shape today and must stay refused while this index keys the host on B. Note the level: the constraint bites per **(host, purpose)** — per (pair, purpose) it would be vacuous, since rule 3 already permits only one row there. What it forbids is two *different* images both flagged as the default header of one item.
+7. **Scope needs nothing new.** §4.5 rule 1's defaults are correct here: `AllVersions` on both sides for `ContentItem` ↔ `Attachment` means one candidate set per content group, resolving to the attachment group's newest published bytes (§5.6.4); a non-versioned host such as `BibleReference` derives `ThisVersionOnly` as always.
+8. **The orchestration add flow threads `Purpose` through** — the add and both probes match on it — and refuses a caller-supplied `IsDefault`. The `Attachment` arm of endpoint resolution is unblocked by the `AttachmentService` of §12.3 entry 12; until that exists the arm keeps throwing, exactly as today.
+9. **Approval of the attachment itself derives from the host** — §5.6.5. Nothing here changes association approval (§4.8): a purposeful association is approvable like any other.
 
 ## 5. Supporting Content Entities
 
@@ -443,6 +472,7 @@ Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, C
 | Property | Purpose |
 | --- | --- |
 | `Id` | Unique Bible reference identifier. |
+| `USFM` | Canonical passage key including translation, such as `JHN.3.16.NIV`. Unique across non-deleted rows and immutable after creation (§7.5.1 rule 4, §12.3.1 rule 2a). |
 | `Reference` | Bible reference, such as `John 3:16`. |
 | `Translation` | Bible translation, such as NIV, KJV, ESV. |
 | `Scripture` | Optional scripture text. |
@@ -474,14 +504,18 @@ Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, C
 
 ### 5.6 Attachment
 
-`Attachment` represents a file or binary resource associated with content.
+`Attachment` represents a file or binary resource, attributed to hosts through `Association` (§4.9 for purposeful placements) or referenced inline from content bodies (§5.6.6).
 
 | Property | Purpose |
 | --- | --- |
 | `Id` | Unique attachment identifier. |
 | `Name` | Display name. |
-| `BlobUri` | Storage location. |
-| `Hash` | File hash for integrity and deduplication. |
+| `BlobUri` | Storage location (§5.6.1). Never exposed to any client. |
+| `Hash` | SHA-256 of the original uploaded bytes, for integrity and later deduplication (§5.6.3 rule 5). |
+| `MimeType` | Served `Content-Type`; recorded from the re-encoded result, never trusted from the caller. |
+| `SizeInBytes` | Size of the stored bytes — quotas, sweep reporting, storage telemetry. |
+| `Width` / `Height` | Pixel dimensions, nullable — `og:image:width/height` (§19.8) and layout stability. |
+| `AltText` | Optional accessibility text for purposeful placements (§5.6.3 rule 6). |
 | `CreatedBy` | User who created the attachment. |
 | `CreatedWhen` | Creation timestamp. |
 | `UpdatedBy` | User who last updated the attachment. |
@@ -489,6 +523,92 @@ Approval is unaffected either way: `ApprovalSetting` is keyed on `(EntityType, C
 | `DeletedBy` | User who deleted the item. |
 | `DeletedWhen` | Deletion timestamp. |
 | `DeletionReason` | Reason for deletion. |
+
+`MimeType`, `SizeInBytes`, `Width`, `Height` and `AltText` are agreed design (2026-08-17), not columns yet. §5.6.1–§5.6.7 specify the storage, serving, upload, approval and lifecycle design that lands with them; all of it shares that status.
+
+#### 5.6.1 Physical Storage
+
+1. Binaries live in **Azure Blob Storage**; SQL keeps metadata only. The `varbinary`-in-SQL alternative was rejected: the one precedent — profile avatars in the Identity database — is bounded at 256px, and content images are not, so database size, backup time and buffer-pool pressure would pay for the convenience forever. The entity was born with `BlobUri`; this section gives the column its producer.
+2. One private container, `attachments`. Blob name = the attachment row's `Id` — one blob per **version row**, and a version's bytes never change, so blob names are immutable and cacheable (§5.6.2 rule 3).
+3. Access goes through an `IBlobStorageBroker` wrapping `Azure.Storage.Blobs` — the same wrap-the-external-library pattern as the existing image-processing broker. Operations: upload, download, delete, exists, and list-by-prefix (for the §5.6.7 orphan sweep).
+4. **Write order is blob first, row second**; deletion is the mirror — row first, blob second. An orphan blob is recoverable noise for the sweep; a row pointing at a deleted blob is a broken image.
+5. `BlobUri` never leaves the server — no API response, no SAS URL handed to a browser. Everything serves through §5.6.2, which keeps storage swappable and the visibility gate in one place.
+6. Development uses **Azurite** on the same broker code path. Azure-side blob soft delete (14 days) is enabled as belt-and-braces against sweep defects.
+
+#### 5.6.2 Serving — the Media Endpoint
+
+All attachment bytes are served by one endpoint: `GET /media/{attachmentId}` (§17.6).
+
+1. Load the attachment metadata, apply the visibility gate, stream from blob storage with `Content-Type = MimeType`.
+2. **The gate** (§14.7 posture A″): a published, approved, non-deleted attachment is public. A soft-deleted attachment is not found for **every** caller, including `Admin` (§14.5 rule 3). Anything else answers **not-found** per §14.5 — never unauthorized — except to the uploader, the `Attachment` review roles, and reviewers or publishers of an entity whose row references the attachment, so a reviewer sees a draft's images in context. The gate does its own host check: it resolves the referencing host row — a §4.9 placement or a §5.6.6 inline body reference — and reads the host's state directly, never treating an association row's existence or approval as proof of host visibility (§14.3's composite rule is implemented nowhere yet — §12.5 entry 1 — and this gate must not repeat that gap).
+3. Cache headers: a given `Id`'s bytes are immutable, so a published attachment serves `public, max-age=31536000, immutable`; a non-public one serves `private, no-store`. The consequence to accept deliberately: a takedown cannot recall bytes already cached downstream. It is bounded — ids are never reused, so a purged attachment's URL goes to not-found rather than to someone else's image — but a takedown that must be immediate needs a cache purge at the CDN, not a database write.
+4. A CDN, when wanted, is a layer in front of `/media/*` — a configuration change, not a design change.
+
+#### 5.6.3 Upload Rules
+
+1. Upload is an authenticated multipart endpoint (`POST /api/attachments`, §17.6), following the existing profile-image endpoint's shape. The row is created at `Draft`: an attachment is never submitted by its uploader, because submission and approval derive from the host (§5.6.5).
+2. **Raster images only** — `jpeg`, `png`, `webp`, `gif`. **SVG is refused**, not sanitised: script-capable XML is a stored-XSS vector.
+3. The declared content type is a hint; the decision is **magic-bytes sniffing**. Size cap 10 MB; minimum dimensions 200×200 (§19.8 rule 6). A per-user rolling byte quota applies — an upload endpoint without one is a free file host.
+4. **Every upload is re-encoded** through the image-processing broker before storage, and the original bytes are never stored. Re-encoding is the sanitiser: it destroys embedded payloads and strips EXIF metadata — including GPS coordinates, a real privacy concern for photos taken on phones.
+5. `Hash` is the SHA-256 of the **original** uploaded bytes, computed before re-encode and recorded for integrity and later dedup (`IX_Attachments_Hash` already exists). Dedup itself is deferred — record now, collapse later.
+6. `MimeType`, `SizeInBytes`, `Width` and `Height` are recorded from the re-encoded result. `AltText` is optional caller metadata; a header placement falls back to the host's `Title`, a verse image to its `Reference`, and inline images carry alt text in the markdown (§5.6.6).
+
+#### 5.6.4 Versioning and Replacement
+
+1. A stored binary is immutable. "Editing" an image is uploading a replacement: a **new version row pointing at a new blob** in the same `GroupId`, entering at `Draft` like any other versioned amendment (§3.4, §7.5.1).
+2. The group's **published** row is the vetted one, and it is the only row the §4.9 resolution and the §5.6.2 gate ever surface publicly. A `Draft` replacement is invisible until it passes approval; the previously approved image keeps serving meanwhile.
+3. An association with `AllVersions` on its attachment endpoint follows the group, so a vetted replacement propagates to every host with no association write.
+4. **Known defect to fix before attachment publishing goes live:** the filtered unique indexes `UX_Attachments_GroupId_IsPublished` / `_IsLatestVersion` filter on the flag alone with no `IsDeleted` term — and no remove flow clears `IsPublished` — so a soft-deleted published version would permanently hold its group's published slot. §9.7.6 rule 1 already mandates the unpublish-on-remove half; the missing `IsDeleted` term is the defence-in-depth half.
+
+#### 5.6.5 Approval — Derived From the Host
+
+`Attachment` keeps its full `IApproval` surface like every governed entity, and its approve operation must call `IAccessBroker` (§8.6.1) like every other. What differs is *where approval comes from*: nobody reviews an image out of context, so an attachment's approval derives from the host that displays it.
+
+| Trigger | Effect |
+| --- | --- |
+| A host completes approval + publication, and a §4.9 purposeful association points at the attachment | The system approves and publishes the attachment, audited through the existing bypass mechanism — `IsApprovedByBypass = true`, reason `"Approved with host <EntityType>/<GroupId>"` — and the purposeful association is approved with it. |
+| The approved host's body references `/media/{attachmentId}` inline (§5.6.6) | The same derived approval, from a single scan of the approved version's body at approval time. |
+| A replacement version is uploaded into a group whose host is already approved and published (§5.6.4) | The host's approval is **not** re-opened — §3.5 keeps attachment changes from invalidating the parent — so the replacement has no host approval to ride on and must be vetted on its own: a publisher approves the new attachment version, and §5.6.4 rule 2's resolution picks it up. **Whether that is an explicit publisher review or an automatic re-derivation from the still-approved host was not decided at sign-off**; until it is, the explicit review is the safe reading, and the previously approved version keeps serving meanwhile. |
+| A host is later unpublished or soft-deleted | **No automatic revocation** — another host may reference the attachment; reclaim is the §5.6.7 sweep, which checks every reference. |
+
+The derived flow does not waive the §14.7 submission requirement — it satisfies it: an attachment (or purposeful association) still `Draft` is first submitted, then approved, in the same unit of work. Submit is already an owner-or-publisher act (§9.2) and the whole flow is publisher-gated, so no new permission is invented.
+
+**The write goes through a bypass verb, so the slice must build one.** `IsApprovedByBypass` is derived from the access decision and an ordinary approve always clears it (§9.7.1 rule 3), so only a bypass path can record what the derived flow does. Today that path exists on `Association` alone (§12.5.3 business rule 11): the §12.3 entry 12 slice therefore adds `BypassApproveAttachmentAsync` on the `BypassApproveAssociationAsync` pattern, making `Attachment` the second bypass-bearing entity, and the derived flow calls it. The bypass reason is supplied as on every other bypass — here composed by the flow rather than typed by a human, which is the one respect in which it differs.
+
+**Open — whose identity performs the derived writes, and what happens when the bypass is refused.** Neither was ruled at sign-off, and both are real: a host publisher holding only a scoped role such as `ContentItem-Story-Publisher` is **not** in the `Attachment` `Publisher` tier, so either the derived writes run under a system actor that holds it or the flow requires the host's approver to hold it as well; and the bypass can be refused two ways — §14.7's decision refuses outright when `DoNotAllowBypassingSettings = true` for `Attachment`, and the same decision re-applies HR-2, which refuses wherever the acting identity is the attachment's or the association's own `CreatedBy` (the case §4.9 rule 4 already contemplates, where the candidate was suggested by someone other than the host's owner). Either refusal leaves a vetted host published with its images non-public — survivable for a header (the §4.9 rule 5 fallback picks another candidate, or §19.8 rule 4's brand image) but not for an inline body image, which would simply be missing. Recorded here rather than assumed.
+
+**Wiring.** The event-driven home for this is `ApprovalOrchestrationService` (§12.5.3 responsibility 12), which does not exist yet. **Interim rule:** the publisher action that approves the host also derives the attachment approvals synchronously in the same flow — acceptable because both operations are publisher-gated. Moving the side-effect into the orchestration later is a refactor, not a redesign.
+
+`AttachmentsAllowed` / `ShowAttachments` (§6.5) remain the policy switches for whether a host may carry and display attachments; they gate the upload and association flows, not the `/media` read.
+
+#### 5.6.6 Inline Images
+
+The GitHub model: paste an image into the content editor, get an attachment and a markdown reference.
+
+1. The editor posts the pasted image to the upload endpoint (§5.6.3) and receives the new attachment's id and media URL; it inserts `![alt](/media/{attachmentId})` at the cursor. Preview just renders the markdown — §5.6.2 serves the draft image to its uploader.
+2. The attachment is standalone, owned by the uploader. **No association is created**, deliberately: the body markdown already **is** the authoritative record of inline placement — a reconciled association table is a cache of it, and caches of a body drift — and every association is an approvable governance object (§4.8), so a ten-image post would mint ten approval-bearing rows whose lifecycle means nothing to anyone.
+3. Consequently, "referenced" means: `/media/{attachmentId}` appears in the `Content` of any **non-deleted `ContentItem` row — any version, any status**. Old versions keep their images renderable until hard-removed. The reference scan across the corpus is a sweep-time batch concern (§5.6.7), not a write-path one — and it must stay one for the *unused* determination. The §5.6.2 gate is the separate question: it cannot run a body scan per request, so its inline branch resolves against a **materialised reference index**, with the uploader and `Attachment`-role checks in front of it as a fast path rather than as a substitute — a host's reviewer is normally neither, and that reviewer is exactly who the §14.7 posture A″ admit exists for. The index is written from the body in the same unit of work as the save, and rebuilt wholesale by the sweep. It is a derived cache the body always overrules — never a second source of truth beside it, and never an approvable object like an association (§5.6.6 rule 2).
+4. Associations are reserved for **purposeful placements** (§4.9): few, meaningful, individually governed. The two mechanisms answer different questions and neither duplicates the other.
+5. An abandoned upload — pasted, never saved anywhere — is reclaimed by the §5.6.7 grace rules.
+
+#### 5.6.7 Unused-Attachment Lifecycle
+
+Storage must not grow unbounded, and reclaim must not destroy anything vetted history still needs.
+
+An attachment **group** is unused when all three hold:
+
+1. No non-deleted association touches any version of the group.
+2. No `/media/{attachmentId}` reference — any version's id — appears in the `Content` of any non-deleted `ContentItem` row (§5.6.6 rule 3).
+3. The newest version's `UpdatedWhen` is older than **30 days** — grace for paste-then-save gaps and slow drafts.
+
+Process, as operations on `AttachmentProcessingService` (§12.4 entry 3), run manually until background-job infrastructure exists. **The gate splits on whether the step deletes.** The report is a read and admits the `Publisher` tier or `Admin`; every step that deletes is **`Admin` only**. The sweep acts across other people's attachments, so posture A's remove branch — owner or `Admin` (§9.7.1 rule 7, §14.7 posture A.3) — has no owner to act as, and `Publisher` never removes at all; hard removal is `Admin`-only everywhere (§14.6 rule 3).
+
+1. **Sweep (report)** — list candidates with sizes; dry-run by default.
+2. **Sweep (execute)** — soft-delete candidates with `DeletionReason = "Unused attachment sweep"`. A soft-deleted attachment answers not-found at `/media` and remains restorable.
+3. **Purge** — rows soft-deleted for **90+ days**: hard-delete the row, then the blob (§5.6.1 rule 4's mirror order). The retention must exceed any content-restore window policy: condition 2 counts references only in non-deleted content rows, so an image referenced solely by a soft-deleted item reads as unused — and purge is the one step that cannot be undone if that item is later restored.
+4. **Blob-orphan sweep** — blobs with no attachment row and age over 7 days are deleted; they are crash residue of the two-phase upload.
+
+Storage telemetry — the sum of `SizeInBytes` by status — belongs on the admin dashboard, so "is storage growing?" never needs a database query.
 
 ## 6. ContentItemSetting Design
 
@@ -567,7 +687,7 @@ This supports favourite-style behaviour where only a love reaction should be all
 
 ### 6.8 ContentItemSetting.ContentType typing — done
 
-`ContentItemSetting.ContentType` is typed `ContentType` (§3.6), persisted as a string via `HasConversion<string>()` like every other enum in the schema. There is no `Guid` involved on either side — `ContentType` is not an entity and never had an `Id`.
+`ContentItemSetting.ContentType` is typed `ContentType` (§3.6), persisted as a string via `HasConversion<string>()` like every other `ContentType` column in the schema (§3.7). There is no `Guid` involved on either side — `ContentType` is not an entity and never had an `Id`.
 
 ```csharp
 public ContentType ContentType { get; set; }
@@ -729,6 +849,8 @@ Rules:
    **And `Association` has no caller-editable content at all.** Every non-audit property is pinned against storage on modify, so the general modify's whole effective payload is the `Draft` ↔ `Submitted` carve-out — the same subtraction §8.6.1 uses to show a last-editor column would be provably inert on it. There is no content amendment to fork, so versioning it would add three columns and three indexes that nothing could ever write.
 
    The rule that generalises instead is **§3.4 rule 7**: a terminal row's content is immutable. Versioning decides *what an owner does next*, not whether the row is protected.
+
+5. `Attachment` is Versioned but its approval is not independently sought — it derives from the host entity's approval (§5.6.5, §12.5.3 responsibility 12).
 
 ### 7.6 ApprovalReview
 
@@ -1160,16 +1282,16 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 1. **Add.** Any authenticated user may contribute unless they hold a blocking read-only role (§14.7 posture A). The row is written with `IsPublished = false` and the `ApprovalStatus` the caller asked for — `Submitted` on the common path, `Draft` when saving work in progress (§9.2). The foundation publishes its `-Added` fact; the orchestration publishes its own completion fact (§10.2 rule 5).
 2. **Modify.** The general modify operation is for **content changes only**. It is available to the owner, and to `Publisher` / `Admin` while the entity is not yet approved (so typos can be corrected during review).
 
-   **What counts as content is defined by subtraction, not by a per-entity list.** Every approvable entity's properties fall into exactly three groups:
+   **What counts as content is defined by subtraction, not by a per-entity list.** Every approvable entity's properties fall into exactly four groups:
 
    | Group | Owned by | Examples |
    | --- | --- | --- |
    | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `GroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `IsApprovedByBypass`, `ApprovedByBypassReason`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
-   | Derived content | computed by the orchestration from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentType` / `EntityBContentType` (from the resolved endpoint) and `UserId` (from the security context) |
-   | Caller-supplied, create-only | the caller, once | `ContentItem.ContentType` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a) |
-   | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content` |
+   | Derived content | computed by the service layer that owns the flow — an orchestration or processing service, or a foundation transition where only it sees the moment — from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); `ContentItem.Slug` (by the processing service) and `ShortCode` (by the foundation's approve transition, §9.7.1 rule 3) — both generated, then frozen at first publish (§19.3, §19.7); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentType` / `EntityBContentType` (from the resolved endpoint) and `UserId` (from the security context) |
+   | Caller-supplied, create-only | the caller, once | `ContentItem.ContentType` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a); an association's `Purpose` (§4.9) |
+   | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content`, `MetaDescription` (§19.2) |
 
-   Only the last group is mapped from the caller's entity onto the row loaded from storage. The first is never accepted from a caller at all; the second is written by the orchestration rather than copied from input; the third is accepted on add and then pinned against storage on every modify. This replaces enumerating control fields per entity — a new property is caller-editable content unless it is on one of the interfaces, is derived, or is declared create-only.
+   Only the last group is mapped from the caller's entity onto the row loaded from storage. The first is never accepted from a caller at all; the second is written by the service layer that owns the flow rather than copied from input; the third is accepted on add and then pinned against storage on every modify. This replaces enumerating control fields per entity — a new property is caller-editable content unless it is on one of the interfaces, is derived, or is declared create-only. `Association.IsDefault` (§4.9) joins the first group by ownership rather than by interface: it belongs to the set-default transition alone — refused on add, pinned on modify — exactly as `SortOrder` belongs to sort. The subtraction test reads it as operation-owned, not as content.
 
    Note the consequence for `ContentItem`: `PublishDate` is an `IApproval` member, so it leaves the modify path and belongs solely to the approve operation. `MapPermittedFields` no longer carries it, and `ContentItemService` pins it — with the rest of `IApproval` — against storage on every modify, because a rule enforced only at orchestration is not enforced (§8.6.1).
 
@@ -1187,6 +1309,8 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
    **Two `IApproval` members are derived rather than copied, and the distinction is load-bearing.** `IsApprovedByBypass` and `ApprovedByBypassReason` are written from the access decision, never from the caller's entity. They exist to record that the approval conditions were waived — and anyone who can *set* a field can equally *clear* it, so a caller allowed to supply them could perform a genuine bypass and then send `IsApprovedByBypass = false`, erasing the one event the field is there to capture. This is the same rule §18.6 applies to an association's denormalised `ContentType`, and for the same reason: a value that will be read back as evidence must not be sourced from the party it is evidence about. The general modify pins both against storage like every other approval field, closing the side door.
 
    Because they are derived, an ordinary approve always writes `false` and `null` — including on an entity that was previously bypass-approved and has since been amended and re-approved normally. Clearing is deliberate: the flag describes *this* approval, not the row's history.
+
+   One more derived write joins them, on a single entity: at the **first publish of a `ContentItem` group** — no row of the group has ever been published — `ApproveContentItemAsync` additionally derives `ShortCode` (§19.7): CSPRNG-generated, collision-checked, never copied from the caller's entity, the same anti-tamper posture as the bypass pair. This is the one deliberate widening of the verb's otherwise `IApproval`-only field scope (mirrored in §10.17 rule 5), and it lives here because first publish is a moment only this operation ever sees — §12.4.1 rule 10 keeps approval transitions out of the processing service entirely.
 
    Approve and publish are one operation because `IApproval` covers both; no separate `-Publishing` verb is needed. Splitting modify from approve this way means the general modify grants `Reviewer` and `Publisher` no access at all, and the approval operation cannot change content. Each validates exactly the fields it owns and is gated by the role appropriate to it.
 
@@ -1256,6 +1380,8 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 6. **Set scope.** For an association, toggling an endpoint between `AllVersions` and `ThisVersionOnly` is the one endpoint-related change permitted after creation (§12.4.1 business rule 7a applies to the rest). It is its own operation, restricted to `Publisher` / `Admin`, and publishes `<Entity>-Scoped`.
 
    It does **not** re-enter approval. Narrowing or widening reach does not change what is asserted, and only a publisher or administrator can do it — the same people who would be re-approving it.
+
+6a. **Set default.** `IsDefault` (§4.9 — designed, not built) is `Association`'s narrow selection flag: `SetAssociationDefaultAsync` writes `IsDefault` alone, refuses a target that is not `Approved`, clears same-host same-purpose siblings in the same save, and publishes `Association-DefaultSet` (§4.9 rule 4). Like sort, it never enters the approval workflow — promoting a vetted candidate changes what renders, not what is asserted.
 
 7. **Remove.** Removal is a takedown, not a moderation step. The owner or an `Admin` may remove an entity in **any** approval state, including `Approved` (§14.6 rule 3, §14.7 posture A.3). `Reviewer` and `Publisher` moderate through the approval workflow and never remove. Hard removal is `Admin` only. Approval state never gates removal — see §10.5: deletion is not an approval state.
 
@@ -1946,7 +2072,9 @@ An entity's **top-layer service** is the highest business layer that owns its wr
 **Outbound — approval-caused writes use a transition verb, never `-Modifying`.**
 
 4. Every write the approval workflow causes on an entity's approval state goes through `Approve<Entity>Async` on the owning foundation service, published as `<Entity>-Approving` / `-Approved`. §10.2 rule 7 already establishes this vocabulary — a transition owning a narrower field scope than a general modify is a separate method and therefore a separate verb. Its scope is the whole of `IApproval`, so no separate publish verb is required.
-5. This operation validates only the `IApproval` members and **must not** publish `<Entity>-Modified`. This is what breaks the cycle: the workflow subscribes to `-Modified` and causes only `-Approved`.
+5. This operation validates only the `IApproval` members — plus the first-publish `ShortCode` derivation of §9.7.1 rule 3 on `ContentItem` — and **must not** publish `<Entity>-Modified`. This is what breaks the cycle: the workflow subscribes to `-Modified` and causes only `-Approved`.
+
+   One approval-caused write originates from another entity's approval: when a host completes approval and publication, its purposefully-placed and inline-referenced attachments are approved through the attachment submit-then-approve transitions, bypass-audited (§5.6.5, §12.5.3 responsibility 12). The derived write uses transition verbs, so rules 4–5 and the cycle-breaker hold unchanged; until the orchestration exists, §5.6.5's interim rule performs the same derivation synchronously.
 
 **Why `ProcessedEvents` is not sufficient on its own.**
 
@@ -2122,6 +2250,7 @@ Current intended brokers:
 3. `SecurityBroker`
 4. `SecurityAuditBroker`
 5. `AIBroker`
+6. `BlobStorageBroker` *(designed, not built — §5.6.1)*
 
 #### 12.2.1 StorageBroker
 
@@ -2143,6 +2272,10 @@ Current intended brokers:
 
 `AIBroker` is responsible for infrastructure-level access to AI capabilities used by the content analysis workflow.
 
+#### 12.2.6 BlobStorageBroker
+
+`BlobStorageBroker` *(designed, not built — §5.6.1)* is responsible for binary storage in Azure Blob Storage (Azurite in development) — upload, download, delete, exists, and list-by-prefix.
+
 ### 12.3 Foundation Service Layer
 
 Foundation services own core CRUD, validation, and business rules for one entity.
@@ -2162,7 +2295,7 @@ Current intended foundation services:
 | 9 | `CommentService` | CRUD and validation for comments. |
 | 10 | `BibleReferenceService` | CRUD and validation for Bible references. |
 | 11 | `LinkService` *(future)* | CRUD and validation for links. |
-| 12 | `AttachmentService` *(future)* | CRUD and validation for attachments. |
+| 12 | `AttachmentService` *(future)* | CRUD and validation for attachments (§5.6.1–§5.6.7), plus the ordinary and bypass approve transitions the host-derived approval needs (§5.6.5); its approve operation must call `IAccessBroker` (§8.6.1). |
 
 `ContentType` is not in this list — it is a fixed enum (§3.6), not an entity, so it has no foundation service.
 
@@ -2270,7 +2403,7 @@ Current intended processings:
 | --- | --- | --- | --- |
 | 1 | `ContentItemProcessingService` | Content item creation, versioning (in-place vs. fork), duplicate-content enforcement, soft delete, and per-caller read visibility. | Built (§12.4.1) |
 | 2 | `LinkProcessingService` | Same shape as ContentItem: `Link` is Versioned, so an amend of a terminal row forks. | Built (§12.4.2) |
-| 3 | `AttachmentProcessingService` | Same shape. `Attachment` is Versioned, and has no foundation service yet either. | Required, not built — blocked on the missing `AttachmentService` |
+| 3 | `AttachmentProcessingService` | Same shape, plus the upload pipeline (§5.6.3), the replacement fork (§5.6.4), and the sweep, purge and orphan operations (§5.6.7). `Attachment` is Versioned, and has no foundation service yet either. | Required, not built — blocked on the missing `AttachmentService` |
 
 **Entry 3 is not optional.** §10.17 rule 1 makes a service above the foundation a hard prerequisite for a **Versioned** approvable entity, and `EntityTypeVersioning` (§7.5.1) declares exactly three Versioned types — `ContentItem`, `Link` and `Attachment`. Until each has one it cannot participate in approval without hitting the fork-emits-two-facts problem of §10.17 rule 2. `Attachment` is the one still outstanding, and it is blocked twice over: a processing service composes its entity's foundation service, and `Attachment` has none — only a model, a storage broker and an event broker. The foundation comes first. Any other entity earns a processing service only by having higher-order single-entity logic of its own — a cross-row probe, an effective-value merge — because plain CRUD on a Single-Row entity needs nothing above its foundation.
 
@@ -2311,7 +2444,9 @@ Business Rules:
    - `DeletedWhen`
    - `DeletionReason`
    - `ContentHash`
-7. On every update, this service must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author` and `Content` — onto that entity before saving. `ContentType` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
+   - `Slug` (§19.3 — designed, not a column yet)
+   - `ShortCode` (§19.7 — designed, not a column yet)
+7. On every update, this service must load the current entity from the database and map only the permitted caller-supplied fields — `Title`, `Author`, `Content` and, when the §19.2 column lands, `MetaDescription` — onto that entity before saving. `ContentType` and `PublishDate` were previously in this list and are removed: the first is create-only (business rule 7a), the second is an `IApproval` member written by the approve operation (§9.7.1 rule 3).
 7a. **`ContentType` is set at creation and may never change.** Reclassifying a content item is not permitted — different content types carry different validation rules, so a `Story` cannot become a `Testimony` by relabelling it; the existing content was never validated against the target type's rules. An item filed under the wrong type is removed and re-created.
 
    Enforcement belongs in the foundation, not only here: `ValidateAgainstStorageContentItemOnModify` pins `ContentType` against the stored row and rejects a difference, in the same way it pins `CreatedBy` and `CreatedWhen`. §14.6 requires the foundation to be safe when called alone, and `ContentItem-Modifying` is a public address whose caller is, today, unauthenticated (§14.6 rule 4). This service dropping it from the permitted map is defence in depth. Note that pinning against storage is identity-independent, so this particular rule holds even against a forged context — which is exactly why the pins matter more than the gates on that path.
@@ -2321,6 +2456,7 @@ Business Rules:
 9. Only the owner (`CreatedBy`) may modify a content item or its versions. A `Publisher` or `Admin` may amend the text of a `Submitted` item during review (typos/grammar); their identity is then recorded on `UpdatedBy`. `CreatedBy` never changes on an update.
 10. **There is no in-place amendment of a terminal content item, by any role.** An edit of an `Approved` or `Rejected` item forks a new version (§3.4 rules 7–8), including for an `Admin` — the in-place carve-out this rule used to describe is withdrawn (§3.4 rule 16). An `Admin` who wants the row itself re-opened uses the status override instead, which is an approval transition and does not reach this service.
 11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentType`, `ContentHash`) across non-deleted rows (excluding the item's own `GroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
+12. Slug generation (§19.3 — designed, not built): derive `Slug` from `Title` on add and re-derive while the group has never published; freeze it at the group's first publish; copy it forward on a version fork; pin it thereafter. `Slug` is a control field (rule 6) — derived, never accepted from a caller, the same trust posture as `ContentHash`. `ShortCode` is likewise a control field, but its writer is not this service: it is derived by the foundation's approve transition at the group's first publish (§9.7.1 rule 3, §19.7) — the only operation that runs at that moment, which rule 10 keeps out of this service.
 
 #### 12.4.2 LinkProcessingService
 
@@ -2438,6 +2574,7 @@ Responsibilities:
 9. Set `IsPublished = false` on the previously published version, ensuring only one published version exists per `GroupId`, and order the two writes so no window exists in which both are published. `IsLatestVersion` is not changed at publish time (see §3.4.1). For a Single-Row entity (§7.5.1) there is no previous row and this rule is vacuous.
 10. Use `SecurityBroker` to validate user identity and role claims during submission and review.
 11. Publish `ApprovalCreatedEvent`, `ApprovalUpdatedEvent`, and `ApprovalDeletedEvent` via `ApprovalEventService`.
+12. Derive attachment approval from the host (§5.6.5): when a host entity completes approval and publication, approve and publish its purposefully-placed (§4.9) and inline-referenced (§5.6.6) attachments through the attachment submit-then-approve transitions, bypass-audited. Until this orchestration exists, §5.6.5's interim rule applies — the publisher flow that approves the host derives the attachment approvals synchronously.
 
 Business Rules:
 
@@ -2453,7 +2590,7 @@ Business Rules:
 10. This orchestration is responsible for manual approval submission subject to policy rules  i.e. amount of required approvals, self-approval, and role-based approval. Manual approval requires the approval conditions (§8.5) to be met and is available to `Publisher` and `Admin` (global or matching `%EntityType%-Publisher`).
 11. This orchestration is responsible for manual approval (bypass rules) i.e. policy rules not met but a permitted user needs to approve anyway. This must be a separate method that does not enforce policy rules except role-based access: bypass is available to `Admin`, to the global `Publisher` role (any entity type), and to the matching `%EntityType%-Publisher` role (that entity type only) — the `Publisher` tier, composed from the entity type rather than configured (§8.3). Bypass is unavailable entirely when `ApprovalSetting.DoNotAllowBypassingSettings = true` — the conditions must then be met by everyone, including `Admin`. Bypassing sets `IsApprovedByBypass = true` and records the actor on `UpdatedBy`.
 
-    **This is built at the foundation, on `Association` only** (`BypassApproveAssociationAsync`, §8.6.1, §9.7.5). The other six approvable entities each have an ordinary approve operation but no bypass verb, so a bypass is simply unavailable on them — *not*, as this said previously, because they have no approve operation at all. Four points where the built shape is narrower or more specific than the rule above, and each is deliberate:
+    **This is built at the foundation, on `Association` only** (`BypassApproveAssociationAsync`, §8.6.1, §9.7.5) — `Attachment` is designed to become the second, since its host-derived approval can only be recorded through a bypass verb (§5.6.5). The other six approvable entities each have an ordinary approve operation but no bypass verb, so a bypass is simply unavailable on them — *not*, as this said previously, because they have no approve operation at all. Four points where the built shape is narrower or more specific than the rule above, and each is deliberate:
 
     - **Approve only.** A rejection withholds approval rather than granting it, so there is nothing for a bypass to waive; the decision sent to `IAccessClient` is fixed to `Approve`, and a direct reject stays the ordinary path (business rule 13, §9.7.5).
     - **The reason is required, and supplied by the caller** — a parameter on the verb on the direct path, and `Content.ApprovedByBypassReason` on the event path, where an envelope carries one entity and nothing else. Validated non-empty and capped at 500 to match the column, so an unexplained bypass is refused before any policy is read.
@@ -2487,7 +2624,7 @@ Current intended controllers:
 | 8 | `CommentController` | Exposes endpoints for comment management. |
 | 9 | `BibleReferenceController` | Exposes endpoints for Bible reference management. |
 | 10 | `LinkController` *(future)* | Exposes endpoints for link management. |
-| 11 | `AttachmentController` *(future)* | Exposes endpoints for attachment management. |
+| 11 | `AttachmentController` *(future)* | Exposes endpoints for attachment management. Upload and the media read are host endpoints following the profile-image precedent (§5.6.2–§5.6.3, §17.6), not controller surfaces. |
 
 `ContentType` is not in this list — a fixed enum has no CRUD endpoints.
 
@@ -2507,6 +2644,12 @@ The EF Core model snapshot currently shows tables and constraints for:
 | 6 | `Associations` | Stores generic associations between content items and other entities. |
 | 7 | `Tags` | Stores tag definitions used for content categorisation. |
 | 8 | `Reactions` | Stores reusable reaction definitions. |
+| 9 | `ApprovalSettings` | Stores approval policy rules per entity type and content type. |
+| 10 | `Attachments` | Stores versioned attachment metadata. Binaries are designed to live in blob storage (§5.6.1); `BlobUri` has no producer yet. |
+| 11 | `BibleReferences` | Stores canonical scripture references keyed by `USFM`. |
+| 12 | `Comments` | Stores discussion records attached to content through associations. |
+| 13 | `Links` | Stores link records. |
+| 14 | `ProcessedEvents` | Stores processed-event records for event-delivery deduplication per receiver (§14.6 rule 4). |
 
 ### 12.8 Event System
 
@@ -2692,6 +2835,8 @@ An exposer (controller, page, or any other host) may bind to a foundation servic
 
 Cross-row rules under visibility filtering: because the entity-returning collection reads are visibility-filtered per caller, a cross-row rule must never be computed over them. Instead the foundation exposes a **boolean probe** for such a rule — `CheckContentItemContentExistsAsync(contentTypeId, contentHash, excludedGroupId)` for the duplicate-content rule (§3.4.2) — which queries the unfiltered store but returns only a yes/no answer. A boolean reveals no row data: the caller must already possess the exact content to probe it, and the duplicate rule already reveals "identical content exists" to submitters. The probe still carries the contribution gate (it exists to support contribution flows), and this is the pattern for any future global rule: filtered reads for entities, gated boolean probes for cross-row facts.
 
+The media surface carries its own security rules: upload constraints — refused SVG, magic-bytes sniffing over the declared MIME, mandatory re-encode stripping EXIF/GPS, and a per-user quota — are defined in §5.6.3, and the `/media` visibility gate, which follows the §14.5 posture, in §5.6.2.
+
 ### 14.6.1 Dependency Lifetimes Are a Security Control
 
 Every rule in §14.6 is evaluated against a `SecurityContext` derived from the caller's
@@ -2758,7 +2903,7 @@ The §14.6 mandate is applied per entity according to what the entity is. Four p
 
 **Approval and publication now have a code path.** `ApproveAssociationAsync` and `BypassApproveAssociationAsync` own the whole of `IApproval` between them — `ApprovalStatus`, `IsPublished` and `PublishDate` move together in both, so approve and publish are one operation and there is no separate publish verb. Those two are the **only** paths that write the three fields: add still refuses a caller-supplied `IsPublished`, `PublishDate` or non-`Draft`/`Submitted` status, and the general modify still pins all three against storage. The public clause on both read paths is therefore reachable for the first time, and rules 3 and 5 above describe live behaviour rather than a caveat. Both verbs require the endpoint-derived `Publisher` tier and refuse any row not currently `Submitted`, so a `Draft` cannot skip the submission the workflow is built around — the bypass included, because what a bypass waives are the §8.5 approval *conditions*, never the requirement that there be a submission to decide on. Where the two differ is on either side of that: the ordinary approve admits `Approved` or `Rejected` and can only ever *clear* the pair `IsApprovedByBypass` / `ApprovedByBypassReason`, while the bypass verb admits `Approved` alone — there is no bypass-reject, a rejection waives nothing and is already unconditional through the ordinary verb — and is the one path that ever *sets* that pair (§9.7.5).
 
-**The five state transitions and who may call them.** The general modify is content-only; every other field group has its own narrow operation that owns exactly its own fields and publishes its own fact. That separation is the approval workflow's cycle-breaker — the workflow subscribes to `-Modified` and causes `-Approved`, so a transition publishing `-Modified` would re-enter the handler that caused it. `ProcessedEvents` cannot break it: that table is keyed on the event id and a write-back mints a fresh one, so under inline dispatch the repetition is synchronous re-entry inside the originating request.
+**The six state transitions and who may call them.** The general modify is content-only; every other field group has its own narrow operation that owns exactly its own fields and publishes its own fact. That separation is the approval workflow's cycle-breaker — the workflow subscribes to `-Modified` and causes `-Approved`, so a transition publishing `-Modified` would re-enter the handler that caused it. `ProcessedEvents` cannot break it: that table is keyed on the event id and a write-back mints a fresh one, so under inline dispatch the repetition is synchronous re-entry inside the originating request.
 
 | Operation | Field scope | Who may call it | Publishes |
 | --- | --- | --- | --- |
@@ -2767,14 +2912,17 @@ The §14.6 mandate is applied per entity according to what the entity is. Four p
 | `SortAssociationAsync` | `SortOrder` only | owner, `Admin` | `Association-Sorted` |
 | `SetAssociationConfidenceAsync` | all four `IConfidence` fields, as one unit | `Publisher`, `Admin` — **never the owner** | `Association-ConfidenceSet` |
 | `SetAssociationScopeAsync` | `EntityAScope` / `EntityBScope` | `Publisher`, `Admin` | `Association-Scoped` |
+| `SetAssociationDefaultAsync` *(designed, not built — §4.9)* | `IsDefault` only | not yet ruled — `Admin` until ruled, the conservative reading (§4.9 rule 4); refuses any target not `Approved` | `Association-DefaultSet` |
 
-Submission is deliberately absent: it is the `Draft` ↔ `Submitted` carve-out on the general modify (§9.2 rules 4–6), not an operation of its own. Five things about the table are load-bearing rather than incidental. **Every transition is a write**, so the global `ReadOnly` veto of rule 1 applies to all five before anything is read. **Authorization is decided against the STORED endpoints**, never the caller's copy — the endpoint content type is an authorization input, so trusting the caller's would be self-certification. **Set-confidence excludes the owner**, and that exclusion is the operation's whole point: a contributor who could score their own association defeats scoring. **Set-scope's `Publisher`/`Admin` restriction is what justifies scope changes not re-opening approval** — only the people who would be re-approving it can make one — so widening that gate would invalidate the no-reapproval rule, not merely loosen a policy. **And approve admits neither a `Reviewer` nor the author** — HR-3 keeps the decision out of reviewers' hands entirely, and HR-2 keeps it out of the author's; together they are what stop this, the first path by which an association becomes publicly visible, from being a path a contributor can walk end to end alone. A third exclusion joins them, and it is now live: §8.6 regardless-rule 1 also bars anyone holding an active `ApprovalReview` on the row, which is HR-3 restated by act rather than by role and catches the `Publisher` who files the single required review and then decides on it. It arrives through `IAccessBroker` — §8.6.1 records why it cannot be answered row-locally.
+Submission is deliberately absent: it is the `Draft` ↔ `Submitted` carve-out on the general modify (§9.2 rules 4–6), not an operation of its own. Five things about the table are load-bearing rather than incidental. **Every transition is a write**, so the global `ReadOnly` veto of rule 1 applies to all of them before anything is read. **Authorization is decided against the STORED endpoints**, never the caller's copy — the endpoint content type is an authorization input, so trusting the caller's would be self-certification. **Set-confidence excludes the owner**, and that exclusion is the operation's whole point: a contributor who could score their own association defeats scoring. **Set-scope's `Publisher`/`Admin` restriction is what justifies scope changes not re-opening approval** — only the people who would be re-approving it can make one — so widening that gate would invalidate the no-reapproval rule, not merely loosen a policy. **And approve admits neither a `Reviewer` nor the author** — HR-3 keeps the decision out of reviewers' hands entirely, and HR-2 keeps it out of the author's; together they are what stop this, the first path by which an association becomes publicly visible, from being a path a contributor can walk end to end alone. A third exclusion joins them, and it is now live: §8.6 regardless-rule 1 also bars anyone holding an active `ApprovalReview` on the row, which is HR-3 restated by act rather than by role and catches the `Publisher` who files the single required review and then decides on it. It arrives through `IAccessBroker` — §8.6.1 records why it cannot be answered row-locally.
 
 Sort takes an anchor and a side rather than a target index, because a pairwise swap cannot express a drag. Values are sparse (100, 200, 300 …) and landing beside an anchor is a half-step away, which at the default spacing is the midpoint between the anchor and its neighbour — so exactly one row is written and the operation stays single-entity. Ties are legal and fall through the §11.7 tie-break chain. Sort is the one transition with no request address: its signature needs a second entity and an envelope carries one, so it is direct-call only and publishes its fact like the others. Set-scope re-runs the same duplicate check an add does, because a scope toggle recomputes the effective id and can move the row onto a key `UX_Associations_Pair` already holds.
 
 **Known gap — now closed on the write paths, still open on the reads.** `ApprovalService`, `ApprovalReviewService` and `ApprovalCommentService` identify a reviewer **row-locally** by generic suffix match (`role.EndsWith("-Reviewer")`), so on that check alone a bare `Tag-Reviewer` would reach the *approval record* of a `ContentItem` ↔ `BibleReference` association that rule 2 above refuses them on the association itself. Every write path **that admits a scoped review role** now re-asks that question through `IAccessBroker` against the entity behind the approval — `MayRecordApprovalReviewAsync` (add/modify/remove of a review), `MayDismissApprovalReviewAsync` (dismissal), `MayAmendApprovalAsync` (the approval record), and the three comment gates. The write paths that are **not** routed through it admit no scoped role for the endpoint rule to narrow: `Approval` add is the contribution gate, its remove is owner-or-`Admin`, and every hard remove is `Admin`-only — and `Admin` clears every tier. The paragraph below singles out `ApprovalReviewService`'s hard remove as un-routed, which is true — but by the same reasoning it costs nothing, because that path is `Admin`-only too and no scoped role can reach it. What remains open is the **read** posture: rule 1's owner-or-review-role visibility is still decided row-locally, so a `Tag-Reviewer` can still *see* an association's approval, its reviews and its comment thread. Narrowing reads is a separate question from narrowing writes, and is not covered by the work above.
 
 **`ApprovalReview` has since closed this on its own paths**: tier 2 resolves the entity behind the approval and matches the exact composed role for it, so the suffix match is now the coarse first half of a two-tier check rather than the whole of it (§8.6.1, §12.3.1). The gap survives wherever a write is **not** routed through `IAccessBroker` — including `ApprovalReviewService`'s own hard-remove path, which takes no access decision at all. Recorded here rather than fixed with the endpoint rules.
+
+**A″. `Attachment` — the referencing-host variant of posture A** *(designed, not built — §5.6)*. Writes follow posture A unchanged. Reads widen rule 4 by one admit: a non-public attachment additionally answers to reviewers or publishers of an entity whose row references it — through a §4.9 purposeful association or a §5.6.6 inline body reference — so a host's reviewer sees its draft images in context (§5.6.2 rule 2). The referencing host's state is read directly from the host row, never inferred from an association row's existence or approval — §14.3's composite rule is implemented nowhere yet (§12.5 entry 1), and this gate must not repeat that gap.
 
 **B. Reference data** — `ContentType`:
 
@@ -2955,6 +3103,7 @@ Recommended endpoints:
 | `GET` | `/api/content-items/groups/{groupId}` | Retrieve all versions. |
 | `GET` | `/api/content-items/groups/{groupId}/latest` | Retrieve latest version. |
 | `GET` | `/api/content-items/groups/{groupId}/published` | Retrieve published version. |
+| `GET` | `/api/content-items/by-slug/{contentType}/{slug}` | Retrieve the published version by slug (§19.4). |
 | `POST` | `/api/content-items/{id}/submit` | Submit content item for approval. |
 | `DELETE` | `/api/content-items/{id}` | Soft delete content item. |
 
@@ -3001,6 +3150,18 @@ Recommended endpoints:
 | `POST` | `/api/approvals/{approvalId}/reject` | Reject immediately (`Publisher`/`Admin`). |
 | `POST` | `/api/approvals/{approvalId}/comments` | Add approval comment. |
 | `GET` | `/api/approvals/entity/{entityType}/{entityId}` | Retrieve approval for entity. |
+
+### 17.6 Media, Share and Crawler Endpoints
+
+Recommended endpoints (§5.6, §19.6–§19.8 — designed, not built):
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `POST` | `/api/attachments` | Multipart image upload (§5.6.3). |
+| `GET` | `/media/{attachmentId}` | Attachment bytes behind the visibility gate (§5.6.2). |
+| `GET` | `/s/{code}` | 301 to the canonical content URL (§19.7). |
+| `GET` | `/sitemap.xml`, `/sitemap-topics.xml` | Published-content sitemaps (§19.6). |
+| `GET` | `/robots.txt` | Crawler directives (§19.6). |
 
 ## 18. Authentication and Authorisation
 
@@ -3265,40 +3426,49 @@ Search engine optimisation (SEO) ensures that gospel content published through G
 
 ### 19.2 ContentItem SEO Fields
 
-The following optional fields should be added to `ContentItem` to support SEO:
+**Status: designed, not built** (revised 2026-08-17 — this replaces the earlier nine-field list). **Stored fields are write-time facts — one authored (`MetaDescription`), two derived and then frozen at the group's first publish (`Slug`, `ShortCode`); everything else is derived at render time.** Every derived value has exactly one source of truth already, and a stored copy of a derivable value is a future stale bug — the sharpest case being a stored `OgImageUrl`, which goes stale the moment the header image changes (§19.8 rule 2). `MetaKeywords` is dropped outright: no engine has read it since roughly 2009, so storing it is pure liability.
+
+Stored on `ContentItem`:
 
 | Property | Purpose |
 | --- | --- |
-| `Slug` | URL-friendly identifier used in canonical URLs, for example `/stories/gods-love`. Must be unique per content type. |
-| `MetaTitle` | Override for the HTML `<title>` tag. Defaults to `Title` if not supplied. |
-| `MetaDescription` | Short description for the HTML `<meta name="description">` tag and social preview cards. |
-| `MetaKeywords` | Optional comma-separated keywords for legacy meta keyword support. |
-| `CanonicalUrl` | Optional explicit canonical URL if the content is also published on an external site. |
-| `OgTitle` | Open Graph title for social sharing previews. Defaults to `MetaTitle` or `Title` if not supplied. |
-| `OgDescription` | Open Graph description for social sharing previews. Defaults to `MetaDescription` if not supplied. |
-| `OgImageUrl` | Open Graph image URL for social sharing previews. |
-| `StructuredDataJson` | Optional JSON-LD structured data blob for rich search results, for example `Article`, `Quote`, or `FAQPage` schema. |
+| `Slug` | URL-friendly identifier used in canonical URLs (§19.3). `nvarchar(160)`. |
+| `MetaDescription` | Author-editable description for `<meta name="description">` and social preview cards. `nvarchar(300)`, optional — render falls back to a trimmed excerpt of `Content`. |
+| `ShortCode` | Share code behind `/s/{code}` (§19.7). `nvarchar(16)`, null until the group first publishes. |
+
+Derived at render time, never stored:
+
+| Value | Derived from |
+| --- | --- |
+| `MetaTitle` / `OgTitle` | `Title` |
+| `OgDescription` | `MetaDescription`, else the excerpt |
+| `OgImageUrl` (+ `og:image:width/height`) | the header-image resolution (§4.9 rule 5) → the media URL (§5.6.2) — see §19.8 |
+| `CanonicalUrl` | the route: `https://{host}/{ContentType}/{Slug}` |
+| JSON-LD | the typed projection per §19.5; there is no `StructuredDataJson` column |
+
+`Slug` and `ShortCode` are group-level facts stored on every version row: the version fork copies them forward, modify pins them once the group has published (§12.4.1 rule 12), and the by-slug read resolves through the published row, so a slug lookup naturally returns the publicly visible version.
 
 ### 19.3 Slug Rules
 
 The following rules apply to `Slug`:
 
 1. A slug must be URL-safe — lowercase letters, digits, and hyphens only.
-2. A slug must be unique per content type across all non-deleted, published content items.
-3. A slug should be auto-generated from `Title` when not explicitly supplied.
-4. A slug must not change once a content item is published, to protect inbound links.
+2. A slug must be unique per content type across **published, non-deleted** rows — a filtered unique index on (`ContentType`, `Slug`) `WHERE IsPublished = 1 AND IsDeleted = 0`. The filter cannot be `IsDeleted = 0` alone: version forks legitimately share one slug within a group, so only a one-row-per-group predicate can host the uniqueness. The `IsDeleted` term is not redundant against §9.7.6 rule 1's unpublish-on-remove mandate: §5.6.4 rule 4 records that exactly this term is missing from the analogous group-slot indexes and that no remove flow clears `IsPublished` today, so a new index must carry it rather than inherit the same trap. A taken-down group's slug therefore leaves the index and is not reserved: a later item may legitimately generate the same slug. Uniqueness across never-published groups is application-side, at generation time, over non-deleted rows.
+3. A slug is always generated from `Title` — never accepted from a caller (§12.4.1 rules 6 and 12). Generation: lowercase, ASCII-fold, non-alphanumerics to hyphens, collapse and trim; on collision, suffix `-2`, `-3`, and so on.
+4. A slug must not change once any version of the group has been published, to protect inbound links.
 5. If an approved content item is edited and a new version is created, the new version inherits the slug from the previous published version.
-6. An unpublished draft may have a provisional slug that can still be edited.
+6. An unpublished group's slug is provisional: it re-derives when `Title` changes, and freezes at the group's first publish. It is derived either way — "provisional" describes its stability, not a caller-editable window.
 
 ### 19.4 API SEO Considerations
 
 The following API behaviour should be supported for SEO:
 
 1. A `GET /api/content-items/by-slug/{contentType}/{slug}` endpoint should return the currently published version of a content item by slug and content type.
-2. Content item API responses should include all SEO fields in the response body.
-3. The feed API response should include `Slug`, `MetaTitle`, `MetaDescription`, and `OgImageUrl` to allow the frontend to render `<head>` metadata without a second request.
+2. Content item API responses should include the stored SEO fields (§19.2) and the derived head values, so a client renders `<head>` metadata without a second request.
+3. The feed API response should include `Slug`, `MetaDescription`, and the resolved header-image media URL (§4.9 rule 5, §5.6.2).
 4. Topic landing page responses should include SEO fields for the topic content item itself.
 5. APIs should not expose draft or unpublished SEO fields to unauthenticated callers.
+6. The public content route is `/{ContentType}/{Slug}`. The content-type segment is a closed enum, so it cannot collide with application routes — and slug uniqueness is per content type (§19.3 rule 2), which is exactly the scope the route shape requires.
 
 ### 19.5 Structured Data Recommendations
 
@@ -3311,7 +3481,7 @@ Recommended JSON-LD schema types for G2H content:
 | `Testimony` | `Article` |
 | `Topic` | `CollectionPage` |
 
-Structured data should be rendered server-side or returned by the API for use in server-side rendered frontends.
+Structured data is derived from the typed projection and injected by the crawler middleware (§19.8); there is no stored JSON-LD column (§19.2).
 
 ### 19.6 Sitemap and Indexing
 
@@ -3321,7 +3491,29 @@ The following sitemap and indexing support should be considered:
 2. A `/sitemap-topics.xml` endpoint should list all published, non-deleted topic content items.
 3. Each sitemap entry should include `lastmod` derived from `UpdatedWhen`.
 4. Soft-deleted or unapproved content must not appear in the sitemap.
-5. A `robots.txt` endpoint should disallow indexing of draft, admin, and API routes.
+5. A `robots.txt` endpoint should disallow indexing of draft, admin, and API routes, and point at the sitemaps through `Sitemap:` directives.
+
+### 19.7 Short Links
+
+**Status: designed, not built** (agreed 2026-08-17). Self-hosted — an external shortener (bit.ly and kin) was rejected outright: every shared link would depend on a third party for its lifetime, and every click would leak to one.
+
+1. `ShortCode` is base62 — `[0-9A-Za-z]{7}`, roughly 3.5 × 10¹² codes — generated from a CSPRNG at the **group's first publish**, the same moment the slug freezes — written by the foundation's approve transition (§9.7.1 rule 3), the only operation that runs at that moment; collision-checked against its unique index; immutable thereafter and copied across version forks like the slug (§19.2).
+2. The unique index is filtered `WHERE ShortCode IS NOT NULL AND IsPublished = 1 AND IsDeleted = 0` — the same one-row-per-group predicate as the slug index, for the same fork reason, and carrying the `IsDeleted` term for the same reason (§19.3 rule 2). A taken-down item's short link answers not-found (its target fails §14.1); its code leaves the index and could in principle be reissued, though at 3.5 × 10¹² CSPRNG codes an accidental reuse is negligible.
+3. `GET /s/{code}` resolves the code and answers **301** to the canonical URL — permanent, so link equity consolidates on the canonical route. An unknown code, or one whose target is not visible, answers **404** per §14.5. No Open Graph tags are needed at `/s/` — unfurlers follow the redirect and read the destination's head (§19.8).
+4. Share buttons compose real intents from the short link — the WhatsApp and Twitter/X share URLs — replacing the placeholder `href="#"` buttons.
+5. A branded short **domain** is a DNS and host-binding decision layered on later; nothing in the schema or code changes. `/s/` works on the main host meanwhile.
+6. A generic `ShortLink` entity (`EntityType` / `EntityId` / `Code`) was considered and deferred: `ContentItem` is today the only consumer, and extracting the column into a table should a second consumer appear is a mechanical migration.
+
+### 19.8 Crawler Rendering — Head Injection
+
+**Status: designed, not built** (agreed 2026-08-17). The frontend is a client-side-rendered SPA, and crawlers and social unfurlers (Google, `facebookexternalhit`, WhatsApp, `Twitterbot`) do not execute JavaScript — a meta tag added client-side is never seen. Two alternatives were rejected: a full SSR migration is a platform rewrite to solve a meta-tag problem, and prerender-on-build cannot follow content that changes at approval time, not build time.
+
+1. The WebApp host already owns the `index.html` fallback. A middleware intercepts requests matching `/{ContentType}/{Slug}` (§19.4 rule 6), resolves the published item through §14.1, and rewrites `<head>` before serving: `<title>`, the meta description, `og:type` / `og:title` / `og:description` / `og:url` / `og:image` (with width and height from the attachment metadata, §5.6), `twitter:card = summary_large_image`, the canonical link, and the §19.5 JSON-LD. The SPA hydrates and takes over navigation exactly as before.
+2. **Nothing sets or stores the OG image — it is derived on every read**, through one chain: resolve the item's Header slot by §4.9 rule 5 → follow the association's attachment endpoint to its group → take the group's published version row → emit its absolute media URL (§5.6.2). Promote a different candidate, or publish a vetted replacement image, and the next crawl sees it; a stamped-at-approval URL would need re-stamping on the first and would 404 to crawlers on the second.
+3. **Derived never means unvetted — approval gates every hop.** The §4.9 resolver only sees approved candidates; only a published attachment version is ever emitted; `/media` independently answers not-found for anything unpublished; and the page itself only exists for hosts passing §14.1.
+4. An item with no resolvable header falls back to a **static site-brand OG image**, so shares are never imageless.
+5. The resolution is one indexed top-1 query on a page render that already loads the item — not worth caching until profiling says otherwise.
+6. `og:image` launches with the **stored full-size image** — the re-encoded upload of §5.6.3 rule 4, at its uploaded dimensions — validated at least 200×200 on upload (WhatsApp's floor, §5.6.3 rule 3), with 1200×630 recommended in the editor UI. A cached 1200×630 derivative through the image-processing broker is a deferred optimisation, deliberately not launch scope.
 
 ## 20. UI / UX Design
 
@@ -3403,7 +3595,7 @@ Planned reusable components based on the Blogzine template:
 | --- | --- |
 | `Navbar` | Top navigation bar with logo, links, search, and auth state. |
 | `Footer` | Site footer with links and attribution. |
-| `ContentCard` | Feed card for a single content item — title, type, excerpt, publish date. |
+| `ContentCard` | Feed card for a single content item — header image (§4.9), title, type, excerpt, publish date. |
 | `ContentCardGrid` | Responsive grid of `ContentCard` components. |
 | `ContentCardFeatured` | Hero-style featured content card. |
 | `ContentDetail` | Full content item display — body, author, tags, reactions, comments, Bible references. |
@@ -3417,7 +3609,9 @@ Planned reusable components based on the Blogzine template:
 | `ApprovalStatusBadge` | Badge showing current approval status. |
 | `ApprovalReviewForm` | Form for a reviewer to submit an approval or rejection decision. |
 | `ApprovalCommentForm` | Form to add a comment to an approval record. |
-| `ContentForm` | Shared form for creating and editing content items. |
+| `ContentForm` | Shared form for creating and editing content items — includes paste-to-upload for inline images (§5.6.6). |
+| `HeaderImagePicker` | Header-image candidates for a content item — upload, list, promote the default (§4.9). |
+| `ShareBar` | Share buttons composing real short-link URLs (§19.7). |
 | `SearchBar` | Search input with debounce. |
 | `Pagination` | Paginated navigation for feed and topic child lists. |
 | `PrivateRoute` | Route guard for authenticated routes. |
@@ -3479,15 +3673,18 @@ The feed should not be a database entity. It should be a projection of visible, 
 
 ### 21.2 Immediate Next Changes
 
-The next changes to look at:
+The next changes to look at, in dependency order (revised 2026-08-17 — the images, attachments and SEO workstream):
 
 1. Seed content types including `Quote`, `Story`, `Testimony`, and `Topic` — verify seeding exists in migrations or startup pipeline.
-2. Add SEO fields to `ContentItem` — `Slug`, `MetaTitle`, `MetaDescription`, `MetaKeywords`, `CanonicalUrl`, `OgTitle`, `OgDescription`, `OgImageUrl`, `StructuredDataJson`.
-3. Add EF Core configuration for SEO fields including a unique filtered index on `Slug` per content type for published records.
-4. Add `GET /api/content-items/by-slug/{contentType}/{slug}` endpoint.
-5. Update feed API response to include SEO fields.
-6. Add slug generation logic to `ContentItemProcessingService` — auto-generate from `Title`, enforce immutability once published.
-7. Add sitemap endpoint `/sitemap.xml` and `/sitemap-topics.xml`.
-8. Add `robots.txt` endpoint.
-9. Add JSON-LD structured data support per content type.
+2. The `Attachment` slice: exceptions, `AttachmentService` (§12.3 entry 12 — its approve operation must call `IAccessBroker`, §8.6.1), `AttachmentProcessingService` (§12.4 entry 3), registration and event subscriptions; the metadata columns (§5.6); `IBlobStorageBroker` with Azurite (§5.6.1). Include the `IsDeleted`-term fix for the `Attachments` filtered unique indexes (§5.6.4 rule 4). Update the dependency graph when the broker and services are built — its data is a snapshot of current source.
+3. Upload and media endpoints (§5.6.2, §5.6.3, §17.6) and paste-to-upload in the editor (§5.6.6).
+4. `Purpose` + `IsDefault` on `Association` (§4.9): columns, check constraints, index changes, foundation validation, `SetAssociationDefaultAsync`, the orchestration's `Attachment` endpoint arm, and the header-image picker UI. With it, the §5.6.5 derived approval on the host-approving publisher flow — the interim synchronous rule, moving to §12.5.3 responsibility 12 when the approval orchestration lands.
+5. Stored SEO fields on `ContentItem` — `Slug`, `MetaDescription`, `ShortCode` (§19.2) — with the filtered unique indexes of §19.3 rule 2 and §19.7 rule 2, slug generation in `ContentItemProcessingService` (§12.4.1 rule 12), and short-code derivation in the approve transition (§9.7.1 rule 3).
+6. `GET /api/content-items/by-slug/{contentType}/{slug}`, and feed fields including the resolved header-image media URL (§19.4).
+7. The crawler middleware and `/{ContentType}/{Slug}` route (§19.8 — carries the §19.5 JSON-LD), and `/s/{code}` (§19.7).
+8. Sitemap and `robots.txt` endpoints (§19.6).
+9. The unused-attachment sweep, purge and blob-orphan operations (§5.6.7).
+10. The replication proof: a `BibleReference` verse image end-to-end — the same upload (§5.6.3), an `Attachment` ↔ `BibleReference` association with `Purpose = Verse` (§4.9), derived approval (§5.6.5) and the same top-1 resolution, with zero `BibleReference` schema changes.
+
+Item 5 can proceed independently of items 2–4; item 6 needs both tracks (the §4.9 resolution from item 4 and the columns from item 5); items 7–8 follow 5–6; items 9–10 close the workstream. The portal rendering real content items (§20) is the surface items 6–8 exist for.
 
