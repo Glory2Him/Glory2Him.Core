@@ -61,6 +61,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             ContentItem storageContentItem = CreateDemotableStorageContentItem(ownerUserId);
             ContentItem savedContentItem = null;
 
+            // Snapshotted BEFORE the act. The service copies onto the very instance the storage
+            // read hands back, so asserting against storageContentItem after the fact would
+            // compare the row with itself and pass however the operation behaved.
+            ContentItem expectedUntouched = storageContentItem.DeepClone();
+
             SetupContentItemStorageRead(storageContentItem);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -100,7 +105,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // stays publicly visible until the new version is approved (§3.4.1), so a demotion
             // that touched publication would take the group dark mid-fork.
             savedContentItem.IsPublished.Should().BeTrue();
-            savedContentItem.PublishDate.Should().Be(storageContentItem.PublishDate);
+            savedContentItem.PublishDate.Should().Be(expectedUntouched.PublishDate);
             savedContentItem.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
 
             // its OWN fact — never Modified, which the approval workflow reads as an amendment

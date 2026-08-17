@@ -61,6 +61,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             Link storageLink = CreateDemotableStorageLink(ownerUserId);
             Link savedLink = null;
 
+            // Snapshotted BEFORE the act. The service copies onto the very instance the storage
+            // read hands back, so asserting against storageLink after the fact would compare the
+            // row with itself and pass however the operation behaved — verified: nulling
+            // PublishDate in the do-work left all 273 Link tests green.
+            Link expectedUntouched = storageLink.DeepClone();
+
             SetupLinkStorageRead(storageLink);
 
             this.dateTimeBrokerMock.Setup(broker =>
@@ -100,7 +106,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // stays publicly visible until the new version is approved (§3.4.1), so a demotion
             // that touched publication would take the group dark mid-fork.
             savedLink.IsPublished.Should().BeTrue();
-            savedLink.PublishDate.Should().Be(storageLink.PublishDate);
+            savedLink.PublishDate.Should().Be(expectedUntouched.PublishDate);
             savedLink.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
 
             // its OWN fact — never Modified, which the approval workflow reads as an amendment
