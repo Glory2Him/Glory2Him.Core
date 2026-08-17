@@ -526,6 +526,12 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             }
         }
 
+        private static dynamic IsInvalid(EntityType entityType) => new
+        {
+            Condition = Enum.IsDefined(entityType) == false,
+            Message = "Value is not a supported entity type"
+        };
+
         private static dynamic IsInvalid(Guid id) => new
         {
             Condition = id == Guid.Empty,

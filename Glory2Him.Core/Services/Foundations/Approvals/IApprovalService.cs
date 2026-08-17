@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Services.Foundations.Approvals
@@ -41,6 +42,26 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
         ValueTask<Approval> HardRemoveApprovalByIdAsync(
             Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Looks up the approval occupying <c>(EntityType, EntityId)</c> — the pair
+        /// <c>UX_Approvals_EntityType_EntityId</c> keys on — over the UNFILTERED store,
+        /// spanning soft-deleted rows (design §9.7.2 rule 3).
+        ///
+        /// <para>The retrieve-or-create flow needs this because that index is <b>not</b>
+        /// filtered on <c>IsDeleted</c>, so a closed approval still occupies the key. The
+        /// caller-facing reads are visibility-filtered and would answer "does not exist" for a
+        /// key that does — and the insert that answer invites can never succeed. The flow
+        /// reinstates the row in place instead (§12.4.4 BR14).</para>
+        ///
+        /// <para>Returns a non-leaking <see cref="ApprovalEntityMatch"/> projection — id,
+        /// status and soft-delete flag only — or <c>null</c> when the pair is unoccupied. The
+        /// row body never crosses back.</para>
+        /// </summary>
+        ValueTask<ApprovalEntityMatch?> FindApprovalByEntityAsync(
+            EntityType entityType,
+            Guid entityId,
             CancellationToken cancellationToken = default);
     }
 }
