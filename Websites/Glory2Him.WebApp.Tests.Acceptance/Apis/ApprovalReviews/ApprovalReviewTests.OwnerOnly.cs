@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
@@ -159,6 +160,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 // then: soft-deleted, so the read reports not found (§14.5)
                 var getTask = this.apiBroker.GetApprovalReviewByIdAsync(review.Id).AsTask();
                 await Assert.ThrowsAsync<HttpResponseNotFoundException>(() => getTask);
+
+                // and it is filtered out of the collection too, asserted through the OData
+                // $filter route — the only test that exercises [EnableQuery] on this controller,
+                // and the same check the sibling exposer makes here
+                List<ApprovalReview> filteredResult =
+                    await this.apiBroker.GetSpecificApprovalReviewByIdAsync(review.Id);
+
+                filteredResult.Count.Should().Be(0);
             }
             finally
             {
