@@ -97,9 +97,11 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentContentItem.CreatedBy == actorUserId;
 
-            // an approved item belongs to its owner alone — the modify then forks a new
-            // version; a not-yet-approved item may also be modified in place by a
-            // Reviewer, Publisher or Admin
+            // a not-yet-decided item may be corrected in place by a Reviewer, Publisher or
+            // Admin during review; a terminal one belongs to its owner alone, because the
+            // only edit it admits is a fork onto a fresh version (§3.4 rule 16) and a
+            // moderator forking someone else's decided row would author a version in
+            // their name
             bool hasModifyRole =
                 securityContext.Roles.Contains(Roles.Reviewer)
                     || securityContext.Roles.Contains(Roles.ContentItemReviewer)
@@ -107,7 +109,11 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                     || securityContext.Roles.Contains(Roles.ContentItemPublisher)
                     || securityContext.Roles.Contains(Roles.Admin);
 
-            bool isPermitted = currentContentItem.ApprovalStatus == ApprovalStatus.Approved
+            bool isTerminal =
+                currentContentItem.ApprovalStatus == ApprovalStatus.Approved
+                    || currentContentItem.ApprovalStatus == ApprovalStatus.Rejected;
+
+            bool isPermitted = isTerminal
                 ? isOwner
                 : isOwner || hasModifyRole;
 

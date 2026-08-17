@@ -16,6 +16,7 @@ using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.WebApp.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,6 +38,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
         [InlineData(typeof(IStorageBroker))]
         [InlineData(typeof(ITagService))]
         [InlineData(typeof(IApprovalCommentService))]
+        [InlineData(typeof(IApprovalReviewService))]
         public void ShouldRegisterRequestBoundServicesAsScoped(Type serviceType)
         {
             // given

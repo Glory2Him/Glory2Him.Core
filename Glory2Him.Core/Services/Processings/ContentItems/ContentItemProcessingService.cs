@@ -320,8 +320,16 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                     message: "A content item already exists with the same content.");
             }
 
-            // an approved item is immutable in place — the owner's modify forks a new version
-            bool shouldForkNewVersion = currentContentItem.ApprovalStatus == ApprovalStatus.Approved;
+            // a terminal row is immutable in place — the owner's modify forks a new version
+            // (§3.4 rules 7–8, rule 16). Rejected forks for the same reason Approved does:
+            // the row is the record of a decision, and editing it would rewrite what was
+            // decided. A fork off a Rejected row leaves the group with no published row
+            // until the new version is approved, which is correct — a rejected row was
+            // never published. Dismissed is deliberately absent: it is not a decision this
+            // service may fork off, and refusing it belongs to the foundation's modify.
+            bool shouldForkNewVersion =
+                currentContentItem.ApprovalStatus == ApprovalStatus.Approved
+                    || currentContentItem.ApprovalStatus == ApprovalStatus.Rejected;
 
             ContentItem modifiedContentItem = shouldForkNewVersion
                 ? await ForkContentItemVersionAsync(

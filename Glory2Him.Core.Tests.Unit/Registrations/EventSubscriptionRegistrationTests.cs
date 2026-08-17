@@ -44,6 +44,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Services.Processings.ContentItems;
+using Glory2Him.Core.Services.Processings.Links;
 
 namespace Glory2Him.Core.Tests.Unit.Registrations
 {
@@ -63,6 +64,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IAssociationService> associationServiceMock;
         private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
         private readonly Mock<IContentItemProcessingService> contentItemProcessingServiceMock;
+        private readonly Mock<ILinkProcessingService> linkProcessingServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -81,6 +83,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.associationServiceMock = new Mock<IAssociationService>();
             this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
             this.contentItemProcessingServiceMock = new Mock<IContentItemProcessingService>();
+            this.linkProcessingServiceMock = new Mock<ILinkProcessingService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
@@ -96,7 +99,28 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 approvalSettingService: this.approvalSettingServiceMock.Object,
                 associationService: this.associationServiceMock.Object,
                 contentItemSettingService: this.contentItemSettingServiceMock.Object,
-                contentItemProcessingService: this.contentItemProcessingServiceMock.Object);
+                contentItemProcessingService: this.contentItemProcessingServiceMock.Object,
+                linkProcessingService: this.linkProcessingServiceMock.Object);
+        }
+
+        private void VerifyLinkProcessingSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            LinkProcessingEventOperation expectedOperation,
+            Func<EventEnvelope<Link>, CancellationToken,
+                ValueTask<EventEnvelope<Link>?>> expectedHandler)
+        {
+            this.eventBrokerMock.Verify(broker =>
+                broker.SubscribeToLinkProcessingEventAsync(
+                    It.Is<EventSubscription>(subscription =>
+                        subscription.Id == expectedSubscriptionId
+                            && subscription.Name == expectedSubscriptionName),
+                    expectedOperation,
+                    It.Is<Func<EventEnvelope<Link>, CancellationToken,
+                        ValueTask<EventEnvelope<Link>?>>>(handler =>
+                            handler.Equals(expectedHandler)),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         private void VerifyContentItemProcessingSubscription(
@@ -1029,10 +1053,47 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.contentItemProcessingServiceMock.Object.OnRetrievingContentItemByIdAsync);
 
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkProcessingOnAddingLinkSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkProcessingOnAddingLinkSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.Adding,
+                expectedHandler:
+                    this.linkProcessingServiceMock.Object.OnAddingLinkAsync);
+
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkProcessingOnModifyingLinkSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkProcessingOnModifyingLinkSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.Modifying,
+                expectedHandler:
+                    this.linkProcessingServiceMock.Object.OnModifyingLinkAsync);
+
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkProcessingOnRemovingLinkByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkProcessingOnRemovingLinkByIdSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.RemovingById,
+                expectedHandler:
+                    this.linkProcessingServiceMock.Object.OnRemovingLinkByIdAsync);
+
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkProcessingOnRetrievingLinkByIdSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkProcessingOnRetrievingLinkByIdSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.RetrievingById,
+                expectedHandler:
+                    this.linkProcessingServiceMock.Object.OnRetrievingLinkByIdAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();
             this.contentItemProcessingServiceMock.VerifyNoOtherCalls();
+            this.linkProcessingServiceMock.VerifyNoOtherCalls();
         }
     }
 }

@@ -19,6 +19,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Tags;
 
 namespace Glory2Him.WebApp.Infrastructure
@@ -83,6 +84,7 @@ namespace Glory2Him.WebApp.Infrastructure
             // service through an ordinary public constructor and the default activator builds it.
             services.AddScoped<ITagService, TagService>();
             services.AddScoped<IApprovalCommentService, ApprovalCommentService>();
+            services.AddScoped<IApprovalReviewService, ApprovalReviewService>();
 
             return services;
         }

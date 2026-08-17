@@ -1503,6 +1503,7 @@ Every service publishes consistent lifecycle events on its own event addresses. 
 | --- | --- | --- |
 | `ContentItemService` (foundation) | `ContentItem-Adding`, `ContentItem-Modifying`, `ContentItem-RemovingById`, `ContentItem-HardRemovingById`, `ContentItem-RetrievingById` | `ContentItem-Added`, `ContentItem-Modified`, `ContentItem-Removed` |
 | `ContentItemProcessingService` | `ContentItemProcessing-Adding`, `ContentItemProcessing-Modifying`, `ContentItemProcessing-RemovingById` | `ContentItemProcessing-Added`, `ContentItemProcessing-Modified`, `ContentItemProcessing-Removed` |
+| `LinkProcessingService` | `LinkProcessing-Adding`, `LinkProcessing-Modifying`, `LinkProcessing-RemovingById`, `LinkProcessing-RetrievingById` | `LinkProcessing-Added`, `LinkProcessing-Modified`, `LinkProcessing-Removed` |
 
 1. Create operations emit an `-Added` fact.
 2. Update operations emit a `-Modified` fact.
@@ -2038,9 +2039,9 @@ The approval workflow both **consumes** entity lifecycle facts and **causes** en
 
 An entity's **top-layer service** is the highest business layer that owns its write flows — its orchestration service if it has one, otherwise its processing service, otherwise the foundation itself (§12.1). The tier matters; which of the two upper layers it happens to be does not.
 
-1. The approval orchestration subscribes to the top-layer `-Added` and `-Modified` facts **where a layer above the foundation exists** — for `ContentItem` that is `ContentItemProcessing-Added` / `-Modified` (§12.4.1). It does not subscribe to `-Removed` at all (§9.7.6). Per §10.2 rule 6 it must not also subscribe to the foundation facts for the same reaction.
+1. The approval orchestration subscribes to the top-layer `-Added` and `-Modified` facts **where a layer above the foundation exists** — for `ContentItem` that is `ContentItemProcessing-Added` / `-Modified` (§12.4.1), and for `Link` that is `LinkProcessing-Added` / `-Modified` (§12.4.2). It does not subscribe to `-Removed` at all (§9.7.6). Per §10.2 rule 6 it must not also subscribe to the foundation facts for the same reaction.
 
-   Where an approvable entity has nothing above its foundation — today that is every one except `ContentItem` — it subscribes to the **foundation** facts instead. That is safe for a Single-Row entity (§7.5.1): the loop is broken by rule 4 below rather than by the subscription tier, and with no version fork there is no multi-row bookkeeping write to misread. A **Versioned** entity must have a service above its foundation before it can participate in approval, for the reason in rule 2.
+   Where an approvable entity has nothing above its foundation — today that is every one except `ContentItem` and `Link` — it subscribes to the **foundation** facts instead. That is safe for a Single-Row entity (§7.5.1): the loop is broken by rule 4 below rather than by the subscription tier, and with no version fork there is no multi-row bookkeeping write to misread. A **Versioned** entity must have a service above its foundation before it can participate in approval, for the reason in rule 2.
 2. The reason is §10.2 rule 5. A version fork writes two foundation rows and therefore emits two foundation facts — a `-Modified` for the previous latest row being demoted, and an `-Added` for the new version. Reacting to the demotion would reset the still-published previous version's approval and dismiss its review history, for a write that changed only `IsLatestVersion`. The top-layer service emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about — and it is the fork that makes this a *layer* question rather than an *orchestration* question, since the fork is single-entity processing work.
 3. The consequence to accept deliberately: a write made directly against a foundation service bypasses approval invalidation. Approvable entities are therefore written through their top-layer service, and an exposer must bind to that service rather than the foundation for any approvable entity.
 
@@ -2401,10 +2402,10 @@ Current intended processings:
 | Number | Name | Purpose | Status |
 | --- | --- | --- | --- |
 | 1 | `ContentItemProcessingService` | Content item creation, versioning (in-place vs. fork), duplicate-content enforcement, soft delete, and per-caller read visibility. | Built (§12.4.1) |
-| 2 | `LinkProcessingService` | Same shape as ContentItem: `Link` is Versioned, so an amend of a terminal row forks. | Required, not built |
-| 3 | `AttachmentProcessingService` | Same shape, plus the upload pipeline (§5.6.3), the replacement fork (§5.6.4), and the sweep, purge and orphan operations (§5.6.7). `Attachment` is Versioned, and has no foundation service yet either. | Required, not built |
+| 2 | `LinkProcessingService` | Same shape as ContentItem: `Link` is Versioned, so an amend of a terminal row forks. | Built (§12.4.2) |
+| 3 | `AttachmentProcessingService` | Same shape, plus the upload pipeline (§5.6.3), the replacement fork (§5.6.4), and the sweep, purge and orphan operations (§5.6.7). `Attachment` is Versioned, and has no foundation service yet either. | Required, not built — blocked on the missing `AttachmentService` |
 
-**Entries 2 and 3 are not optional.** §10.17 rule 1 makes a service above the foundation a hard prerequisite for a **Versioned** approvable entity, and `EntityTypeVersioning` (§7.5.1) declares exactly three Versioned types — `ContentItem`, `Link` and `Attachment`. Until each has one it cannot participate in approval without hitting the fork-emits-two-facts problem of §10.17 rule 2. Any other entity earns a processing service only by having higher-order single-entity logic of its own — a cross-row probe, an effective-value merge — because plain CRUD on a Single-Row entity needs nothing above its foundation.
+**Entry 3 is not optional.** §10.17 rule 1 makes a service above the foundation a hard prerequisite for a **Versioned** approvable entity, and `EntityTypeVersioning` (§7.5.1) declares exactly three Versioned types — `ContentItem`, `Link` and `Attachment`. Until each has one it cannot participate in approval without hitting the fork-emits-two-facts problem of §10.17 rule 2. `Attachment` is the one still outstanding, and it is blocked twice over: a processing service composes its entity's foundation service, and `Attachment` has none — only a model, a storage broker and an event broker. The foundation comes first. Any other entity earns a processing service only by having higher-order single-entity logic of its own — a cross-row probe, an effective-value merge — because plain CRUD on a Single-Row entity needs nothing above its foundation.
 
 #### 12.4.1 ContentItemProcessingService
 
@@ -2424,8 +2425,8 @@ Responsibilities:
 
 Business Rules:
 
-1. A content item in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
-2. An `Approved` content item is immutable to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. Exception: an `Admin` may amend an approved record in-place without creating a new version; the approval then resets to `Submitted` and active reviews are dismissed.
+1. A content item in `Draft`, `Submitted` or `Dismissed` status may be edited in-place without creating a new version. `Rejected` was listed here and is not: rule 2 makes it terminal, so an edit of a rejected item forks. `Dismissed` takes its place — it is the one non-terminal status this rule never named.
+2. A **terminal** content item — `Approved` or `Rejected` — is immutable in place, including to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. `Rejected` is here for the same reason `Approved` is: the row is the record of a decision, and amending it in place would rewrite what was decided. The `Admin` in-place carve-out this rule used to describe is withdrawn — see rule 10, which is the governing statement.
 3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
 4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A content item must not be published until its `ApprovalStatus` is `Approved`. This is enforced by `ApprovalOrchestrationService`, which listens for approval status changes and updates `IsPublished` accordingly when approval is granted.
@@ -2456,6 +2457,37 @@ Business Rules:
 10. **There is no in-place amendment of a terminal content item, by any role.** An edit of an `Approved` or `Rejected` item forks a new version (§3.4 rules 7–8), including for an `Admin` — the in-place carve-out this rule used to describe is withdrawn (§3.4 rule 16). An `Admin` who wants the row itself re-opened uses the status override instead, which is an approval transition and does not reach this service.
 11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentType`, `ContentHash`) across non-deleted rows (excluding the item's own `GroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
 12. Slug generation (§19.3 — designed, not built): derive `Slug` from `Title` on add and re-derive while the group has never published; freeze it at the group's first publish; copy it forward on a version fork; pin it thereafter. `Slug` is a control field (rule 6) — derived, never accepted from a caller, the same trust posture as `ContentHash`. `ShortCode` is likewise a control field, but its writer is not this service: it is derived by the foundation's approve transition at the group's first publish (§9.7.1 rule 3, §19.7) — the only operation that runs at that moment, which rule 10 keeps out of this service.
+
+#### 12.4.2 LinkProcessingService
+
+`LinkProcessingService` owns the full lifecycle of a link through `LinkService`, its single foundation dependency. It is a **processing** service by the §12.1 rule — one entity type, one foundation dependency — and the fork is what earns it: §10.17 rule 1 makes a service above the foundation a hard prerequisite for a Versioned approvable entity, and `Link` is Versioned (§7.5.1).
+
+It is the same shape as §12.4.1 and deliberately not a copy of it. Three things are **absent**, each because a `Link` is not a `ContentItem`:
+
+- **No duplicate-content rule.** §3.4.2 is keyed on (`ContentType`, `ContentHash`) and a link carries neither. Two links to the same URL are a legitimate pair — the same article cited from two stories, under two names — so there is no hash to compute and no `IHashBroker` dependency.
+- **No content-type role tier.** §18.6 rule 5 gives the narrow tier only to `ContentItem`, the one entity type carrying a `ContentType`. `Link`'s review tier is two-deep (`Reviewer` / `Link-Reviewer` and the publisher pair, plus `Admin`), so a `Link-Reviewer` covers every link there is and no per-row role question is asked. The collection filter has no set of reviewable types to resolve.
+- **No `ContentType` immutability rule.** There is nothing to reclassify.
+
+Responsibilities:
+
+1. Process link creation and modification, enforcing versioning rules and control field integrity.
+2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
+3. Update `IsLatestVersion` on the previous version when a new version is created.
+4. Apply model mapping on every write operation — map only `Name`, `Url` and `LinkType` onto a fresh entity loaded from the database before committing, so no caller can tamper with a control field through the update path.
+5. Process soft delete of the link itself, and nothing else. Dependent associations are left untouched for the reason given in §12.4.1 responsibility 5.
+6. Publish its own completion facts — `LinkProcessing-Added`, `LinkProcessing-Modified` and `LinkProcessing-Removed` — once the processed work has completed. The row-level facts (`Link-Added`, `-Modified`, `-Removed`) belong to `LinkService` and must not be republished here (§10.2 rule 5).
+7. Serve the per-caller read posture of §14.1 over links, including the group reads whose endpoint shape §17.1 tables for `ContentItem`.
+
+Business Rules:
+
+1. A link in `Draft`, `Submitted` or `Dismissed` status may be edited in place, by its owner or by a `Reviewer`, `Publisher` or `Admin`.
+2. A terminal link — `Approved` or `Rejected` — is immutable in place and belongs to its owner alone: their edit forks a new version and no role may fork on their behalf, because the fork authors a version and it would land in the moderator's name.
+3. Only one version per `GroupId` may have `IsLatestVersion = true`, and only one may have `IsPublished = true`. Both are also enforced by filtered unique indexes, and both survive a fork because the previous latest is demoted *before* the new row is inserted.
+4. A fork carries `IsPublished` forward untouched on the demoted row (§3.4 rule 12), so a group that had a published version keeps serving it through the review that follows. A fork off a `Rejected` row has no published version to preserve — a rejected row was never published — so the group simply has no public row until the new version is approved.
+5. Only the latest version of a group may be modified.
+6. The control fields — `GroupId`, `Version`, `IsLatestVersion`, `IsPublished`, `PublishDate`, `ApprovalStatus`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason` — are never accepted from a caller on add or modify. `PublishDate` is the one that looks like content and is not: it is an `IApproval` member (§9.7.1 rule 2) belonging to the approve operation, so neither the add nor the fork carries it.
+7. Removal is a takedown, not a moderation step: the owner or an `Admin`, and no one else. `ApprovalStatus` is left untouched (§10.5), and an already-removed link is reported as not found.
+8. Exactly one processing fact per completed amend, regardless of how many foundation rows the amend wrote.
 
 ### 12.5 Orchestration Layer
 
@@ -2527,7 +2559,7 @@ Business Rules:
 
 Responsibilities:
 
-1. Subscribe to each approvable entity's **top-layer** `-Added` and `-Modified` facts, per §10.17 — the orchestration fact where one exists, the processing fact otherwise (`ContentItemProcessing-Added` / `-Modified` for `ContentItem`). It does **not** subscribe to `-Removed`: a removal is a takedown, not a moderation step, and must never re-open or re-evaluate approval (§9.7.6).
+1. Subscribe to each approvable entity's **top-layer** `-Added` and `-Modified` facts, per §10.17 — the orchestration fact where one exists, the processing fact otherwise (`ContentItemProcessing-Added` / `-Modified` for `ContentItem`, `LinkProcessing-Added` / `-Modified` for `Link`). It does **not** subscribe to `-Removed`: a removal is a takedown, not a moderation step, and must never re-open or re-evaluate approval (§9.7.6).
 2. On receiving a `CreatedEvent`, check whether an approval record already exists for the entity. If none exists, create one with `ApprovalStatus = Draft` via `ApprovalService`.
 3. On receiving an `UpdatedEvent`, check whether an approval record exists for the entity. If none exists, create one with `ApprovalStatus = Draft`. If one exists, evaluate whether existing reviews must be dismissed based on the effective `ApprovalSetting.RequireReapprovalOnChange` policy.
 4. Orchestrate approval submission by moving `ApprovalStatus` from `Draft` to `Submitted`.

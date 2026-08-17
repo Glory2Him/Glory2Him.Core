@@ -68,6 +68,7 @@ roots:
   - WA.FrontendConfigApi
   - WA.CartService
   - CIP
+  - LP
   - ESR
   - SecurityBroker
   - AccessBroker
@@ -471,3 +472,24 @@ events:
   - id: ContentItemProcessing.Removed
     publish: PublishContentItemProcessingAsync
     subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: LinkProcessing.Adding
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: LinkProcessing.Modifying
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: LinkProcessing.RemovingById
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: LinkProcessing.RetrievingById
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: LinkProcessing.Added
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: LinkProcessing.Modified
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: LinkProcessing.Removed
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
