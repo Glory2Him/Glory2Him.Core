@@ -567,6 +567,7 @@ components:
       - OnRemovingContentItemByIdAsync
       - OnHardRemovingContentItemByIdAsync
       - OnRetrievingContentItemByIdAsync
+      - DemoteContentItemVersionAsync
     calls:
       - from: AddContentItemAsync
         to: EventEnvelopeBroker
@@ -712,6 +713,27 @@ components:
       - from: OnHardRemovingContentItemByIdAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
+      - from: DemoteContentItemVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: DemoteContentItemVersionAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: DemoteContentItemVersionAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: DemoteContentItemVersionAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: DemoteContentItemVersionAsync
+        to: StorageBroker
+        method: UpdateContentItemAsync
+      - from: DemoteContentItemVersionAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: DemoteContentItemVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
     publishes:
       - method: AddContentItemAsync
         event: ContentItem.Added
@@ -721,6 +743,8 @@ components:
         event: ContentItem.Removed
       - method: HardRemoveContentItemByIdAsync
         event: ContentItem.HardRemoved
+      - method: DemoteContentItemVersionAsync
+        event: ContentItem.Demoted
     subscribes:
       - event: ContentItem.Adding
         handler: OnAddingContentItemAsync
@@ -1374,6 +1398,7 @@ components:
       - OnRemovingLinkByIdAsync
       - OnHardRemovingLinkByIdAsync
       - OnRetrievingLinkByIdAsync
+      - DemoteLinkVersionAsync
     calls:
       - from: AddLinkAsync
         to: EventEnvelopeBroker
@@ -1513,6 +1538,27 @@ components:
       - from: OnHardRemovingLinkByIdAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
+      - from: DemoteLinkVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: DemoteLinkVersionAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+      - from: DemoteLinkVersionAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: DemoteLinkVersionAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: DemoteLinkVersionAsync
+        to: StorageBroker
+        method: UpdateLinkAsync
+      - from: DemoteLinkVersionAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: DemoteLinkVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
     publishes:
       - method: AddLinkAsync
         event: Link.Added
@@ -1522,6 +1568,8 @@ components:
         event: Link.Removed
       - method: HardRemoveLinkByIdAsync
         event: Link.HardRemoved
+      - method: DemoteLinkVersionAsync
+        event: Link.Demoted
     subscribes:
       - event: Link.Adding
         handler: OnAddingLinkAsync
@@ -2751,6 +2799,9 @@ components:
         method: ModifyContentItemAsync
       - from: ModifyContentItemAsync
         to: FS.ContentItem
+        method: DemoteContentItemVersionAsync
+      - from: ModifyContentItemAsync
+        to: FS.ContentItem
         method: AddContentItemAsync
       - from: RemoveContentItemByIdAsync
         to: FS.ContentItem
@@ -2923,6 +2974,9 @@ components:
       - from: ModifyLinkAsync
         to: FS.Link
         method: ModifyLinkAsync
+      - from: ModifyLinkAsync
+        to: FS.Link
+        method: DemoteLinkVersionAsync
       - from: ModifyLinkAsync
         to: FS.Link
         method: AddLinkAsync

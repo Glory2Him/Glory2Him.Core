@@ -94,6 +94,12 @@ view you were on, and switching carries your current selection across.
   `Association` is the one entity whose transitions are modelled. A full
   re-scan is needed to reconcile them — until then, read the counts here as a
   floor, not a total.
+- **The version fork gained its own foundation operation 2026-08-17** (issue #263).
+  `Demote<Entity>VersionAsync` on `ContentItem` and `Link` owns `IsLatestVersion`
+  and publishes `<Entity>-Demoted`; the fork edge from each processing service
+  now points at it instead of the general modify. These two are the only
+  transitions the snapshot models on those entities — submit and the approval
+  transition are still missing, per the note above.
 - **The approval transition verb was widened 2026-08-17** (issue #198).
   `Approve<Entity>Async` became `Transition<Entity>ApprovalAsync` on all seven
   approvable entities, carrying the ordinary verdict, the `Admin` override out
