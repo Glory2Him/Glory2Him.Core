@@ -265,6 +265,15 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 (Rule: IsGreaterThan(approval.ApprovedByBypassReason, 500),
                     Parameter: nameof(Approval.ApprovedByBypassReason)),
 
+                // §7.2: Dismissed belongs to ApprovalReview records only — "Entities and
+                // Approval records never hold Dismissed". Add already refuses it through
+                // IsNotContributableStatus; unrefused here, the invariant held on one path and
+                // not the other, and the status is deliberately unpinned on modify so nothing
+                // else stood in the way. ToApprovalState maps Dismissed onto Draft, so a row
+                // parked there is one nobody can review or decide until it is moved back.
+                (Rule: IsDismissedStatus(approval.ApprovalStatus),
+                    Parameter: nameof(Approval.ApprovalStatus)),
+
                 (Rule: IsNotSame(
                         first: currentUserId,
                         second: approval.UpdatedBy),
@@ -491,6 +500,20 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             }
         }
 
+        /// <summary>
+        /// A retracted approval is closed to writes. Reported as not found rather than as a
+        /// validation error, matching the read path (§14.5): a caller who may write to the row
+        /// still learns nothing beyond "there is nothing here to write to".
+        /// </summary>
+        private static void ValidateStorageApprovalIsNotDeleted(Approval storageApproval)
+        {
+            if (storageApproval.IsDeleted)
+            {
+                throw new NotFoundApprovalException(
+                    message: $"Approval not found with id: {storageApproval.Id}.");
+            }
+        }
+
         private static void ValidateApprovalIsNotNull(Approval approval)
         {
             if (approval is null)
@@ -580,6 +603,16 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         {
             Condition = string.IsNullOrWhiteSpace(text) is false,
             Message = "Text is not allowed on add"
+        };
+
+        // Dismissed is an ApprovalReview verdict, never an Approval's own status (§7.2). Stated
+        // as its own rule rather than folded into a whitelist because the other four are all
+        // legitimate on modify and only this one is categorically wrong.
+        private static dynamic IsDismissedStatus(ApprovalStatus approvalStatus) => new
+        {
+            Condition = approvalStatus == ApprovalStatus.Dismissed,
+
+            Message = $"Value must not be {nameof(ApprovalStatus.Dismissed)} on an approval",
         };
 
         // a caller may save work in progress or submit it for review; the remaining states

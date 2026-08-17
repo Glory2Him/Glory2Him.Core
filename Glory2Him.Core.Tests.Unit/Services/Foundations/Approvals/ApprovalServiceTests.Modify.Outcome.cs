@@ -481,6 +481,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             }
         }
 
+
+        /// <summary>
+        /// A retracted approval is closed to writes. Neither gate can see that for itself —
+        /// <c>AmendApprovalRequest</c> carries no deletion field and the §8.6.1 decision reads
+        /// only the status — so without this check the decision would happily approve a round
+        /// its owner had already withdrawn.
+        ///
+        /// <para>Reported as not found, matching the read path (§14.5). The check sits AFTER the
+        /// permission gates, following the remove path, so a caller who may not touch the row
+        /// learns nothing about its deletion state; the amend gate is therefore still consulted
+        /// here, while the outcome decision — which would be the actual write — is not.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalStatus.Submitted)]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldThrowNotFoundOnModifyIfTheStoredApprovalIsDeletedAsync(
+            ApprovalStatus targetStatus)
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
+            Approval inputApproval = randomApproval;
+            inputApproval.ApprovalStatus = targetStatus;
+
+            Approval storageApproval = randomApproval.DeepClone();
+            storageApproval.ApprovalStatus = ApprovalStatus.Submitted;
+            storageApproval.IsDeleted = true;
+
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
+            SetupOutcomeDecisionToReturn(PermittedOutcomeVerdict(isBypassUsed: false));
+
+            // when
+            ValueTask<Approval> modifyApprovalTask =
+                this.approvalService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    modifyApprovalTask.AsTask);
+
+            // then
+            actualApprovalValidationException.InnerException
+                .Should().BeOfType<NotFoundApprovalException>();
+
+            // the decision is never asked about a row that is not there to be decided
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayDecideApprovalByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
         private void SetupOutcomeDecisionToReturn(AccessVerdict accessVerdict) =>
             this.accessBrokerMock.Setup(broker =>
                 broker.MayDecideApprovalByIdAsync(

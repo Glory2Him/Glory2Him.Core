@@ -363,6 +363,16 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 
+            // A retracted approval is not a workflow record any more, so nothing may be written
+            // to it — least of all an outcome. Without this the decision gate below would happily
+            // approve a round its owner had already withdrawn, because neither gate is told the
+            // row is deleted: AmendApprovalRequest carries no such field and the decision reads
+            // only the status. Reported as not found, the way the read path reports it (§14.5).
+            //
+            // After the permission checks, not before, following the remove path: a caller who
+            // may not touch this row learns nothing about its deletion state either way.
+            ValidateStorageApprovalIsNotDeleted(maybeApproval);
+
             // Null unless the payload moves the status into Approved or Rejected; the §8.6.1
             // verdict otherwise, which the derivation below records.
             AccessVerdict outcomeVerdict = await ValidateUserMayDecideStorageApprovalAsync(

@@ -10,6 +10,8 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using Glory2Him.Core.Models.Enums;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -1025,5 +1027,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// §7.2 gives <c>Dismissed</c> to <c>ApprovalReview</c> records alone — "Entities and
+        /// <c>Approval</c> records never hold <c>Dismissed</c>" — and
+        /// <c>AccessBroker.ToApprovalState</c> says the same where it maps the value onto
+        /// <c>Draft</c>. Add already refused it; modify did not, and the status is deliberately
+        /// unpinned there, so the invariant held on one path and not the other.
+        ///
+        /// <para>The theory carries the four legitimate statuses too, so the rule is pinned as a
+        /// rule rather than as a blanket refusal — a mutation that refused every status would
+        /// fail on the first four rows.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(ApprovalStatus.Draft, false)]
+        [InlineData(ApprovalStatus.Submitted, false)]
+        [InlineData(ApprovalStatus.Approved, false)]
+        [InlineData(ApprovalStatus.Rejected, false)]
+        [InlineData(ApprovalStatus.Dismissed, true)]
+        public async Task ShouldRefuseOnlyTheDismissedStatusOnModifyAsync(
+            ApprovalStatus approvalStatus,
+            bool expectRefusal)
+        {
+            // given: everything else deliberately blank, so the run always throws and the only
+            // question is whether ApprovalStatus is among the reported errors
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            var invalidApproval = new Approval
+            {
+                ApprovalStatus = approvalStatus,
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(invalidApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(GetRandomString());
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<Approval> modifyApprovalTask =
+                this.approvalService.ModifyApprovalAsync(
+                    invalidApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(modifyApprovalTask.AsTask);
+
+            // then
+            bool statusWasRefused = actualException.InnerException!.Data.Keys
+                .Cast<string>()
+                .Contains(nameof(Approval.ApprovalStatus));
+
+            statusWasRefused.Should().Be(expectRefusal);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
     }
 }
