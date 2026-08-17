@@ -43,7 +43,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     nullContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -71,24 +71,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfStatusIsNotAnOutcomeAsync(
-            ApprovalStatus notAnOutcome)
+        public async Task ShouldThrowValidationExceptionOnTransitionIfStatusIsNotATransitionTargetAsync(
+            ApprovalStatus notATransitionTarget)
         {
-            // given: approve owns IApproval, so it is the one operation allowed to carry a
-            // status — but only to an outcome the workflow produces. Draft and Submitted are
-            // states the row LEAVES here; Dismissed belongs to a later step.
+            // given: this operation owns IApproval, so it is the one allowed to carry a status —
+            // but only to a state the workflow can hold a row in. Draft is reached once, at
+            // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
+            // Submitted is NOT here: it is what an override re-opens a terminal row to.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             ContentItem inputContentItem = CreateApprovalDecision(Guid.NewGuid());
-            inputContentItem.ApprovalStatus = notAnOutcome;
+            inputContentItem.ApprovalStatus = notATransitionTarget;
             inputContentItem.IsPublished = false;
             inputContentItem.PublishDate = null;
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -193,7 +193,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -232,7 +232,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -277,7 +277,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -296,16 +296,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Approved)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfTheStoredRowIsNotSubmittableAsync(
+        public async Task ShouldThrowValidationExceptionOnTransitionIfTheStoredRowIsNotTransitionableAsync(
             ApprovalStatus storageStatus)
         {
-            // given: only a row actually in review can be decided. Approving a Draft would skip
-            // the submission the workflow is built around; approving a decided row would
-            // re-publish a verdict. The tier and the access decision pass first (global
-            // Publisher, permissive fixture), so this proves the state gate stands on its own.
+            // given: a Draft has not been submitted and a Dismissed row is not in a round at all,
+            // so neither can be decided. Approved and Rejected are absent because they ARE
+            // transitionable — by an Admin, through the override — and are covered there.
+            //
+            // The tier and the access decision pass first (global Publisher, permissive fixture),
+            // so this proves the state gate stands on its own.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
@@ -328,7 +328,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -389,7 +389,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -437,7 +437,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -493,7 +493,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -544,7 +544,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<ContentItem> approveTask =
-                this.contentItemService.ApproveContentItemAsync(
+                this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 

@@ -72,6 +72,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 PublishDate = null,
             };
 
+        // The Admin override's target: a terminal row re-opened for a second round. Publication
+        // is not asked for — the validation refuses a published non-approved row, and the
+        // do-work derives it off regardless.
+        private static ContentItem CreateReopenDecision(Guid contentItemId) =>
+            new ContentItem
+            {
+                Id = contentItemId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsPublished = false,
+                PublishDate = null,
+            };
+
+        // A stored row in a terminal state, published as an approved one would be, so a test can
+        // assert the override actually unpublishes it rather than finding it already false.
+        private static ContentItem CreateTerminalStorageContentItem(ApprovalStatus terminalStatus)
+        {
+            ContentItem contentItem = CreateApprovableStorageContentItem();
+            contentItem.ApprovalStatus = terminalStatus;
+            contentItem.IsPublished = terminalStatus == ApprovalStatus.Approved;
+
+            contentItem.PublishDate = contentItem.IsPublished
+                ? GetRandomDateTimeOffset()
+                : null;
+
+            return contentItem;
+        }
+
+        // The context ApprovalOrchestrationService mints for the workflow's own writes. Roleless
+        // on purpose: the flag is the whole of its authority, so a test that passes with roles
+        // attached would not be proving the flag did anything.
+        private static SecurityContext CreateSystemSecurityContext() =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = [],
+                IsSystemIdentity = true,
+            };
+
+        // A bypass REQUEST: the caller asks, and the verdict decides what is recorded.
+        private static ContentItem CreateBypassApprovalRequest(Guid contentItemId, string bypassReason)
+        {
+            ContentItem contentItem = CreateApprovalDecision(contentItemId);
+            contentItem.IsApprovedByBypass = true;
+            contentItem.ApprovedByBypassReason = bypassReason;
+
+            return contentItem;
+        }
+
         private void SetupContentItemStorageRead(ContentItem storageContentItem) =>
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
@@ -114,7 +162,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         // the storage broker. The snapshot is taken INSIDE the callback: the service copies onto
         // the instance the storage read handed it, so reading that instance after the act would
         // compare the row with itself and pass however the operation behaved.
-        private async ValueTask<ContentItem> CaptureSavedContentItemOnApproveAsync(
+        private async ValueTask<ContentItem> CaptureSavedContentItemOnTransitionAsync(
             ContentItem storageContentItem,
             ContentItem inputContentItem)
         {
@@ -147,7 +195,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .Returns(new ValueTask<EventPublishResult<ContentItem>>(
                             new EventPublishResult<ContentItem>()));
 
-            await this.contentItemService.ApproveContentItemAsync(
+            await this.contentItemService.TransitionContentItemApprovalAsync(
                 inputContentItem,
                 TestContext.Current.CancellationToken);
 
@@ -197,7 +245,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                         .Returns(new ValueTask<EventPublishResult<ContentItem>>(
                             new EventPublishResult<ContentItem>()));
 
-            await this.contentItemService.ApproveContentItemAsync(
+            await this.contentItemService.TransitionContentItemApprovalAsync(
                 inputContentItem,
                 TestContext.Current.CancellationToken);
 

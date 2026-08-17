@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
@@ -29,16 +30,17 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
-        private static void ValidateOnApproveContentItem(ContentItem contentItem) =>
+        private static void ValidateOnTransitionContentItemApproval(ContentItem contentItem) =>
             Validate(
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItem.Id), Parameter: nameof(ContentItem.Id)),
 
-                // Approve owns the whole of IApproval, so it is the one operation allowed to
-                // carry these — but only to an outcome the approval workflow can produce. Draft
-                // and Submitted are states the row LEAVES here, not ones approving may set, and
-                // Dismissed belongs to a later withdrawal step.
-                (Rule: IsNotAnApprovalOutcome(contentItem.ApprovalStatus),
+                // This operation owns the whole of IApproval, so it is the one allowed to carry
+                // these — but only to a state the approval workflow can hold a row in. Draft is
+                // refused because a row reaches it once, at creation, and submitting is its own
+                // verb; Dismissed belongs to a later withdrawal step. Submitted is admitted, and
+                // is what an override re-opens a terminal row to.
+                (Rule: IsNotAnApprovalTransitionTarget(contentItem.ApprovalStatus),
                     Parameter: nameof(ContentItem.ApprovalStatus)),
 
                 // publication is a consequence of approval — a row cannot be published while
@@ -50,7 +52,29 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 (Rule: IsPublishDateWithoutPublication(
                         contentItem.IsPublished, contentItem.PublishDate),
-                    Parameter: nameof(ContentItem.PublishDate)));
+                    Parameter: nameof(ContentItem.PublishDate)),
+
+                // There is no such thing as a bypass-reject or a bypass-reopen: a waiver waives
+                // the §8.5 approval conditions, and nothing is being waived when approval is not
+                // what is being granted (§9.7.5). Admitting one would stamp IsApprovedByBypass
+                // on a rejection.
+                (Rule: IsBypassWithoutApproval(
+                        contentItem.IsApprovedByBypass, contentItem.ApprovalStatus),
+                    Parameter: nameof(ContentItem.IsApprovedByBypass)),
+
+                // A bypass is only tolerable because it leaves a record, and an unexplained one
+                // records nothing worth reading. Validated HERE — before the gate reads any
+                // policy — so an unexplained bypass is refused under every policy, including one
+                // that would have permitted the waiver.
+                (Rule: IsMissingBypassReason(
+                        contentItem.IsApprovedByBypass, contentItem.ApprovedByBypassReason),
+                    Parameter: nameof(ContentItem.ApprovedByBypassReason)),
+
+                // The column this lands in is nvarchar(500). Without the bound, the same payload
+                // comes back from SQL Server as a "contact support" dependency failure naming no
+                // field at all.
+                (Rule: IsGreaterThan(contentItem.ApprovedByBypassReason, 500),
+                    Parameter: nameof(ContentItem.ApprovedByBypassReason)));
 
         // Submitting is the owner-or-publisher act of §9.2. It is deliberately the SAME set the
         // modify carve-out admits (design §9.2 rules 4-6): a dedicated status-only verb must
@@ -99,21 +123,71 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // cost one role comparison instead of several table reads, and it means a defect in the
         // gathering can only ever make this gate stricter, never open it.
         //
-        // Returns the verdict rather than only throwing on refusal, because the caller has to
-        // write IsApprovedByBypass from it. Those two IApproval members are the one part of the
-        // interface the approve operation DERIVES instead of accepting: they exist to record
-        // that the conditions were waived, and a caller able to set them is equally able to
-        // clear them, erasing the one event they are here to capture (design §9.7.1 rule 3).
-        private async ValueTask<AccessVerdict> ValidateUserCanApproveStorageContentItemAsync(
+        // Returns whether a bypass was USED rather than the whole verdict, because that single
+        // bit is the whole of what the caller writes back. It is one of the two IApproval
+        // members this operation DERIVES instead of accepting: they exist to record that the
+        // conditions were waived, and a caller able to set them is equally able to clear them,
+        // erasing the one event they are here to capture (design §9.7.1 rule 3). Two of the
+        // paths below take no approval decision at all and so have no verdict to return;
+        // fabricating one would invent a denial reason and an explanation nothing decided.
+        private async ValueTask<bool> ValidateUserCanTransitionStorageContentItemApprovalAsync(
             ContentItem storageContentItem,
             ContentItem contentItem,
             SecurityContext securityContext,
+            bool isSystemIdentity,
             CancellationToken cancellationToken)
         {
+            // Resolved from the STORED status, never the caller's copy — the same reason the
+            // author and the content type are. A caller-supplied status would be
+            // self-certification: anyone could present an approved row as Submitted and decide
+            // it as an ordinary round, which is the entire gate.
+            bool isOverride =
+                storageContentItem.ApprovalStatus == ApprovalStatus.Approved
+                    || storageContentItem.ApprovalStatus == ApprovalStatus.Rejected;
+
+            // §8.6 HR-4. Moving a row OUT of a terminal state is an override, and it is what
+            // keeps "terminal" meaningful: a state that the owner or a Publisher could edit out
+            // of would not be terminal at all (§3.4 rules 7, 16). It is gated to Admin — and to
+            // the workflow, below — and to nobody else.
+            //
+            // Run row-local and FIRST, so an unauthorised override costs one role comparison
+            // rather than several table reads, and so a defect in the access decision's
+            // gathering can only ever make this stricter (§8.6.1).
+            if (isOverride
+                && isSystemIdentity is false
+                && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedContentItemException(
+                    message: "The current user is not allowed to transition this content item.");
+            }
+
+            // The workflow's own writes have no human permitted to make them, which is why a
+            // second admissible actor exists at all (§8.6 regardless-rule 1): the reviewer whose
+            // own review fires an automatic approval is the one party barred from deciding it,
+            // and the previously published sibling a newly approved version demotes is itself
+            // Approved, so no Publisher may touch it either.
+            //
+            // The system identity stands in for the publisher tier and for nothing else. It
+            // requests no bypass and is granted none — waiving the §8.5 conditions is a human
+            // act that has to be explained by a human.
+            if (isSystemIdentity)
+            {
+                return false;
+            }
+
             if (HasPublisherRole(securityContext, storageContentItem.ContentType) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to approve this content item.");
+            }
+
+            // Re-opening a row to Submitted decides nothing — it returns the row to review
+            // rather than granting or withholding approval — so there is no approval decision to
+            // ask for, and ApprovalDecision has no member that would honestly express one. The
+            // Admin gate above is the whole authority for it.
+            if (contentItem.ApprovalStatus == ApprovalStatus.Submitted)
+            {
+                return false;
             }
 
             AccessVerdict verdict = await this.accessBroker.MayDecideApprovalAsync(
@@ -151,11 +225,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         ? ApprovalDecision.Reject
                         : ApprovalDecision.Approve,
 
-                    // Bypass is its own operation and this is not it; an ordinary approve never
-                    // claims one. Passing the caller's flag here would make every approve a
-                    // potential bypass.
-                    IsBypassRequested = false,
-                    BypassReason = null,
+                    // The bypass REQUEST, which is all the caller's pair ever is. What lands on
+                    // the row comes back on the verdict: asking here and writing from the answer
+                    // is what stops a genuine waiver being un-recorded by the party it is
+                    // evidence about. DoNotAllowBypassingSettings is resolved inside the
+                    // decision and closes this route to everyone, Admin included.
+                    IsBypassRequested = contentItem.IsApprovedByBypass,
+                    BypassReason = contentItem.ApprovedByBypassReason,
 
                     SecurityContext = securityContext,
                 },
@@ -176,16 +252,26 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     message: "The current user is not allowed to approve this content item.");
             }
 
-            return verdict;
+            return verdict.IsBypassUsed;
         }
 
-        // Only a row actually in review can be decided. Approving a Draft would skip the
-        // submission the workflow is built around, and approving an already-decided row would
-        // re-publish a verdict.
-        private static void ValidateStorageContentItemIsApprovable(
+        // What a row may be transitioned FROM. Draft is refused because a row reaches it once,
+        // at creation, and submitting it is its own verb — deciding one would skip the
+        // submission the workflow is built around. Dismissed is refused because a withdrawn row
+        // is not in a round at all.
+        //
+        // Approved and Rejected ARE admitted here: they are terminal, but terminal means the
+        // content is immutable and the way out is narrow, not that the row is unreachable. The
+        // override gate is what decides who may act on one, and it has already run.
+        private static void ValidateStorageContentItemIsTransitionable(
             ContentItem storageContentItem)
         {
-            if (storageContentItem.ApprovalStatus != ApprovalStatus.Submitted)
+            bool isTransitionable =
+                storageContentItem.ApprovalStatus == ApprovalStatus.Submitted
+                    || storageContentItem.ApprovalStatus == ApprovalStatus.Approved
+                    || storageContentItem.ApprovalStatus == ApprovalStatus.Rejected;
+
+            if (isTransitionable is false)
             {
                 throw new InvalidContentItemException(
                     message: "Content item cannot be approved from status " +
@@ -221,14 +307,42 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
-        private static dynamic IsNotAnApprovalOutcome(ApprovalStatus approvalStatus) => new
-        {
-            Condition =
-                approvalStatus != ApprovalStatus.Approved
-                    && approvalStatus != ApprovalStatus.Rejected,
+        private static dynamic IsNotAnApprovalTransitionTarget(
+            ApprovalStatus approvalStatus) => new
+            {
+                Condition =
+                    approvalStatus != ApprovalStatus.Approved
+                        && approvalStatus != ApprovalStatus.Rejected
+                        && approvalStatus != ApprovalStatus.Submitted,
 
-            Message = "Approval status must be Approved or Rejected."
-        };
+                Message = "Approval status must be Submitted, Approved or Rejected."
+            };
+
+        // A waiver waives the §8.5 APPROVAL conditions. Rejecting withholds approval rather than
+        // granting it and re-opening decides nothing at all, so neither has anything to waive
+        // (§9.7.5). Refusing the pairing here keeps IsApprovedByBypass off any row that was not
+        // approved.
+        private static dynamic IsBypassWithoutApproval(
+            bool isApprovedByBypass,
+            ApprovalStatus approvalStatus) => new
+            {
+                Condition =
+                    isApprovedByBypass
+                        && approvalStatus != ApprovalStatus.Approved,
+
+                Message = "Bypass requires an approved content item."
+            };
+
+        private static dynamic IsMissingBypassReason(
+            bool isApprovedByBypass,
+            string? approvedByBypassReason) => new
+            {
+                Condition =
+                    isApprovedByBypass
+                        && string.IsNullOrWhiteSpace(approvedByBypassReason),
+
+                Message = "Bypass reason is required when bypassing."
+            };
 
         private static dynamic IsPublishedWithoutApproval(
             ApprovalStatus approvalStatus,

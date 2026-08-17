@@ -103,10 +103,11 @@ namespace Glory2Him.Core.Services.Foundations.Links
         // IsPublished and PublishDate still at their approved values. The edit then goes public
         // with no re-review. That is the hole this closes; the pin never covered it.
         //
-        // A link never forks, so refusing the write IS the enforcement — there is no version to
-        // amend into, and the only way back is the Admin override on the approval transition
-        // (§8.6 HR-4). For the Versioned entities an orchestration turns this same condition
-        // into a fork instead (§10.17, #199).
+        // A Link is Versioned, so the amendment is not lost — it becomes a new version. That
+        // fork belongs to LinkProcessingService (§10.17 rule 2, §12.4.2), which reaches the
+        // terminal row first and writes a new one rather than calling this. The refusal here is
+        // what makes the fork the ONLY route: an exposer may bind straight to the foundation,
+        // and a rule enforced only above it is not enforced (§8.6.1).
         //
         // The §9.2 Draft <-> Submitted carve-out is unreachable from here and stays that way:
         // it is only ever reached from Draft or Submitted, so a terminal row is refused before

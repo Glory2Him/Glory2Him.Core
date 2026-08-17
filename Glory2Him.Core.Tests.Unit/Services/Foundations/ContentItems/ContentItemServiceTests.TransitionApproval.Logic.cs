@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
     public partial class ContentItemServiceTests
     {
         [Fact]
-        public async Task ShouldApproveContentItemAsync()
+        public async Task ShouldTransitionContentItemApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ContentItem actualContentItem =
-                await this.contentItemService.ApproveContentItemAsync(
+                await this.contentItemService.TransitionContentItemApprovalAsync(
                     inputContentItem,
                     TestContext.Current.CancellationToken);
 
@@ -174,7 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                             new EventPublishResult<ContentItem>()));
 
             // when
-            await this.contentItemService.ApproveContentItemAsync(
+            await this.contentItemService.TransitionContentItemApprovalAsync(
                 inputContentItem,
                 TestContext.Current.CancellationToken);
 
@@ -231,7 +231,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                             new EventPublishResult<ContentItem>()));
 
             // when
-            await this.contentItemService.ApproveContentItemAsync(
+            await this.contentItemService.TransitionContentItemApprovalAsync(
                 inputContentItem,
                 TestContext.Current.CancellationToken);
 
@@ -284,7 +284,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ContentItem savedContentItem =
-                await CaptureSavedContentItemOnApproveAsync(storageContentItem, inputContentItem);
+                await CaptureSavedContentItemOnTransitionAsync(storageContentItem, inputContentItem);
 
             // then
             savedContentItem.Should().NotBeNull();
@@ -333,7 +333,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ContentItem savedContentItem =
-                await CaptureSavedContentItemOnApproveAsync(storageContentItem, inputContentItem);
+                await CaptureSavedContentItemOnTransitionAsync(storageContentItem, inputContentItem);
 
             // then
             savedContentItem.Should().NotBeNull();
@@ -370,7 +370,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ContentItem savedContentItem =
-                await CaptureSavedContentItemOnApproveAsync(storageContentItem, inputContentItem);
+                await CaptureSavedContentItemOnTransitionAsync(storageContentItem, inputContentItem);
 
             // then
             savedContentItem.Should().NotBeNull();
@@ -397,7 +397,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ContentItem savedContentItem =
-                await CaptureSavedContentItemOnApproveAsync(storageContentItem, inputContentItem);
+                await CaptureSavedContentItemOnTransitionAsync(storageContentItem, inputContentItem);
 
             // then
             savedContentItem.Should().NotBeNull();

@@ -79,7 +79,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         /// members are derived from the decision, never accepted. Publishes the fact the
         /// DECISION names: <c>ContentItem-Approved</c> or <c>ContentItem-Rejected</c>.
         /// </summary>
-        ValueTask<ContentItem> ApproveContentItemAsync(
+        ValueTask<ContentItem> TransitionContentItemApprovalAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default);
     }

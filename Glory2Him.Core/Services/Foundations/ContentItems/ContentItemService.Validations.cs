@@ -162,6 +162,42 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 || HasPublisherRole(securityContext, storageContentItem.ContentType);
         }
 
+        // Approved and Rejected are TERMINAL: the content of a row in either state is immutable
+        // in place, to its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16,
+        // §9.7.4, §12.3.1 shared rule 9). Reviewers reached a verdict on that text, and text
+        // that changes underneath a verdict makes the verdict a record of nothing.
+        //
+        // This is NOT the rule the status pin enforces, and the two are easy to confuse. The pin
+        // refuses a CHANGE to ApprovalStatus, and its condition is guarded by
+        // inputStatus != storageStatus — so a caller who amends an approved row while echoing
+        // the stored status back unchanged passes it, and the content is written through with
+        // IsPublished and PublishDate still at their approved values. The edit then goes public
+        // with no re-review. That is the hole this closes; the pin never covered it.
+        //
+        // A ContentItem is Versioned, so the amendment is not lost — it becomes a new version.
+        // That fork belongs to ContentItemProcessingService (§10.17 rule 2, §12.4.1), which
+        // reaches the terminal row first and writes a new one rather than calling this. The
+        // refusal here is what makes the fork the ONLY route: an exposer may bind straight to
+        // the foundation, and a rule enforced only above it is not enforced (§8.6.1).
+        //
+        // The §9.2 Draft <-> Submitted carve-out is unreachable from here and stays that way:
+        // it is only ever reached from Draft or Submitted, so a terminal row is refused before
+        // the carve-out is consulted.
+        private static void ValidateStorageContentItemIsNotTerminal(
+            ContentItem storageContentItem)
+        {
+            bool isTerminal =
+                storageContentItem.ApprovalStatus == ApprovalStatus.Approved
+                    || storageContentItem.ApprovalStatus == ApprovalStatus.Rejected;
+
+            if (isTerminal)
+            {
+                throw new InvalidContentItemException(
+                    message: "Content item cannot be modified from status " +
+                        $"{storageContentItem.ApprovalStatus}.");
+            }
+        }
+
         // removing content is a takedown, not a moderation step — the owner may remove
         // their own item and an Admin may remove anyone's; Reviewers and Publishers
         // moderate through the approval workflow instead
