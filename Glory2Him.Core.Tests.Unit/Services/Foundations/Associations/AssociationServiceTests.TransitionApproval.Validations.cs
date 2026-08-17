@@ -57,7 +57,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when
             ValueTask<Association> approveAssociationTask =
-                this.associationService.ApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
                     TestContext.Current.CancellationToken);
 
@@ -141,7 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when
             ValueTask<Association> approveAssociationTask =
-                this.associationService.ApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
                     TestContext.Current.CancellationToken);
 
@@ -176,7 +176,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when
             ValueTask<Association> approveAssociationTask =
-                this.associationService.ApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
                     TestContext.Current.CancellationToken);
 
@@ -337,7 +337,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .Returns(new ValueTask<EventPublishResult<Association>>(
                             new EventPublishResult<Association>()));
 
-            await this.associationService.ApproveAssociationAsync(
+            await this.associationService.TransitionAssociationApprovalAsync(
                 decision,
                 TestContext.Current.CancellationToken);
 

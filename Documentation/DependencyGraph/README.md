@@ -75,7 +75,7 @@ view you were on, and switching carries your current selection across.
   toggle reveals the DateTime / Identifier / Logging / Hash broker copies
   that are hidden by default for readability.
 
-## Current truths captured in the data (scanned 2026-08-11; LinkProcessing added 2026-08-17)
+## Current truths captured in the data (scanned 2026-08-11; LinkProcessing and the widened approval transition added 2026-08-17)
 
 - **Glory2Him.WebApp is standalone** — it has no project reference to
   Glory2Him.Core. Its minimal-API endpoint groups use its own view services,
@@ -85,10 +85,31 @@ view you were on, and switching carries your current selection across.
   wires every event subscription (each purple line). No production host in
   this repo calls it yet.
 - **The subscription counts below are stale and this snapshot is partial.**
-  `EventSubscriptionRegistration` wires 86 subscriptions today; the data
-  files carry 72. The gap predates the LinkProcessing addition, which added
-  four to each side. A full re-scan is needed to reconcile them — until then,
-  read the counts here as a floor, not a total.
+  `EventSubscriptionRegistration` wires 85 subscriptions today; the data
+  files carry 71. The gap of 14 predates the LinkProcessing addition and is
+  almost entirely the state transitions rolled out to `Tag`, `Reaction`,
+  `Comment`, `BibleReference`, `Link` and `ContentItem`: those six are modelled
+  with CRUD and their substrate handlers only, so they carry no `Submitting` /
+  `Approving` subscription and no submit or approval-transition method.
+  `Association` is the one entity whose transitions are modelled. A full
+  re-scan is needed to reconcile them — until then, read the counts here as a
+  floor, not a total.
+- **The version fork gained its own foundation operation 2026-08-17** (issue #263).
+  `Demote<Entity>VersionAsync` on `ContentItem` and `Link` owns `IsLatestVersion`
+  and publishes `<Entity>-Demoted`; the fork edge from each processing service
+  now points at it instead of the general modify. These two are the only
+  transitions the snapshot models on those entities — submit and the approval
+  transition are still missing, per the note above.
+- **The approval transition verb was widened 2026-08-17** (issue #198).
+  `Approve<Entity>Async` became `Transition<Entity>ApprovalAsync` on all seven
+  approvable entities, carrying the ordinary verdict, the `Admin` override out
+  of a terminal row, and the bypass. On `Association` that folded
+  `BypassApproveAssociationAsync` away: its verb, substrate handler and the
+  `Association-BypassApproving` request address are gone, and
+  `Association-Submitted` was added as a fact address so an override that
+  re-opens a round has something to announce. Both changes are reflected here;
+  the six unmodelled entities are unaffected because their transitions were
+  never in the data.
 - **`LinkProcessingService` (`LP`) is the second processing service**, added
   2026-08-17 alongside `ContentItemProcessingService`. Same shape minus the
   dedupe-by-hash rule and the content-type role tier, so it takes no
@@ -98,8 +119,9 @@ view you were on, and switching carries your current selection across.
   DbContext) and passes **itself** into G2H.StorageClient's `EFCoreClient`.
 - `EventBroker` wraps EventHighway (SQL Server): one
   `Publish<Entity>Async` / `SubscribeTo<Entity>EventAsync` pair per entity;
-  the operation enum selects the event address GUID. 68 subscriptions are
-  wired in total.
+  the operation enum selects the event address GUID. 71 subscriptions are
+  drawn here, against 85 wired in the source — see the partial-snapshot note
+  above.
 - Approval policy is a pure decision function: `AccessClient`
   (`ISecurityClient.Access`) decides, and Core's `AccessBroker` does all the
   gathering from storage. `AssociationService`'s approval verdicts and

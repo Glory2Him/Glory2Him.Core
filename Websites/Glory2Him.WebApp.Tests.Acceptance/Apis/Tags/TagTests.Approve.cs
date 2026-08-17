@@ -24,7 +24,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
     public partial class TagApiTests
     {
         [Fact]
-        public async Task ShouldApproveTagAsync()
+        public async Task ShouldTransitionTagApprovalAsync()
         {
             // given
             string authorUserId = Guid.NewGuid().ToString();
@@ -46,7 +46,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             try
             {
                 // when
-                Tag actualTag = await this.apiBroker.ApproveTagAsync(inputTag);
+                Tag actualTag = await this.apiBroker.TransitionTagApprovalAsync(inputTag);
 
                 // then
                 actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
@@ -87,7 +87,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             try
             {
                 // when
-                Tag actualTag = await this.apiBroker.ApproveTagAsync(inputTag);
+                Tag actualTag = await this.apiBroker.TransitionTagApprovalAsync(inputTag);
 
                 // then
                 actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Rejected);

@@ -103,7 +103,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 nameof(TagsController.DeleteTagByIdAsync),
                 nameof(TagsController.HardDeleteTagByIdAsync),
                 nameof(TagsController.SubmitTagByIdAsync),
-                nameof(TagsController.ApproveTagAsync)
+                nameof(TagsController.TransitionTagApprovalAsync)
             };
 
             // When

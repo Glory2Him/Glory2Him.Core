@@ -18,14 +18,14 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Reactions;
-using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
+using Glory2Him.Core.Models.Foundations.Comments;
+using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 {
-    public partial class ReactionServiceTests
+    public partial class CommentServiceTests
     {
         public static TheoryData<string[]> NonPublisherRoleSets() =>
             new TheoryData<string[]>
@@ -35,37 +35,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 // a Reviewer holds the review tier and MUST still never set an approval status
                 // (§8.6 HR-3) — the publisher tier deliberately excludes it
                 new[] { Roles.Reviewer },
-                new[] { Roles.ReactionReviewer },
+                new[] { Roles.CommentReviewer },
             };
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnApproveIfReactionIsNullAsync()
+        public async Task ShouldThrowValidationExceptionOnApproveIfCommentIsNullAsync()
         {
             // given
-            Reaction nullReaction = null;
+            Comment nullComment = null;
 
-            var nullReactionException =
-                new NullReactionException(message: "Reaction is null.");
+            var nullCommentException =
+                new NullCommentException(message: "Comment is null.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: nullReactionException);
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: nullCommentException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    nullReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    nullComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectCommentByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -79,31 +79,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfStatusIsNotAnOutcomeAsync(
-            ApprovalStatus notAnOutcome)
+        public async Task ShouldThrowValidationExceptionOnTransitionIfStatusIsNotATransitionTargetAsync(
+            ApprovalStatus notATransitionTarget)
         {
-            // given: approve owns IApproval, so it is the one operation allowed to carry a
-            // status — but only to an outcome the workflow produces.
+            // given: this operation owns IApproval, so it is the one allowed to carry a status —
+            // but only to a state the workflow can hold a row in. Draft is reached once, at
+            // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
+            // Submitted is NOT here: it is what an override re-opens a terminal row to.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateApprovalDecision(Guid.NewGuid());
-            inputReaction.ApprovalStatus = notAnOutcome;
-            inputReaction.IsPublished = false;
-            inputReaction.PublishDate = null;
+            Comment inputComment = CreateApprovalDecision(Guid.NewGuid());
+            inputComment.ApprovalStatus = notATransitionTarget;
+            inputComment.IsPublished = false;
+            inputComment.PublishDate = null;
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then: the status never reached storage — the row was never even read
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectCommentByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -123,44 +124,44 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // IsPublished straight from the caller), and it fires before the row is read.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateRejectionDecision(Guid.NewGuid());
-            inputReaction.IsPublished = true;
+            Comment inputComment = CreateRejectionDecision(Guid.NewGuid());
+            inputComment.IsPublished = true;
 
-            var invalidReactionException =
-                new InvalidReactionException(
-                    message: "Reaction is invalid, fix the errors and try again.");
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
 
-            invalidReactionException.UpsertDataList(
-                key: nameof(Reaction.IsPublished),
-                value: "Is published requires an approved reaction.");
+            invalidCommentException.UpsertDataList(
+                key: nameof(Comment.IsPublished),
+                value: "Is published requires an approved comment.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: invalidReactionException);
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectCommentByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        It.IsAny<ReactionEventOperation>()),
+                    broker.PublishCommentAsync(
+                        It.IsAny<EventEnvelope<Comment>>(),
+                        It.IsAny<CommentEventOperation>()),
                 Times.Never);
         }
 
@@ -172,37 +173,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // phantom publish date on an unpublished row.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateRejectionDecision(Guid.NewGuid());
-            inputReaction.IsPublished = false;
-            inputReaction.PublishDate = GetRandomDateTimeOffset();
+            Comment inputComment = CreateRejectionDecision(Guid.NewGuid());
+            inputComment.IsPublished = false;
+            inputComment.PublishDate = GetRandomDateTimeOffset();
 
-            var invalidReactionException =
-                new InvalidReactionException(
-                    message: "Reaction is invalid, fix the errors and try again.");
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment is invalid, fix the errors and try again.");
 
-            invalidReactionException.UpsertDataList(
-                key: nameof(Reaction.PublishDate),
-                value: "Publish date requires a published reaction.");
+            invalidCommentException.UpsertDataList(
+                key: nameof(Comment.PublishDate),
+                value: "Publish date requires a published comment.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: invalidReactionException);
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectCommentByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -214,21 +215,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateApprovalDecision(Guid.NewGuid());
+            Comment inputComment = CreateApprovalDecision(Guid.NewGuid());
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectReactionByIdAsync(
-                    inputReaction.Id,
+                broker.SelectCommentByIdAsync(
+                    inputComment.Id,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((Reaction)null);
+                        .ReturnsAsync((Comment)null);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then: a missing row is decided against nothing
             this.accessBrokerMock.Verify(broker =>
@@ -238,8 +239,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateCommentAsync(
+                        It.IsAny<Comment>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -250,33 +251,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given: a soft-removed row is a takedown reported as not-found.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.IsDeleted = true;
+            Comment storageComment = CreateApprovableStorageComment();
+            storageComment.IsDeleted = true;
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Comment inputComment = CreateApprovalDecision(storageComment.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupCommentStorageRead(storageComment);
 
-            var notFoundReactionException =
-                new NotFoundReactionException(
-                    message: $"Reaction not found with id: {storageReaction.Id}.");
+            var notFoundCommentException =
+                new NotFoundCommentException(
+                    message: $"Comment not found with id: {storageComment.Id}.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: notFoundReactionException);
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: notFoundCommentException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -287,57 +288,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Approved)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfTheStoredRowIsNotSubmittableAsync(
+        public async Task ShouldThrowValidationExceptionOnTransitionIfTheStoredRowIsNotTransitionableAsync(
             ApprovalStatus storageStatus)
         {
-            // given: only a row actually in review can be decided. The tier and the access
-            // decision pass first (global Publisher, permissive fixture), so this proves the
-            // state gate stands on its own.
+            // given: a Draft has not been submitted and a Dismissed row is not in a round at all,
+            // so neither can be decided. Approved and Rejected are absent because they ARE
+            // transitionable — by an Admin, through the override — and are covered there.
+            //
+            // The tier and the access decision pass first (global Publisher, permissive fixture),
+            // so this proves the state gate stands on its own.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.ApprovalStatus = storageStatus;
+            Comment storageComment = CreateApprovableStorageComment();
+            storageComment.ApprovalStatus = storageStatus;
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Comment inputComment = CreateApprovalDecision(storageComment.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupCommentStorageRead(storageComment);
             SetupAccessBrokerToPermit();
 
-            var invalidReactionException =
-                new InvalidReactionException(
-                    message: "Reaction cannot be approved from status " +
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment cannot be approved from status " +
                         $"{storageStatus}.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: invalidReactionException);
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateCommentAsync(
+                        It.IsAny<Comment>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        It.IsAny<ReactionEventOperation>()),
+                    broker.PublishCommentAsync(
+                        It.IsAny<EventEnvelope<Comment>>(),
+                        It.IsAny<CommentEventOperation>()),
                 Times.Never);
         }
 
@@ -350,31 +352,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // refused before the access decision is ever asked.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Comment storageComment = CreateApprovableStorageComment();
+            Comment inputComment = CreateApprovalDecision(storageComment.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupCommentStorageRead(storageComment);
 
-            var unauthorizedReactionException =
-                new UnauthorizedReactionException(
-                    message: "The current user is not allowed to approve this reaction.");
+            var unauthorizedCommentException =
+                new UnauthorizedCommentException(
+                    message: "The current user is not allowed to approve this comment.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedReactionException);
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedCommentException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then: refused before the cross-entity decision is asked
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -383,8 +385,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateCommentAsync(
+                        It.IsAny<Comment>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -397,32 +399,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // approve (HR-2 self-approval lives behind the access broker).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Comment storageComment = CreateApprovableStorageComment();
+            Comment inputComment = CreateApprovalDecision(storageComment.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupCommentStorageRead(storageComment);
             SetupAccessBrokerToRefuse(AccessDenialReason.SelfApprovalNotPermitted);
 
-            var unauthorizedReactionException =
-                new UnauthorizedReactionException(
-                    message: "The current user is not allowed to approve this reaction.");
+            var unauthorizedCommentException =
+                new UnauthorizedCommentException(
+                    message: "The current user is not allowed to approve this comment.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedReactionException);
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedCommentException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -431,15 +433,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateCommentAsync(
+                        It.IsAny<Comment>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        It.IsAny<ReactionEventOperation>()),
+                    broker.PublishCommentAsync(
+                        It.IsAny<EventEnvelope<Comment>>(),
+                        It.IsAny<CommentEventOperation>()),
                 Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -448,7 +450,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             this.loggingBrokerMock.Verify(broker =>
                     broker.LogErrorAsync(It.Is(
-                        SameExceptionAs(expectedReactionValidationException))),
+                        SameExceptionAs(expectedCommentValidationException))),
                 Times.Once);
         }
 
@@ -460,24 +462,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // (§14.5 rule 2), so neither may appear in anything thrown.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Comment storageComment = CreateApprovableStorageComment();
+            Comment inputComment = CreateApprovalDecision(storageComment.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupCommentStorageRead(storageComment);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            CommentValidationException actualException =
+                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then: the service's own wording, naming no policy
             actualException.InnerException.Message.Should().Be(
-                "The current user is not allowed to approve this reaction.");
+                "The current user is not allowed to approve this comment.");
 
             string thrownText = FlattenExceptionText(actualException);
 
@@ -495,10 +497,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // the throw is what discards the verdict.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Comment storageComment = CreateApprovableStorageComment();
+            Comment inputComment = CreateApprovalDecision(storageComment.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupCommentStorageRead(storageComment);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             var logCallOrder = new List<string>();
@@ -514,63 +516,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     .Returns(ValueTask.CompletedTask);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Comment> approveTask =
+                this.commentService.TransitionCommentApprovalAsync(
+                    inputComment,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
 
             // then: the warning lands first, and the error the throw produces second
             logCallOrder.Should().HaveCount(2);
             logCallOrder[0].Should().StartWith("warning:");
             logCallOrder[1].Should().Be("error");
 
-            logCallOrder[0].Should().Contain(storageReaction.Id.ToString());
+            logCallOrder[0].Should().Contain(storageComment.Id.ToString());
             logCallOrder[0].Should().Contain(nameof(AccessDenialReason.ApprovalThresholdNotMet));
             logCallOrder[0].Should().Contain("refused");
         }
 
         [Fact]
-        public async Task ShouldAskTheAccessBrokerAboutTheStoredReactionOnApproveAsync()
+        public async Task ShouldAskTheAccessBrokerAboutTheStoredCommentOnApproveAsync()
         {
             // given: the caller's copy names a DIFFERENT author from the stored row. If the
             // query were built from the caller's copy, a contributor could name somebody else as
             // author and walk past the self-approval bar.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.CreatedBy = $"stored-{Guid.NewGuid()}";
+            Comment storageComment = CreateApprovableStorageComment();
+            storageComment.CreatedBy = $"stored-{Guid.NewGuid()}";
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
-            inputReaction.CreatedBy = $"caller-{Guid.NewGuid()}";
+            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            inputComment.CreatedBy = $"caller-{Guid.NewGuid()}";
 
-            Guid expectedEntityId = storageReaction.Id;
-            string expectedCreatedBy = storageReaction.CreatedBy;
+            Guid expectedEntityId = storageComment.Id;
+            string expectedCreatedBy = storageComment.CreatedBy;
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageReaction, inputReaction);
+                await CaptureApprovalDecisionQueryAsync(storageComment, inputComment);
 
             // then
             actualQuery.Should().NotBeNull();
 
-            actualQuery.EntityType.Should().Be(EntityType.Reaction);
+            actualQuery.EntityType.Should().Be(EntityType.Comment);
             actualQuery.EntityId.Should().Be(expectedEntityId);
 
-            // a reaction carries no content type, so its policy tier is (Reaction, null)
+            // a comment carries no content type, so its policy tier is (Comment, null)
             actualQuery.ContentType.Should().BeNull();
 
             actualQuery.EntityCreatedBy.Should().Be(expectedCreatedBy);
-            actualQuery.EntityCreatedBy.Should().NotBe(inputReaction.CreatedBy);
+            actualQuery.EntityCreatedBy.Should().NotBe(inputComment.CreatedBy);
 
-            // a reaction has no confidence score — that is an association's input
+            // a comment has no confidence score — that is an association's input
             actualQuery.ConfidenceScore.Should().BeNull();
 
-            // one subject: the reaction authorises from itself, keyed by its own type with no
+            // one subject: the comment authorises from itself, keyed by its own type with no
             // content type
             actualQuery.RoleSubjects.Should().HaveCount(1);
-            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Reaction));
+            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Comment));
             actualQuery.RoleSubjects[0].ContentType.Should().BeNull();
 
             actualQuery.IsBypassRequested.Should().BeFalse();
@@ -589,15 +591,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // unable to reject the very row the threshold was failing to approve.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
+            Comment storageComment = CreateApprovableStorageComment();
 
-            Reaction inputReaction = callerStatus == ApprovalStatus.Rejected
-                ? CreateRejectionDecision(storageReaction.Id)
-                : CreateApprovalDecision(storageReaction.Id);
+            Comment inputComment = callerStatus == ApprovalStatus.Rejected
+                ? CreateRejectionDecision(storageComment.Id)
+                : CreateApprovalDecision(storageComment.Id);
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageReaction, inputReaction);
+                await CaptureApprovalDecisionQueryAsync(storageComment, inputComment);
 
             // then
             actualQuery.Should().NotBeNull();

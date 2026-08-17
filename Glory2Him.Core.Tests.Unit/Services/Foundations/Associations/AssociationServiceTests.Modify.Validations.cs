@@ -14,7 +14,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -1205,6 +1207,95 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalAndLogItAsync(
+            ApprovalStatus terminalStatus)
+        {
+            // given: terminal rows are immutable in place, for every role (§3.4 rules 7 and 16,
+            // §12.3.1 shared rule 9). The caller echoes the STORED status back unchanged, which
+            // is what slips past the status pin — its condition is guarded by
+            // inputStatus != storageStatus — so only the terminal refusal can stop this.
+            //
+            // An association has no caller-editable content, so this is reachable in principle
+            // and inert in practice. The rule is kept anyway: it belongs to every approvable
+            // entity, and one that holds only by accident of the current field list stops
+            // holding the moment that list changes.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Association randomAssociation =
+                CreateRandomModifyAssociation(randomDateTimeOffset, randomUserId);
+
+            Association inputAssociation = randomAssociation;
+            Association storageAssociation = randomAssociation.DeepClone();
+
+            storageAssociation.UpdatedWhen =
+                storageAssociation.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputAssociation.ApprovalStatus = terminalStatus;
+            storageAssociation.ApprovalStatus = terminalStatus;
+
+            var invalidAssociationException = new InvalidAssociationException(
+                message: "Content item association cannot be modified from status " +
+                    $"{terminalStatus}.");
+
+            var expectedAssociationValidationException =
+                new AssociationValidationException(
+                    message: "Content item association validation error occurred, fix the errors and try again.",
+                    innerException: invalidAssociationException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputAssociation, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputAssociation);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAssociationByIdAsync(
+                    inputAssociation.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageAssociation);
+
+            // when
+            ValueTask<Association> modifyAssociationTask =
+                this.associationService.ModifyAssociationAsync(
+                    inputAssociation,
+                    TestContext.Current.CancellationToken);
+
+            AssociationValidationException actualAssociationValidationException =
+                await Assert.ThrowsAsync<AssociationValidationException>(
+                    modifyAssociationTask.AsTask);
+
+            // then
+            actualAssociationValidationException.Should().BeEquivalentTo(
+                expectedAssociationValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<AssociationEventOperation>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedAssociationValidationException))),
+                Times.Once);
         }
     }
 }

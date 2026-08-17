@@ -47,8 +47,17 @@ namespace Glory2Him.Core.Services.Foundations.Links
             Guid linkId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Link> ApproveLinkAsync(
+        ValueTask<Link> TransitionLinkApprovalAsync(
             Link link,
+            CancellationToken cancellationToken = default);
+
+        // The version fork's demotion of the previous latest row, and the ONLY operation that
+        // may move IsLatestVersion (§3.4 rule 18, §9.7.1 rule 2) — the general modify pins it
+        // like every other IVersion member. Owner-gated, because the owner is the only creator
+        // of new versions (§3.4 rule 8). Publishes Link-Demoted, never Link-Modified, so a
+        // demotion cannot be read as a content amendment.
+        ValueTask<Link> DemoteLinkVersionAsync(
+            Guid linkId,
             CancellationToken cancellationToken = default);
     }
 }

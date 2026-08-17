@@ -91,6 +91,51 @@ namespace Glory2Him.Core.Services.Foundations.Links
             return isOwner || HasPublisherRole(securityContext);
         }
 
+        // Approved and Rejected are TERMINAL: the content of a row in either state is immutable
+        // in place, to its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16,
+        // §9.7.4, §12.3.1 shared rule 9). Reviewers reached a verdict on that text, and text
+        // that changes underneath a verdict makes the verdict a record of nothing.
+        //
+        // This is NOT the rule the status pin enforces, and the two are easy to confuse. The pin
+        // refuses a CHANGE to ApprovalStatus, and its condition is guarded by
+        // inputStatus != storageStatus — so a caller who amends an approved row while echoing
+        // the stored status back unchanged passes it, and the content is written through with
+        // IsPublished and PublishDate still at their approved values. The edit then goes public
+        // with no re-review. That is the hole this closes; the pin never covered it.
+        //
+        // A Link is Versioned, so the amendment is not lost — it becomes a new version. That
+        // fork belongs to LinkProcessingService (§10.17 rule 2, §12.4.2), which reaches the
+        // terminal row first and writes a new one rather than amending this one. The refusal
+        // here is what makes the fork the ONLY route: an exposer may bind straight to the
+        // foundation, and a rule enforced only above it is not enforced (§8.6.1).
+        //
+        // The refusal is unconditional, which it can be because the fork no longer writes
+        // through here. It used to demote the previous latest by flipping IsLatestVersion on
+        // this path, which forced this rule to be written against a content comparison so the
+        // demotion could pass; DemoteLinkVersionAsync owns that write now, so nothing legitimate
+        // reaches a terminal row through the general modify and the blunt refusal is both
+        // simpler and stricter.
+        //
+        // It is deliberately NOT inferred from the status pin: that pin's condition is guarded
+        // by inputStatus != storageStatus, which a caller echoing the stored status back walks
+        // straight through — the hole this rule exists to close.
+        //
+        // The §9.2 Draft <-> Submitted carve-out is unreachable from here and stays that way:
+        // it is only ever reached from Draft or Submitted, so a terminal row never consults it.
+        private static void ValidateStorageLinkIsNotTerminal(Link storageLink)
+        {
+            bool isTerminal =
+                storageLink.ApprovalStatus == ApprovalStatus.Approved
+                    || storageLink.ApprovalStatus == ApprovalStatus.Rejected;
+
+            if (isTerminal)
+            {
+                throw new InvalidLinkException(
+                    message: "Link cannot be modified from status " +
+                        $"{storageLink.ApprovalStatus}.");
+            }
+        }
+
         // removing content is a takedown, not a moderation step — the owner may remove
         // their own link and an Admin may remove anyone's; Reviewers and Publishers
         // moderate through the approval workflow instead
@@ -303,6 +348,33 @@ namespace Glory2Him.Core.Services.Foundations.Links
                         secondDateName: nameof(Link.UpdatedWhen)),
                     Parameter: nameof(Link.UpdatedWhen)),
 
+                // The version lineage is how an approved link's history is read back. Left
+                // writable, a caller could detach a link from its group or crown an older
+                // version as latest, and the version anyone actually reviewed would be gone.
+                // The fork mints these; modify never carries them (§9.7.1 rule 2, §3.4 rule 18).
+                //
+                // These three were missing while ContentItem pinned all of them — the asymmetry
+                // was the tell that one of the two services was wrong. The demotion the fork
+                // used to make through here now has its own operation, so pinning them costs the
+                // fork nothing.
+                (Rule: IsNotSame(
+                        first: inputLink.GroupId,
+                        second: storageLink.GroupId,
+                        secondName: nameof(Link.GroupId)),
+                    Parameter: nameof(Link.GroupId)),
+
+                (Rule: IsNotSame(
+                        first: inputLink.Version,
+                        second: storageLink.Version,
+                        secondName: nameof(Link.Version)),
+                    Parameter: nameof(Link.Version)),
+
+                (Rule: IsNotSame(
+                        first: inputLink.IsLatestVersion,
+                        second: storageLink.IsLatestVersion,
+                        secondName: nameof(Link.IsLatestVersion)),
+                    Parameter: nameof(Link.IsLatestVersion)),
+
                 // The general modify is for content only. Every IApproval member belongs to the
                 // approve operation (design §9.7.1 rules 2 and 3), so all five are pinned against
                 // storage here — except the one carve-out: the owner or Publisher tier may move
@@ -438,6 +510,24 @@ namespace Glory2Him.Core.Services.Foundations.Links
             {
                 Condition = firstDate == secondDate,
                 Message = $"Date is the same as {secondDateName}"
+            };
+
+        private static dynamic IsNotSame(
+            Guid first,
+            Guid second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Id is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            int first,
+            int second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
             };
 
         private static dynamic IsNotSame(

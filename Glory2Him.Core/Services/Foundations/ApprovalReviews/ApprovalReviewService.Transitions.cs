@@ -54,33 +54,57 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 return await DoDismissApprovalReviewAsync(
                     approvalReviewId: approvalReviewId,
                     inboundEnvelope: envelope,
+
+                    // This envelope's context was minted here, in process, from the ambient
+                    // caller — so a system identity on it is one this process asserted about
+                    // itself. The event path passes false; see OnDismissingApprovalReviewAsync.
+                    isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });
 
         private async ValueTask<ApprovalReview> DoDismissApprovalReviewAsync(
             Guid approvalReviewId,
             EventEnvelope<ApprovalReview> inboundEnvelope,
+            bool isSystemIdentityAdmissible,
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnDismissApprovalReview(approvalReviewId);
+
+            // The system identity is a claim about PROVENANCE, and provenance is not carried by
+            // the payload. It is honoured only where this service minted the context itself; an
+            // envelope that arrived over a public event address carries a deserialized,
+            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
+            // would dismiss any review in the system by declaring themselves the workflow.
+            bool isSystemIdentity =
+                isSystemIdentityAdmissible
+                    && inboundEnvelope.SecurityContext.IsSystemIdentity;
 
             ApprovalReview storageApprovalReview =
                 await LoadDismissTargetAsync(
                     approvalReviewId: approvalReviewId,
                     cancellationToken: cancellationToken);
 
-            // the publisher tier, not the review role: dismissal is the workflow's act, and a
-            // Reviewer moving a peer's (or their own) review to Dismissed by hand is exactly
-            // what §8.8 reserves to the entity-change machinery
-            ValidateUserCanDismissApprovalReview(inboundEnvelope.SecurityContext);
+            // Dismissing stale reviews after the OWNER's edit is a write the workflow must make
+            // and no human is permitted to: the owner holds no publisher tier, and the reviewers
+            // whose reviews are being withdrawn are the last parties who should withdraw them.
+            // The system identity is admitted in place of the publisher tier for exactly that,
+            // and skips both tiers together — the second is the same question as the first,
+            // narrowed to the entity under review.
+            if (isSystemIdentity is false)
+            {
+                // the publisher tier, not the review role: dismissal is the workflow's act, and a
+                // Reviewer moving a peer's (or their own) review to Dismissed by hand is exactly
+                // what §8.8 reserves to the entity-change machinery
+                ValidateUserCanDismissApprovalReview(inboundEnvelope.SecurityContext);
 
-            // and that tier narrowed to the entity actually under review, which the row-local
-            // check above cannot see — a Tag-Publisher clears it for any approval at all
-            await ValidateUserMayDismissApprovalReviewAsync(
-                approvalId: storageApprovalReview.ApprovalId,
-                securityContext: inboundEnvelope.SecurityContext,
-                cancellationToken: cancellationToken);
+                // and that tier narrowed to the entity actually under review, which the row-local
+                // check above cannot see — a Tag-Publisher clears it for any approval at all
+                await ValidateUserMayDismissApprovalReviewAsync(
+                    approvalId: storageApprovalReview.ApprovalId,
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
+            }
 
             // a dismissed review stays dismissed — refuse a second dismissal rather than
             // re-publishing the fact

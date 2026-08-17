@@ -190,6 +190,13 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     await DoDismissApprovalReviewAsync(
                         approvalReviewId: envelope.Content.Id,
                         inboundEnvelope: envelope,
+
+                        // This envelope arrived over a PUBLIC event address and its security
+                        // context was deserialized, not authenticated (§14.6 rule 4). A caller
+                        // who could assert the system identity here would dismiss any review in
+                        // the system by setting a JSON property. The claim is discarded and the
+                        // caller is treated as the ordinary unprivileged one they are.
+                        isSystemIdentityAdmissible: false,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

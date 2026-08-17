@@ -367,6 +367,10 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     storageBibleReference: maybeBibleReference,
                     securityContext: inboundEnvelope.SecurityContext);
 
+            // Checked AFTER write permission so the refusal cannot be used to read a row's
+            // approval state without the standing to see it.
+            ValidateStorageBibleReferenceIsNotTerminal(maybeBibleReference);
+
             bibleReference = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     entity: bibleReference,

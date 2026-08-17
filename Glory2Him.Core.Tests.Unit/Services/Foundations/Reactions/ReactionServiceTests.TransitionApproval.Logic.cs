@@ -19,17 +19,17 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 {
-    public partial class TagServiceTests
+    public partial class ReactionServiceTests
     {
         [Fact]
-        public async Task ShouldApproveTagAsync()
+        public async Task ShouldTransitionReactionApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -37,57 +37,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            Tag approvedTag = storageTag.DeepClone();
-            approvedTag.ApprovalStatus = inputTag.ApprovalStatus;
-            approvedTag.IsPublished = inputTag.IsPublished;
-            approvedTag.PublishDate = inputTag.PublishDate;
-            approvedTag.IsApprovedByBypass = false;
-            approvedTag.ApprovedByBypassReason = null;
+            Reaction approvedReaction = storageReaction.DeepClone();
+            approvedReaction.ApprovalStatus = inputReaction.ApprovalStatus;
+            approvedReaction.IsPublished = inputReaction.IsPublished;
+            approvedReaction.PublishDate = inputReaction.PublishDate;
+            approvedReaction.IsApprovedByBypass = false;
+            approvedReaction.ApprovedByBypassReason = null;
 
-            Tag auditAppliedTag = approvedTag.DeepClone();
-            Tag updatedTag = auditAppliedTag.DeepClone();
-            Tag expectedTag = updatedTag.DeepClone();
+            Reaction auditAppliedReaction = approvedReaction.DeepClone();
+            Reaction updatedReaction = auditAppliedReaction.DeepClone();
+            Reaction expectedReaction = updatedReaction.DeepClone();
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
-            SetupTagStorageRead(storageTag);
+            SetupReactionStorageRead(storageReaction);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(
-                    It.IsAny<Tag>(),
+                    It.IsAny<Reaction>(),
                     It.IsAny<SecurityContext>()))
-                        .ReturnsAsync(auditAppliedTag);
+                        .ReturnsAsync(auditAppliedReaction);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateTagAsync(
-                    auditAppliedTag,
+                broker.UpdateReactionAsync(
+                    auditAppliedReaction,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(updatedTag);
+                        .ReturnsAsync(updatedReaction);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishTagAsync(
-                    It.IsAny<EventEnvelope<Tag>>(),
-                    TagEventOperation.Approved))
-                        .Returns(new ValueTask<EventPublishResult<Tag>>(
-                            new EventPublishResult<Tag>()));
+                broker.PublishReactionAsync(
+                    It.IsAny<EventEnvelope<Reaction>>(),
+                    ReactionEventOperation.Approved))
+                        .Returns(new ValueTask<EventPublishResult<Reaction>>(
+                            new EventPublishResult<Reaction>()));
 
             // when
-            Tag actualTag =
-                await this.tagService.ApproveTagAsync(
-                    inputTag,
+            Reaction actualReaction =
+                await this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualTag.Should().BeEquivalentTo(expectedTag);
+            actualReaction.Should().BeEquivalentTo(expectedReaction);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectTagByIdAsync(
-                        inputTag.Id,
+                    broker.SelectReactionByIdAsync(
+                        inputReaction.Id,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -99,21 +99,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyModifyAuditValuesAsync(
-                        It.IsAny<Tag>(),
+                        It.IsAny<Reaction>(),
                         It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateTagAsync(
-                        auditAppliedTag,
+                    broker.UpdateReactionAsync(
+                        auditAppliedReaction,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the operation's OWN fact — never Modified. See ShouldNeverPublishModified...
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        TagEventOperation.Approved),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Approved),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -121,7 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     It.Is<ProcessedEvent>(processedEvent =>
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers
-                                .TagOnApprovingTagSubscriptionName),
+                                .ReactionOnApprovingReactionSubscriptionName),
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
@@ -145,23 +145,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag inputTag = CreateRejectionDecision(storageTag.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateRejectionDecision(storageReaction.Id);
 
             // when
-            await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        TagEventOperation.Rejected),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Rejected),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        TagEventOperation.Approved),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Approved),
                 Times.Never);
         }
 
@@ -175,23 +175,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
             // when
-            await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        TagEventOperation.Modified),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Modified),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        TagEventOperation.Approved),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Approved),
                 Times.Once);
         }
 
@@ -207,39 +207,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag expectedStorageTag = storageTag.DeepClone();
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction expectedStorageReaction = storageReaction.DeepClone();
 
             // a fully random caller copy (differs from storage on every field), pinned only to
             // the id and a valid approval outcome
-            Tag inputTag = CreateRandomTag();
-            inputTag.Id = storageTag.Id;
-            inputTag.ApprovalStatus = ApprovalStatus.Approved;
-            inputTag.IsPublished = true;
-            inputTag.PublishDate = GetRandomDateTimeOffset();
+            Reaction inputReaction = CreateRandomReaction();
+            inputReaction.Id = storageReaction.Id;
+            inputReaction.ApprovalStatus = ApprovalStatus.Approved;
+            inputReaction.IsPublished = true;
+            inputReaction.PublishDate = GetRandomDateTimeOffset();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedTag.Should().NotBeNull();
+            savedReaction.Should().NotBeNull();
 
             // the fields the operation owns came from the caller
-            savedTag.ApprovalStatus.Should().Be(inputTag.ApprovalStatus);
-            savedTag.IsPublished.Should().Be(inputTag.IsPublished);
-            savedTag.PublishDate.Should().Be(inputTag.PublishDate);
+            savedReaction.ApprovalStatus.Should().Be(inputReaction.ApprovalStatus);
+            savedReaction.IsPublished.Should().Be(inputReaction.IsPublished);
+            savedReaction.PublishDate.Should().Be(inputReaction.PublishDate);
 
             // everything else came from STORAGE — asserted against the pre-act snapshot, so
             // copying any caller field onto the row fails here. The bypass pair is derived
             // (false / null here) and excluded from the storage comparison.
-            savedTag.Should().BeEquivalentTo(
-                expectedStorageTag,
+            savedReaction.Should().BeEquivalentTo(
+                expectedStorageReaction,
                 options => options
-                    .Excluding(tag => tag.ApprovalStatus)
-                    .Excluding(tag => tag.IsPublished)
-                    .Excluding(tag => tag.PublishDate)
-                    .Excluding(tag => tag.IsApprovedByBypass)
-                    .Excluding(tag => tag.ApprovedByBypassReason));
+                    .Excluding(reaction => reaction.ApprovalStatus)
+                    .Excluding(reaction => reaction.IsPublished)
+                    .Excluding(reaction => reaction.PublishDate)
+                    .Excluding(reaction => reaction.IsApprovedByBypass)
+                    .Excluding(reaction => reaction.ApprovedByBypassReason));
         }
 
         // ── The bypass record is DERIVED, not copied ─────────────────────────────────────────
@@ -253,27 +253,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            storageTag.IsApprovedByBypass = false;
-            storageTag.ApprovedByBypassReason = null;
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.IsApprovedByBypass = false;
+            storageReaction.ApprovedByBypassReason = null;
 
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
-            inputTag.IsApprovedByBypass = true;
-            inputTag.ApprovedByBypassReason = "caller supplied";
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            inputReaction.IsApprovedByBypass = true;
+            inputReaction.ApprovedByBypassReason = "caller supplied";
 
             SetupAccessBrokerToPermit();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedTag.Should().NotBeNull();
-            savedTag.IsApprovedByBypass.Should().BeFalse();
-            savedTag.ApprovedByBypassReason.Should().BeNull();
+            savedReaction.Should().NotBeNull();
+            savedReaction.IsApprovedByBypass.Should().BeFalse();
+            savedReaction.ApprovedByBypassReason.Should().BeNull();
 
-            savedTag.ApprovalStatus.Should().Be(inputTag.ApprovalStatus);
-            savedTag.IsPublished.Should().Be(inputTag.IsPublished);
-            savedTag.PublishDate.Should().Be(inputTag.PublishDate);
+            savedReaction.ApprovalStatus.Should().Be(inputReaction.ApprovalStatus);
+            savedReaction.IsPublished.Should().Be(inputReaction.IsPublished);
+            savedReaction.PublishDate.Should().Be(inputReaction.PublishDate);
         }
 
         [Fact]
@@ -284,22 +284,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            storageTag.IsApprovedByBypass = false;
-            storageTag.ApprovedByBypassReason = null;
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.IsApprovedByBypass = false;
+            storageReaction.ApprovedByBypassReason = null;
 
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
-            inputTag.IsApprovedByBypass = false;
-            inputTag.ApprovedByBypassReason = null;
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            inputReaction.IsApprovedByBypass = false;
+            inputReaction.ApprovedByBypassReason = null;
 
             SetupAccessBrokerToPermitByBypass();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedTag.Should().NotBeNull();
-            savedTag.IsApprovedByBypass.Should().BeTrue();
+            savedReaction.Should().NotBeNull();
+            savedReaction.IsApprovedByBypass.Should().BeTrue();
         }
 
         [Fact]
@@ -311,21 +311,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            storageTag.IsApprovedByBypass = true;
-            storageTag.ApprovedByBypassReason = "an earlier bypass";
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.IsApprovedByBypass = true;
+            storageReaction.ApprovedByBypassReason = "an earlier bypass";
 
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
             SetupAccessBrokerToPermit();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedTag.Should().NotBeNull();
-            savedTag.IsApprovedByBypass.Should().BeFalse();
-            savedTag.ApprovedByBypassReason.Should().BeNull();
+            savedReaction.Should().NotBeNull();
+            savedReaction.IsApprovedByBypass.Should().BeFalse();
+            savedReaction.ApprovedByBypassReason.Should().BeNull();
         }
     }
 }

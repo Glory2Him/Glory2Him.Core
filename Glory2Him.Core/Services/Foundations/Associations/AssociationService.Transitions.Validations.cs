@@ -35,16 +35,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        private static void ValidateOnApproveAssociation(Association association) =>
+        private static void ValidateOnTransitionAssociationApproval(Association association) =>
             Validate(
                 message: "Content item association is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)),
 
-                // Approve owns the whole of IApproval, so it is the one operation allowed to
-                // carry these — but only to an outcome the approval workflow can produce.
-                // Draft and Submitted are states the row LEAVES here, not ones approving may
-                // set, and Dismissed belongs to a later withdrawal step.
-                (Rule: IsNotAnApprovalOutcome(association.ApprovalStatus),
+                // This operation owns the whole of IApproval, so it is the one allowed to carry
+                // these — but only to a state the approval workflow can hold a row in. Draft is
+                // refused because a row reaches it once, at creation; Dismissed belongs to a
+                // later withdrawal step. Submitted is admitted, and is what an override re-opens
+                // a terminal row to.
+                (Rule: IsNotAnApprovalTransitionTarget(association.ApprovalStatus),
                     Parameter: nameof(Association.ApprovalStatus)),
 
                 // publication is a consequence of approval — a row cannot be published while
@@ -56,46 +57,35 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                 (Rule: IsPublishDateWithoutPublication(
                         association.IsPublished, association.PublishDate),
-                    Parameter: nameof(Association.PublishDate)));
-
-        private static void ValidateOnBypassApproveAssociation(
-            Association association,
-            string bypassReason) =>
-            Validate(
-                message: "Content item association is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(association.Id), Parameter: nameof(Association.Id)),
-
-                // NARROWER than the ordinary approve, which admits Approved or Rejected. There is
-                // no such thing as a bypass-reject: a rejection withholds approval rather than
-                // granting it, so nothing is being waived, DoNotAllowBypassingSettings does not
-                // gate it and IsApprovedByBypass stays false (§9.7.5). Rejecting is already
-                // unconditional through the ordinary approve verb.
-                //
-                // Admitting Rejected here would go wrong three ways at once: the row would be
-                // stamped IsApprovedByBypass on a REJECTION, the access decision would have been
-                // taken out for Decision = Approve, and the fact published would be Approved —
-                // telling every subscriber the opposite of what happened.
-                (Rule: IsNotAnApproval(association.ApprovalStatus),
-                    Parameter: nameof(Association.ApprovalStatus)),
-
-                (Rule: IsPublishedWithoutApproval(
-                        association.ApprovalStatus, association.IsPublished),
-                    Parameter: nameof(Association.IsPublished)),
-
-                (Rule: IsPublishDateWithoutPublication(
-                        association.IsPublished, association.PublishDate),
                     Parameter: nameof(Association.PublishDate)),
 
-                // A bypass is only tolerable because it leaves a record, and an unexplained
-                // one records nothing worth reading.
-                (Rule: IsInvalid(bypassReason),
+                // NARROWER than the transition itself, which admits three targets. There is no
+                // such thing as a bypass-reject or a bypass-reopen: a rejection withholds
+                // approval rather than granting it and re-opening decides nothing, so neither
+                // has anything to waive, DoNotAllowBypassingSettings does not gate them and
+                // IsApprovedByBypass stays false (§9.7.5).
+                //
+                // Admitting one would go wrong three ways at once: the row would be stamped
+                // IsApprovedByBypass on a REJECTION, the access decision would have been taken
+                // out for Decision = Approve, and the fact published would be Approved —
+                // telling every subscriber the opposite of what happened.
+                (Rule: IsBypassWithoutApproval(
+                        association.IsApprovedByBypass, association.ApprovalStatus),
+                    Parameter: nameof(Association.IsApprovedByBypass)),
+
+                // A bypass is only tolerable because it leaves a record, and an unexplained one
+                // records nothing worth reading. Validated HERE — before the gate reads any
+                // policy — so an unexplained bypass is refused under every policy, including one
+                // that would have permitted the waiver.
+                (Rule: IsMissingBypassReason(
+                        association.IsApprovedByBypass, association.ApprovedByBypassReason),
                     Parameter: nameof(Association.ApprovedByBypassReason)),
 
                 // The column this lands in is nvarchar(500). Without the bound, the same
                 // payload comes back from SQL Server as a "contact support" dependency
                 // failure naming no field at all — the same reasoning as the two string
                 // columns set-confidence owns.
-                (Rule: IsGreaterThan(bypassReason, 500),
+                (Rule: IsGreaterThan(association.ApprovedByBypassReason, 500),
                     Parameter: nameof(Association.ApprovedByBypassReason)));
 
         private static void ValidateOnSortAssociation(
@@ -181,21 +171,71 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // cost one role comparison instead of four table reads, and it means a defect in the
         // gathering can only ever make this gate stricter, never open it.
         // Returns the verdict rather than only throwing on refusal, because the caller has to
-        // write IsApprovedByBypass from it. Those two IApproval members are the one part of the
-        // interface the approve operation DERIVES instead of accepting: they exist to record that
-        // the conditions were waived, and a caller able to set them is equally able to clear
-        // them, erasing the one event they are here to capture (design §9.7.1 rule 3).
-        private async ValueTask<AccessVerdict> ValidateUserCanApproveStorageAssociationAsync(
+        // write IsApprovedByBypass from it, and the bypass log line needs what the waiver
+        // covered. Those two IApproval members are the one part of the interface this operation
+        // DERIVES instead of accepting: they exist to record that the conditions were waived,
+        // and a caller able to set them is equally able to clear them, erasing the one event
+        // they are here to capture (design §9.7.1 rule 3).
+        private async ValueTask<AccessVerdict> ValidateUserCanTransitionStorageAssociationApprovalAsync(
             Association storageAssociation,
             Association association,
             SecurityContext securityContext,
+            bool isSystemIdentity,
             CancellationToken cancellationToken)
         {
+            // Resolved from the STORED status, never the caller's copy — the same reason the
+            // endpoints are. A caller-supplied status would be self-certification: anyone could
+            // present an approved row as Submitted and decide it as an ordinary round, which is
+            // the entire gate.
+            bool isOverride =
+                storageAssociation.ApprovalStatus == ApprovalStatus.Approved
+                    || storageAssociation.ApprovalStatus == ApprovalStatus.Rejected;
+
+            // §8.6 HR-4. Moving a row OUT of a terminal state is an override, and it is what
+            // keeps "terminal" meaningful: a state that the owner or a Publisher could edit out
+            // of would not be terminal at all (§3.4 rules 7, 16). It is gated to Admin — and to
+            // the workflow, below — and to nobody else.
+            //
+            // Run row-local and FIRST, so an unauthorised override costs one role comparison
+            // rather than four table reads, and so a defect in the access decision's gathering
+            // can only ever make this stricter (§8.6.1).
+            if (isOverride
+                && isSystemIdentity is false
+                && securityContext.Roles.Contains(Roles.Admin) is false)
+            {
+                throw new UnauthorizedAssociationException(
+                    message: "The current user is not allowed to transition " +
+                        "this content item association.");
+            }
+
+            // The workflow's own writes have no human permitted to make them, which is why a
+            // second admissible actor exists at all (§8.6 regardless-rule 1): the reviewer whose
+            // own review fires an automatic approval is the one party barred from deciding it,
+            // and the previously published sibling a newly approved version demotes is itself
+            // Approved, so no Publisher may touch it either.
+            //
+            // The system identity stands in for the publisher tier and for nothing else. It
+            // requests no bypass and is granted none — waiving the §8.5 conditions is a human
+            // act that has to be explained by a human.
+            if (isSystemIdentity)
+            {
+                return NoDecisionVerdict();
+            }
+
             if (HasPublisherRoleForAssociation(securityContext, storageAssociation) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to approve " +
                         "this content item association.");
+            }
+
+            // Re-opening a row to Submitted decides nothing — it returns the row to review
+            // rather than granting or withholding approval — so there is no approval decision to
+            // ask for, and ApprovalDecision has no member that would honestly express one. The
+            // Admin gate above is the whole authority for it.
+            if (association.ApprovalStatus == ApprovalStatus.Submitted)
+            {
+                return NoDecisionVerdict();
             }
 
             AccessVerdict verdict = await this.accessBroker.MayDecideApprovalAsync(
@@ -235,11 +275,13 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                         ? ApprovalDecision.Reject
                         : ApprovalDecision.Approve,
 
-                    // Bypass is its own operation and this is not it (§12.4.4 rule 11); an
-                    // ordinary approve never claims one. Passing the caller's flag here would
-                    // make every approve a potential bypass.
-                    IsBypassRequested = false,
-                    BypassReason = null,
+                    // The bypass REQUEST, which is all the caller's pair ever is. What lands on
+                    // the row comes back on the verdict: asking here and writing from the answer
+                    // is what stops a genuine waiver being un-recorded by the party it is
+                    // evidence about. DoNotAllowBypassingSettings is resolved inside the
+                    // decision and closes this route to everyone, Admin included.
+                    IsBypassRequested = association.IsApprovedByBypass,
+                    BypassReason = association.ApprovedByBypassReason,
 
                     SecurityContext = securityContext,
                 },
@@ -264,6 +306,22 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             return verdict;
         }
 
+        // The answer for the two paths that take no approval decision at all — the workflow's
+        // own write, and re-opening a row to Submitted. Permitted, waiving nothing.
+        //
+        // A verdict is fabricated here only because this service needs the shape back for its
+        // bypass log line; every field says the same thing, which is that nothing was decided
+        // and nothing was waived.
+        private static AccessVerdict NoDecisionVerdict() =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = false,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = string.Empty,
+            };
+
         // Approving OVER the unmet conditions — HR-4 route 3. Structurally the same gate as
         // the one above, and deliberately so: a bypass widens WHICH conditions may be waived,
         // never who is standing at the door. HR-3 and HR-2 still hold, so the row-local
@@ -279,80 +337,6 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // Returns the verdict for the same reason the approve one does, and here it matters
         // more: IsApprovedByBypass and ApprovedByBypassReason are written from it, and the
         // decision may permit WITHOUT waiving anything when the conditions turn out to be met.
-        private async ValueTask<AccessVerdict> ValidateUserCanBypassApproveStorageAssociationAsync(
-            Association storageAssociation,
-            string bypassReason,
-            SecurityContext securityContext,
-            CancellationToken cancellationToken)
-        {
-            if (HasPublisherRoleForAssociation(securityContext, storageAssociation) is false)
-            {
-                throw new UnauthorizedAssociationException(
-                    message: "The current user is not allowed to approve " +
-                        "this content item association.");
-            }
-
-            AccessVerdict verdict = await this.accessBroker.MayDecideApprovalAsync(
-                new ApprovalDecisionQuery
-                {
-                    EntityType = EntityType.Association,
-                    EntityId = storageAssociation.Id,
-
-                    // An association's own policy tier is (Association, null). Its endpoints'
-                    // content types authorise the CALLER, they do not key the policy — and a
-                    // Testimony-to-Devotional row would make the narrow tier ambiguous anyway,
-                    // because neither endpoint is more specific than the other.
-                    ContentType = null,
-
-                    // Both endpoints, because an association is authorised from them rather
-                    // than from itself, and one is enough.
-                    RoleSubjects = new List<RoleSubject>
-                    {
-                        new RoleSubject
-                        {
-                            EntityType = storageAssociation.EntityAType.ToString(),
-                            ContentType = storageAssociation.EntityAContentType?.ToString(),
-                        },
-                        new RoleSubject
-                        {
-                            EntityType = storageAssociation.EntityBType.ToString(),
-                            ContentType = storageAssociation.EntityBContentType?.ToString(),
-                        },
-                    },
-
-                    // From STORAGE. Taking the author from the caller's copy would let a
-                    // contributor name someone else as author and approve their own row.
-                    EntityCreatedBy = storageAssociation.CreatedBy,
-                    ConfidenceScore = storageAssociation.ConfidenceScore,
-
-                    Decision = ApprovalDecision.Approve,
-
-                    IsBypassRequested = true,
-                    BypassReason = bypassReason,
-
-                    SecurityContext = securityContext,
-                },
-                cancellationToken);
-
-            if (verdict.IsPermitted is false)
-            {
-                // §14.5: the true reason is logged server-side and the caller is told nothing
-                // about the policy. The verdict's explanation names resolved settings — which
-                // role the bypass needs, which block fired — and exception messages and their
-                // Data surface outward through a public event address.
-                await this.loggingBroker.LogWarningAsync(
-                    $"Association bypass approval denied for {storageAssociation.Id}. "
-                        + $"{verdict.DenialReason}: {verdict.Explanation} "
-                        + "Reported to the caller as unauthorized.");
-
-                throw new UnauthorizedAssociationException(
-                    message: "The current user is not allowed to approve " +
-                        "this content item association.");
-            }
-
-            return verdict;
-        }
-
         // The Publisher tier: a global Publisher or Admin, or a scoped publisher matching AT
         // LEAST ONE endpoint — the same one-endpoint-is-enough reasoning as the review roles
         // (§14.7 posture A′ rule 2), because the pairing is the thing being decided and a
@@ -466,10 +450,22 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         // Only a row actually in review can be decided. Approving a Draft would skip the
         // submission the workflow is built around.
-        private static void ValidateStorageAssociationIsApprovable(
+        // What a row may be transitioned FROM. Draft is refused because a row reaches it once,
+        // at creation — deciding one would skip the submission the workflow is built around.
+        // Dismissed is refused because a withdrawn row is not in a round at all.
+        //
+        // Approved and Rejected ARE admitted here: they are terminal, but terminal means the
+        // content is immutable and the way out is narrow, not that the row is unreachable. The
+        // override gate is what decides who may act on one, and it has already run.
+        private static void ValidateStorageAssociationIsTransitionable(
             Association storageAssociation)
         {
-            if (storageAssociation.ApprovalStatus != ApprovalStatus.Submitted)
+            bool isTransitionable =
+                storageAssociation.ApprovalStatus == ApprovalStatus.Submitted
+                    || storageAssociation.ApprovalStatus == ApprovalStatus.Approved
+                    || storageAssociation.ApprovalStatus == ApprovalStatus.Rejected;
+
+            if (isTransitionable is false)
             {
                 throw new InvalidAssociationException(
                     message: "Content item association cannot be approved from status " +
@@ -584,22 +580,39 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             Message = "Value is not recognized"
         };
 
-        private static dynamic IsNotAnApprovalOutcome(ApprovalStatus approvalStatus) => new
-        {
-            Condition =
-                approvalStatus != ApprovalStatus.Approved
-                    && approvalStatus != ApprovalStatus.Rejected,
+        private static dynamic IsNotAnApprovalTransitionTarget(
+            ApprovalStatus approvalStatus) => new
+            {
+                Condition =
+                    approvalStatus != ApprovalStatus.Approved
+                        && approvalStatus != ApprovalStatus.Rejected
+                        && approvalStatus != ApprovalStatus.Submitted,
 
-            Message = "Approval status must be Approved or Rejected."
-        };
+                Message = "Approval status must be Submitted, Approved or Rejected."
+            };
 
-        // The bypass verb's narrower form. Bypass exists only to APPROVE over unmet conditions.
-        private static dynamic IsNotAnApproval(ApprovalStatus approvalStatus) => new
-        {
-            Condition = approvalStatus != ApprovalStatus.Approved,
+        // The bypass's narrower form. Bypass exists only to APPROVE over unmet conditions.
+        private static dynamic IsBypassWithoutApproval(
+            bool isApprovedByBypass,
+            ApprovalStatus approvalStatus) => new
+            {
+                Condition =
+                    isApprovedByBypass
+                        && approvalStatus != ApprovalStatus.Approved,
 
-            Message = "Approval status must be Approved."
-        };
+                Message = "Bypass requires an approved content item association."
+            };
+
+        private static dynamic IsMissingBypassReason(
+            bool isApprovedByBypass,
+            string? approvedByBypassReason) => new
+            {
+                Condition =
+                    isApprovedByBypass
+                        && string.IsNullOrWhiteSpace(approvedByBypassReason),
+
+                Message = "Bypass reason is required when bypassing."
+            };
 
         private static dynamic IsPublishedWithoutApproval(
             ApprovalStatus approvalStatus,

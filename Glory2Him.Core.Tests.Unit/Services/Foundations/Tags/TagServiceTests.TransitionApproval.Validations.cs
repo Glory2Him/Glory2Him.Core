@@ -18,14 +18,14 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Comments;
-using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
+using Glory2Him.Core.Models.Foundations.Tags;
+using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 {
-    public partial class CommentServiceTests
+    public partial class TagServiceTests
     {
         public static TheoryData<string[]> NonPublisherRoleSets() =>
             new TheoryData<string[]>
@@ -35,37 +35,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 // a Reviewer holds the review tier and MUST still never set an approval status
                 // (§8.6 HR-3) — the publisher tier deliberately excludes it
                 new[] { Roles.Reviewer },
-                new[] { Roles.CommentReviewer },
+                new[] { Roles.TagReviewer },
             };
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnApproveIfCommentIsNullAsync()
+        public async Task ShouldThrowValidationExceptionOnApproveIfTagIsNullAsync()
         {
             // given
-            Comment nullComment = null;
+            Tag nullTag = null;
 
-            var nullCommentException =
-                new NullCommentException(message: "Comment is null.");
+            var nullTagException =
+                new NullTagException(message: "Tag is null.");
 
-            var expectedCommentValidationException =
-                new CommentValidationException(
-                    message: "Comment validation error occurred, fix the errors and try again.",
-                    innerException: nullCommentException);
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: nullTagException);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    nullComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    nullTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
+            actualException.Should().BeEquivalentTo(expectedTagValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectCommentByIdAsync(
+                    broker.SelectTagByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -79,31 +79,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfStatusIsNotAnOutcomeAsync(
-            ApprovalStatus notAnOutcome)
+        public async Task ShouldThrowValidationExceptionOnTransitionIfStatusIsNotATransitionTargetAsync(
+            ApprovalStatus notATransitionTarget)
         {
-            // given: approve owns IApproval, so it is the one operation allowed to carry a
-            // status — but only to an outcome the workflow produces.
+            // given: this operation owns IApproval, so it is the one allowed to carry a status —
+            // but only to a state the workflow can hold a row in. Draft is reached once, at
+            // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
+            // Submitted is NOT here: it is what an override re-opens a terminal row to.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment inputComment = CreateApprovalDecision(Guid.NewGuid());
-            inputComment.ApprovalStatus = notAnOutcome;
-            inputComment.IsPublished = false;
-            inputComment.PublishDate = null;
+            Tag inputTag = CreateApprovalDecision(Guid.NewGuid());
+            inputTag.ApprovalStatus = notATransitionTarget;
+            inputTag.IsPublished = false;
+            inputTag.PublishDate = null;
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then: the status never reached storage — the row was never even read
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectCommentByIdAsync(
+                    broker.SelectTagByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -123,44 +124,44 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // IsPublished straight from the caller), and it fires before the row is read.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment inputComment = CreateRejectionDecision(Guid.NewGuid());
-            inputComment.IsPublished = true;
+            Tag inputTag = CreateRejectionDecision(Guid.NewGuid());
+            inputTag.IsPublished = true;
 
-            var invalidCommentException =
-                new InvalidCommentException(
-                    message: "Comment is invalid, fix the errors and try again.");
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag is invalid, fix the errors and try again.");
 
-            invalidCommentException.UpsertDataList(
-                key: nameof(Comment.IsPublished),
-                value: "Is published requires an approved comment.");
+            invalidTagException.UpsertDataList(
+                key: nameof(Tag.IsPublished),
+                value: "Is published requires an approved tag.");
 
-            var expectedCommentValidationException =
-                new CommentValidationException(
-                    message: "Comment validation error occurred, fix the errors and try again.",
-                    innerException: invalidCommentException);
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
+            actualException.Should().BeEquivalentTo(expectedTagValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectCommentByIdAsync(
+                    broker.SelectTagByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        It.IsAny<CommentEventOperation>()),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        It.IsAny<TagEventOperation>()),
                 Times.Never);
         }
 
@@ -172,37 +173,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // phantom publish date on an unpublished row.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment inputComment = CreateRejectionDecision(Guid.NewGuid());
-            inputComment.IsPublished = false;
-            inputComment.PublishDate = GetRandomDateTimeOffset();
+            Tag inputTag = CreateRejectionDecision(Guid.NewGuid());
+            inputTag.IsPublished = false;
+            inputTag.PublishDate = GetRandomDateTimeOffset();
 
-            var invalidCommentException =
-                new InvalidCommentException(
-                    message: "Comment is invalid, fix the errors and try again.");
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag is invalid, fix the errors and try again.");
 
-            invalidCommentException.UpsertDataList(
-                key: nameof(Comment.PublishDate),
-                value: "Publish date requires a published comment.");
+            invalidTagException.UpsertDataList(
+                key: nameof(Tag.PublishDate),
+                value: "Publish date requires a published tag.");
 
-            var expectedCommentValidationException =
-                new CommentValidationException(
-                    message: "Comment validation error occurred, fix the errors and try again.",
-                    innerException: invalidCommentException);
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
+            actualException.Should().BeEquivalentTo(expectedTagValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectCommentByIdAsync(
+                    broker.SelectTagByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -214,21 +215,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment inputComment = CreateApprovalDecision(Guid.NewGuid());
+            Tag inputTag = CreateApprovalDecision(Guid.NewGuid());
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectCommentByIdAsync(
-                    inputComment.Id,
+                broker.SelectTagByIdAsync(
+                    inputTag.Id,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((Comment)null);
+                        .ReturnsAsync((Tag)null);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then: a missing row is decided against nothing
             this.accessBrokerMock.Verify(broker =>
@@ -238,8 +239,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateCommentAsync(
-                        It.IsAny<Comment>(),
+                    broker.UpdateTagAsync(
+                        It.IsAny<Tag>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -250,33 +251,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // given: a soft-removed row is a takedown reported as not-found.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            storageComment.IsDeleted = true;
+            Tag storageTag = CreateApprovableStorageTag();
+            storageTag.IsDeleted = true;
 
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
-            SetupCommentStorageRead(storageComment);
+            SetupTagStorageRead(storageTag);
 
-            var notFoundCommentException =
-                new NotFoundCommentException(
-                    message: $"Comment not found with id: {storageComment.Id}.");
+            var notFoundTagException =
+                new NotFoundTagException(
+                    message: $"Tag not found with id: {storageTag.Id}.");
 
-            var expectedCommentValidationException =
-                new CommentValidationException(
-                    message: "Comment validation error occurred, fix the errors and try again.",
-                    innerException: notFoundCommentException);
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: notFoundTagException);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
+            actualException.Should().BeEquivalentTo(expectedTagValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -287,57 +288,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Approved)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfTheStoredRowIsNotSubmittableAsync(
+        public async Task ShouldThrowValidationExceptionOnTransitionIfTheStoredRowIsNotTransitionableAsync(
             ApprovalStatus storageStatus)
         {
-            // given: only a row actually in review can be decided. The tier and the access
-            // decision pass first (global Publisher, permissive fixture), so this proves the
-            // state gate stands on its own.
+            // given: a Draft has not been submitted and a Dismissed row is not in a round at all,
+            // so neither can be decided. Approved and Rejected are absent because they ARE
+            // transitionable — by an Admin, through the override — and are covered there.
+            //
+            // The tier and the access decision pass first (global Publisher, permissive fixture),
+            // so this proves the state gate stands on its own.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            storageComment.ApprovalStatus = storageStatus;
+            Tag storageTag = CreateApprovableStorageTag();
+            storageTag.ApprovalStatus = storageStatus;
 
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
-            SetupCommentStorageRead(storageComment);
+            SetupTagStorageRead(storageTag);
             SetupAccessBrokerToPermit();
 
-            var invalidCommentException =
-                new InvalidCommentException(
-                    message: "Comment cannot be approved from status " +
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag cannot be approved from status " +
                         $"{storageStatus}.");
 
-            var expectedCommentValidationException =
-                new CommentValidationException(
-                    message: "Comment validation error occurred, fix the errors and try again.",
-                    innerException: invalidCommentException);
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
+            actualException.Should().BeEquivalentTo(expectedTagValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateCommentAsync(
-                        It.IsAny<Comment>(),
+                    broker.UpdateTagAsync(
+                        It.IsAny<Tag>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        It.IsAny<CommentEventOperation>()),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        It.IsAny<TagEventOperation>()),
                 Times.Never);
         }
 
@@ -350,31 +352,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // refused before the access decision is ever asked.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
-            SetupCommentStorageRead(storageComment);
+            SetupTagStorageRead(storageTag);
 
-            var unauthorizedCommentException =
-                new UnauthorizedCommentException(
-                    message: "The current user is not allowed to approve this comment.");
+            var unauthorizedTagException =
+                new UnauthorizedTagException(
+                    message: "The current user is not allowed to approve this tag.");
 
-            var expectedCommentValidationException =
-                new CommentValidationException(
-                    message: "Comment validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedCommentException);
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedTagException);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then: refused before the cross-entity decision is asked
-            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
+            actualException.Should().BeEquivalentTo(expectedTagValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -383,8 +385,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateCommentAsync(
-                        It.IsAny<Comment>(),
+                    broker.UpdateTagAsync(
+                        It.IsAny<Tag>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -397,32 +399,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // approve (HR-2 self-approval lives behind the access broker).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
-            SetupCommentStorageRead(storageComment);
+            SetupTagStorageRead(storageTag);
             SetupAccessBrokerToRefuse(AccessDenialReason.SelfApprovalNotPermitted);
 
-            var unauthorizedCommentException =
-                new UnauthorizedCommentException(
-                    message: "The current user is not allowed to approve this comment.");
+            var unauthorizedTagException =
+                new UnauthorizedTagException(
+                    message: "The current user is not allowed to approve this tag.");
 
-            var expectedCommentValidationException =
-                new CommentValidationException(
-                    message: "Comment validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedCommentException);
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedTagException);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedCommentValidationException);
+            actualException.Should().BeEquivalentTo(expectedTagValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -431,15 +433,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateCommentAsync(
-                        It.IsAny<Comment>(),
+                    broker.UpdateTagAsync(
+                        It.IsAny<Tag>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        It.IsAny<CommentEventOperation>()),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        It.IsAny<TagEventOperation>()),
                 Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -448,7 +450,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             this.loggingBrokerMock.Verify(broker =>
                     broker.LogErrorAsync(It.Is(
-                        SameExceptionAs(expectedCommentValidationException))),
+                        SameExceptionAs(expectedTagValidationException))),
                 Times.Once);
         }
 
@@ -460,24 +462,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // (§14.5 rule 2), so neither may appear in anything thrown.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
-            SetupCommentStorageRead(storageComment);
+            SetupTagStorageRead(storageTag);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            TagValidationException actualException =
+                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then: the service's own wording, naming no policy
             actualException.InnerException.Message.Should().Be(
-                "The current user is not allowed to approve this comment.");
+                "The current user is not allowed to approve this tag.");
 
             string thrownText = FlattenExceptionText(actualException);
 
@@ -495,10 +497,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // the throw is what discards the verdict.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
-            SetupCommentStorageRead(storageComment);
+            SetupTagStorageRead(storageTag);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             var logCallOrder = new List<string>();
@@ -514,63 +516,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                     .Returns(ValueTask.CompletedTask);
 
             // when
-            ValueTask<Comment> approveTask =
-                this.commentService.ApproveCommentAsync(
-                    inputComment,
+            ValueTask<Tag> approveTask =
+                this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<CommentValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
 
             // then: the warning lands first, and the error the throw produces second
             logCallOrder.Should().HaveCount(2);
             logCallOrder[0].Should().StartWith("warning:");
             logCallOrder[1].Should().Be("error");
 
-            logCallOrder[0].Should().Contain(storageComment.Id.ToString());
+            logCallOrder[0].Should().Contain(storageTag.Id.ToString());
             logCallOrder[0].Should().Contain(nameof(AccessDenialReason.ApprovalThresholdNotMet));
             logCallOrder[0].Should().Contain("refused");
         }
 
         [Fact]
-        public async Task ShouldAskTheAccessBrokerAboutTheStoredCommentOnApproveAsync()
+        public async Task ShouldAskTheAccessBrokerAboutTheStoredTagOnApproveAsync()
         {
             // given: the caller's copy names a DIFFERENT author from the stored row. If the
             // query were built from the caller's copy, a contributor could name somebody else as
             // author and walk past the self-approval bar.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            storageComment.CreatedBy = $"stored-{Guid.NewGuid()}";
+            Tag storageTag = CreateApprovableStorageTag();
+            storageTag.CreatedBy = $"stored-{Guid.NewGuid()}";
 
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
-            inputComment.CreatedBy = $"caller-{Guid.NewGuid()}";
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            inputTag.CreatedBy = $"caller-{Guid.NewGuid()}";
 
-            Guid expectedEntityId = storageComment.Id;
-            string expectedCreatedBy = storageComment.CreatedBy;
+            Guid expectedEntityId = storageTag.Id;
+            string expectedCreatedBy = storageTag.CreatedBy;
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageComment, inputComment);
+                await CaptureApprovalDecisionQueryAsync(storageTag, inputTag);
 
             // then
             actualQuery.Should().NotBeNull();
 
-            actualQuery.EntityType.Should().Be(EntityType.Comment);
+            actualQuery.EntityType.Should().Be(EntityType.Tag);
             actualQuery.EntityId.Should().Be(expectedEntityId);
 
-            // a comment carries no content type, so its policy tier is (Comment, null)
+            // a tag carries no content type, so its policy tier is (Tag, null)
             actualQuery.ContentType.Should().BeNull();
 
             actualQuery.EntityCreatedBy.Should().Be(expectedCreatedBy);
-            actualQuery.EntityCreatedBy.Should().NotBe(inputComment.CreatedBy);
+            actualQuery.EntityCreatedBy.Should().NotBe(inputTag.CreatedBy);
 
-            // a comment has no confidence score — that is an association's input
+            // a tag has no confidence score — that is an association's input
             actualQuery.ConfidenceScore.Should().BeNull();
 
-            // one subject: the comment authorises from itself, keyed by its own type with no
+            // one subject: the tag authorises from itself, keyed by its own type with no
             // content type
             actualQuery.RoleSubjects.Should().HaveCount(1);
-            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Comment));
+            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Tag));
             actualQuery.RoleSubjects[0].ContentType.Should().BeNull();
 
             actualQuery.IsBypassRequested.Should().BeFalse();
@@ -589,15 +591,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // unable to reject the very row the threshold was failing to approve.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
+            Tag storageTag = CreateApprovableStorageTag();
 
-            Comment inputComment = callerStatus == ApprovalStatus.Rejected
-                ? CreateRejectionDecision(storageComment.Id)
-                : CreateApprovalDecision(storageComment.Id);
+            Tag inputTag = callerStatus == ApprovalStatus.Rejected
+                ? CreateRejectionDecision(storageTag.Id)
+                : CreateApprovalDecision(storageTag.Id);
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageComment, inputComment);
+                await CaptureApprovalDecisionQueryAsync(storageTag, inputTag);
 
             // then
             actualQuery.Should().NotBeNull();

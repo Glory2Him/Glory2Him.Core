@@ -18,14 +18,14 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Tags;
-using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
+using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 {
-    public partial class TagServiceTests
+    public partial class ReactionServiceTests
     {
         public static TheoryData<string[]> NonPublisherRoleSets() =>
             new TheoryData<string[]>
@@ -35,37 +35,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 // a Reviewer holds the review tier and MUST still never set an approval status
                 // (§8.6 HR-3) — the publisher tier deliberately excludes it
                 new[] { Roles.Reviewer },
-                new[] { Roles.TagReviewer },
+                new[] { Roles.ReactionReviewer },
             };
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnApproveIfTagIsNullAsync()
+        public async Task ShouldThrowValidationExceptionOnApproveIfReactionIsNullAsync()
         {
             // given
-            Tag nullTag = null;
+            Reaction nullReaction = null;
 
-            var nullTagException =
-                new NullTagException(message: "Tag is null.");
+            var nullReactionException =
+                new NullReactionException(message: "Reaction is null.");
 
-            var expectedTagValidationException =
-                new TagValidationException(
-                    message: "Tag validation error occurred, fix the errors and try again.",
-                    innerException: nullTagException);
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: nullReactionException);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    nullTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    nullReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedTagValidationException);
+            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectTagByIdAsync(
+                    broker.SelectReactionByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -79,31 +79,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfStatusIsNotAnOutcomeAsync(
-            ApprovalStatus notAnOutcome)
+        public async Task ShouldThrowValidationExceptionOnTransitionIfStatusIsNotATransitionTargetAsync(
+            ApprovalStatus notATransitionTarget)
         {
-            // given: approve owns IApproval, so it is the one operation allowed to carry a
-            // status — but only to an outcome the workflow produces.
+            // given: this operation owns IApproval, so it is the one allowed to carry a status —
+            // but only to a state the workflow can hold a row in. Draft is reached once, at
+            // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
+            // Submitted is NOT here: it is what an override re-opens a terminal row to.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag inputTag = CreateApprovalDecision(Guid.NewGuid());
-            inputTag.ApprovalStatus = notAnOutcome;
-            inputTag.IsPublished = false;
-            inputTag.PublishDate = null;
+            Reaction inputReaction = CreateApprovalDecision(Guid.NewGuid());
+            inputReaction.ApprovalStatus = notATransitionTarget;
+            inputReaction.IsPublished = false;
+            inputReaction.PublishDate = null;
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then: the status never reached storage — the row was never even read
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectTagByIdAsync(
+                    broker.SelectReactionByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -123,44 +124,44 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // IsPublished straight from the caller), and it fires before the row is read.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag inputTag = CreateRejectionDecision(Guid.NewGuid());
-            inputTag.IsPublished = true;
+            Reaction inputReaction = CreateRejectionDecision(Guid.NewGuid());
+            inputReaction.IsPublished = true;
 
-            var invalidTagException =
-                new InvalidTagException(
-                    message: "Tag is invalid, fix the errors and try again.");
+            var invalidReactionException =
+                new InvalidReactionException(
+                    message: "Reaction is invalid, fix the errors and try again.");
 
-            invalidTagException.UpsertDataList(
-                key: nameof(Tag.IsPublished),
-                value: "Is published requires an approved tag.");
+            invalidReactionException.UpsertDataList(
+                key: nameof(Reaction.IsPublished),
+                value: "Is published requires an approved reaction.");
 
-            var expectedTagValidationException =
-                new TagValidationException(
-                    message: "Tag validation error occurred, fix the errors and try again.",
-                    innerException: invalidTagException);
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: invalidReactionException);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedTagValidationException);
+            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectTagByIdAsync(
+                    broker.SelectReactionByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        It.IsAny<TagEventOperation>()),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        It.IsAny<ReactionEventOperation>()),
                 Times.Never);
         }
 
@@ -172,37 +173,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // phantom publish date on an unpublished row.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag inputTag = CreateRejectionDecision(Guid.NewGuid());
-            inputTag.IsPublished = false;
-            inputTag.PublishDate = GetRandomDateTimeOffset();
+            Reaction inputReaction = CreateRejectionDecision(Guid.NewGuid());
+            inputReaction.IsPublished = false;
+            inputReaction.PublishDate = GetRandomDateTimeOffset();
 
-            var invalidTagException =
-                new InvalidTagException(
-                    message: "Tag is invalid, fix the errors and try again.");
+            var invalidReactionException =
+                new InvalidReactionException(
+                    message: "Reaction is invalid, fix the errors and try again.");
 
-            invalidTagException.UpsertDataList(
-                key: nameof(Tag.PublishDate),
-                value: "Publish date requires a published tag.");
+            invalidReactionException.UpsertDataList(
+                key: nameof(Reaction.PublishDate),
+                value: "Publish date requires a published reaction.");
 
-            var expectedTagValidationException =
-                new TagValidationException(
-                    message: "Tag validation error occurred, fix the errors and try again.",
-                    innerException: invalidTagException);
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: invalidReactionException);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedTagValidationException);
+            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectTagByIdAsync(
+                    broker.SelectReactionByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -214,21 +215,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag inputTag = CreateApprovalDecision(Guid.NewGuid());
+            Reaction inputReaction = CreateApprovalDecision(Guid.NewGuid());
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectTagByIdAsync(
-                    inputTag.Id,
+                broker.SelectReactionByIdAsync(
+                    inputReaction.Id,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((Tag)null);
+                        .ReturnsAsync((Reaction)null);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then: a missing row is decided against nothing
             this.accessBrokerMock.Verify(broker =>
@@ -238,8 +239,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateTagAsync(
-                        It.IsAny<Tag>(),
+                    broker.UpdateReactionAsync(
+                        It.IsAny<Reaction>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -250,33 +251,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // given: a soft-removed row is a takedown reported as not-found.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            storageTag.IsDeleted = true;
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.IsDeleted = true;
 
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            SetupTagStorageRead(storageTag);
+            SetupReactionStorageRead(storageReaction);
 
-            var notFoundTagException =
-                new NotFoundTagException(
-                    message: $"Tag not found with id: {storageTag.Id}.");
+            var notFoundReactionException =
+                new NotFoundReactionException(
+                    message: $"Reaction not found with id: {storageReaction.Id}.");
 
-            var expectedTagValidationException =
-                new TagValidationException(
-                    message: "Tag validation error occurred, fix the errors and try again.",
-                    innerException: notFoundTagException);
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: notFoundReactionException);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedTagValidationException);
+            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -287,57 +288,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Approved)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfTheStoredRowIsNotSubmittableAsync(
+        public async Task ShouldThrowValidationExceptionOnTransitionIfTheStoredRowIsNotTransitionableAsync(
             ApprovalStatus storageStatus)
         {
-            // given: only a row actually in review can be decided. The tier and the access
-            // decision pass first (global Publisher, permissive fixture), so this proves the
-            // state gate stands on its own.
+            // given: a Draft has not been submitted and a Dismissed row is not in a round at all,
+            // so neither can be decided. Approved and Rejected are absent because they ARE
+            // transitionable — by an Admin, through the override — and are covered there.
+            //
+            // The tier and the access decision pass first (global Publisher, permissive fixture),
+            // so this proves the state gate stands on its own.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            storageTag.ApprovalStatus = storageStatus;
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.ApprovalStatus = storageStatus;
 
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            SetupTagStorageRead(storageTag);
+            SetupReactionStorageRead(storageReaction);
             SetupAccessBrokerToPermit();
 
-            var invalidTagException =
-                new InvalidTagException(
-                    message: "Tag cannot be approved from status " +
+            var invalidReactionException =
+                new InvalidReactionException(
+                    message: "Reaction cannot be approved from status " +
                         $"{storageStatus}.");
 
-            var expectedTagValidationException =
-                new TagValidationException(
-                    message: "Tag validation error occurred, fix the errors and try again.",
-                    innerException: invalidTagException);
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: invalidReactionException);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedTagValidationException);
+            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateTagAsync(
-                        It.IsAny<Tag>(),
+                    broker.UpdateReactionAsync(
+                        It.IsAny<Reaction>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        It.IsAny<TagEventOperation>()),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        It.IsAny<ReactionEventOperation>()),
                 Times.Never);
         }
 
@@ -350,31 +352,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // refused before the access decision is ever asked.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            SetupTagStorageRead(storageTag);
+            SetupReactionStorageRead(storageReaction);
 
-            var unauthorizedTagException =
-                new UnauthorizedTagException(
-                    message: "The current user is not allowed to approve this tag.");
+            var unauthorizedReactionException =
+                new UnauthorizedReactionException(
+                    message: "The current user is not allowed to approve this reaction.");
 
-            var expectedTagValidationException =
-                new TagValidationException(
-                    message: "Tag validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedTagException);
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedReactionException);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then: refused before the cross-entity decision is asked
-            actualException.Should().BeEquivalentTo(expectedTagValidationException);
+            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -383,8 +385,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateTagAsync(
-                        It.IsAny<Tag>(),
+                    broker.UpdateReactionAsync(
+                        It.IsAny<Reaction>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -397,32 +399,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // approve (HR-2 self-approval lives behind the access broker).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            SetupTagStorageRead(storageTag);
+            SetupReactionStorageRead(storageReaction);
             SetupAccessBrokerToRefuse(AccessDenialReason.SelfApprovalNotPermitted);
 
-            var unauthorizedTagException =
-                new UnauthorizedTagException(
-                    message: "The current user is not allowed to approve this tag.");
+            var unauthorizedReactionException =
+                new UnauthorizedReactionException(
+                    message: "The current user is not allowed to approve this reaction.");
 
-            var expectedTagValidationException =
-                new TagValidationException(
-                    message: "Tag validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedTagException);
+            var expectedReactionValidationException =
+                new ReactionValidationException(
+                    message: "Reaction validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedReactionException);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedTagValidationException);
+            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -431,15 +433,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateTagAsync(
-                        It.IsAny<Tag>(),
+                    broker.UpdateReactionAsync(
+                        It.IsAny<Reaction>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishTagAsync(
-                        It.IsAny<EventEnvelope<Tag>>(),
-                        It.IsAny<TagEventOperation>()),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        It.IsAny<ReactionEventOperation>()),
                 Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -448,7 +450,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             this.loggingBrokerMock.Verify(broker =>
                     broker.LogErrorAsync(It.Is(
-                        SameExceptionAs(expectedTagValidationException))),
+                        SameExceptionAs(expectedReactionValidationException))),
                 Times.Once);
         }
 
@@ -460,24 +462,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // (§14.5 rule 2), so neither may appear in anything thrown.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            SetupTagStorageRead(storageTag);
+            SetupReactionStorageRead(storageReaction);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            TagValidationException actualException =
-                await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            ReactionValidationException actualException =
+                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then: the service's own wording, naming no policy
             actualException.InnerException.Message.Should().Be(
-                "The current user is not allowed to approve this tag.");
+                "The current user is not allowed to approve this reaction.");
 
             string thrownText = FlattenExceptionText(actualException);
 
@@ -495,10 +497,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // the throw is what discards the verdict.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            SetupTagStorageRead(storageTag);
+            SetupReactionStorageRead(storageReaction);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             var logCallOrder = new List<string>();
@@ -514,63 +516,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                     .Returns(ValueTask.CompletedTask);
 
             // when
-            ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
-                    inputTag,
+            ValueTask<Reaction> approveTask =
+                this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<TagValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
 
             // then: the warning lands first, and the error the throw produces second
             logCallOrder.Should().HaveCount(2);
             logCallOrder[0].Should().StartWith("warning:");
             logCallOrder[1].Should().Be("error");
 
-            logCallOrder[0].Should().Contain(storageTag.Id.ToString());
+            logCallOrder[0].Should().Contain(storageReaction.Id.ToString());
             logCallOrder[0].Should().Contain(nameof(AccessDenialReason.ApprovalThresholdNotMet));
             logCallOrder[0].Should().Contain("refused");
         }
 
         [Fact]
-        public async Task ShouldAskTheAccessBrokerAboutTheStoredTagOnApproveAsync()
+        public async Task ShouldAskTheAccessBrokerAboutTheStoredReactionOnApproveAsync()
         {
             // given: the caller's copy names a DIFFERENT author from the stored row. If the
             // query were built from the caller's copy, a contributor could name somebody else as
             // author and walk past the self-approval bar.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
-            storageTag.CreatedBy = $"stored-{Guid.NewGuid()}";
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.CreatedBy = $"stored-{Guid.NewGuid()}";
 
-            Tag inputTag = CreateApprovalDecision(storageTag.Id);
-            inputTag.CreatedBy = $"caller-{Guid.NewGuid()}";
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            inputReaction.CreatedBy = $"caller-{Guid.NewGuid()}";
 
-            Guid expectedEntityId = storageTag.Id;
-            string expectedCreatedBy = storageTag.CreatedBy;
+            Guid expectedEntityId = storageReaction.Id;
+            string expectedCreatedBy = storageReaction.CreatedBy;
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageTag, inputTag);
+                await CaptureApprovalDecisionQueryAsync(storageReaction, inputReaction);
 
             // then
             actualQuery.Should().NotBeNull();
 
-            actualQuery.EntityType.Should().Be(EntityType.Tag);
+            actualQuery.EntityType.Should().Be(EntityType.Reaction);
             actualQuery.EntityId.Should().Be(expectedEntityId);
 
-            // a tag carries no content type, so its policy tier is (Tag, null)
+            // a reaction carries no content type, so its policy tier is (Reaction, null)
             actualQuery.ContentType.Should().BeNull();
 
             actualQuery.EntityCreatedBy.Should().Be(expectedCreatedBy);
-            actualQuery.EntityCreatedBy.Should().NotBe(inputTag.CreatedBy);
+            actualQuery.EntityCreatedBy.Should().NotBe(inputReaction.CreatedBy);
 
-            // a tag has no confidence score — that is an association's input
+            // a reaction has no confidence score — that is an association's input
             actualQuery.ConfidenceScore.Should().BeNull();
 
-            // one subject: the tag authorises from itself, keyed by its own type with no
+            // one subject: the reaction authorises from itself, keyed by its own type with no
             // content type
             actualQuery.RoleSubjects.Should().HaveCount(1);
-            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Tag));
+            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Reaction));
             actualQuery.RoleSubjects[0].ContentType.Should().BeNull();
 
             actualQuery.IsBypassRequested.Should().BeFalse();
@@ -589,15 +591,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // unable to reject the very row the threshold was failing to approve.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Tag storageTag = CreateApprovableStorageTag();
+            Reaction storageReaction = CreateApprovableStorageReaction();
 
-            Tag inputTag = callerStatus == ApprovalStatus.Rejected
-                ? CreateRejectionDecision(storageTag.Id)
-                : CreateApprovalDecision(storageTag.Id);
+            Reaction inputReaction = callerStatus == ApprovalStatus.Rejected
+                ? CreateRejectionDecision(storageReaction.Id)
+                : CreateApprovalDecision(storageReaction.Id);
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageTag, inputTag);
+                await CaptureApprovalDecisionQueryAsync(storageReaction, inputReaction);
 
             // then
             actualQuery.Should().NotBeNull();

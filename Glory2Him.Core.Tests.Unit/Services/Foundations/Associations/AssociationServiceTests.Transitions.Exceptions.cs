@@ -166,15 +166,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             transitionName switch
             {
 
-                "Approve" => this.associationService.ApproveAssociationAsync(
+                "Approve" => this.associationService.TransitionAssociationApprovalAsync(
                     CreateApprovalDecision(storageAssociation.Id), cancellationToken),
 
                 // the bypass verb has its own arm for the same reason every other name does:
                 // without one it falls through to the default and this theory row would drive
                 // set-scope while claiming to cover the bypass
-                "BypassApprove" => this.associationService.BypassApproveAssociationAsync(
-                    CreateApprovalDecision(storageAssociation.Id),
-                    GetRandomString(),
+                "BypassApprove" => this.associationService.TransitionAssociationApprovalAsync(
+                    CreateBypassApprovalDecision(storageAssociation.Id),
                     cancellationToken),
 
                 "Sort" => this.associationService.SortAssociationAsync(

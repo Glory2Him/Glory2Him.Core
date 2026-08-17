@@ -19,17 +19,17 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 {
-    public partial class ReactionServiceTests
+    public partial class LinkServiceTests
     {
         [Fact]
-        public async Task ShouldApproveReactionAsync()
+        public async Task ShouldTransitionLinkApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -37,57 +37,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link storageLink = CreateApprovableStorageLink();
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
-            Reaction approvedReaction = storageReaction.DeepClone();
-            approvedReaction.ApprovalStatus = inputReaction.ApprovalStatus;
-            approvedReaction.IsPublished = inputReaction.IsPublished;
-            approvedReaction.PublishDate = inputReaction.PublishDate;
-            approvedReaction.IsApprovedByBypass = false;
-            approvedReaction.ApprovedByBypassReason = null;
+            Link approvedLink = storageLink.DeepClone();
+            approvedLink.ApprovalStatus = inputLink.ApprovalStatus;
+            approvedLink.IsPublished = inputLink.IsPublished;
+            approvedLink.PublishDate = inputLink.PublishDate;
+            approvedLink.IsApprovedByBypass = false;
+            approvedLink.ApprovedByBypassReason = null;
 
-            Reaction auditAppliedReaction = approvedReaction.DeepClone();
-            Reaction updatedReaction = auditAppliedReaction.DeepClone();
-            Reaction expectedReaction = updatedReaction.DeepClone();
+            Link auditAppliedLink = approvedLink.DeepClone();
+            Link updatedLink = auditAppliedLink.DeepClone();
+            Link expectedLink = updatedLink.DeepClone();
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupLinkStorageRead(storageLink);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(
-                    It.IsAny<Reaction>(),
+                    It.IsAny<Link>(),
                     It.IsAny<SecurityContext>()))
-                        .ReturnsAsync(auditAppliedReaction);
+                        .ReturnsAsync(auditAppliedLink);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateReactionAsync(
-                    auditAppliedReaction,
+                broker.UpdateLinkAsync(
+                    auditAppliedLink,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(updatedReaction);
+                        .ReturnsAsync(updatedLink);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishReactionAsync(
-                    It.IsAny<EventEnvelope<Reaction>>(),
-                    ReactionEventOperation.Approved))
-                        .Returns(new ValueTask<EventPublishResult<Reaction>>(
-                            new EventPublishResult<Reaction>()));
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    LinkEventOperation.Approved))
+                        .Returns(new ValueTask<EventPublishResult<Link>>(
+                            new EventPublishResult<Link>()));
 
             // when
-            Reaction actualReaction =
-                await this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            Link actualLink =
+                await this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualReaction.Should().BeEquivalentTo(expectedReaction);
+            actualLink.Should().BeEquivalentTo(expectedLink);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
-                        inputReaction.Id,
+                    broker.SelectLinkByIdAsync(
+                        inputLink.Id,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -99,21 +99,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyModifyAuditValuesAsync(
-                        It.IsAny<Reaction>(),
+                        It.IsAny<Link>(),
                         It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        auditAppliedReaction,
+                    broker.UpdateLinkAsync(
+                        auditAppliedLink,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the operation's OWN fact — never Modified. See ShouldNeverPublishModified...
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        ReactionEventOperation.Approved),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        LinkEventOperation.Approved),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -121,7 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     It.Is<ProcessedEvent>(processedEvent =>
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers
-                                .ReactionOnApprovingReactionSubscriptionName),
+                                .LinkOnApprovingLinkSubscriptionName),
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
@@ -145,23 +145,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateRejectionDecision(storageReaction.Id);
+            Link storageLink = CreateApprovableStorageLink();
+            Link inputLink = CreateRejectionDecision(storageLink.Id);
 
             // when
-            await CaptureSavedReactionOnApproveAsync(storageReaction, inputReaction);
+            await CaptureSavedLinkOnTransitionAsync(storageLink, inputLink);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        ReactionEventOperation.Rejected),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        LinkEventOperation.Rejected),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        ReactionEventOperation.Approved),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        LinkEventOperation.Approved),
                 Times.Never);
         }
 
@@ -175,23 +175,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link storageLink = CreateApprovableStorageLink();
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
             // when
-            await CaptureSavedReactionOnApproveAsync(storageReaction, inputReaction);
+            await CaptureSavedLinkOnTransitionAsync(storageLink, inputLink);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        ReactionEventOperation.Modified),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        LinkEventOperation.Modified),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        ReactionEventOperation.Approved),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        LinkEventOperation.Approved),
                 Times.Once);
         }
 
@@ -207,39 +207,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction expectedStorageReaction = storageReaction.DeepClone();
+            Link storageLink = CreateApprovableStorageLink();
+            Link expectedStorageLink = storageLink.DeepClone();
 
             // a fully random caller copy (differs from storage on every field), pinned only to
             // the id and a valid approval outcome
-            Reaction inputReaction = CreateRandomReaction();
-            inputReaction.Id = storageReaction.Id;
-            inputReaction.ApprovalStatus = ApprovalStatus.Approved;
-            inputReaction.IsPublished = true;
-            inputReaction.PublishDate = GetRandomDateTimeOffset();
+            Link inputLink = CreateRandomLink();
+            inputLink.Id = storageLink.Id;
+            inputLink.ApprovalStatus = ApprovalStatus.Approved;
+            inputLink.IsPublished = true;
+            inputLink.PublishDate = GetRandomDateTimeOffset();
 
             // when
-            Reaction savedReaction = await CaptureSavedReactionOnApproveAsync(storageReaction, inputReaction);
+            Link savedLink = await CaptureSavedLinkOnTransitionAsync(storageLink, inputLink);
 
             // then
-            savedReaction.Should().NotBeNull();
+            savedLink.Should().NotBeNull();
 
             // the fields the operation owns came from the caller
-            savedReaction.ApprovalStatus.Should().Be(inputReaction.ApprovalStatus);
-            savedReaction.IsPublished.Should().Be(inputReaction.IsPublished);
-            savedReaction.PublishDate.Should().Be(inputReaction.PublishDate);
+            savedLink.ApprovalStatus.Should().Be(inputLink.ApprovalStatus);
+            savedLink.IsPublished.Should().Be(inputLink.IsPublished);
+            savedLink.PublishDate.Should().Be(inputLink.PublishDate);
 
             // everything else came from STORAGE — asserted against the pre-act snapshot, so
             // copying any caller field onto the row fails here. The bypass pair is derived
             // (false / null here) and excluded from the storage comparison.
-            savedReaction.Should().BeEquivalentTo(
-                expectedStorageReaction,
+            savedLink.Should().BeEquivalentTo(
+                expectedStorageLink,
                 options => options
-                    .Excluding(reaction => reaction.ApprovalStatus)
-                    .Excluding(reaction => reaction.IsPublished)
-                    .Excluding(reaction => reaction.PublishDate)
-                    .Excluding(reaction => reaction.IsApprovedByBypass)
-                    .Excluding(reaction => reaction.ApprovedByBypassReason));
+                    .Excluding(link => link.ApprovalStatus)
+                    .Excluding(link => link.IsPublished)
+                    .Excluding(link => link.PublishDate)
+                    .Excluding(link => link.IsApprovedByBypass)
+                    .Excluding(link => link.ApprovedByBypassReason));
         }
 
         // ── The bypass record is DERIVED, not copied ─────────────────────────────────────────
@@ -253,27 +253,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.IsApprovedByBypass = false;
-            storageReaction.ApprovedByBypassReason = null;
+            Link storageLink = CreateApprovableStorageLink();
+            storageLink.IsApprovedByBypass = false;
+            storageLink.ApprovedByBypassReason = null;
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
-            inputReaction.IsApprovedByBypass = true;
-            inputReaction.ApprovedByBypassReason = "caller supplied";
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
+            inputLink.IsApprovedByBypass = true;
+            inputLink.ApprovedByBypassReason = "caller supplied";
 
             SetupAccessBrokerToPermit();
 
             // when
-            Reaction savedReaction = await CaptureSavedReactionOnApproveAsync(storageReaction, inputReaction);
+            Link savedLink = await CaptureSavedLinkOnTransitionAsync(storageLink, inputLink);
 
             // then
-            savedReaction.Should().NotBeNull();
-            savedReaction.IsApprovedByBypass.Should().BeFalse();
-            savedReaction.ApprovedByBypassReason.Should().BeNull();
+            savedLink.Should().NotBeNull();
+            savedLink.IsApprovedByBypass.Should().BeFalse();
+            savedLink.ApprovedByBypassReason.Should().BeNull();
 
-            savedReaction.ApprovalStatus.Should().Be(inputReaction.ApprovalStatus);
-            savedReaction.IsPublished.Should().Be(inputReaction.IsPublished);
-            savedReaction.PublishDate.Should().Be(inputReaction.PublishDate);
+            savedLink.ApprovalStatus.Should().Be(inputLink.ApprovalStatus);
+            savedLink.IsPublished.Should().Be(inputLink.IsPublished);
+            savedLink.PublishDate.Should().Be(inputLink.PublishDate);
         }
 
         [Fact]
@@ -284,22 +284,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.IsApprovedByBypass = false;
-            storageReaction.ApprovedByBypassReason = null;
+            Link storageLink = CreateApprovableStorageLink();
+            storageLink.IsApprovedByBypass = false;
+            storageLink.ApprovedByBypassReason = null;
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
-            inputReaction.IsApprovedByBypass = false;
-            inputReaction.ApprovedByBypassReason = null;
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
+            inputLink.IsApprovedByBypass = false;
+            inputLink.ApprovedByBypassReason = null;
 
             SetupAccessBrokerToPermitByBypass();
 
             // when
-            Reaction savedReaction = await CaptureSavedReactionOnApproveAsync(storageReaction, inputReaction);
+            Link savedLink = await CaptureSavedLinkOnTransitionAsync(storageLink, inputLink);
 
             // then
-            savedReaction.Should().NotBeNull();
-            savedReaction.IsApprovedByBypass.Should().BeTrue();
+            savedLink.Should().NotBeNull();
+            savedLink.IsApprovedByBypass.Should().BeTrue();
         }
 
         [Fact]
@@ -311,21 +311,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.IsApprovedByBypass = true;
-            storageReaction.ApprovedByBypassReason = "an earlier bypass";
+            Link storageLink = CreateApprovableStorageLink();
+            storageLink.IsApprovedByBypass = true;
+            storageLink.ApprovedByBypassReason = "an earlier bypass";
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
             SetupAccessBrokerToPermit();
 
             // when
-            Reaction savedReaction = await CaptureSavedReactionOnApproveAsync(storageReaction, inputReaction);
+            Link savedLink = await CaptureSavedLinkOnTransitionAsync(storageLink, inputLink);
 
             // then
-            savedReaction.Should().NotBeNull();
-            savedReaction.IsApprovedByBypass.Should().BeFalse();
-            savedReaction.ApprovedByBypassReason.Should().BeNull();
+            savedLink.Should().NotBeNull();
+            savedLink.IsApprovedByBypass.Should().BeFalse();
+            savedLink.ApprovedByBypassReason.Should().BeNull();
         }
     }
 }

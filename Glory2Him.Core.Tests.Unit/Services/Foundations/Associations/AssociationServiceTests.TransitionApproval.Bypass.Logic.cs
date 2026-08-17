@@ -38,7 +38,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
     public partial class AssociationServiceTests
     {
         [Fact]
-        public async Task ShouldBypassApproveAssociationAsync()
+        public async Task ShouldTransitionAssociationApprovalByBypassAsync()
         {
             // given: a permitted bypass. The verdict reports that a standing rejection was
             // waived, so the row must carry the waiver and the reason the caller gave for it —
@@ -94,11 +94,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .Returns(new ValueTask<EventPublishResult<Association>>(
                             new EventPublishResult<Association>()));
 
+            inputAssociation.IsApprovedByBypass = true;
+            inputAssociation.ApprovedByBypassReason = bypassReason;
+
             // when
             Association actualAssociation =
-                await this.associationService.BypassApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     inputAssociation,
-                    bypassReason,
                     TestContext.Current.CancellationToken);
 
             // then
@@ -160,7 +162,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     It.Is<ProcessedEvent>(processedEvent =>
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers
-                                .AssociationOnBypassApprovingAssociationSubscriptionName),
+                                .AssociationOnApprovingAssociationSubscriptionName),
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
@@ -182,47 +184,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
-        [Fact]
-        public async Task ShouldIgnoreTheCallersBypassRecordOnBypassApproveAsync()
-        {
-            // given: the caller's entity says the opposite of the decision on BOTH fields — no
-            // bypass, and a different excuse. If either were read off the entity, the caller
-            // would be writing its own audit record: a genuine bypass could be sent as
-            // IsApprovedByBypass = false and leave no trace, which is precisely the erasure the
-            // derivation exists to prevent.
-            this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
-
-            Association storageAssociation = CreateApprovableStorageAssociation();
-            storageAssociation.IsApprovedByBypass = false;
-            storageAssociation.ApprovedByBypassReason = null;
-
-            Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);
-            inputAssociation.IsApprovedByBypass = false;
-            inputAssociation.ApprovedByBypassReason = $"caller-{Guid.NewGuid()}";
-
-            string bypassReason = $"argument-{Guid.NewGuid()}";
-
-            SetupAccessBrokerToPermitByBypass(AccessDenialReason.BlockedByUnresolvedApprovalComment);
-
-            // when
-            Association savedAssociation = await CaptureSavedAssociationOnBypassApproveAsync(
-                storageAssociation,
-                inputAssociation,
-                bypassReason);
-
-            // then
-            savedAssociation.Should().NotBeNull();
-
-            // the verdict, not the entity's flag
-            savedAssociation.IsApprovedByBypass.Should().BeTrue();
-
-            // the argument, not the entity's field
-            savedAssociation.ApprovedByBypassReason.Should().Be(bypassReason);
-
-            savedAssociation.ApprovedByBypassReason.Should()
-                .NotBe(inputAssociation.ApprovedByBypassReason);
-        }
 
         [Fact]
         public async Task ShouldNotRecordABypassOnBypassApproveWhenTheDecisionWaivedNothingAsync()
@@ -371,9 +332,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .Returns(new ValueTask<EventPublishResult<Association>>(
                             new EventPublishResult<Association>()));
 
-            await this.associationService.BypassApproveAssociationAsync(
+            inputAssociation.IsApprovedByBypass = true;
+            inputAssociation.ApprovedByBypassReason = bypassReason;
+
+            await this.associationService.TransitionAssociationApprovalAsync(
                 inputAssociation,
-                bypassReason,
                 TestContext.Current.CancellationToken);
 
             return savedAssociation;

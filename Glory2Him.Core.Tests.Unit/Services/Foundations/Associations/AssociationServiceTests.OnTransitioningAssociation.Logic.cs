@@ -48,11 +48,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     EventBrokerIdentifiers.AssociationOnApprovingAssociationSubscriptionName
                 },
                 {
-                    "BypassApprove",
-                    EventBrokerIdentifiers
-                        .AssociationOnBypassApprovingAssociationSubscriptionName
-                },
-                {
                     "SetConfidence",
                     EventBrokerIdentifiers
                         .AssociationOnSettingAssociationConfidenceSubscriptionName
@@ -184,8 +179,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             string bypassReason = $"argument-{Guid.NewGuid()}";
 
+            // The pair is the REQUEST now that the bypass folded into the widened verb, so the
+            // flag is set rather than pinned false. What lands on the row is still the verdict's
+            // to say — which is why the stored row is pinned to "no bypass" below and the
+            // assertion is that the write happened, not that the request echoed back.
             Association requestedDecision = CreateApprovalDecision(storageAssociation.Id);
-            requestedDecision.IsApprovedByBypass = false;
+            requestedDecision.IsApprovedByBypass = true;
             requestedDecision.ApprovedByBypassReason = bypassReason;
 
             var requestEnvelope = new EventEnvelope<Association>
@@ -198,7 +197,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupUnprocessedTransitionRequest(
                 requestEnvelope,
                 EventBrokerIdentifiers
-                    .AssociationOnBypassApprovingAssociationSubscriptionName);
+                    .AssociationOnApprovingAssociationSubscriptionName);
 
             SetupStorageRead(storageAssociation);
             SetupTransitionWriteBrokers();
@@ -206,7 +205,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when
             EventEnvelope<Association>? actualReplyEnvelope =
-                await this.associationService.OnBypassApprovingAssociationAsync(
+                await this.associationService.OnApprovingAssociationAsync(
                     requestEnvelope,
                     TestContext.Current.CancellationToken);
 
@@ -239,7 +238,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             VerifyTransitionStorageCalls(
                 requestEnvelope,
                 EventBrokerIdentifiers
-                    .AssociationOnBypassApprovingAssociationSubscriptionName,
+                    .AssociationOnApprovingAssociationSubscriptionName,
                 storageAssociation);
 
             // the event path reaches the same Do method, so it leaves the same audit entry —
@@ -392,10 +391,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             {
                 "Approve" => this.associationService.OnApprovingAssociationAsync(
                     requestEnvelope, cancellationToken),
-
-                "BypassApprove" =>
-                    this.associationService.OnBypassApprovingAssociationAsync(
-                        requestEnvelope, cancellationToken),
 
                 "SetConfidence" =>
                     this.associationService.OnSettingAssociationConfidenceAsync(

@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Services.Foundations.Reactions
             Guid reactionId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Reaction> ApproveReactionAsync(
+        ValueTask<Reaction> TransitionReactionApprovalAsync(
             Reaction reaction,
             CancellationToken cancellationToken = default);
     }

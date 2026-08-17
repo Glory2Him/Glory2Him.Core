@@ -19,17 +19,17 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 {
-    public partial class LinkServiceTests
+    public partial class BibleReferenceServiceTests
     {
         [Fact]
-        public async Task ShouldApproveLinkAsync()
+        public async Task ShouldTransitionBibleReferenceApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -37,57 +37,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
-            Link storageLink = CreateApprovableStorageLink();
-            Link inputLink = CreateApprovalDecision(storageLink.Id);
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
 
-            Link approvedLink = storageLink.DeepClone();
-            approvedLink.ApprovalStatus = inputLink.ApprovalStatus;
-            approvedLink.IsPublished = inputLink.IsPublished;
-            approvedLink.PublishDate = inputLink.PublishDate;
-            approvedLink.IsApprovedByBypass = false;
-            approvedLink.ApprovedByBypassReason = null;
+            BibleReference approvedBibleReference = storageBibleReference.DeepClone();
+            approvedBibleReference.ApprovalStatus = inputBibleReference.ApprovalStatus;
+            approvedBibleReference.IsPublished = inputBibleReference.IsPublished;
+            approvedBibleReference.PublishDate = inputBibleReference.PublishDate;
+            approvedBibleReference.IsApprovedByBypass = false;
+            approvedBibleReference.ApprovedByBypassReason = null;
 
-            Link auditAppliedLink = approvedLink.DeepClone();
-            Link updatedLink = auditAppliedLink.DeepClone();
-            Link expectedLink = updatedLink.DeepClone();
+            BibleReference auditAppliedBibleReference = approvedBibleReference.DeepClone();
+            BibleReference updatedBibleReference = auditAppliedBibleReference.DeepClone();
+            BibleReference expectedBibleReference = updatedBibleReference.DeepClone();
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
-            SetupLinkStorageRead(storageLink);
+            SetupBibleReferenceStorageRead(storageBibleReference);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(
-                    It.IsAny<Link>(),
+                    It.IsAny<BibleReference>(),
                     It.IsAny<SecurityContext>()))
-                        .ReturnsAsync(auditAppliedLink);
+                        .ReturnsAsync(auditAppliedBibleReference);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateLinkAsync(
-                    auditAppliedLink,
+                broker.UpdateBibleReferenceAsync(
+                    auditAppliedBibleReference,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(updatedLink);
+                        .ReturnsAsync(updatedBibleReference);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishLinkAsync(
-                    It.IsAny<EventEnvelope<Link>>(),
-                    LinkEventOperation.Approved))
-                        .Returns(new ValueTask<EventPublishResult<Link>>(
-                            new EventPublishResult<Link>()));
+                broker.PublishBibleReferenceAsync(
+                    It.IsAny<EventEnvelope<BibleReference>>(),
+                    BibleReferenceEventOperation.Approved))
+                        .Returns(new ValueTask<EventPublishResult<BibleReference>>(
+                            new EventPublishResult<BibleReference>()));
 
             // when
-            Link actualLink =
-                await this.linkService.ApproveLinkAsync(
-                    inputLink,
+            BibleReference actualBibleReference =
+                await this.bibleReferenceService.TransitionBibleReferenceApprovalAsync(
+                    inputBibleReference,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualLink.Should().BeEquivalentTo(expectedLink);
+            actualBibleReference.Should().BeEquivalentTo(expectedBibleReference);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectLinkByIdAsync(
-                        inputLink.Id,
+                    broker.SelectBibleReferenceByIdAsync(
+                        inputBibleReference.Id,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -99,21 +99,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyModifyAuditValuesAsync(
-                        It.IsAny<Link>(),
+                        It.IsAny<BibleReference>(),
                         It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateLinkAsync(
-                        auditAppliedLink,
+                    broker.UpdateBibleReferenceAsync(
+                        auditAppliedBibleReference,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the operation's OWN fact — never Modified. See ShouldNeverPublishModified...
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishLinkAsync(
-                        It.IsAny<EventEnvelope<Link>>(),
-                        LinkEventOperation.Approved),
+                    broker.PublishBibleReferenceAsync(
+                        It.IsAny<EventEnvelope<BibleReference>>(),
+                        BibleReferenceEventOperation.Approved),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -121,7 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                     It.Is<ProcessedEvent>(processedEvent =>
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers
-                                .LinkOnApprovingLinkSubscriptionName),
+                                .BibleReferenceOnApprovingBibleReferenceSubscriptionName),
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
@@ -145,23 +145,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Link storageLink = CreateApprovableStorageLink();
-            Link inputLink = CreateRejectionDecision(storageLink.Id);
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            BibleReference inputBibleReference = CreateRejectionDecision(storageBibleReference.Id);
 
             // when
-            await CaptureSavedLinkOnApproveAsync(storageLink, inputLink);
+            await CaptureSavedBibleReferenceOnTransitionAsync(storageBibleReference, inputBibleReference);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishLinkAsync(
-                        It.IsAny<EventEnvelope<Link>>(),
-                        LinkEventOperation.Rejected),
+                    broker.PublishBibleReferenceAsync(
+                        It.IsAny<EventEnvelope<BibleReference>>(),
+                        BibleReferenceEventOperation.Rejected),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishLinkAsync(
-                        It.IsAny<EventEnvelope<Link>>(),
-                        LinkEventOperation.Approved),
+                    broker.PublishBibleReferenceAsync(
+                        It.IsAny<EventEnvelope<BibleReference>>(),
+                        BibleReferenceEventOperation.Approved),
                 Times.Never);
         }
 
@@ -175,23 +175,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Link storageLink = CreateApprovableStorageLink();
-            Link inputLink = CreateApprovalDecision(storageLink.Id);
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
 
             // when
-            await CaptureSavedLinkOnApproveAsync(storageLink, inputLink);
+            await CaptureSavedBibleReferenceOnTransitionAsync(storageBibleReference, inputBibleReference);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishLinkAsync(
-                        It.IsAny<EventEnvelope<Link>>(),
-                        LinkEventOperation.Modified),
+                    broker.PublishBibleReferenceAsync(
+                        It.IsAny<EventEnvelope<BibleReference>>(),
+                        BibleReferenceEventOperation.Modified),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishLinkAsync(
-                        It.IsAny<EventEnvelope<Link>>(),
-                        LinkEventOperation.Approved),
+                    broker.PublishBibleReferenceAsync(
+                        It.IsAny<EventEnvelope<BibleReference>>(),
+                        BibleReferenceEventOperation.Approved),
                 Times.Once);
         }
 
@@ -207,39 +207,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Link storageLink = CreateApprovableStorageLink();
-            Link expectedStorageLink = storageLink.DeepClone();
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            BibleReference expectedStorageBibleReference = storageBibleReference.DeepClone();
 
             // a fully random caller copy (differs from storage on every field), pinned only to
             // the id and a valid approval outcome
-            Link inputLink = CreateRandomLink();
-            inputLink.Id = storageLink.Id;
-            inputLink.ApprovalStatus = ApprovalStatus.Approved;
-            inputLink.IsPublished = true;
-            inputLink.PublishDate = GetRandomDateTimeOffset();
+            BibleReference inputBibleReference = CreateRandomBibleReference();
+            inputBibleReference.Id = storageBibleReference.Id;
+            inputBibleReference.ApprovalStatus = ApprovalStatus.Approved;
+            inputBibleReference.IsPublished = true;
+            inputBibleReference.PublishDate = GetRandomDateTimeOffset();
 
             // when
-            Link savedLink = await CaptureSavedLinkOnApproveAsync(storageLink, inputLink);
+            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnTransitionAsync(storageBibleReference, inputBibleReference);
 
             // then
-            savedLink.Should().NotBeNull();
+            savedBibleReference.Should().NotBeNull();
 
             // the fields the operation owns came from the caller
-            savedLink.ApprovalStatus.Should().Be(inputLink.ApprovalStatus);
-            savedLink.IsPublished.Should().Be(inputLink.IsPublished);
-            savedLink.PublishDate.Should().Be(inputLink.PublishDate);
+            savedBibleReference.ApprovalStatus.Should().Be(inputBibleReference.ApprovalStatus);
+            savedBibleReference.IsPublished.Should().Be(inputBibleReference.IsPublished);
+            savedBibleReference.PublishDate.Should().Be(inputBibleReference.PublishDate);
 
             // everything else came from STORAGE — asserted against the pre-act snapshot, so
             // copying any caller field onto the row fails here. The bypass pair is derived
             // (false / null here) and excluded from the storage comparison.
-            savedLink.Should().BeEquivalentTo(
-                expectedStorageLink,
+            savedBibleReference.Should().BeEquivalentTo(
+                expectedStorageBibleReference,
                 options => options
-                    .Excluding(link => link.ApprovalStatus)
-                    .Excluding(link => link.IsPublished)
-                    .Excluding(link => link.PublishDate)
-                    .Excluding(link => link.IsApprovedByBypass)
-                    .Excluding(link => link.ApprovedByBypassReason));
+                    .Excluding(bibleReference => bibleReference.ApprovalStatus)
+                    .Excluding(bibleReference => bibleReference.IsPublished)
+                    .Excluding(bibleReference => bibleReference.PublishDate)
+                    .Excluding(bibleReference => bibleReference.IsApprovedByBypass)
+                    .Excluding(bibleReference => bibleReference.ApprovedByBypassReason));
         }
 
         // ── The bypass record is DERIVED, not copied ─────────────────────────────────────────
@@ -253,27 +253,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Link storageLink = CreateApprovableStorageLink();
-            storageLink.IsApprovedByBypass = false;
-            storageLink.ApprovedByBypassReason = null;
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            storageBibleReference.IsApprovedByBypass = false;
+            storageBibleReference.ApprovedByBypassReason = null;
 
-            Link inputLink = CreateApprovalDecision(storageLink.Id);
-            inputLink.IsApprovedByBypass = true;
-            inputLink.ApprovedByBypassReason = "caller supplied";
+            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
+            inputBibleReference.IsApprovedByBypass = true;
+            inputBibleReference.ApprovedByBypassReason = "caller supplied";
 
             SetupAccessBrokerToPermit();
 
             // when
-            Link savedLink = await CaptureSavedLinkOnApproveAsync(storageLink, inputLink);
+            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnTransitionAsync(storageBibleReference, inputBibleReference);
 
             // then
-            savedLink.Should().NotBeNull();
-            savedLink.IsApprovedByBypass.Should().BeFalse();
-            savedLink.ApprovedByBypassReason.Should().BeNull();
+            savedBibleReference.Should().NotBeNull();
+            savedBibleReference.IsApprovedByBypass.Should().BeFalse();
+            savedBibleReference.ApprovedByBypassReason.Should().BeNull();
 
-            savedLink.ApprovalStatus.Should().Be(inputLink.ApprovalStatus);
-            savedLink.IsPublished.Should().Be(inputLink.IsPublished);
-            savedLink.PublishDate.Should().Be(inputLink.PublishDate);
+            savedBibleReference.ApprovalStatus.Should().Be(inputBibleReference.ApprovalStatus);
+            savedBibleReference.IsPublished.Should().Be(inputBibleReference.IsPublished);
+            savedBibleReference.PublishDate.Should().Be(inputBibleReference.PublishDate);
         }
 
         [Fact]
@@ -284,22 +284,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Link storageLink = CreateApprovableStorageLink();
-            storageLink.IsApprovedByBypass = false;
-            storageLink.ApprovedByBypassReason = null;
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            storageBibleReference.IsApprovedByBypass = false;
+            storageBibleReference.ApprovedByBypassReason = null;
 
-            Link inputLink = CreateApprovalDecision(storageLink.Id);
-            inputLink.IsApprovedByBypass = false;
-            inputLink.ApprovedByBypassReason = null;
+            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
+            inputBibleReference.IsApprovedByBypass = false;
+            inputBibleReference.ApprovedByBypassReason = null;
 
             SetupAccessBrokerToPermitByBypass();
 
             // when
-            Link savedLink = await CaptureSavedLinkOnApproveAsync(storageLink, inputLink);
+            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnTransitionAsync(storageBibleReference, inputBibleReference);
 
             // then
-            savedLink.Should().NotBeNull();
-            savedLink.IsApprovedByBypass.Should().BeTrue();
+            savedBibleReference.Should().NotBeNull();
+            savedBibleReference.IsApprovedByBypass.Should().BeTrue();
         }
 
         [Fact]
@@ -311,21 +311,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Link storageLink = CreateApprovableStorageLink();
-            storageLink.IsApprovedByBypass = true;
-            storageLink.ApprovedByBypassReason = "an earlier bypass";
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            storageBibleReference.IsApprovedByBypass = true;
+            storageBibleReference.ApprovedByBypassReason = "an earlier bypass";
 
-            Link inputLink = CreateApprovalDecision(storageLink.Id);
+            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
 
             SetupAccessBrokerToPermit();
 
             // when
-            Link savedLink = await CaptureSavedLinkOnApproveAsync(storageLink, inputLink);
+            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnTransitionAsync(storageBibleReference, inputBibleReference);
 
             // then
-            savedLink.Should().NotBeNull();
-            savedLink.IsApprovedByBypass.Should().BeFalse();
-            savedLink.ApprovedByBypassReason.Should().BeNull();
+            savedBibleReference.Should().NotBeNull();
+            savedBibleReference.IsApprovedByBypass.Should().BeFalse();
+            savedBibleReference.ApprovedByBypassReason.Should().BeNull();
         }
     }
 }

@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
             Guid commentId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Comment> ApproveCommentAsync(
+        ValueTask<Comment> TransitionCommentApprovalAsync(
             Comment comment,
             CancellationToken cancellationToken = default);
     }

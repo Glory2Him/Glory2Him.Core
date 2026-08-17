@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
     public partial class AssociationServiceTests
     {
         [Fact]
-        public async Task ShouldApproveAssociationAsync()
+        public async Task ShouldTransitionAssociationApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -84,7 +84,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when
             Association actualAssociation =
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     inputAssociation,
                     TestContext.Current.CancellationToken);
 
@@ -240,7 +240,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                             new EventPublishResult<Association>()));
 
             // when
-            await this.associationService.ApproveAssociationAsync(
+            await this.associationService.TransitionAssociationApprovalAsync(
                 inputAssociation,
                 TestContext.Current.CancellationToken);
 
@@ -417,7 +417,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .Returns(new ValueTask<EventPublishResult<Association>>(
                             new EventPublishResult<Association>()));
 
-            await this.associationService.ApproveAssociationAsync(
+            await this.associationService.TransitionAssociationApprovalAsync(
                 inputAssociation,
                 TestContext.Current.CancellationToken);
 

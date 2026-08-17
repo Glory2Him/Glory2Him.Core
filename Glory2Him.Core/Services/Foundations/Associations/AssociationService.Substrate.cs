@@ -224,44 +224,17 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     return null;
 
                 Association transitionedAssociation =
-                    await DoApproveAssociationAsync(
+                    await DoTransitionAssociationApprovalAsync(
                         association: envelope.Content,
                         inboundEnvelope: envelope,
-                        cancellationToken: cancellationToken);
 
-                return await this.eventEnvelopeBroker.CreateNextAsync(
-                    sourceEnvelope: envelope,
-                    content: transitionedAssociation);
-            });
-
-        public ValueTask<EventEnvelope<Association>?> OnBypassApprovingAssociationAsync(
-            EventEnvelope<Association> envelope,
-            CancellationToken cancellationToken = default) =>
-            TryCatchSubstrate(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await ValidateAssociationEventEnvelopeAsync(
-                    envelope, AssociationEventOperation.BypassApproving);
-
-                bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope: envelope,
-                    receiverName: EventBrokerIdentifiers
-                        .AssociationOnBypassApprovingAssociationSubscriptionName,
-                    cancellationToken: cancellationToken);
-
-                if (alreadyProcessed)
-                    return null;
-
-                // The reason travels in the field the outcome is recorded in, because an
-                // envelope carries an entity and nothing else. A missing one is routed into
-                // the same required-field validation the direct path runs rather than
-                // dereferenced — the request is refused as invalid, naming the field, instead
-                // of failing as a null nobody can act on.
-                Association transitionedAssociation =
-                    await DoBypassApproveAssociationAsync(
-                        association: envelope.Content,
-                        bypassReason: envelope.Content.ApprovedByBypassReason ?? string.Empty,
-                        inboundEnvelope: envelope,
+                        // This envelope arrived over a PUBLIC event address and its security
+                        // context was deserialized, not authenticated (§14.6 rule 4). A caller
+                        // who could assert the system identity here would be granted the
+                        // workflow's own authority — including the override out of a terminal
+                        // state — simply by setting a JSON property. The claim is discarded and
+                        // the caller is treated as the ordinary unprivileged one they are.
+                        isSystemIdentityAdmissible: false,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

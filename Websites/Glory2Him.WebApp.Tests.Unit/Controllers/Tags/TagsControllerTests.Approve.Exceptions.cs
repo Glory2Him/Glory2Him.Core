@@ -39,18 +39,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedBadRequestObjectResult);
 
             this.tagServiceMock.Setup(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(validationException);
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.ApproveTagAsync(someTag, default);
+                await this.tagsController.TransitionTagApprovalAsync(someTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             this.tagServiceMock.Verify(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.tagServiceMock.VerifyNoOtherCalls();
@@ -71,18 +71,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedInternalServerErrorObjectResult);
 
             this.tagServiceMock.Setup(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(validationException);
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.ApproveTagAsync(someTag, default);
+                await this.tagsController.TransitionTagApprovalAsync(someTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             this.tagServiceMock.Verify(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.tagServiceMock.VerifyNoOtherCalls();
@@ -111,18 +111,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedNotFoundObjectResult);
 
             this.tagServiceMock.Setup(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(tagValidationException);
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.ApproveTagAsync(someTag, default);
+                await this.tagsController.TransitionTagApprovalAsync(someTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             this.tagServiceMock.Verify(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.tagServiceMock.VerifyNoOtherCalls();
@@ -151,18 +151,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedUnauthorizedObjectResult);
 
             this.tagServiceMock.Setup(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(tagValidationException);
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.ApproveTagAsync(someTag, default);
+                await this.tagsController.TransitionTagApprovalAsync(someTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             this.tagServiceMock.Verify(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.tagServiceMock.VerifyNoOtherCalls();
@@ -194,18 +194,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedConflictObjectResult);
 
             this.tagServiceMock.Setup(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(tagDependencyValidationException);
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.ApproveTagAsync(someTag, default);
+                await this.tagsController.TransitionTagApprovalAsync(someTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             this.tagServiceMock.Verify(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.tagServiceMock.VerifyNoOtherCalls();
@@ -225,18 +225,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedFailedDependencyObjectResult);
 
             this.tagServiceMock.Setup(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(dependencyException);
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.ApproveTagAsync(someTag, default);
+                await this.tagsController.TransitionTagApprovalAsync(someTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             this.tagServiceMock.Verify(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.tagServiceMock.VerifyNoOtherCalls();
@@ -267,18 +267,18 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedConflictObjectResult);
 
             this.tagServiceMock.Setup(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()))
                     .ThrowsAsync(tagDependencyValidationException);
 
             // when
             ActionResult<Tag> actualActionResult =
-                await this.tagsController.ApproveTagAsync(someTag, default);
+                await this.tagsController.TransitionTagApprovalAsync(someTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             this.tagServiceMock.Verify(service =>
-                service.ApproveTagAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
+                service.TransitionTagApprovalAsync(It.IsAny<Tag>(), It.IsAny<CancellationToken>()),
                     Times.Once);
 
             this.tagServiceMock.VerifyNoOtherCalls();

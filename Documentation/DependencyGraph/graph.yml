@@ -124,6 +124,9 @@ events:
   - id: ContentItem.HardRemoved
     publish: PublishContentItemAsync
     subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Demoted
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
   - id: Association.Adding
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
@@ -160,7 +163,7 @@ events:
   - id: Association.Rejected
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
-  - id: Association.BypassApproving
+  - id: Association.Submitted
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
   - id: Association.Approved
@@ -260,6 +263,9 @@ events:
     publish: PublishLinkAsync
     subscribe: SubscribeToLinkEventAsync
   - id: Link.HardRemoved
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Demoted
     publish: PublishLinkAsync
     subscribe: SubscribeToLinkEventAsync
   - id: Reaction.Adding

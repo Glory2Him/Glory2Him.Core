@@ -567,6 +567,7 @@ components:
       - OnRemovingContentItemByIdAsync
       - OnHardRemovingContentItemByIdAsync
       - OnRetrievingContentItemByIdAsync
+      - DemoteContentItemVersionAsync
     calls:
       - from: AddContentItemAsync
         to: EventEnvelopeBroker
@@ -712,6 +713,27 @@ components:
       - from: OnHardRemovingContentItemByIdAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
+      - from: DemoteContentItemVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: DemoteContentItemVersionAsync
+        to: StorageBroker
+        method: SelectContentItemByIdAsync
+      - from: DemoteContentItemVersionAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: DemoteContentItemVersionAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: DemoteContentItemVersionAsync
+        to: StorageBroker
+        method: UpdateContentItemAsync
+      - from: DemoteContentItemVersionAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: DemoteContentItemVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
     publishes:
       - method: AddContentItemAsync
         event: ContentItem.Added
@@ -721,6 +743,8 @@ components:
         event: ContentItem.Removed
       - method: HardRemoveContentItemByIdAsync
         event: ContentItem.HardRemoved
+      - method: DemoteContentItemVersionAsync
+        event: ContentItem.Demoted
     subscribes:
       - event: ContentItem.Adding
         handler: OnAddingContentItemAsync
@@ -744,8 +768,7 @@ components:
       - ModifyAssociationAsync
       - RemoveAssociationByIdAsync
       - HardRemoveAssociationByIdAsync
-      - ApproveAssociationAsync
-      - BypassApproveAssociationAsync
+      - TransitionAssociationApprovalAsync
       - SortAssociationAsync
       - SetAssociationConfidenceAsync
       - SetAssociationScopeAsync
@@ -755,7 +778,6 @@ components:
       - OnHardRemovingAssociationByIdAsync
       - OnRetrievingAssociationByIdAsync
       - OnApprovingAssociationAsync
-      - OnBypassApprovingAssociationAsync
       - OnSettingAssociationConfidenceAsync
       - OnSettingAssociationScopeAsync
     calls:
@@ -885,46 +907,25 @@ components:
       - from: HardRemoveAssociationByIdAsync
         to: EventEnvelopeBroker
         method: CreateNextAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: EventEnvelopeBroker
         method: CreateAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: StorageBroker
         method: SelectAssociationByIdAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: AccessBroker
         method: MayDecideApprovalAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: SecurityAuditBroker
         method: ApplyModifyAuditValuesAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: StorageBroker
         method: UpdateAssociationAsync
-      - from: ApproveAssociationAsync
+      - from: TransitionAssociationApprovalAsync
         to: EventEnvelopeBroker
         method: CreateNextAsync
       - from: OnApprovingAssociationAsync
-        to: StorageBroker
-        method: SelectProcessedEventExistsAsync
-      - from: BypassApproveAssociationAsync
-        to: EventEnvelopeBroker
-        method: CreateAsync
-      - from: BypassApproveAssociationAsync
-        to: StorageBroker
-        method: SelectAssociationByIdAsync
-      - from: BypassApproveAssociationAsync
-        to: AccessBroker
-        method: MayDecideApprovalAsync
-      - from: BypassApproveAssociationAsync
-        to: SecurityAuditBroker
-        method: ApplyModifyAuditValuesAsync
-      - from: BypassApproveAssociationAsync
-        to: StorageBroker
-        method: UpdateAssociationAsync
-      - from: BypassApproveAssociationAsync
-        to: EventEnvelopeBroker
-        method: CreateNextAsync
-      - from: OnBypassApprovingAssociationAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
       - from: SortAssociationAsync
@@ -999,12 +1000,12 @@ components:
         event: Association.Removed
       - method: HardRemoveAssociationByIdAsync
         event: Association.HardRemoved
-      - method: ApproveAssociationAsync
+      - method: TransitionAssociationApprovalAsync
         event: Association.Approved
-      - method: ApproveAssociationAsync
+      - method: TransitionAssociationApprovalAsync
         event: Association.Rejected
-      - method: BypassApproveAssociationAsync
-        event: Association.Approved
+      - method: TransitionAssociationApprovalAsync
+        event: Association.Submitted
       - method: SortAssociationAsync
         event: Association.Sorted
       - method: SetAssociationConfidenceAsync
@@ -1014,8 +1015,6 @@ components:
     subscribes:
       - event: Association.Approving
         handler: OnApprovingAssociationAsync
-      - event: Association.BypassApproving
-        handler: OnBypassApprovingAssociationAsync
       - event: Association.SettingConfidence
         handler: OnSettingAssociationConfidenceAsync
       - event: Association.SettingScope
@@ -1399,6 +1398,7 @@ components:
       - OnRemovingLinkByIdAsync
       - OnHardRemovingLinkByIdAsync
       - OnRetrievingLinkByIdAsync
+      - DemoteLinkVersionAsync
     calls:
       - from: AddLinkAsync
         to: EventEnvelopeBroker
@@ -1538,6 +1538,27 @@ components:
       - from: OnHardRemovingLinkByIdAsync
         to: StorageBroker
         method: SelectProcessedEventExistsAsync
+      - from: DemoteLinkVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: DemoteLinkVersionAsync
+        to: StorageBroker
+        method: SelectLinkByIdAsync
+      - from: DemoteLinkVersionAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: DemoteLinkVersionAsync
+        to: SecurityAuditBroker
+        method: ApplyModifyAuditValuesAsync
+      - from: DemoteLinkVersionAsync
+        to: StorageBroker
+        method: UpdateLinkAsync
+      - from: DemoteLinkVersionAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: DemoteLinkVersionAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
     publishes:
       - method: AddLinkAsync
         event: Link.Added
@@ -1547,6 +1568,8 @@ components:
         event: Link.Removed
       - method: HardRemoveLinkByIdAsync
         event: Link.HardRemoved
+      - method: DemoteLinkVersionAsync
+        event: Link.Demoted
     subscribes:
       - event: Link.Adding
         handler: OnAddingLinkAsync
@@ -2776,6 +2799,9 @@ components:
         method: ModifyContentItemAsync
       - from: ModifyContentItemAsync
         to: FS.ContentItem
+        method: DemoteContentItemVersionAsync
+      - from: ModifyContentItemAsync
+        to: FS.ContentItem
         method: AddContentItemAsync
       - from: RemoveContentItemByIdAsync
         to: FS.ContentItem
@@ -2948,6 +2974,9 @@ components:
       - from: ModifyLinkAsync
         to: FS.Link
         method: ModifyLinkAsync
+      - from: ModifyLinkAsync
+        to: FS.Link
+        method: DemoteLinkVersionAsync
       - from: ModifyLinkAsync
         to: FS.Link
         method: AddLinkAsync

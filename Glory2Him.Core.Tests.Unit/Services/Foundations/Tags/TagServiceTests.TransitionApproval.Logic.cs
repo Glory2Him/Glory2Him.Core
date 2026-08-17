@@ -19,17 +19,17 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Comments;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 {
-    public partial class CommentServiceTests
+    public partial class TagServiceTests
     {
         [Fact]
-        public async Task ShouldApproveCommentAsync()
+        public async Task ShouldTransitionTagApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -37,57 +37,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
-            Comment approvedComment = storageComment.DeepClone();
-            approvedComment.ApprovalStatus = inputComment.ApprovalStatus;
-            approvedComment.IsPublished = inputComment.IsPublished;
-            approvedComment.PublishDate = inputComment.PublishDate;
-            approvedComment.IsApprovedByBypass = false;
-            approvedComment.ApprovedByBypassReason = null;
+            Tag approvedTag = storageTag.DeepClone();
+            approvedTag.ApprovalStatus = inputTag.ApprovalStatus;
+            approvedTag.IsPublished = inputTag.IsPublished;
+            approvedTag.PublishDate = inputTag.PublishDate;
+            approvedTag.IsApprovedByBypass = false;
+            approvedTag.ApprovedByBypassReason = null;
 
-            Comment auditAppliedComment = approvedComment.DeepClone();
-            Comment updatedComment = auditAppliedComment.DeepClone();
-            Comment expectedComment = updatedComment.DeepClone();
+            Tag auditAppliedTag = approvedTag.DeepClone();
+            Tag updatedTag = auditAppliedTag.DeepClone();
+            Tag expectedTag = updatedTag.DeepClone();
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
-            SetupCommentStorageRead(storageComment);
+            SetupTagStorageRead(storageTag);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(
-                    It.IsAny<Comment>(),
+                    It.IsAny<Tag>(),
                     It.IsAny<SecurityContext>()))
-                        .ReturnsAsync(auditAppliedComment);
+                        .ReturnsAsync(auditAppliedTag);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateCommentAsync(
-                    auditAppliedComment,
+                broker.UpdateTagAsync(
+                    auditAppliedTag,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(updatedComment);
+                        .ReturnsAsync(updatedTag);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishCommentAsync(
-                    It.IsAny<EventEnvelope<Comment>>(),
-                    CommentEventOperation.Approved))
-                        .Returns(new ValueTask<EventPublishResult<Comment>>(
-                            new EventPublishResult<Comment>()));
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    TagEventOperation.Approved))
+                        .Returns(new ValueTask<EventPublishResult<Tag>>(
+                            new EventPublishResult<Tag>()));
 
             // when
-            Comment actualComment =
-                await this.commentService.ApproveCommentAsync(
-                    inputComment,
+            Tag actualTag =
+                await this.tagService.TransitionTagApprovalAsync(
+                    inputTag,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualComment.Should().BeEquivalentTo(expectedComment);
+            actualTag.Should().BeEquivalentTo(expectedTag);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectCommentByIdAsync(
-                        inputComment.Id,
+                    broker.SelectTagByIdAsync(
+                        inputTag.Id,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -99,21 +99,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyModifyAuditValuesAsync(
-                        It.IsAny<Comment>(),
+                        It.IsAny<Tag>(),
                         It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateCommentAsync(
-                        auditAppliedComment,
+                    broker.UpdateTagAsync(
+                        auditAppliedTag,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the operation's OWN fact — never Modified. See ShouldNeverPublishModified...
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        CommentEventOperation.Approved),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        TagEventOperation.Approved),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -121,7 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                     It.Is<ProcessedEvent>(processedEvent =>
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers
-                                .CommentOnApprovingCommentSubscriptionName),
+                                .TagOnApprovingTagSubscriptionName),
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
@@ -145,23 +145,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment inputComment = CreateRejectionDecision(storageComment.Id);
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag inputTag = CreateRejectionDecision(storageTag.Id);
 
             // when
-            await CaptureSavedCommentOnApproveAsync(storageComment, inputComment);
+            await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        CommentEventOperation.Rejected),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        TagEventOperation.Rejected),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        CommentEventOperation.Approved),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        TagEventOperation.Approved),
                 Times.Never);
         }
 
@@ -175,23 +175,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
             // when
-            await CaptureSavedCommentOnApproveAsync(storageComment, inputComment);
+            await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        CommentEventOperation.Modified),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        TagEventOperation.Modified),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        CommentEventOperation.Approved),
+                    broker.PublishTagAsync(
+                        It.IsAny<EventEnvelope<Tag>>(),
+                        TagEventOperation.Approved),
                 Times.Once);
         }
 
@@ -207,39 +207,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            Comment expectedStorageComment = storageComment.DeepClone();
+            Tag storageTag = CreateApprovableStorageTag();
+            Tag expectedStorageTag = storageTag.DeepClone();
 
             // a fully random caller copy (differs from storage on every field), pinned only to
             // the id and a valid approval outcome
-            Comment inputComment = CreateRandomComment();
-            inputComment.Id = storageComment.Id;
-            inputComment.ApprovalStatus = ApprovalStatus.Approved;
-            inputComment.IsPublished = true;
-            inputComment.PublishDate = GetRandomDateTimeOffset();
+            Tag inputTag = CreateRandomTag();
+            inputTag.Id = storageTag.Id;
+            inputTag.ApprovalStatus = ApprovalStatus.Approved;
+            inputTag.IsPublished = true;
+            inputTag.PublishDate = GetRandomDateTimeOffset();
 
             // when
-            Comment savedComment = await CaptureSavedCommentOnApproveAsync(storageComment, inputComment);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
-            savedComment.Should().NotBeNull();
+            savedTag.Should().NotBeNull();
 
             // the fields the operation owns came from the caller
-            savedComment.ApprovalStatus.Should().Be(inputComment.ApprovalStatus);
-            savedComment.IsPublished.Should().Be(inputComment.IsPublished);
-            savedComment.PublishDate.Should().Be(inputComment.PublishDate);
+            savedTag.ApprovalStatus.Should().Be(inputTag.ApprovalStatus);
+            savedTag.IsPublished.Should().Be(inputTag.IsPublished);
+            savedTag.PublishDate.Should().Be(inputTag.PublishDate);
 
             // everything else came from STORAGE — asserted against the pre-act snapshot, so
             // copying any caller field onto the row fails here. The bypass pair is derived
             // (false / null here) and excluded from the storage comparison.
-            savedComment.Should().BeEquivalentTo(
-                expectedStorageComment,
+            savedTag.Should().BeEquivalentTo(
+                expectedStorageTag,
                 options => options
-                    .Excluding(comment => comment.ApprovalStatus)
-                    .Excluding(comment => comment.IsPublished)
-                    .Excluding(comment => comment.PublishDate)
-                    .Excluding(comment => comment.IsApprovedByBypass)
-                    .Excluding(comment => comment.ApprovedByBypassReason));
+                    .Excluding(tag => tag.ApprovalStatus)
+                    .Excluding(tag => tag.IsPublished)
+                    .Excluding(tag => tag.PublishDate)
+                    .Excluding(tag => tag.IsApprovedByBypass)
+                    .Excluding(tag => tag.ApprovedByBypassReason));
         }
 
         // ── The bypass record is DERIVED, not copied ─────────────────────────────────────────
@@ -253,27 +253,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            storageComment.IsApprovedByBypass = false;
-            storageComment.ApprovedByBypassReason = null;
+            Tag storageTag = CreateApprovableStorageTag();
+            storageTag.IsApprovedByBypass = false;
+            storageTag.ApprovedByBypassReason = null;
 
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
-            inputComment.IsApprovedByBypass = true;
-            inputComment.ApprovedByBypassReason = "caller supplied";
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            inputTag.IsApprovedByBypass = true;
+            inputTag.ApprovedByBypassReason = "caller supplied";
 
             SetupAccessBrokerToPermit();
 
             // when
-            Comment savedComment = await CaptureSavedCommentOnApproveAsync(storageComment, inputComment);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
-            savedComment.Should().NotBeNull();
-            savedComment.IsApprovedByBypass.Should().BeFalse();
-            savedComment.ApprovedByBypassReason.Should().BeNull();
+            savedTag.Should().NotBeNull();
+            savedTag.IsApprovedByBypass.Should().BeFalse();
+            savedTag.ApprovedByBypassReason.Should().BeNull();
 
-            savedComment.ApprovalStatus.Should().Be(inputComment.ApprovalStatus);
-            savedComment.IsPublished.Should().Be(inputComment.IsPublished);
-            savedComment.PublishDate.Should().Be(inputComment.PublishDate);
+            savedTag.ApprovalStatus.Should().Be(inputTag.ApprovalStatus);
+            savedTag.IsPublished.Should().Be(inputTag.IsPublished);
+            savedTag.PublishDate.Should().Be(inputTag.PublishDate);
         }
 
         [Fact]
@@ -284,22 +284,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            storageComment.IsApprovedByBypass = false;
-            storageComment.ApprovedByBypassReason = null;
+            Tag storageTag = CreateApprovableStorageTag();
+            storageTag.IsApprovedByBypass = false;
+            storageTag.ApprovedByBypassReason = null;
 
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
-            inputComment.IsApprovedByBypass = false;
-            inputComment.ApprovedByBypassReason = null;
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
+            inputTag.IsApprovedByBypass = false;
+            inputTag.ApprovedByBypassReason = null;
 
             SetupAccessBrokerToPermitByBypass();
 
             // when
-            Comment savedComment = await CaptureSavedCommentOnApproveAsync(storageComment, inputComment);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
-            savedComment.Should().NotBeNull();
-            savedComment.IsApprovedByBypass.Should().BeTrue();
+            savedTag.Should().NotBeNull();
+            savedTag.IsApprovedByBypass.Should().BeTrue();
         }
 
         [Fact]
@@ -311,21 +311,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Comment storageComment = CreateApprovableStorageComment();
-            storageComment.IsApprovedByBypass = true;
-            storageComment.ApprovedByBypassReason = "an earlier bypass";
+            Tag storageTag = CreateApprovableStorageTag();
+            storageTag.IsApprovedByBypass = true;
+            storageTag.ApprovedByBypassReason = "an earlier bypass";
 
-            Comment inputComment = CreateApprovalDecision(storageComment.Id);
+            Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
             SetupAccessBrokerToPermit();
 
             // when
-            Comment savedComment = await CaptureSavedCommentOnApproveAsync(storageComment, inputComment);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
-            savedComment.Should().NotBeNull();
-            savedComment.IsApprovedByBypass.Should().BeFalse();
-            savedComment.ApprovedByBypassReason.Should().BeNull();
+            savedTag.Should().NotBeNull();
+            savedTag.IsApprovedByBypass.Should().BeFalse();
+            savedTag.ApprovedByBypassReason.Should().BeNull();
         }
     }
 }

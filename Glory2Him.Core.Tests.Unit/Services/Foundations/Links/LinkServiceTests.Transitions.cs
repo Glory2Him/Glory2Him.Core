@@ -69,6 +69,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 PublishDate = null,
             };
 
+        // The Admin override's target: a terminal row re-opened for a second round. Publication
+        // is not asked for — the validation refuses a published non-approved row, and the
+        // do-work derives it off regardless.
+        private static Link CreateReopenDecision(Guid linkId) =>
+            new Link
+            {
+                Id = linkId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsPublished = false,
+                PublishDate = null,
+            };
+
+        // A stored row in a terminal state, published as an approved one would be, so a test can
+        // assert the override actually unpublishes it rather than finding it already false.
+        private static Link CreateTerminalStorageLink(ApprovalStatus terminalStatus)
+        {
+            Link link = CreateApprovableStorageLink();
+            link.ApprovalStatus = terminalStatus;
+            link.IsPublished = terminalStatus == ApprovalStatus.Approved;
+
+            link.PublishDate = link.IsPublished
+                ? GetRandomDateTimeOffset()
+                : null;
+
+            return link;
+        }
+
+        // The context ApprovalOrchestrationService mints for the workflow's own writes. Roleless
+        // on purpose: the flag is the whole of its authority, so a test that passes with roles
+        // attached would not be proving the flag did anything.
+        private static SecurityContext CreateSystemSecurityContext() =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = [],
+                IsSystemIdentity = true,
+            };
+
+        // A bypass REQUEST: the caller asks, and the verdict decides what is recorded.
+        private static Link CreateBypassApprovalRequest(Guid linkId, string bypassReason)
+        {
+            Link link = CreateApprovalDecision(linkId);
+            link.IsApprovedByBypass = true;
+            link.ApprovedByBypassReason = bypassReason;
+
+            return link;
+        }
+
         private void SetupLinkStorageRead(Link storageLink) =>
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectLinkByIdAsync(
@@ -111,7 +159,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         // the storage broker. The snapshot is taken INSIDE the callback: the service copies onto
         // the instance the storage read handed it, so reading that instance after the act would
         // compare the row with itself and pass however the operation behaved.
-        private async ValueTask<Link> CaptureSavedLinkOnApproveAsync(
+        private async ValueTask<Link> CaptureSavedLinkOnTransitionAsync(
             Link storageLink,
             Link inputLink)
         {
@@ -144,7 +192,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                         .Returns(new ValueTask<EventPublishResult<Link>>(
                             new EventPublishResult<Link>()));
 
-            await this.linkService.ApproveLinkAsync(
+            await this.linkService.TransitionLinkApprovalAsync(
                 inputLink,
                 TestContext.Current.CancellationToken);
 
@@ -194,7 +242,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                         .Returns(new ValueTask<EventPublishResult<Link>>(
                             new EventPublishResult<Link>()));
 
-            await this.linkService.ApproveLinkAsync(
+            await this.linkService.TransitionLinkApprovalAsync(
                 inputLink,
                 TestContext.Current.CancellationToken);
 

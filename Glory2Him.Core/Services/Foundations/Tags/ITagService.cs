@@ -63,14 +63,29 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Decides a submitted tag (design §9.7.1, §8.6). The publisher-tier gate and the
-        /// <c>IAccessBroker</c> decision — no self-approval (HR-2), never a Reviewer (HR-3) —
-        /// are taken against the STORED row; the caller's copy carries only the outcome
-        /// (<c>Approved</c> or <c>Rejected</c>) and its publication fields. The two bypass
-        /// members are derived from the decision, never accepted. Publishes the fact the
-        /// DECISION names: <c>Tag-Approved</c> or <c>Tag-Rejected</c>.
+        /// Moves a tag's approval state (design §9.7.1, §8.6). One verb carries every such
+        /// move, because they are one act under different authority rather than three
+        /// operations: the ordinary <c>Submitted → Approved</c>/<c>Rejected</c> verdict, the
+        /// <c>Admin</c> override that re-opens a terminal row, and the bypass that waives the
+        /// §8.5 conditions.
+        ///
+        /// <para>The caller's copy carries the whole of <c>IApproval</c> as a unit — the target
+        /// status (<c>Submitted</c>, <c>Approved</c> or <c>Rejected</c>; <c>Draft</c> and
+        /// <c>Dismissed</c> are refused) and its publication fields — plus the bypass pair as a
+        /// REQUEST. Everything authorization rests on is read from the STORED row instead: the
+        /// author, and the status that decides whether this is an ordinary decision or an
+        /// override.</para>
+        ///
+        /// <para>Three values are derived rather than accepted. Publication is forced off for
+        /// any target but <c>Approved</c>, so an override cannot leave a re-opened row public.
+        /// <c>IsApprovedByBypass</c> is written from the verdict's <c>IsBypassUsed</c>, and the
+        /// reason is retained only when a waiver actually occurred (§9.7.1 rule 3, §9.7.5).</para>
+        ///
+        /// <para>Publishes the fact the DECISION names — <c>Tag-Approved</c>,
+        /// <c>Tag-Rejected</c> or <c>Tag-Submitted</c> — never <c>Tag-Modified</c>, which the
+        /// approval workflow subscribes to.</para>
         /// </summary>
-        ValueTask<Tag> ApproveTagAsync(
+        ValueTask<Tag> TransitionTagApprovalAsync(
             Tag tag,
             CancellationToken cancellationToken = default);
     }

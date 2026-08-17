@@ -16,6 +16,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Models.Foundations.Tags.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -1535,6 +1536,237 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalAndLogItAsync(
+            ApprovalStatus terminalStatus)
+        {
+            // given: THE case the status pin never covered. The caller amends an approved row and
+            // echoes the STORED status back unchanged, so IsNotAPermittedStatusChangeOnModify —
+            // whose condition is guarded by inputStatus != storageStatus — passes, and the content
+            // is written through with IsPublished and PublishDate still at their approved values.
+            // The edit then goes public with no re-review.
+            //
+            // The owner is used here because it is the least privileged party who can reach this
+            // path at all; the roles that could also reach it are covered below.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Tag randomTag = CreateRandomModifyTag(randomDateTimeOffset, randomUserId);
+            Tag invalidTag = randomTag;
+            Tag storageTag = randomTag.DeepClone();
+            storageTag.UpdatedWhen = storageTag.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // both sides terminal and IDENTICAL, so nothing else in the modify can refuse it
+            invalidTag.ApprovalStatus = terminalStatus;
+            storageTag.ApprovalStatus = terminalStatus;
+
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag cannot be modified from status " +
+                        $"{terminalStatus}.");
+
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagByIdAsync(
+                    invalidTag.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageTag);
+
+            // when
+            ValueTask<Tag> modifyTagTask =
+                this.tagService.ModifyTagAsync(
+                    invalidTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    modifyTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateTagAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    It.IsAny<TagEventOperation>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedTagValidationException))),
+                Times.Once);
+        }
+
+        [Theory]
+        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Admin)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
+            string role)
+        {
+            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An Admin in
+            // particular used to have an in-place carve-out here; it is withdrawn, because a state
+            // one role can edit out of is not terminal. The override verb is the only route, and
+            // it changes status without touching content.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(role);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Tag randomTag = CreateRandomModifyTag(randomDateTimeOffset, randomUserId);
+            Tag invalidTag = randomTag;
+            Tag storageTag = randomTag.DeepClone();
+            storageTag.UpdatedWhen = storageTag.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageTag.CreatedBy = GetRandomString();
+
+            invalidTag.ApprovalStatus = ApprovalStatus.Approved;
+            storageTag.ApprovalStatus = ApprovalStatus.Approved;
+            invalidTag.CreatedBy = storageTag.CreatedBy;
+
+            var invalidTagException =
+                new InvalidTagException(
+                    message: "Tag cannot be modified from status " +
+                        $"{ApprovalStatus.Approved}.");
+
+            var expectedTagValidationException =
+                new TagValidationException(
+                    message: "Tag validation error occurred, fix the errors and try again.",
+                    innerException: invalidTagException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagByIdAsync(
+                    invalidTag.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageTag);
+
+            // when
+            ValueTask<Tag> modifyTagTask =
+                this.tagService.ModifyTagAsync(
+                    invalidTag,
+                    TestContext.Current.CancellationToken);
+
+            TagValidationException actualTagValidationException =
+                await Assert.ThrowsAsync<TagValidationException>(
+                    modifyTagTask.AsTask);
+
+            // then
+            actualTagValidationException.Should().BeEquivalentTo(
+                expectedTagValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateTagAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Submitted)]
+        public async Task ShouldModifyIfStorageIsNotTerminalAsync(
+            ApprovalStatus nonTerminalStatus)
+        {
+            // given: the other half of the rule, and the one a refusal written too broadly would
+            // break — a Draft or Submitted row still modifies exactly as it did before.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Tag randomTag = CreateRandomModifyTag(randomDateTimeOffset, randomUserId);
+            Tag inputTag = randomTag;
+            Tag storageTag = randomTag.DeepClone();
+            storageTag.UpdatedWhen = storageTag.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputTag.ApprovalStatus = nonTerminalStatus;
+            storageTag.ApprovalStatus = nonTerminalStatus;
+
+            Tag updatedTag = inputTag.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputTag, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectTagByIdAsync(
+                    inputTag.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageTag);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputTag,
+                    storageTag))
+                        .ReturnsAsync(inputTag);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateTagAsync(
+                    inputTag,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedTag);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    TagEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<Tag>>(
+                            new EventPublishResult<Tag>()));
+
+            // when
+            Tag actualTag = await this.tagService.ModifyTagAsync(
+                inputTag,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualTag.Should().BeEquivalentTo(updatedTag);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateTagAsync(
+                    inputTag,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

@@ -424,15 +424,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     .ReturnsAsync(newVersionContentItemId);
 
             var callOrder = new List<string>();
-            ContentItem? capturedDemotedContentItem = null;
+            Guid capturedDemotedContentItemId = Guid.Empty;
             ContentItem? capturedNewVersionContentItem = null;
 
             this.contentItemServiceMock.Setup(service =>
-                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
-                    .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
+                service.DemoteContentItemVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                    .Callback<Guid, CancellationToken>((contentItemId, cancellationToken) =>
                     {
                         callOrder.Add("demote");
-                        capturedDemotedContentItem = contentItem;
+                        capturedDemotedContentItemId = contentItemId;
                     })
                     .ReturnsAsync(expectedDemotedContentItem);
 
@@ -458,7 +458,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             // then
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
-            capturedDemotedContentItem.Should().BeEquivalentTo(expectedDemotedContentItem);
+            // the demotion names the row and nothing else — IsLatestVersion is the foundation
+            // verb's to write, not this service's to hand over
+            capturedDemotedContentItemId.Should().Be(storageContentItem.Id);
             capturedNewVersionContentItem.Should().BeEquivalentTo(expectedNewVersionContentItem);
             callOrder.Should().Equal("demote", "add");
 
@@ -487,7 +489,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                service.DemoteContentItemVersionAsync(
+                    storageContentItem.Id,
+                    It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>

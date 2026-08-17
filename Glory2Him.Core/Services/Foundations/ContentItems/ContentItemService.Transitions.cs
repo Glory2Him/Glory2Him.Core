@@ -63,7 +63,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     cancellationToken: cancellationToken);
             });
 
-        public ValueTask<ContentItem> ApproveContentItemAsync(
+        public ValueTask<ContentItem> TransitionContentItemApprovalAsync(
             ContentItem contentItem,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -74,9 +74,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 EventEnvelope<ContentItem> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: contentItem);
 
-                return await DoApproveContentItemAsync(
+                return await DoTransitionContentItemApprovalAsync(
                     contentItem: contentItem,
                     inboundEnvelope: envelope,
+
+                    // This envelope's context was minted here, in process, from the ambient
+                    // caller — so a system identity on it is one this process asserted about
+                    // itself. The event path passes false; see OnApprovingContentItemAsync.
+                    isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });
 
@@ -116,54 +121,90 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
         }
 
-        private async ValueTask<ContentItem> DoApproveContentItemAsync(
+        private async ValueTask<ContentItem> DoTransitionContentItemApprovalAsync(
             ContentItem contentItem,
             EventEnvelope<ContentItem> inboundEnvelope,
+            bool isSystemIdentityAdmissible,
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnApproveContentItem(contentItem);
+
+            // Shape first, and the bypass reason with it, so an unexplained bypass is refused
+            // before any policy is read — under every policy, including one that would have
+            // permitted the waiver.
+            ValidateOnTransitionContentItemApproval(contentItem);
+
+            // The system identity is a claim about PROVENANCE, and provenance is not carried by
+            // the payload. It is honoured only where this service minted the context itself; an
+            // envelope that arrived over a public event address carries a deserialized,
+            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
+            // would walk past every rule below by declaring themselves the workflow.
+            bool isSystemIdentity =
+                isSystemIdentityAdmissible
+                    && inboundEnvelope.SecurityContext.IsSystemIdentity;
 
             ContentItem storageContentItem =
                 await LoadTransitionTargetAsync(
                     contentItemId: contentItem.Id,
                     cancellationToken: cancellationToken);
 
-            // decided against the STORED row. Approving from the caller's copy would let a
+            // decided against the STORED row. Transitioning from the caller's copy would let a
             // contributor name someone else as author, or claim a content type they hold a
-            // publisher role for, and approve their own row.
-            AccessVerdict accessVerdict = await ValidateUserCanApproveStorageContentItemAsync(
+            // publisher role for, and approve their own row — and would let anyone present a
+            // terminal row as Submitted to slip past the override gate.
+            bool isBypassUsed = await ValidateUserCanTransitionStorageContentItemApprovalAsync(
                 storageContentItem: storageContentItem,
                 contentItem: contentItem,
                 securityContext: inboundEnvelope.SecurityContext,
+                isSystemIdentity: isSystemIdentity,
                 cancellationToken: cancellationToken);
 
-            ValidateStorageContentItemIsApprovable(storageContentItem);
+            ValidateStorageContentItemIsTransitionable(storageContentItem);
 
             // the whole of IApproval, as one unit — approve and publish are one operation, so
             // there is no separate publish verb and PublishDate belongs here and nowhere else
             storageContentItem.ApprovalStatus = contentItem.ApprovalStatus;
-            storageContentItem.IsPublished = contentItem.IsPublished;
-            storageContentItem.PublishDate = contentItem.PublishDate;
 
-            // The two exceptions, DERIVED from the decision rather than accepted from the
-            // caller. Copying these the way the three above are copied would let a caller
-            // performing a genuine bypass send IsApprovedByBypass = false and erase the record.
+            // Publication is DERIVED, not copied. Any target but Approved unpublishes the row,
+            // so an override out of Approved cannot leave a re-opened item publicly visible
+            // while it waits for a second verdict. The validation above already refuses the
+            // inverse pairing, which makes this a backstop rather than the only guard — but it
+            // is what makes the rule true by construction instead of true by validator.
             //
-            // This operation never requests a bypass, so the decision can only come back false;
-            // a dedicated bypass verb is what would ever write true. Clearing the reason is
-            // deliberate rather than incidental: an item bypass-approved, later amended and then
-            // approved normally must stop claiming it was bypassed.
-            storageContentItem.IsApprovedByBypass = accessVerdict.IsBypassUsed;
-            storageContentItem.ApprovedByBypassReason = null;
+            // Nothing republishes whatever this may have demoted: the group simply has no
+            // public row until something is approved again (epic decision 7).
+            bool isApproved = contentItem.ApprovalStatus == ApprovalStatus.Approved;
+            storageContentItem.IsPublished = isApproved && contentItem.IsPublished;
+
+            storageContentItem.PublishDate = storageContentItem.IsPublished
+                ? contentItem.PublishDate
+                : null;
+
+            // The bypass pair, DERIVED from the decision rather than accepted from the caller.
+            // Copying these the way ApprovalStatus is copied would let a caller performing a
+            // genuine bypass send IsApprovedByBypass = false and erase the record.
+            //
+            // The reason's VALUE is necessarily the caller's own words — no decision can say why
+            // a human chose to override — but its RETENTION is the decision's call. A bypass
+            // that turned out to be unnecessary records no bypass at all, and an item
+            // bypass-approved, later amended and then approved normally stops claiming it was
+            // bypassed (§9.7.1 rule 3, §9.7.5).
+            storageContentItem.IsApprovedByBypass = isBypassUsed;
+
+            storageContentItem.ApprovedByBypassReason = isBypassUsed
+                ? contentItem.ApprovedByBypassReason
+                : null;
 
             // The fact follows the DECISION, not the operation's name. A rejection broadcast on
             // the Approved address would tell every subscriber the opposite of what happened,
-            // and the fact name is the contract they key on.
-            ContentItemEventOperation decision =
-                storageContentItem.ApprovalStatus == ApprovalStatus.Approved
-                    ? ContentItemEventOperation.Approved
-                    : ContentItemEventOperation.Rejected;
+            // and the fact name is the contract they key on. An override back to Submitted
+            // re-opens the round, which is exactly what the Submitted address already means.
+            ContentItemEventOperation decision = contentItem.ApprovalStatus switch
+            {
+                ApprovalStatus.Approved => ContentItemEventOperation.Approved,
+                ApprovalStatus.Rejected => ContentItemEventOperation.Rejected,
+                _ => ContentItemEventOperation.Submitted
+            };
 
             return await SaveTransitionAsync(
                 contentItem: storageContentItem,
@@ -171,6 +212,68 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 operation: decision,
                 receiverName: EventBrokerIdentifiers
                     .ContentItemOnApprovingContentItemSubscriptionName,
+                cancellationToken: cancellationToken);
+        }
+
+        public ValueTask<ContentItem> DemoteContentItemVersionAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Demote owns only IsLatestVersion and drives it to a fixed value, so the
+                // request carries nothing but the id — the same shape submit has, and for the
+                // same reason: there is nothing to read off a caller's copy.
+                var demoteRequest = new ContentItem { Id = contentItemId };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: demoteRequest);
+
+                return await DoDemoteContentItemVersionAsync(
+                    contentItemId: contentItemId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        // The version fork's second write, and the only operation permitted to move
+        // IsLatestVersion off a row (§3.4 rule 18, §9.7.1 rule 2). It exists because the fork
+        // previously demoted through the general modify, which pins IsLatestVersion against
+        // storage here — so the demotion was refused and forking an approved item could not
+        // complete at all. Every processing-service test mocks this service, so nothing caught
+        // it.
+        private async ValueTask<ContentItem> DoDemoteContentItemVersionAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateOnDemoteContentItemVersion(contentItemId);
+
+            ContentItem storageContentItem =
+                await LoadTransitionTargetAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
+
+            // decided against the STORED row, like every other transition: forking is the
+            // owner's act, and the author it is measured against must be the one on record
+            // rather than one the caller supplied.
+            await ValidateUserCanDemoteStorageContentItemVersionAsync(
+                storageContentItem: storageContentItem,
+                securityContext: inboundEnvelope.SecurityContext);
+
+            ValidateStorageContentItemIsDemotable(storageContentItem);
+
+            // the whole of this operation's remit is this one field, and the target is fixed —
+            // demoting only ever means "no longer the tip"
+            storageContentItem.IsLatestVersion = false;
+
+            return await SaveTransitionAsync(
+                contentItem: storageContentItem,
+                inboundEnvelope: inboundEnvelope,
+                operation: ContentItemEventOperation.Demoted,
+                receiverName: EventBrokerIdentifiers
+                    .ContentItemOnDemotingContentItemSubscriptionName,
                 cancellationToken: cancellationToken);
         }
 
