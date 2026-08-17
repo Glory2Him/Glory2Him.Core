@@ -75,10 +75,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
 
         /// <summary>
         /// The comment is the substance of the record, so an empty one is refused at the door.
-        /// The point of asserting <c>400</c> specifically is that the FOUNDATION rule answers
-        /// first: the column is now <c>nvarchar(1000) NOT NULL</c>, and if the rule were missing
-        /// the same request would reach SQL and come back as a <c>500</c> from a constraint
-        /// violation. A 400 proves the two agree and the service is the one refusing.
+        ///
+        /// <para><c>400</c> is asserted specifically because the foundation rule is the ONLY thing
+        /// that refuses these. The column is <c>nvarchar(1000) NOT NULL</c>, which sounds like a
+        /// backstop but is not one here: <c>""</c> and <c>"   "</c> both satisfy NOT NULL, so
+        /// without the rule they would simply be stored. Only the <c>null</c> case would reach a
+        /// constraint at all — and even that surfaces as a dependency failure (<c>424</c>, not
+        /// <c>500</c>: EFxceptions does not map SQL 515, so the <c>DbUpdateException</c> becomes
+        /// an <c>ApprovalCommentDependencyException</c>), which is a storage answer to what is
+        /// really bad input. A 400 is the assertion that the rule, not the column, is deciding.
+        ///
+        /// <para>Model binding does not help either — <c>Program.cs</c> sets
+        /// <c>SuppressImplicitRequiredAttributeForNonNullableReferenceTypes</c>, so even the null
+        /// case reaches the service rather than being refused as model state.</para></para>
         /// </summary>
         [Theory]
         [InlineData(null)]
@@ -121,7 +130,10 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
 
         /// <summary>
         /// The other end of the same cap. 1000 characters is accepted and 1001 refused, and again
-        /// the refusal is a 400 from the rule rather than a truncation or a 500 from the column.
+        /// the refusal is a <c>400</c> from the rule rather than a <c>424</c> from the column —
+        /// SQL Server does not truncate silently on insert, it raises an error, which arrives as a
+        /// dependency failure. Storage refusing over-long text is not wrong, it is just the wrong
+        /// layer answering, and it tells the caller nothing about which field was at fault.
         /// </summary>
         [Theory]
         [InlineData(1000, false)]

@@ -326,20 +326,31 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 // must not: unpinned, an authorized caller could mark an approval bypassed — or
                 // erase an existing waiver and its reason — without any waiver being recorded.
                 //
-                // Nothing writes these on an Approval row today. Every setter in the repo is a
-                // bypass transition on the ENTITY (AssociationService, ContentItemService and
-                // their peers), so this pin blocks no legitimate writer. Should an approval-level
-                // bypass verb ever be added, it writes through its own transition the way those
-                // do, not through here.
+                // Nothing writes these on an Approval row today. Every setter in the repo writes
+                // them on the ENTITY, and there are two kinds: the ordinary approve transition,
+                // which derives the flag from the verdict and always clears the reason (all seven
+                // approvable entities), and Association's bypass transition — the only actual
+                // bypass verb that exists — which is the one place a waiver is ever recorded.
+                // Either way this pin blocks no legitimate writer.
+                //
+                // Should the approval-level bypass verb of §12.5 be added, the pattern to copy is
+                // AssociationService.Transitions.cs's BYPASS transition, not the ordinary approve
+                // beside it: the latter hardcodes the reason to null and so could never record a
+                // waiver. It writes through its own transition, not through here.
                 (Rule: IsNotSame(
                         first: inputApproval.IsApprovedByBypass,
                         second: storageApproval.IsApprovedByBypass,
                         secondName: nameof(Approval.IsApprovedByBypass)),
                     Parameter: nameof(Approval.IsApprovedByBypass)),
 
+                // Coalesced because the column is nullable and "no reason recorded" is the same
+                // fact whether it is stored as null or as empty — a caller sending one for the
+                // other is not attempting a change worth refusing. Every sibling pin on this same
+                // field coalesces for that reason; comparing raw would refuse a round-trip from
+                // any client that normalises null to empty, which is most of them.
                 (Rule: IsNotSame(
-                        first: inputApproval.ApprovedByBypassReason,
-                        second: storageApproval.ApprovedByBypassReason,
+                        first: inputApproval.ApprovedByBypassReason ?? string.Empty,
+                        second: storageApproval.ApprovedByBypassReason ?? string.Empty,
                         secondName: nameof(Approval.ApprovedByBypassReason)),
                     Parameter: nameof(Approval.ApprovedByBypassReason)));
         }
@@ -407,12 +418,9 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 Message = $"Expected value to be '{first}' but found '{second}'."
             };
 
-        // Nullable on both sides: an optional column such as ApprovedByBypassReason is null
-        // until something sets it, and null-versus-null is genuinely "the same". Comparing
-        // with != already answers that correctly, so the pin needs no null guard of its own.
         private static dynamic IsNotSame(
-            string? first,
-            string? second,
+            string first,
+            string second,
             string secondName) => new
             {
                 Condition = first != second,

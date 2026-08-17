@@ -1250,14 +1250,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             int commentLength,
             bool expectRefusal)
         {
-            // given: a caller who clears the review-role gate, so the run reaches validation
-            // rather than short-circuiting on Unauthorized — without this the 1000-character
-            // case would pass vacuously, never having been validated at all.
-            this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Reviewer);
-
-            // everything else deliberately blank, so the run always throws and the only
-            // question is whether Comment is among the reported errors
+            // given: no role override, unlike the add counterpart. Modify gates only on
+            // ValidateUserIsAllowedToContribute — authenticated and not ReadOnly — which the
+            // fixture's default context already satisfies, so the run reaches validation. Add
+            // gates on ValidateUserIsAllowedToReviewApprovals and does need a review role there,
+            // or its 1000-character case passes vacuously on an Unauthorized short-circuit.
+            //
+            // Everything else deliberately blank, so the run always throws and the only
+            // question is whether Comment is among the reported errors.
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             var invalidApprovalReview = new ApprovalReview
