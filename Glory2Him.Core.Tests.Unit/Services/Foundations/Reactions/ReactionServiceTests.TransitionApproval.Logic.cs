@@ -19,17 +19,17 @@ using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 {
-    public partial class BibleReferenceServiceTests
+    public partial class ReactionServiceTests
     {
         [Fact]
-        public async Task ShouldApproveBibleReferenceAsync()
+        public async Task ShouldTransitionReactionApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -37,57 +37,57 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
-            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
-            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
-            BibleReference approvedBibleReference = storageBibleReference.DeepClone();
-            approvedBibleReference.ApprovalStatus = inputBibleReference.ApprovalStatus;
-            approvedBibleReference.IsPublished = inputBibleReference.IsPublished;
-            approvedBibleReference.PublishDate = inputBibleReference.PublishDate;
-            approvedBibleReference.IsApprovedByBypass = false;
-            approvedBibleReference.ApprovedByBypassReason = null;
+            Reaction approvedReaction = storageReaction.DeepClone();
+            approvedReaction.ApprovalStatus = inputReaction.ApprovalStatus;
+            approvedReaction.IsPublished = inputReaction.IsPublished;
+            approvedReaction.PublishDate = inputReaction.PublishDate;
+            approvedReaction.IsApprovedByBypass = false;
+            approvedReaction.ApprovedByBypassReason = null;
 
-            BibleReference auditAppliedBibleReference = approvedBibleReference.DeepClone();
-            BibleReference updatedBibleReference = auditAppliedBibleReference.DeepClone();
-            BibleReference expectedBibleReference = updatedBibleReference.DeepClone();
+            Reaction auditAppliedReaction = approvedReaction.DeepClone();
+            Reaction updatedReaction = auditAppliedReaction.DeepClone();
+            Reaction expectedReaction = updatedReaction.DeepClone();
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
-            SetupBibleReferenceStorageRead(storageBibleReference);
+            SetupReactionStorageRead(storageReaction);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyModifyAuditValuesAsync(
-                    It.IsAny<BibleReference>(),
+                    It.IsAny<Reaction>(),
                     It.IsAny<SecurityContext>()))
-                        .ReturnsAsync(auditAppliedBibleReference);
+                        .ReturnsAsync(auditAppliedReaction);
 
             this.storageBrokerMock.Setup(broker =>
-                broker.UpdateBibleReferenceAsync(
-                    auditAppliedBibleReference,
+                broker.UpdateReactionAsync(
+                    auditAppliedReaction,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(updatedBibleReference);
+                        .ReturnsAsync(updatedReaction);
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishBibleReferenceAsync(
-                    It.IsAny<EventEnvelope<BibleReference>>(),
-                    BibleReferenceEventOperation.Approved))
-                        .Returns(new ValueTask<EventPublishResult<BibleReference>>(
-                            new EventPublishResult<BibleReference>()));
+                broker.PublishReactionAsync(
+                    It.IsAny<EventEnvelope<Reaction>>(),
+                    ReactionEventOperation.Approved))
+                        .Returns(new ValueTask<EventPublishResult<Reaction>>(
+                            new EventPublishResult<Reaction>()));
 
             // when
-            BibleReference actualBibleReference =
-                await this.bibleReferenceService.ApproveBibleReferenceAsync(
-                    inputBibleReference,
+            Reaction actualReaction =
+                await this.reactionService.TransitionReactionApprovalAsync(
+                    inputReaction,
                     TestContext.Current.CancellationToken);
 
             // then
-            actualBibleReference.Should().BeEquivalentTo(expectedBibleReference);
+            actualReaction.Should().BeEquivalentTo(expectedReaction);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectBibleReferenceByIdAsync(
-                        inputBibleReference.Id,
+                    broker.SelectReactionByIdAsync(
+                        inputReaction.Id,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -99,21 +99,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
             this.securityAuditBrokerMock.Verify(broker =>
                     broker.ApplyModifyAuditValuesAsync(
-                        It.IsAny<BibleReference>(),
+                        It.IsAny<Reaction>(),
                         It.IsAny<SecurityContext>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateBibleReferenceAsync(
-                        auditAppliedBibleReference,
+                    broker.UpdateReactionAsync(
+                        auditAppliedReaction,
                         It.IsAny<CancellationToken>()),
                 Times.Once);
 
             // the operation's OWN fact — never Modified. See ShouldNeverPublishModified...
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishBibleReferenceAsync(
-                        It.IsAny<EventEnvelope<BibleReference>>(),
-                        BibleReferenceEventOperation.Approved),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Approved),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
@@ -121,7 +121,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
                     It.Is<ProcessedEvent>(processedEvent =>
                         processedEvent.ReceiverName ==
                             EventBrokerIdentifiers
-                                .BibleReferenceOnApprovingBibleReferenceSubscriptionName),
+                                .ReactionOnApprovingReactionSubscriptionName),
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
@@ -145,23 +145,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
-            BibleReference inputBibleReference = CreateRejectionDecision(storageBibleReference.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateRejectionDecision(storageReaction.Id);
 
             // when
-            await CaptureSavedBibleReferenceOnApproveAsync(storageBibleReference, inputBibleReference);
+            await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishBibleReferenceAsync(
-                        It.IsAny<EventEnvelope<BibleReference>>(),
-                        BibleReferenceEventOperation.Rejected),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Rejected),
                 Times.Once);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishBibleReferenceAsync(
-                        It.IsAny<EventEnvelope<BibleReference>>(),
-                        BibleReferenceEventOperation.Approved),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Approved),
                 Times.Never);
         }
 
@@ -175,23 +175,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
-            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
             // when
-            await CaptureSavedBibleReferenceOnApproveAsync(storageBibleReference, inputBibleReference);
+            await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishBibleReferenceAsync(
-                        It.IsAny<EventEnvelope<BibleReference>>(),
-                        BibleReferenceEventOperation.Modified),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Modified),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishBibleReferenceAsync(
-                        It.IsAny<EventEnvelope<BibleReference>>(),
-                        BibleReferenceEventOperation.Approved),
+                    broker.PublishReactionAsync(
+                        It.IsAny<EventEnvelope<Reaction>>(),
+                        ReactionEventOperation.Approved),
                 Times.Once);
         }
 
@@ -207,39 +207,39 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
-            BibleReference expectedStorageBibleReference = storageBibleReference.DeepClone();
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            Reaction expectedStorageReaction = storageReaction.DeepClone();
 
             // a fully random caller copy (differs from storage on every field), pinned only to
             // the id and a valid approval outcome
-            BibleReference inputBibleReference = CreateRandomBibleReference();
-            inputBibleReference.Id = storageBibleReference.Id;
-            inputBibleReference.ApprovalStatus = ApprovalStatus.Approved;
-            inputBibleReference.IsPublished = true;
-            inputBibleReference.PublishDate = GetRandomDateTimeOffset();
+            Reaction inputReaction = CreateRandomReaction();
+            inputReaction.Id = storageReaction.Id;
+            inputReaction.ApprovalStatus = ApprovalStatus.Approved;
+            inputReaction.IsPublished = true;
+            inputReaction.PublishDate = GetRandomDateTimeOffset();
 
             // when
-            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnApproveAsync(storageBibleReference, inputBibleReference);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedBibleReference.Should().NotBeNull();
+            savedReaction.Should().NotBeNull();
 
             // the fields the operation owns came from the caller
-            savedBibleReference.ApprovalStatus.Should().Be(inputBibleReference.ApprovalStatus);
-            savedBibleReference.IsPublished.Should().Be(inputBibleReference.IsPublished);
-            savedBibleReference.PublishDate.Should().Be(inputBibleReference.PublishDate);
+            savedReaction.ApprovalStatus.Should().Be(inputReaction.ApprovalStatus);
+            savedReaction.IsPublished.Should().Be(inputReaction.IsPublished);
+            savedReaction.PublishDate.Should().Be(inputReaction.PublishDate);
 
             // everything else came from STORAGE — asserted against the pre-act snapshot, so
             // copying any caller field onto the row fails here. The bypass pair is derived
             // (false / null here) and excluded from the storage comparison.
-            savedBibleReference.Should().BeEquivalentTo(
-                expectedStorageBibleReference,
+            savedReaction.Should().BeEquivalentTo(
+                expectedStorageReaction,
                 options => options
-                    .Excluding(bibleReference => bibleReference.ApprovalStatus)
-                    .Excluding(bibleReference => bibleReference.IsPublished)
-                    .Excluding(bibleReference => bibleReference.PublishDate)
-                    .Excluding(bibleReference => bibleReference.IsApprovedByBypass)
-                    .Excluding(bibleReference => bibleReference.ApprovedByBypassReason));
+                    .Excluding(reaction => reaction.ApprovalStatus)
+                    .Excluding(reaction => reaction.IsPublished)
+                    .Excluding(reaction => reaction.PublishDate)
+                    .Excluding(reaction => reaction.IsApprovedByBypass)
+                    .Excluding(reaction => reaction.ApprovedByBypassReason));
         }
 
         // ── The bypass record is DERIVED, not copied ─────────────────────────────────────────
@@ -253,27 +253,27 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
-            storageBibleReference.IsApprovedByBypass = false;
-            storageBibleReference.ApprovedByBypassReason = null;
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.IsApprovedByBypass = false;
+            storageReaction.ApprovedByBypassReason = null;
 
-            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
-            inputBibleReference.IsApprovedByBypass = true;
-            inputBibleReference.ApprovedByBypassReason = "caller supplied";
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            inputReaction.IsApprovedByBypass = true;
+            inputReaction.ApprovedByBypassReason = "caller supplied";
 
             SetupAccessBrokerToPermit();
 
             // when
-            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnApproveAsync(storageBibleReference, inputBibleReference);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedBibleReference.Should().NotBeNull();
-            savedBibleReference.IsApprovedByBypass.Should().BeFalse();
-            savedBibleReference.ApprovedByBypassReason.Should().BeNull();
+            savedReaction.Should().NotBeNull();
+            savedReaction.IsApprovedByBypass.Should().BeFalse();
+            savedReaction.ApprovedByBypassReason.Should().BeNull();
 
-            savedBibleReference.ApprovalStatus.Should().Be(inputBibleReference.ApprovalStatus);
-            savedBibleReference.IsPublished.Should().Be(inputBibleReference.IsPublished);
-            savedBibleReference.PublishDate.Should().Be(inputBibleReference.PublishDate);
+            savedReaction.ApprovalStatus.Should().Be(inputReaction.ApprovalStatus);
+            savedReaction.IsPublished.Should().Be(inputReaction.IsPublished);
+            savedReaction.PublishDate.Should().Be(inputReaction.PublishDate);
         }
 
         [Fact]
@@ -284,22 +284,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
-            storageBibleReference.IsApprovedByBypass = false;
-            storageBibleReference.ApprovedByBypassReason = null;
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.IsApprovedByBypass = false;
+            storageReaction.ApprovedByBypassReason = null;
 
-            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
-            inputBibleReference.IsApprovedByBypass = false;
-            inputBibleReference.ApprovedByBypassReason = null;
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            inputReaction.IsApprovedByBypass = false;
+            inputReaction.ApprovedByBypassReason = null;
 
             SetupAccessBrokerToPermitByBypass();
 
             // when
-            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnApproveAsync(storageBibleReference, inputBibleReference);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedBibleReference.Should().NotBeNull();
-            savedBibleReference.IsApprovedByBypass.Should().BeTrue();
+            savedReaction.Should().NotBeNull();
+            savedReaction.IsApprovedByBypass.Should().BeTrue();
         }
 
         [Fact]
@@ -311,21 +311,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
-            storageBibleReference.IsApprovedByBypass = true;
-            storageBibleReference.ApprovedByBypassReason = "an earlier bypass";
+            Reaction storageReaction = CreateApprovableStorageReaction();
+            storageReaction.IsApprovedByBypass = true;
+            storageReaction.ApprovedByBypassReason = "an earlier bypass";
 
-            BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
+            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
 
             SetupAccessBrokerToPermit();
 
             // when
-            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnApproveAsync(storageBibleReference, inputBibleReference);
+            Reaction savedReaction = await CaptureSavedReactionOnTransitionAsync(storageReaction, inputReaction);
 
             // then
-            savedBibleReference.Should().NotBeNull();
-            savedBibleReference.IsApprovedByBypass.Should().BeFalse();
-            savedBibleReference.ApprovedByBypassReason.Should().BeNull();
+            savedReaction.Should().NotBeNull();
+            savedReaction.IsApprovedByBypass.Should().BeFalse();
+            savedReaction.ApprovedByBypassReason.Should().BeNull();
         }
     }
 }

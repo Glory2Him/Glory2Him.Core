@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events;using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -1550,6 +1550,236 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalAndLogItAsync(
+            ApprovalStatus terminalStatus)
+        {
+            // given: THE case the status pin never covered. The caller amends an approved row and
+            // echoes the STORED status back unchanged, so IsNotAPermittedStatusChangeOnModify —
+            // whose condition is guarded by inputStatus != storageStatus — passes, and the content
+            // is written through with IsPublished and PublishDate still at their approved values.
+            // The edit then goes public with no re-review.
+            //
+            // The owner is used here because it is the least privileged party who can reach this
+            // path at all; the roles that could also reach it are covered below.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            Link invalidLink = randomLink;
+            Link storageLink = randomLink.DeepClone();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // both sides terminal and IDENTICAL, so nothing else in the modify can refuse it
+            invalidLink.ApprovalStatus = terminalStatus;
+            storageLink.ApprovalStatus = terminalStatus;
+
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link cannot be modified from status " +
+                        $"{terminalStatus}.");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    invalidLink.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageLink);
+
+            // when
+            ValueTask<Link> modifyLinkTask =
+                this.linkService.ModifyLinkAsync(
+                    invalidLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    modifyLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateLinkAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    It.IsAny<LinkEventOperation>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedLinkValidationException))),
+                Times.Once);
+        }
+
+        [Theory]
+        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Admin)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
+            string role)
+        {
+            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An Admin in
+            // particular used to have an in-place carve-out here; it is withdrawn, because a state
+            // one role can edit out of is not terminal. The override verb is the only route, and
+            // it changes status without touching content.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(role);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            Link invalidLink = randomLink;
+            Link storageLink = randomLink.DeepClone();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageLink.CreatedBy = GetRandomString();
+
+            invalidLink.ApprovalStatus = ApprovalStatus.Approved;
+            storageLink.ApprovalStatus = ApprovalStatus.Approved;
+            invalidLink.CreatedBy = storageLink.CreatedBy;
+
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link cannot be modified from status " +
+                        $"{ApprovalStatus.Approved}.");
+
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    invalidLink.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageLink);
+
+            // when
+            ValueTask<Link> modifyLinkTask =
+                this.linkService.ModifyLinkAsync(
+                    invalidLink,
+                    TestContext.Current.CancellationToken);
+
+            LinkValidationException actualLinkValidationException =
+                await Assert.ThrowsAsync<LinkValidationException>(
+                    modifyLinkTask.AsTask);
+
+            // then
+            actualLinkValidationException.Should().BeEquivalentTo(
+                expectedLinkValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateLinkAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Submitted)]
+        public async Task ShouldModifyIfStorageIsNotTerminalAsync(
+            ApprovalStatus nonTerminalStatus)
+        {
+            // given: the other half of the rule, and the one a refusal written too broadly would
+            // break — a Draft or Submitted row still modifies exactly as it did before.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Link randomLink = CreateRandomModifyLink(randomDateTimeOffset, randomUserId);
+            Link inputLink = randomLink;
+            Link storageLink = randomLink.DeepClone();
+            storageLink.UpdatedWhen = storageLink.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputLink.ApprovalStatus = nonTerminalStatus;
+            storageLink.ApprovalStatus = nonTerminalStatus;
+
+            Link updatedLink = inputLink.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputLink, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(
+                    inputLink.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageLink);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputLink,
+                    storageLink))
+                        .ReturnsAsync(inputLink);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateLinkAsync(
+                    inputLink,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedLink);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    LinkEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<Link>>(
+                            new EventPublishResult<Link>()));
+
+            // when
+            Link actualLink = await this.linkService.ModifyLinkAsync(
+                inputLink,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualLink.Should().BeEquivalentTo(updatedLink);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateLinkAsync(
+                    inputLink,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             Guid bibleReferenceId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<BibleReference> ApproveBibleReferenceAsync(
+        ValueTask<BibleReference> TransitionBibleReferenceApprovalAsync(
             BibleReference bibleReference,
             CancellationToken cancellationToken = default);
     }

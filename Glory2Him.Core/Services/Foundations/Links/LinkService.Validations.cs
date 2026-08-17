@@ -91,6 +91,40 @@ namespace Glory2Him.Core.Services.Foundations.Links
             return isOwner || HasPublisherRole(securityContext);
         }
 
+        // Approved and Rejected are TERMINAL: the content of a row in either state is immutable
+        // in place, to its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16,
+        // §9.7.4, §12.3.1 shared rule 9). Reviewers reached a verdict on that text, and text
+        // that changes underneath a verdict makes the verdict a record of nothing.
+        //
+        // This is NOT the rule the status pin enforces, and the two are easy to confuse. The pin
+        // refuses a CHANGE to ApprovalStatus, and its condition is guarded by
+        // inputStatus != storageStatus — so a caller who amends an approved row while echoing
+        // the stored status back unchanged passes it, and the content is written through with
+        // IsPublished and PublishDate still at their approved values. The edit then goes public
+        // with no re-review. That is the hole this closes; the pin never covered it.
+        //
+        // A link never forks, so refusing the write IS the enforcement — there is no version to
+        // amend into, and the only way back is the Admin override on the approval transition
+        // (§8.6 HR-4). For the Versioned entities an orchestration turns this same condition
+        // into a fork instead (§10.17, #199).
+        //
+        // The §9.2 Draft <-> Submitted carve-out is unreachable from here and stays that way:
+        // it is only ever reached from Draft or Submitted, so a terminal row is refused before
+        // the carve-out is consulted.
+        private static void ValidateStorageLinkIsNotTerminal(Link storageLink)
+        {
+            bool isTerminal =
+                storageLink.ApprovalStatus == ApprovalStatus.Approved
+                    || storageLink.ApprovalStatus == ApprovalStatus.Rejected;
+
+            if (isTerminal)
+            {
+                throw new InvalidLinkException(
+                    message: "Link cannot be modified from status " +
+                        $"{storageLink.ApprovalStatus}.");
+            }
+        }
+
         // removing content is a takedown, not a moderation step — the owner may remove
         // their own link and an Admin may remove anyone's; Reviewers and Publishers
         // moderate through the approval workflow instead

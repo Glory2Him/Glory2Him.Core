@@ -69,6 +69,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                 PublishDate = null,
             };
 
+        // The Admin override's target: a terminal row re-opened for a second round. Publication
+        // is not asked for — the validation refuses a published non-approved row, and the
+        // do-work derives it off regardless.
+        private static Comment CreateReopenDecision(Guid commentId) =>
+            new Comment
+            {
+                Id = commentId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsPublished = false,
+                PublishDate = null,
+            };
+
+        // A stored row in a terminal state, published as an approved one would be, so a test can
+        // assert the override actually unpublishes it rather than finding it already false.
+        private static Comment CreateTerminalStorageComment(ApprovalStatus terminalStatus)
+        {
+            Comment comment = CreateApprovableStorageComment();
+            comment.ApprovalStatus = terminalStatus;
+            comment.IsPublished = terminalStatus == ApprovalStatus.Approved;
+
+            comment.PublishDate = comment.IsPublished
+                ? GetRandomDateTimeOffset()
+                : null;
+
+            return comment;
+        }
+
+        // The context ApprovalOrchestrationService mints for the workflow's own writes. Roleless
+        // on purpose: the flag is the whole of its authority, so a test that passes with roles
+        // attached would not be proving the flag did anything.
+        private static SecurityContext CreateSystemSecurityContext() =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = [],
+                IsSystemIdentity = true,
+            };
+
+        // A bypass REQUEST: the caller asks, and the verdict decides what is recorded.
+        private static Comment CreateBypassApprovalRequest(Guid commentId, string bypassReason)
+        {
+            Comment comment = CreateApprovalDecision(commentId);
+            comment.IsApprovedByBypass = true;
+            comment.ApprovedByBypassReason = bypassReason;
+
+            return comment;
+        }
+
         private void SetupCommentStorageRead(Comment storageComment) =>
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectCommentByIdAsync(
@@ -111,7 +159,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         // the storage broker. The snapshot is taken INSIDE the callback: the service copies onto
         // the instance the storage read handed it, so reading that instance after the act would
         // compare the row with itself and pass however the operation behaved.
-        private async ValueTask<Comment> CaptureSavedCommentOnApproveAsync(
+        private async ValueTask<Comment> CaptureSavedCommentOnTransitionAsync(
             Comment storageComment,
             Comment inputComment)
         {
@@ -144,7 +192,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                         .Returns(new ValueTask<EventPublishResult<Comment>>(
                             new EventPublishResult<Comment>()));
 
-            await this.commentService.ApproveCommentAsync(
+            await this.commentService.TransitionCommentApprovalAsync(
                 inputComment,
                 TestContext.Current.CancellationToken);
 
@@ -194,7 +242,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
                         .Returns(new ValueTask<EventPublishResult<Comment>>(
                             new EventPublishResult<Comment>()));
 
-            await this.commentService.ApproveCommentAsync(
+            await this.commentService.TransitionCommentApprovalAsync(
                 inputComment,
                 TestContext.Current.CancellationToken);
 

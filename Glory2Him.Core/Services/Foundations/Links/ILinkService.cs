@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
             Guid linkId,
             CancellationToken cancellationToken = default);
 
-        ValueTask<Link> ApproveLinkAsync(
+        ValueTask<Link> TransitionLinkApprovalAsync(
             Link link,
             CancellationToken cancellationToken = default);
     }

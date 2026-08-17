@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events;using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.Comments.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -1535,6 +1535,236 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalAndLogItAsync(
+            ApprovalStatus terminalStatus)
+        {
+            // given: THE case the status pin never covered. The caller amends an approved row and
+            // echoes the STORED status back unchanged, so IsNotAPermittedStatusChangeOnModify —
+            // whose condition is guarded by inputStatus != storageStatus — passes, and the content
+            // is written through with IsPublished and PublishDate still at their approved values.
+            // The edit then goes public with no re-review.
+            //
+            // The owner is used here because it is the least privileged party who can reach this
+            // path at all; the roles that could also reach it are covered below.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment invalidComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // both sides terminal and IDENTICAL, so nothing else in the modify can refuse it
+            invalidComment.ApprovalStatus = terminalStatus;
+            storageComment.ApprovalStatus = terminalStatus;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment cannot be modified from status " +
+                        $"{terminalStatus}.");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateCommentAsync(
+                    It.IsAny<Comment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishCommentAsync(
+                    It.IsAny<EventEnvelope<Comment>>(),
+                    It.IsAny<CommentEventOperation>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedCommentValidationException))),
+                Times.Once);
+        }
+
+        [Theory]
+        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Admin)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
+            string role)
+        {
+            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An Admin in
+            // particular used to have an in-place carve-out here; it is withdrawn, because a state
+            // one role can edit out of is not terminal. The override verb is the only route, and
+            // it changes status without touching content.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(role);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment invalidComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageComment.CreatedBy = GetRandomString();
+
+            invalidComment.ApprovalStatus = ApprovalStatus.Approved;
+            storageComment.ApprovalStatus = ApprovalStatus.Approved;
+            invalidComment.CreatedBy = storageComment.CreatedBy;
+
+            var invalidCommentException =
+                new InvalidCommentException(
+                    message: "Comment cannot be modified from status " +
+                        $"{ApprovalStatus.Approved}.");
+
+            var expectedCommentValidationException =
+                new CommentValidationException(
+                    message: "Comment validation error occurred, fix the errors and try again.",
+                    innerException: invalidCommentException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    invalidComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            // when
+            ValueTask<Comment> modifyCommentTask =
+                this.commentService.ModifyCommentAsync(
+                    invalidComment,
+                    TestContext.Current.CancellationToken);
+
+            CommentValidationException actualCommentValidationException =
+                await Assert.ThrowsAsync<CommentValidationException>(
+                    modifyCommentTask.AsTask);
+
+            // then
+            actualCommentValidationException.Should().BeEquivalentTo(
+                expectedCommentValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateCommentAsync(
+                    It.IsAny<Comment>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Submitted)]
+        public async Task ShouldModifyIfStorageIsNotTerminalAsync(
+            ApprovalStatus nonTerminalStatus)
+        {
+            // given: the other half of the rule, and the one a refusal written too broadly would
+            // break — a Draft or Submitted row still modifies exactly as it did before.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            Comment randomComment = CreateRandomModifyComment(randomDateTimeOffset, randomUserId);
+            Comment inputComment = randomComment;
+            Comment storageComment = randomComment.DeepClone();
+            storageComment.UpdatedWhen = storageComment.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputComment.ApprovalStatus = nonTerminalStatus;
+            storageComment.ApprovalStatus = nonTerminalStatus;
+
+            Comment updatedComment = inputComment.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputComment, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectCommentByIdAsync(
+                    inputComment.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageComment);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputComment,
+                    storageComment))
+                        .ReturnsAsync(inputComment);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateCommentAsync(
+                    inputComment,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedComment);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishCommentAsync(
+                    It.IsAny<EventEnvelope<Comment>>(),
+                    CommentEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<Comment>>(
+                            new EventPublishResult<Comment>()));
+
+            // when
+            Comment actualComment = await this.commentService.ModifyCommentAsync(
+                inputComment,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualComment.Should().BeEquivalentTo(updatedComment);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateCommentAsync(
+                    inputComment,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
-using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events;using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.BibleReferences.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -1645,6 +1645,236 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalAndLogItAsync(
+            ApprovalStatus terminalStatus)
+        {
+            // given: THE case the status pin never covered. The caller amends an approved row and
+            // echoes the STORED status back unchanged, so IsNotAPermittedStatusChangeOnModify —
+            // whose condition is guarded by inputStatus != storageStatus — passes, and the content
+            // is written through with IsPublished and PublishDate still at their approved values.
+            // The edit then goes public with no re-review.
+            //
+            // The owner is used here because it is the least privileged party who can reach this
+            // path at all; the roles that could also reach it are covered below.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
+            BibleReference invalidBibleReference = randomBibleReference;
+            BibleReference storageBibleReference = randomBibleReference.DeepClone();
+            storageBibleReference.UpdatedWhen = storageBibleReference.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // both sides terminal and IDENTICAL, so nothing else in the modify can refuse it
+            invalidBibleReference.ApprovalStatus = terminalStatus;
+            storageBibleReference.ApprovalStatus = terminalStatus;
+
+            var invalidBibleReferenceException =
+                new InvalidBibleReferenceException(
+                    message: "Bible reference cannot be modified from status " +
+                        $"{terminalStatus}.");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: invalidBibleReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    invalidBibleReference.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageBibleReference);
+
+            // when
+            ValueTask<BibleReference> modifyBibleReferenceTask =
+                this.bibleReferenceService.ModifyBibleReferenceAsync(
+                    invalidBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    modifyBibleReferenceTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateBibleReferenceAsync(
+                    It.IsAny<BibleReference>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishBibleReferenceAsync(
+                    It.IsAny<EventEnvelope<BibleReference>>(),
+                    It.IsAny<BibleReferenceEventOperation>()),
+                Times.Never);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedBibleReferenceValidationException))),
+                Times.Once);
+        }
+
+        [Theory]
+        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Admin)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
+            string role)
+        {
+            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An Admin in
+            // particular used to have an in-place carve-out here; it is withdrawn, because a state
+            // one role can edit out of is not terminal. The override verb is the only route, and
+            // it changes status without touching content.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(role);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
+            BibleReference invalidBibleReference = randomBibleReference;
+            BibleReference storageBibleReference = randomBibleReference.DeepClone();
+            storageBibleReference.UpdatedWhen = storageBibleReference.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            storageBibleReference.CreatedBy = GetRandomString();
+
+            invalidBibleReference.ApprovalStatus = ApprovalStatus.Approved;
+            storageBibleReference.ApprovalStatus = ApprovalStatus.Approved;
+            invalidBibleReference.CreatedBy = storageBibleReference.CreatedBy;
+
+            var invalidBibleReferenceException =
+                new InvalidBibleReferenceException(
+                    message: "Bible reference cannot be modified from status " +
+                        $"{ApprovalStatus.Approved}.");
+
+            var expectedBibleReferenceValidationException =
+                new BibleReferenceValidationException(
+                    message: "Bible reference validation error occurred, fix the errors and try again.",
+                    innerException: invalidBibleReferenceException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    invalidBibleReference.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageBibleReference);
+
+            // when
+            ValueTask<BibleReference> modifyBibleReferenceTask =
+                this.bibleReferenceService.ModifyBibleReferenceAsync(
+                    invalidBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            BibleReferenceValidationException actualBibleReferenceValidationException =
+                await Assert.ThrowsAsync<BibleReferenceValidationException>(
+                    modifyBibleReferenceTask.AsTask);
+
+            // then
+            actualBibleReferenceValidationException.Should().BeEquivalentTo(
+                expectedBibleReferenceValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateBibleReferenceAsync(
+                    It.IsAny<BibleReference>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Draft)]
+        [InlineData(ApprovalStatus.Submitted)]
+        public async Task ShouldModifyIfStorageIsNotTerminalAsync(
+            ApprovalStatus nonTerminalStatus)
+        {
+            // given: the other half of the rule, and the one a refusal written too broadly would
+            // break — a Draft or Submitted row still modifies exactly as it did before.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+            BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
+            BibleReference inputBibleReference = randomBibleReference;
+            BibleReference storageBibleReference = randomBibleReference.DeepClone();
+            storageBibleReference.UpdatedWhen = storageBibleReference.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            inputBibleReference.ApprovalStatus = nonTerminalStatus;
+            storageBibleReference.ApprovalStatus = nonTerminalStatus;
+
+            BibleReference updatedBibleReference = inputBibleReference.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    inputBibleReference.Id,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    inputBibleReference,
+                    storageBibleReference))
+                        .ReturnsAsync(inputBibleReference);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateBibleReferenceAsync(
+                    inputBibleReference,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedBibleReference);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishBibleReferenceAsync(
+                    It.IsAny<EventEnvelope<BibleReference>>(),
+                    BibleReferenceEventOperation.Modified))
+                        .Returns(new ValueTask<EventPublishResult<BibleReference>>(
+                            new EventPublishResult<BibleReference>()));
+
+            // when
+            BibleReference actualBibleReference = await this.bibleReferenceService.ModifyBibleReferenceAsync(
+                inputBibleReference,
+                TestContext.Current.CancellationToken);
+
+            // then
+            actualBibleReference.Should().BeEquivalentTo(updatedBibleReference);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.UpdateBibleReferenceAsync(
+                    inputBibleReference,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

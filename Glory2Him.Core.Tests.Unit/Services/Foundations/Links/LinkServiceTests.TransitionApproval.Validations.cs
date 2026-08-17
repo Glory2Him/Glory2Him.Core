@@ -18,14 +18,14 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
-using Glory2Him.Core.Models.Foundations.Reactions;
-using Glory2Him.Core.Models.Foundations.Reactions.Exceptions;
+using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 
-namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
+namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 {
-    public partial class ReactionServiceTests
+    public partial class LinkServiceTests
     {
         public static TheoryData<string[]> NonPublisherRoleSets() =>
             new TheoryData<string[]>
@@ -35,37 +35,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 // a Reviewer holds the review tier and MUST still never set an approval status
                 // (§8.6 HR-3) — the publisher tier deliberately excludes it
                 new[] { Roles.Reviewer },
-                new[] { Roles.ReactionReviewer },
+                new[] { Roles.LinkReviewer },
             };
 
         [Fact]
-        public async Task ShouldThrowValidationExceptionOnApproveIfReactionIsNullAsync()
+        public async Task ShouldThrowValidationExceptionOnApproveIfLinkIsNullAsync()
         {
             // given
-            Reaction nullReaction = null;
+            Link nullLink = null;
 
-            var nullReactionException =
-                new NullReactionException(message: "Reaction is null.");
+            var nullLinkException =
+                new NullLinkException(message: "Link is null.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: nullReactionException);
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: nullLinkException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    nullReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    nullLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedLinkValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectLinkByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -79,31 +79,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfStatusIsNotAnOutcomeAsync(
-            ApprovalStatus notAnOutcome)
+        public async Task ShouldThrowValidationExceptionOnTransitionIfStatusIsNotATransitionTargetAsync(
+            ApprovalStatus notATransitionTarget)
         {
-            // given: approve owns IApproval, so it is the one operation allowed to carry a
-            // status — but only to an outcome the workflow produces.
+            // given: this operation owns IApproval, so it is the one allowed to carry a status —
+            // but only to a state the workflow can hold a row in. Draft is reached once, at
+            // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
+            // Submitted is NOT here: it is what an override re-opens a terminal row to.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateApprovalDecision(Guid.NewGuid());
-            inputReaction.ApprovalStatus = notAnOutcome;
-            inputReaction.IsPublished = false;
-            inputReaction.PublishDate = null;
+            Link inputLink = CreateApprovalDecision(Guid.NewGuid());
+            inputLink.ApprovalStatus = notATransitionTarget;
+            inputLink.IsPublished = false;
+            inputLink.PublishDate = null;
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then: the status never reached storage — the row was never even read
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectLinkByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -123,44 +124,44 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // IsPublished straight from the caller), and it fires before the row is read.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateRejectionDecision(Guid.NewGuid());
-            inputReaction.IsPublished = true;
+            Link inputLink = CreateRejectionDecision(Guid.NewGuid());
+            inputLink.IsPublished = true;
 
-            var invalidReactionException =
-                new InvalidReactionException(
-                    message: "Reaction is invalid, fix the errors and try again.");
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link is invalid, fix the errors and try again.");
 
-            invalidReactionException.UpsertDataList(
-                key: nameof(Reaction.IsPublished),
-                value: "Is published requires an approved reaction.");
+            invalidLinkException.UpsertDataList(
+                key: nameof(Link.IsPublished),
+                value: "Is published requires an approved link.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: invalidReactionException);
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedLinkValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectLinkByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        It.IsAny<ReactionEventOperation>()),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        It.IsAny<LinkEventOperation>()),
                 Times.Never);
         }
 
@@ -172,37 +173,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // phantom publish date on an unpublished row.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateRejectionDecision(Guid.NewGuid());
-            inputReaction.IsPublished = false;
-            inputReaction.PublishDate = GetRandomDateTimeOffset();
+            Link inputLink = CreateRejectionDecision(Guid.NewGuid());
+            inputLink.IsPublished = false;
+            inputLink.PublishDate = GetRandomDateTimeOffset();
 
-            var invalidReactionException =
-                new InvalidReactionException(
-                    message: "Reaction is invalid, fix the errors and try again.");
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link is invalid, fix the errors and try again.");
 
-            invalidReactionException.UpsertDataList(
-                key: nameof(Reaction.PublishDate),
-                value: "Publish date requires a published reaction.");
+            invalidLinkException.UpsertDataList(
+                key: nameof(Link.PublishDate),
+                value: "Publish date requires a published link.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: invalidReactionException);
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedLinkValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.SelectReactionByIdAsync(
+                    broker.SelectLinkByIdAsync(
                         It.IsAny<Guid>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -214,21 +215,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction inputReaction = CreateApprovalDecision(Guid.NewGuid());
+            Link inputLink = CreateApprovalDecision(Guid.NewGuid());
 
             this.storageBrokerMock.Setup(broker =>
-                broker.SelectReactionByIdAsync(
-                    inputReaction.Id,
+                broker.SelectLinkByIdAsync(
+                    inputLink.Id,
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync((Reaction)null);
+                        .ReturnsAsync((Link)null);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then: a missing row is decided against nothing
             this.accessBrokerMock.Verify(broker =>
@@ -238,8 +239,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateLinkAsync(
+                        It.IsAny<Link>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -250,33 +251,33 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given: a soft-removed row is a takedown reported as not-found.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.IsDeleted = true;
+            Link storageLink = CreateApprovableStorageLink();
+            storageLink.IsDeleted = true;
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupLinkStorageRead(storageLink);
 
-            var notFoundReactionException =
-                new NotFoundReactionException(
-                    message: $"Reaction not found with id: {storageReaction.Id}.");
+            var notFoundLinkException =
+                new NotFoundLinkException(
+                    message: $"Link not found with id: {storageLink.Id}.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: notFoundReactionException);
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: notFoundLinkException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedLinkValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -287,57 +288,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Approved)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfTheStoredRowIsNotSubmittableAsync(
+        public async Task ShouldThrowValidationExceptionOnTransitionIfTheStoredRowIsNotTransitionableAsync(
             ApprovalStatus storageStatus)
         {
-            // given: only a row actually in review can be decided. The tier and the access
-            // decision pass first (global Publisher, permissive fixture), so this proves the
-            // state gate stands on its own.
+            // given: a Draft has not been submitted and a Dismissed row is not in a round at all,
+            // so neither can be decided. Approved and Rejected are absent because they ARE
+            // transitionable — by an Admin, through the override — and are covered there.
+            //
+            // The tier and the access decision pass first (global Publisher, permissive fixture),
+            // so this proves the state gate stands on its own.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.ApprovalStatus = storageStatus;
+            Link storageLink = CreateApprovableStorageLink();
+            storageLink.ApprovalStatus = storageStatus;
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupLinkStorageRead(storageLink);
             SetupAccessBrokerToPermit();
 
-            var invalidReactionException =
-                new InvalidReactionException(
-                    message: "Reaction cannot be approved from status " +
+            var invalidLinkException =
+                new InvalidLinkException(
+                    message: "Link cannot be approved from status " +
                         $"{storageStatus}.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: invalidReactionException);
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: invalidLinkException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedLinkValidationException);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateLinkAsync(
+                        It.IsAny<Link>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        It.IsAny<ReactionEventOperation>()),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        It.IsAny<LinkEventOperation>()),
                 Times.Never);
         }
 
@@ -350,31 +352,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // refused before the access decision is ever asked.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link storageLink = CreateApprovableStorageLink();
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupLinkStorageRead(storageLink);
 
-            var unauthorizedReactionException =
-                new UnauthorizedReactionException(
-                    message: "The current user is not allowed to approve this reaction.");
+            var unauthorizedLinkException =
+                new UnauthorizedLinkException(
+                    message: "The current user is not allowed to approve this link.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedReactionException);
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedLinkException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then: refused before the cross-entity decision is asked
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedLinkValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -383,8 +385,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 Times.Never);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateLinkAsync(
+                        It.IsAny<Link>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
         }
@@ -397,32 +399,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // approve (HR-2 self-approval lives behind the access broker).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link storageLink = CreateApprovableStorageLink();
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupLinkStorageRead(storageLink);
             SetupAccessBrokerToRefuse(AccessDenialReason.SelfApprovalNotPermitted);
 
-            var unauthorizedReactionException =
-                new UnauthorizedReactionException(
-                    message: "The current user is not allowed to approve this reaction.");
+            var unauthorizedLinkException =
+                new UnauthorizedLinkException(
+                    message: "The current user is not allowed to approve this link.");
 
-            var expectedReactionValidationException =
-                new ReactionValidationException(
-                    message: "Reaction validation error occurred, fix the errors and try again.",
-                    innerException: unauthorizedReactionException);
+            var expectedLinkValidationException =
+                new LinkValidationException(
+                    message: "Link validation error occurred, fix the errors and try again.",
+                    innerException: unauthorizedLinkException);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then
-            actualException.Should().BeEquivalentTo(expectedReactionValidationException);
+            actualException.Should().BeEquivalentTo(expectedLinkValidationException);
 
             this.accessBrokerMock.Verify(broker =>
                     broker.MayDecideApprovalAsync(
@@ -431,15 +433,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateReactionAsync(
-                        It.IsAny<Reaction>(),
+                    broker.UpdateLinkAsync(
+                        It.IsAny<Link>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                    broker.PublishReactionAsync(
-                        It.IsAny<EventEnvelope<Reaction>>(),
-                        It.IsAny<ReactionEventOperation>()),
+                    broker.PublishLinkAsync(
+                        It.IsAny<EventEnvelope<Link>>(),
+                        It.IsAny<LinkEventOperation>()),
                 Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
@@ -448,7 +450,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             this.loggingBrokerMock.Verify(broker =>
                     broker.LogErrorAsync(It.Is(
-                        SameExceptionAs(expectedReactionValidationException))),
+                        SameExceptionAs(expectedLinkValidationException))),
                 Times.Once);
         }
 
@@ -460,24 +462,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // (§14.5 rule 2), so neither may appear in anything thrown.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link storageLink = CreateApprovableStorageLink();
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupLinkStorageRead(storageLink);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            ReactionValidationException actualException =
-                await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            LinkValidationException actualException =
+                await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then: the service's own wording, naming no policy
             actualException.InnerException.Message.Should().Be(
-                "The current user is not allowed to approve this reaction.");
+                "The current user is not allowed to approve this link.");
 
             string thrownText = FlattenExceptionText(actualException);
 
@@ -495,10 +497,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // the throw is what discards the verdict.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
+            Link storageLink = CreateApprovableStorageLink();
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
 
-            SetupReactionStorageRead(storageReaction);
+            SetupLinkStorageRead(storageLink);
             SetupAccessBrokerToRefuse(AccessDenialReason.ApprovalThresholdNotMet);
 
             var logCallOrder = new List<string>();
@@ -514,63 +516,63 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
                     .Returns(ValueTask.CompletedTask);
 
             // when
-            ValueTask<Reaction> approveTask =
-                this.reactionService.ApproveReactionAsync(
-                    inputReaction,
+            ValueTask<Link> approveTask =
+                this.linkService.TransitionLinkApprovalAsync(
+                    inputLink,
                     TestContext.Current.CancellationToken);
 
-            await Assert.ThrowsAsync<ReactionValidationException>(approveTask.AsTask);
+            await Assert.ThrowsAsync<LinkValidationException>(approveTask.AsTask);
 
             // then: the warning lands first, and the error the throw produces second
             logCallOrder.Should().HaveCount(2);
             logCallOrder[0].Should().StartWith("warning:");
             logCallOrder[1].Should().Be("error");
 
-            logCallOrder[0].Should().Contain(storageReaction.Id.ToString());
+            logCallOrder[0].Should().Contain(storageLink.Id.ToString());
             logCallOrder[0].Should().Contain(nameof(AccessDenialReason.ApprovalThresholdNotMet));
             logCallOrder[0].Should().Contain("refused");
         }
 
         [Fact]
-        public async Task ShouldAskTheAccessBrokerAboutTheStoredReactionOnApproveAsync()
+        public async Task ShouldAskTheAccessBrokerAboutTheStoredLinkOnApproveAsync()
         {
             // given: the caller's copy names a DIFFERENT author from the stored row. If the
             // query were built from the caller's copy, a contributor could name somebody else as
             // author and walk past the self-approval bar.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
-            storageReaction.CreatedBy = $"stored-{Guid.NewGuid()}";
+            Link storageLink = CreateApprovableStorageLink();
+            storageLink.CreatedBy = $"stored-{Guid.NewGuid()}";
 
-            Reaction inputReaction = CreateApprovalDecision(storageReaction.Id);
-            inputReaction.CreatedBy = $"caller-{Guid.NewGuid()}";
+            Link inputLink = CreateApprovalDecision(storageLink.Id);
+            inputLink.CreatedBy = $"caller-{Guid.NewGuid()}";
 
-            Guid expectedEntityId = storageReaction.Id;
-            string expectedCreatedBy = storageReaction.CreatedBy;
+            Guid expectedEntityId = storageLink.Id;
+            string expectedCreatedBy = storageLink.CreatedBy;
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageReaction, inputReaction);
+                await CaptureApprovalDecisionQueryAsync(storageLink, inputLink);
 
             // then
             actualQuery.Should().NotBeNull();
 
-            actualQuery.EntityType.Should().Be(EntityType.Reaction);
+            actualQuery.EntityType.Should().Be(EntityType.Link);
             actualQuery.EntityId.Should().Be(expectedEntityId);
 
-            // a reaction carries no content type, so its policy tier is (Reaction, null)
+            // a link carries no content type, so its policy tier is (Link, null)
             actualQuery.ContentType.Should().BeNull();
 
             actualQuery.EntityCreatedBy.Should().Be(expectedCreatedBy);
-            actualQuery.EntityCreatedBy.Should().NotBe(inputReaction.CreatedBy);
+            actualQuery.EntityCreatedBy.Should().NotBe(inputLink.CreatedBy);
 
-            // a reaction has no confidence score — that is an association's input
+            // a link has no confidence score — that is an association's input
             actualQuery.ConfidenceScore.Should().BeNull();
 
-            // one subject: the reaction authorises from itself, keyed by its own type with no
+            // one subject: the link authorises from itself, keyed by its own type with no
             // content type
             actualQuery.RoleSubjects.Should().HaveCount(1);
-            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Reaction));
+            actualQuery.RoleSubjects[0].EntityType.Should().Be(nameof(EntityType.Link));
             actualQuery.RoleSubjects[0].ContentType.Should().BeNull();
 
             actualQuery.IsBypassRequested.Should().BeFalse();
@@ -589,15 +591,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // unable to reject the very row the threshold was failing to approve.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
-            Reaction storageReaction = CreateApprovableStorageReaction();
+            Link storageLink = CreateApprovableStorageLink();
 
-            Reaction inputReaction = callerStatus == ApprovalStatus.Rejected
-                ? CreateRejectionDecision(storageReaction.Id)
-                : CreateApprovalDecision(storageReaction.Id);
+            Link inputLink = callerStatus == ApprovalStatus.Rejected
+                ? CreateRejectionDecision(storageLink.Id)
+                : CreateApprovalDecision(storageLink.Id);
 
             // when
             ApprovalDecisionQuery actualQuery =
-                await CaptureApprovalDecisionQueryAsync(storageReaction, inputReaction);
+                await CaptureApprovalDecisionQueryAsync(storageLink, inputLink);
 
             // then
             actualQuery.Should().NotBeNull();
