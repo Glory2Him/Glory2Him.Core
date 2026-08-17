@@ -206,6 +206,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 (Rule: IsInvalid(approvalReview.CreatedWhen), Parameter: nameof(ApprovalReview.CreatedWhen)),
                 (Rule: IsInvalid(approvalReview.UpdatedWhen), Parameter: nameof(ApprovalReview.UpdatedWhen)),
 
+                (Rule: IsInvalid(approvalReview.Comment), Parameter: nameof(ApprovalReview.Comment)),
+
+                (Rule: IsGreaterThan(approvalReview.Comment, 1000),
+                    Parameter: nameof(ApprovalReview.Comment)),
+
                 (Rule: IsGreaterThan(approvalReview.CreatedBy, 255),
                     Parameter: nameof(ApprovalReview.CreatedBy)),
 
@@ -260,6 +265,11 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 (Rule: IsInvalid(approvalReview.UpdatedBy), Parameter: nameof(ApprovalReview.UpdatedBy)),
                 (Rule: IsInvalid(approvalReview.CreatedWhen), Parameter: nameof(ApprovalReview.CreatedWhen)),
                 (Rule: IsInvalid(approvalReview.UpdatedWhen), Parameter: nameof(ApprovalReview.UpdatedWhen)),
+
+                (Rule: IsInvalid(approvalReview.Comment), Parameter: nameof(ApprovalReview.Comment)),
+
+                (Rule: IsGreaterThan(approvalReview.Comment, 1000),
+                    Parameter: nameof(ApprovalReview.Comment)),
 
                 (Rule: IsGreaterThan(approvalReview.CreatedBy, 255),
                     Parameter: nameof(ApprovalReview.CreatedBy)),

@@ -319,7 +319,29 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                         first: inputApproval.EntityId,
                         second: storageApproval.EntityId,
                         secondName: nameof(Approval.EntityId)),
-                    Parameter: nameof(Approval.EntityId)));
+                    Parameter: nameof(Approval.EntityId)),
+
+                // The bypass pair records that the §8.5 conditions were WAIVED and why. §9.7.5
+                // makes the bypass verb the only path that ever sets it, so the general modify
+                // must not: unpinned, an authorized caller could mark an approval bypassed — or
+                // erase an existing waiver and its reason — without any waiver being recorded.
+                //
+                // Nothing writes these on an Approval row today. Every setter in the repo is a
+                // bypass transition on the ENTITY (AssociationService, ContentItemService and
+                // their peers), so this pin blocks no legitimate writer. Should an approval-level
+                // bypass verb ever be added, it writes through its own transition the way those
+                // do, not through here.
+                (Rule: IsNotSame(
+                        first: inputApproval.IsApprovedByBypass,
+                        second: storageApproval.IsApprovedByBypass,
+                        secondName: nameof(Approval.IsApprovedByBypass)),
+                    Parameter: nameof(Approval.IsApprovedByBypass)),
+
+                (Rule: IsNotSame(
+                        first: inputApproval.ApprovedByBypassReason,
+                        second: storageApproval.ApprovedByBypassReason,
+                        secondName: nameof(Approval.ApprovedByBypassReason)),
+                    Parameter: nameof(Approval.ApprovedByBypassReason)));
         }
 
         private static void ValidateOnRetrieveApprovalById(Guid approvalId) =>
@@ -385,13 +407,25 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 Message = $"Expected value to be '{first}' but found '{second}'."
             };
 
+        // Nullable on both sides: an optional column such as ApprovedByBypassReason is null
+        // until something sets it, and null-versus-null is genuinely "the same". Comparing
+        // with != already answers that correctly, so the pin needs no null guard of its own.
         private static dynamic IsNotSame(
-            string first,
-            string second,
+            string? first,
+            string? second,
             string secondName) => new
             {
                 Condition = first != second,
                 Message = $"Text is not the same as {secondName}"
+            };
+
+        private static dynamic IsNotSame(
+            bool first,
+            bool second,
+            string secondName) => new
+            {
+                Condition = first != second,
+                Message = $"Value is not the same as {secondName}"
             };
 
         private static dynamic IsNotSame(

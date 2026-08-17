@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Events;
@@ -78,6 +79,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             {
                 Id = Guid.Empty,
                 ApprovalId = Guid.Empty,
+                Comment = invalidText,
                 CreatedBy = invalidText,
                 UpdatedBy = invalidText,
                 CreatedWhen = default,
@@ -95,6 +97,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             invalidApprovalCommentException.AddData(
                 key: nameof(ApprovalComment.ApprovalId),
                 values: "Id is required");
+
+            invalidApprovalCommentException.AddData(
+                key: nameof(ApprovalComment.Comment),
+                values: "Text is required");
 
             invalidApprovalCommentException.AddData(
                 key: nameof(ApprovalComment.CreatedBy),
@@ -640,5 +646,55 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// The cap is 1000 and the boundary is pinned both ways: 1000 characters is accepted, 1001
+        /// is refused. An off-by-one here would either reject legitimate text or let the column —
+        /// which is now <c>nvarchar(1000)</c> — do the rejecting as a dependency failure instead
+        /// of a validation error.
+        /// </summary>
+        [Theory]
+        [InlineData(1000, false)]
+        [InlineData(1001, true)]
+        public async Task ShouldEnforceTheApprovalCommentTextCapAtExactlyOneThousandOnAddAsync(
+            int commentLength,
+            bool expectRefusal)
+        {
+            // given: everything else deliberately blank, so the run always throws and the only
+            // question is whether Comment is among the reported errors
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            var invalidApprovalComment = new ApprovalComment
+            {
+                Comment = GetRandomStringWithLengthOf(commentLength),
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(
+                    It.IsAny<ApprovalComment>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(invalidApprovalComment);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ApprovalComment> addApprovalCommentTask =
+                this.approvalCommentService.AddApprovalCommentAsync(
+                    invalidApprovalComment,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalCommentValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalCommentValidationException>(addApprovalCommentTask.AsTask);
+
+            // then
+            bool commentWasRefused = actualException.InnerException!.Data.Keys
+                .Cast<string>()
+                .Contains(nameof(ApprovalComment.Comment));
+
+            commentWasRefused.Should().Be(expectRefusal);
+        }
+
     }
 }

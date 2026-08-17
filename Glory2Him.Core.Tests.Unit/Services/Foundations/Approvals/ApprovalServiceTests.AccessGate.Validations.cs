@@ -379,6 +379,78 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 Times.Never);
         }
 
+
+        /// <summary>
+        /// The bypass pair records that the §8.5 conditions were WAIVED and why. §9.7.5 makes the
+        /// bypass verb the only path that ever sets it, so the general modify must not — unpinned,
+        /// an authorized caller could mark an approval bypassed, or erase an existing waiver and
+        /// its stated reason, with no waiver recorded anywhere.
+        ///
+        /// <para>Nothing writes these on an <c>Approval</c> row today: every setter in the repo is
+        /// a bypass transition on the ENTITY. So the pin blocks no legitimate writer.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheBypassPairIsTouchedAsync(
+            bool touchTheFlag)
+        {
+            // given: the owner, so every authorization gate passes and the pin is the only
+            // thing that can refuse
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
+            Approval inputApproval = randomApproval;
+            Approval storageApproval = randomApproval.DeepClone();
+
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // the STORED waiver differs from what the payload claims
+            if (touchTheFlag)
+            {
+                storageApproval.IsApprovedByBypass = !inputApproval.IsApprovedByBypass;
+            }
+            else
+            {
+                storageApproval.ApprovedByBypassReason =
+                    inputApproval.ApprovedByBypassReason + GetRandomString();
+            }
+
+            SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(inputApproval);
+
+            // when
+            ValueTask<Approval> modifyApprovalTask =
+                this.approvalService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    modifyApprovalTask.AsTask);
+
+            // then
+            string pinnedMember = touchTheFlag
+                ? nameof(Approval.IsApprovedByBypass)
+                : nameof(Approval.ApprovedByBypassReason);
+
+            actualApprovalValidationException.InnerException!.Data.Keys
+                .Cast<string>().Should().Contain(pinnedMember);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
         private void SetupModifyApprovalRun(
             Approval inputApproval,
             Approval storageApproval,
