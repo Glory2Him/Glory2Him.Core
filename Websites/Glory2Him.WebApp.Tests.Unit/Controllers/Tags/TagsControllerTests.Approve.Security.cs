@@ -26,7 +26,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
         {
             // Given
             var controllerType = typeof(TagsController);
-            var methodInfo = controllerType.GetMethod("ApproveTagAsync");
+            var methodInfo = controllerType.GetMethod("TransitionTagApprovalAsync");
             Type attributeType = typeof(AuthorizeAttribute);
             string attributeProperty = "Roles";
 
@@ -68,7 +68,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
         {
             // Given
             var controllerType = typeof(TagsController);
-            var methodInfo = controllerType.GetMethod("ApproveTagAsync");
+            var methodInfo = controllerType.GetMethod("TransitionTagApprovalAsync");
             Type attributeType = typeof(AllowAnonymousAttribute);
 
             // When

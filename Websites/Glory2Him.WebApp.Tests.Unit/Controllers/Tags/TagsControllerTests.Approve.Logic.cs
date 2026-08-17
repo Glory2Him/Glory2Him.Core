@@ -37,17 +37,17 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
                 new ActionResult<Tag>(expectedObjectResult);
 
             tagServiceMock
-                .Setup(service => service.ApproveTagAsync(inputTag, It.IsAny<CancellationToken>()))
+                .Setup(service => service.TransitionTagApprovalAsync(inputTag, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageTag);
 
             // when
-            ActionResult<Tag> actualActionResult = await tagsController.ApproveTagAsync(randomTag, default);
+            ActionResult<Tag> actualActionResult = await tagsController.TransitionTagApprovalAsync(randomTag, default);
 
             // then
             actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
 
             tagServiceMock
-               .Verify(service => service.ApproveTagAsync(inputTag, It.IsAny<CancellationToken>()),
+               .Verify(service => service.TransitionTagApprovalAsync(inputTag, It.IsAny<CancellationToken>()),
                    Times.Once);
 
             tagServiceMock.VerifyNoOtherCalls();

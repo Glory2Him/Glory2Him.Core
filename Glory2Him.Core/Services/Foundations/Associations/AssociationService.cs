@@ -485,6 +485,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     storageAssociation: maybeAssociation,
                     securityContext: inboundEnvelope.SecurityContext);
 
+            // Checked AFTER write permission so the refusal cannot be used to read a row's
+            // approval state without the standing to see it.
+            ValidateStorageAssociationIsNotTerminal(maybeAssociation);
+
             association = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     entity: association,

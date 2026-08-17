@@ -177,6 +177,39 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 || HasPublisherRoleForAssociation(securityContext, storageAssociation);
         }
 
+        // Approved and Rejected are TERMINAL: a row in either state is immutable in place, to
+        // its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16, §9.7.4, §12.3.1
+        // shared rule 9). Reviewers reached a verdict on that row, and a row that changes
+        // underneath a verdict makes the verdict a record of nothing.
+        //
+        // This is NOT the rule the status pin enforces, and the two are easy to confuse. The pin
+        // refuses a CHANGE to ApprovalStatus, and its condition is guarded by
+        // inputStatus != storageStatus — so a caller who echoes the stored status back unchanged
+        // passes it. An association never forks, so refusing the write IS the enforcement, and
+        // the only way back is the Admin override on the approval transition (§8.6 HR-4).
+        //
+        // Reachable in principle and inert in practice, which is worth stating rather than
+        // leaving for someone to rediscover: an association has NO caller-editable content —
+        // every non-audit property is pinned against storage — so its general modify is nothing
+        // but the §9.2 Draft <-> Submitted carve-out, and that carve-out is only ever reached
+        // from Draft or Submitted. The refusal is kept anyway, because the rule belongs to every
+        // approvable entity and a rule that holds only by accident of the current field list
+        // stops holding the moment that list changes.
+        private static void ValidateStorageAssociationIsNotTerminal(
+            Association storageAssociation)
+        {
+            bool isTerminal =
+                storageAssociation.ApprovalStatus == ApprovalStatus.Approved
+                    || storageAssociation.ApprovalStatus == ApprovalStatus.Rejected;
+
+            if (isTerminal)
+            {
+                throw new InvalidAssociationException(
+                    message: "Content item association cannot be modified from status " +
+                        $"{storageAssociation.ApprovalStatus}.");
+            }
+        }
+
         // removing an association is a takedown, not a moderation step — the owner may
         // remove their own association and an Admin may remove anyone's; Reviewers and
         // Publishers moderate through the approval workflow instead

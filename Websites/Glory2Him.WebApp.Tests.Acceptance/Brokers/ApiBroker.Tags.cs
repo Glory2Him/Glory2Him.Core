@@ -39,7 +39,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask<Tag> HardDeleteTagByIdAsync(Guid tagId) =>
             await this.apiFactoryClient.DeleteContentAsync<Tag>($"{tagsRelativeUrl}/{tagId}/hard");
 
-        public async ValueTask<Tag> ApproveTagAsync(Tag tag) =>
+        public async ValueTask<Tag> TransitionTagApprovalAsync(Tag tag) =>
             await this.apiFactoryClient.PostContentAsync($"{tagsRelativeUrl}/approve", tag);
 
         public async ValueTask<Tag> SubmitTagByIdAsync(Guid tagId) =>

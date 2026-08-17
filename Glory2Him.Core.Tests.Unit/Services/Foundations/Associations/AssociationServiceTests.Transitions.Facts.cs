@@ -125,14 +125,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when: all five run
 
-            await this.associationService.ApproveAssociationAsync(
+            await this.associationService.TransitionAssociationApprovalAsync(
                 CreateApprovalDecision(approvableAssociation.Id), cancellationToken);
 
             // the bypass is the one transition whose fact is NOT its own: it publishes the
             // ordinary Approved, so the list below carries Approved twice
-            await this.associationService.BypassApproveAssociationAsync(
-                CreateApprovalDecision(bypassApprovableAssociation.Id),
-                GetRandomString(),
+            await this.associationService.TransitionAssociationApprovalAsync(
+                CreateBypassApprovalDecision(bypassApprovableAssociation.Id),
                 cancellationToken);
 
             await this.associationService.SortAssociationAsync(

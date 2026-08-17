@@ -92,21 +92,21 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // Each takes the whole entity for house-style consistency with Modify, but reads only
         // the fields in its own scope from it; everything else comes from storage.
 
-        ValueTask<Association> ApproveAssociationAsync(
-            Association association,
-            CancellationToken cancellationToken = default);
-
-        // Approving OVER unmet conditions, which is its own verb rather than a flag on the
-        // one above (§12.4.4 rule 11). A flag would make every ordinary approve a potential
-        // bypass, and the reason — the only thing that makes a bypass tolerable — would be an
-        // optional argument on the common path instead of a required one here.
+        // One verb for every approval-state move, because they are one act under different
+        // authority rather than three operations: the ordinary Submitted -> Approved/Rejected
+        // verdict, the Admin override that re-opens a terminal row (§8.6 HR-4), and the bypass
+        // that approves OVER unmet conditions (§12.4.4 rule 11).
         //
-        // The reason is a parameter and not a field on the entity because it is an argument to
-        // the DECISION, not a value the caller may write: what lands on the row is derived
-        // from the verdict, and is cleared when the verdict waived nothing.
-        ValueTask<Association> BypassApproveAssociationAsync(
+        // The bypass was previously its own verb, on the reasoning that a flag would make every
+        // ordinary approve a potential bypass and would demote the reason — the only thing that
+        // makes a bypass tolerable — to an optional argument on the common path. That is
+        // reversed (§8.6.1); what replaced it keeps both mitigations. The reason is validated
+        // non-empty and bounded BEFORE any policy is read, so an unexplained bypass is refused
+        // under every policy, and the pair that lands on the row is still derived from the
+        // verdict rather than accepted — a waiver that turned out to be unnecessary records no
+        // bypass at all.
+        ValueTask<Association> TransitionAssociationApprovalAsync(
             Association association,
-            string bypassReason,
             CancellationToken cancellationToken = default);
 
         ValueTask<Association> SortAssociationAsync(

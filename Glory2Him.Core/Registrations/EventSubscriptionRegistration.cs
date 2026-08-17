@@ -1255,22 +1255,6 @@ namespace Glory2Him.Core.Registrations
                 subscription: new EventSubscription
                 {
                     Id = EventBrokerIdentifiers
-                        .AssociationOnBypassApprovingAssociationSubscriptionId,
-
-                    Name = EventBrokerIdentifiers
-                        .AssociationOnBypassApprovingAssociationSubscriptionName,
-
-                    Description = "Handles bypass-approve requests: approves over the unmet approval conditions, records on the row that the conditions were waived and the reason the actor gave, publishes Association-Approved, and replies with the updated entity."
-                },
-                operation: AssociationEventOperation.BypassApproving,
-                associationEventHandler:
-                    this.associationService.OnBypassApprovingAssociationAsync,
-                cancellationToken: cancellationToken);
-
-            await this.eventBroker.SubscribeToAssociationEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers
                         .AssociationOnSettingAssociationConfidenceSubscriptionId,
 
                     Name = EventBrokerIdentifiers

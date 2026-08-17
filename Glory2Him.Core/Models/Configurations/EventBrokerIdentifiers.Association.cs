@@ -62,13 +62,13 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid AssociationRejectedEventAddressId =
             new Guid("019fdd70-1b86-76cd-83ee-c46b10b2a6b0");
 
-        // Bypass-approve gets its own REQUEST address — a bypass is a different act, asked
-        // for deliberately, and a subscriber watching for bypass requests must be able to
-        // watch that address alone. It gets no fact address: the outcome is published on
-        // Association-Approved, because a bypass approval is an approval to every consumer
-        // and the waiver travels on the row rather than in the fact's name.
-        public static readonly Guid AssociationBypassApprovingEventAddressId =
-            new Guid("019fee42-5ff7-7108-8e72-9ba53290a834");
+        // A fact address with no request address behind it, because an association has no
+        // submit verb: a row reaches Submitted on add, or through the §9.2 modify carve-out.
+        // What publishes here is the Admin override re-opening a decided row (§8.6 HR-4), and
+        // the approval workflow needs to hear that the round has re-opened — a demoted row that
+        // announced nothing would leave every subscriber believing the old verdict still stood.
+        public static readonly Guid AssociationSubmittedEventAddressId =
+            new Guid("019ff3c8-4b21-7a55-9d84-2c61f0e7a913");
 
         // Sort has a fact address but no request address: its signature needs an anchor and a
         // side, and an envelope carries one entity. See AssociationEventOperation.
@@ -106,9 +106,9 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationEventOperation.HardRemoved, AssociationRemovedEventAddressId },
 
                 { AssociationEventOperation.Approving, AssociationApprovingEventAddressId },
-                { AssociationEventOperation.BypassApproving, AssociationBypassApprovingEventAddressId },
                 { AssociationEventOperation.SettingConfidence, AssociationSettingConfidenceEventAddressId },
                 { AssociationEventOperation.SettingScope, AssociationSettingScopeEventAddressId },
+                { AssociationEventOperation.Submitted, AssociationSubmittedEventAddressId },
                 { AssociationEventOperation.Approved, AssociationApprovedEventAddressId },
                 { AssociationEventOperation.Rejected, AssociationRejectedEventAddressId },
                 { AssociationEventOperation.Sorted, AssociationSortedEventAddressId },
@@ -128,9 +128,9 @@ namespace Glory2Him.Core.Models.Configurations
                 { AssociationModifiedEventAddressId, "Association-Modified" },
                 { AssociationRemovedEventAddressId, "Association-Removed" },
                 { AssociationApprovingEventAddressId, "Association-Approving" },
-                { AssociationBypassApprovingEventAddressId, "Association-BypassApproving" },
                 { AssociationSettingConfidenceEventAddressId, "Association-SettingConfidence" },
                 { AssociationSettingScopeEventAddressId, "Association-SettingScope" },
+                { AssociationSubmittedEventAddressId, "Association-Submitted" },
                 { AssociationApprovedEventAddressId, "Association-Approved" },
                 { AssociationRejectedEventAddressId, "Association-Rejected" },
                 { AssociationSortedEventAddressId, "Association-Sorted" },
@@ -170,12 +170,6 @@ namespace Glory2Him.Core.Models.Configurations
 
         public const string AssociationOnApprovingAssociationSubscriptionName =
             "AssociationService.OnApprovingAssociation";
-
-        public static readonly Guid AssociationOnBypassApprovingAssociationSubscriptionId =
-            new Guid("019fee42-5ffa-7750-8949-d780910ad8a7");
-
-        public const string AssociationOnBypassApprovingAssociationSubscriptionName =
-            "AssociationService.OnBypassApprovingAssociation";
 
         public static readonly Guid AssociationOnSortingAssociationSubscriptionId =
             new Guid("019fd991-a287-7e02-b04e-71a4eacbb09b");

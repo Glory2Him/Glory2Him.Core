@@ -49,19 +49,21 @@ namespace Glory2Him.Core.Models.Events.Foundations
         // direct-call only and publishes its fact like the others.
         Approving,
 
-        // The bypass-approve verb of HR-4 route 3. It is a REQUEST operation only: there is
-        // no BypassApproved fact, because a bypass approval is an approval to every
-        // subscriber and the waiver itself travels on the row (IsApprovedByBypass and
-        // ApprovedByBypassReason). Inventing a second approval fact would split the audience
-        // for one outcome, and a consumer subscribed to Approved alone would silently miss
-        // exactly the approvals most worth seeing.
-        BypassApproving,
-
         SettingConfidence,
         SettingScope,
-        // Approve carries the whole decision, so it publishes one of TWO facts. A rejection
-        // broadcast on the Approved address would tell every subscriber the opposite of
-        // what happened - the fact name is the contract they key on.
+
+        // The approval transition carries the whole decision, so it publishes one of THREE
+        // facts. A rejection broadcast on the Approved address would tell every subscriber the
+        // opposite of what happened - the fact name is the contract they key on.
+        //
+        // Submitted is a fact with no request address behind it: an association has no submit
+        // verb, and what publishes here is the Admin override re-opening a decided row
+        // (§8.6 HR-4). A bypass approval has no fact of its own and never did - it IS an
+        // approval to every subscriber, and the waiver travels on the row (IsApprovedByBypass
+        // and ApprovedByBypassReason). A second approval address would split the audience for
+        // one outcome, and a consumer subscribed to Approved alone would silently miss exactly
+        // the approvals most worth seeing.
+        Submitted,
         Approved,
         Rejected,
         Sorted,

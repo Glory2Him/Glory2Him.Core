@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given / when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     null, TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -40,24 +40,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfStatusIsNotAnOutcomeAsync(
-            ApprovalStatus notAnOutcome)
+        public async Task ShouldThrowValidationExceptionOnTransitionIfStatusIsNotATransitionTargetAsync(
+            ApprovalStatus notATransitionTarget)
         {
-            // given: approve owns the whole of IApproval, which makes it the one place these
-            // values can be set — so the set it accepts has to be closed. Draft and Submitted
-            // are states a row LEAVES here, and Dismissed belongs to a later withdrawal step.
+            // given: this operation owns the whole of IApproval, which makes it the one place
+            // these values can be set — so the set it accepts has to be closed. Draft is reached
+            // once, at creation, and Dismissed belongs to a withdrawal step. Submitted is NOT
+            // here: it is what an override re-opens a terminal row to.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association decision = CreateApprovalDecision(Guid.NewGuid());
-            decision.ApprovalStatus = notAnOutcome;
+            decision.ApprovalStatus = notATransitionTarget;
             decision.IsPublished = false;
             decision.PublishDate = null;
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     decision, TestContext.Current.CancellationToken));
 
             // refused before storage was touched
@@ -76,7 +76,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     decision, TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -93,7 +93,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     decision, TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.VerifyNoOtherCalls();
@@ -118,7 +118,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     decision, TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.Verify(broker =>
@@ -141,7 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     decision, TestContext.Current.CancellationToken));
 
             this.storageBrokerMock.Verify(broker =>
@@ -166,7 +166,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.ApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     decision, TestContext.Current.CancellationToken));
         }
 
@@ -395,14 +395,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             return transitionName switch
             {
 
-                "Approve" => this.associationService.ApproveAssociationAsync(
+                "Approve" => this.associationService.TransitionAssociationApprovalAsync(
                     CreateApprovalDecision(storageAssociation.Id), cancellationToken),
 
                 // a bypass is a write like any other, so the global veto sits above it too —
                 // and above the reason, which is why a valid one is supplied here
-                "BypassApprove" => this.associationService.BypassApproveAssociationAsync(
-                    CreateApprovalDecision(storageAssociation.Id),
-                    GetRandomString(),
+                "BypassApprove" => this.associationService.TransitionAssociationApprovalAsync(
+                    CreateBypassApprovalDecision(storageAssociation.Id),
                     cancellationToken),
 
                 "Sort" => this.associationService.SortAssociationAsync(

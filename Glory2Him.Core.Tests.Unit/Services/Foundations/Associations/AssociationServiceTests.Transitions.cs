@@ -12,6 +12,7 @@
 using System;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Events;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 {
@@ -46,6 +47,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                 ApprovalStatus = ApprovalStatus.Approved,
                 IsPublished = true,
                 PublishDate = GetRandomDateTimeOffset()
+            };
+
+        // A bypass REQUEST: the caller asks by setting the pair, and the verdict decides what is
+        // recorded. Since the bypass folded into the widened verb it is the same decision with
+        // two more fields set, which is exactly what this expresses.
+        private static Association CreateBypassApprovalDecision(Guid associationId)
+        {
+            Association association = CreateApprovalDecision(associationId);
+            association.IsApprovedByBypass = true;
+            association.ApprovedByBypassReason = GetRandomString();
+
+            return association;
+        }
+
+        // The Admin override's target: a terminal row re-opened for a second round. Publication
+        // is not asked for — the validation refuses a published non-approved row, and the
+        // do-work derives it off regardless.
+        private static Association CreateReopenDecision(Guid associationId) =>
+            new Association
+            {
+                Id = associationId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsPublished = false,
+                PublishDate = null
+            };
+
+        // A stored row in a terminal state, published as an approved one would be, so a test can
+        // assert the override actually unpublishes it rather than finding it already false.
+        private static Association CreateTerminalStorageAssociation(
+            ApprovalStatus terminalStatus)
+        {
+            Association association = CreateStorageAssociationInStatus(terminalStatus);
+            association.IsPublished = terminalStatus == ApprovalStatus.Approved;
+
+            association.PublishDate = association.IsPublished
+                ? GetRandomDateTimeOffset()
+                : null;
+
+            return association;
+        }
+
+        // The context ApprovalOrchestrationService mints for the workflow's own writes. Roleless
+        // on purpose: the flag is the whole of its authority, so a test that passes with roles
+        // attached would not be proving the flag did anything.
+        private static SecurityContext CreateSystemSecurityContext() =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = [],
+                IsSystemIdentity = true
             };
 
         private static Association CreateRejectionDecision(Guid associationId) =>

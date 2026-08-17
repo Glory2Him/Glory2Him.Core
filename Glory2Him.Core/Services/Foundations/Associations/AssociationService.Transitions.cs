@@ -51,7 +51,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // after the insertion point, which is multi-row work and belongs at orchestration.
         private const int SortOrderStep = 100;
 
-        public ValueTask<Association> ApproveAssociationAsync(
+        public ValueTask<Association> TransitionAssociationApprovalAsync(
             Association association,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -62,28 +62,14 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 EventEnvelope<Association> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: association);
 
-                return await DoApproveAssociationAsync(
+                return await DoTransitionAssociationApprovalAsync(
                     association: association,
                     inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
-            });
 
-        public ValueTask<Association> BypassApproveAssociationAsync(
-            Association association,
-            string bypassReason,
-            CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ValidateAssociationIsNotNull(association);
-
-                EventEnvelope<Association> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: association);
-
-                return await DoBypassApproveAssociationAsync(
-                    association: association,
-                    bypassReason: bypassReason,
-                    inboundEnvelope: envelope,
+                    // This envelope's context was minted here, in process, from the ambient
+                    // caller — so a system identity on it is one this process asserted about
+                    // itself. The event path passes false; see OnApprovingAssociationAsync.
+                    isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });
 
@@ -148,13 +134,27 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     cancellationToken: cancellationToken);
             });
 
-        private async ValueTask<Association> DoApproveAssociationAsync(
+        private async ValueTask<Association> DoTransitionAssociationApprovalAsync(
             Association association,
             EventEnvelope<Association> inboundEnvelope,
+            bool isSystemIdentityAdmissible,
             CancellationToken cancellationToken)
         {
             ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
-            ValidateOnApproveAssociation(association);
+
+            // Shape first, and the bypass reason with it, so an unexplained bypass is refused
+            // before any policy is read — under every policy, including one that would have
+            // permitted the waiver.
+            ValidateOnTransitionAssociationApproval(association);
+
+            // The system identity is a claim about PROVENANCE, and provenance is not carried by
+            // the payload. It is honoured only where this service minted the context itself; an
+            // envelope that arrived over a public event address carries a deserialized,
+            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
+            // would walk past every rule below by declaring themselves the workflow.
+            bool isSystemIdentity =
+                isSystemIdentityAdmissible
+                    && inboundEnvelope.SecurityContext.IsSystemIdentity;
 
             Association storageAssociation =
                 await LoadTransitionTargetAsync(
@@ -162,77 +162,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     securityContext: inboundEnvelope.SecurityContext,
                     cancellationToken: cancellationToken);
 
-            // decided against the STORED endpoints. Approving from the caller's copy would let
-            // a contributor claim an endpoint content type they hold a reviewer role for and
-            // approve their own row.
-            AccessVerdict accessVerdict = await ValidateUserCanApproveStorageAssociationAsync(
-                storageAssociation: storageAssociation,
-                association: association,
-                securityContext: inboundEnvelope.SecurityContext,
-                cancellationToken: cancellationToken);
-
-            ValidateStorageAssociationIsApprovable(storageAssociation);
-
-            // the whole of IApproval, as one unit — approve and publish are one operation, so
-            // there is no separate publish verb and PublishDate belongs here and nowhere else
-            storageAssociation.ApprovalStatus = association.ApprovalStatus;
-            storageAssociation.IsPublished = association.IsPublished;
-            storageAssociation.PublishDate = association.PublishDate;
-
-            // The two exceptions, DERIVED from the decision rather than accepted from the
-            // caller. Copying these the way the three above are copied would let a caller
-            // performing a genuine bypass send IsApprovedByBypass = false and erase the record.
-            //
-            // This operation never requests a bypass, so the decision can only come back false;
-            // the bypass verb of HR-4 route 3 is what will ever write true. Clearing the reason
-            // is deliberate rather than incidental: an entity bypass-approved, later amended and
-            // then approved normally must stop claiming it was bypassed.
-            storageAssociation.IsApprovedByBypass = accessVerdict.IsBypassUsed;
-            storageAssociation.ApprovedByBypassReason = null;
-
-            // The fact follows the DECISION, not the operation's name. A rejection broadcast
-            // on the Approved address would tell every subscriber the opposite of what
-            // happened, and the fact name is the contract they key on.
-            AssociationEventOperation decision =
-                storageAssociation.ApprovalStatus == ApprovalStatus.Approved
-                    ? AssociationEventOperation.Approved
-                    : AssociationEventOperation.Rejected;
-
-            return await SaveTransitionAsync(
-                association: storageAssociation,
-                inboundEnvelope: inboundEnvelope,
-                operation: decision,
-                receiverName: EventBrokerIdentifiers
-                    .AssociationOnApprovingAssociationSubscriptionName,
-                cancellationToken: cancellationToken);
-        }
-
-        private async ValueTask<Association> DoBypassApproveAssociationAsync(
-            Association association,
-            string bypassReason,
-            EventEnvelope<Association> inboundEnvelope,
-            CancellationToken cancellationToken)
-        {
-            ValidateUserIsNotGloballyBlockedFromContributing(inboundEnvelope.SecurityContext);
-            ValidateOnBypassApproveAssociation(association, bypassReason);
-
-            Association storageAssociation =
-                await LoadTransitionTargetAsync(
-                    associationId: association.Id,
-                    securityContext: inboundEnvelope.SecurityContext,
-                    cancellationToken: cancellationToken);
-
-            // decided against the STORED endpoints, for the same reason the ordinary approve
-            // is: a caller-supplied endpoint content type would be self-certification, and a
-            // bypass is the last place to accept one.
+            // decided against the STORED endpoints. Transitioning from the caller's copy would
+            // let a contributor claim an endpoint content type they hold a reviewer role for and
+            // approve their own row — and would let anyone present a terminal row as Submitted
+            // to slip past the override gate.
             AccessVerdict accessVerdict =
-                await ValidateUserCanBypassApproveStorageAssociationAsync(
+                await ValidateUserCanTransitionStorageAssociationApprovalAsync(
                     storageAssociation: storageAssociation,
-                    bypassReason: bypassReason,
+                    association: association,
                     securityContext: inboundEnvelope.SecurityContext,
+                    isSystemIdentity: isSystemIdentity,
                     cancellationToken: cancellationToken);
 
-            ValidateStorageAssociationIsApprovable(storageAssociation);
+            ValidateStorageAssociationIsTransitionable(storageAssociation);
 
             // What the row keeps is THAT the conditions were waived; what it cannot keep is
             // WHICH one, and that is the question an auditor actually asks — waiving a standing
@@ -250,40 +192,66 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 await this.loggingBroker.LogInformationAsync(
                     $"Association bypass approval granted for {storageAssociation.Id}. "
                         + $"Waived {accessVerdict.BypassedBlockReason}. "
-                        + $"Reason given: \"{bypassReason}\". "
+                        + $"Reason given: \"{association.ApprovedByBypassReason}\". "
                         + $"{accessVerdict.Explanation}");
             }
 
-            // the whole of IApproval, as one unit — the same three fields the ordinary approve
-            // copies, because a bypass changes who may decide, not what a decision writes
+            // the whole of IApproval, as one unit — approve and publish are one operation, so
+            // there is no separate publish verb and PublishDate belongs here and nowhere else
             storageAssociation.ApprovalStatus = association.ApprovalStatus;
-            storageAssociation.IsPublished = association.IsPublished;
-            storageAssociation.PublishDate = association.PublishDate;
 
-            // The two exceptions, DERIVED from the verdict and never read off the caller's
-            // entity. That is the whole point of the pair: they record that the conditions
-            // were waived, and a caller able to write them is equally able to clear them.
+            // Publication is DERIVED, not copied. Any target but Approved unpublishes the row,
+            // so an override out of Approved cannot leave a re-opened row publicly visible while
+            // it waits for a second verdict. The validation above already refuses the inverse
+            // pairing, which makes this a backstop rather than the only guard — but it is what
+            // makes the rule true by construction instead of true by validator.
             //
-            // The verdict can legitimately come back IsBypassUsed = false here even though a
-            // bypass was requested — if the conditions happened to be met, the decision
-            // permits without waiving anything — and in that case the row must record no
-            // bypass at all. Hardcoding true would manufacture an audit entry for a waiver
-            // that never happened, which is as misleading as losing one.
+            // Nothing republishes whatever this may have demoted: the group simply has no public
+            // row until something is approved again (epic decision 7).
+            bool isApproved = association.ApprovalStatus == ApprovalStatus.Approved;
+            storageAssociation.IsPublished = isApproved && association.IsPublished;
+
+            storageAssociation.PublishDate = storageAssociation.IsPublished
+                ? association.PublishDate
+                : null;
+
+            // The bypass pair, DERIVED from the verdict and never read off the caller's entity.
+            // That is the whole point of the pair: they record that the conditions were waived,
+            // and a caller able to write them is equally able to clear them.
+            //
+            // The verdict can legitimately come back IsBypassUsed = false even though a bypass
+            // was requested — if the conditions happened to be met, the decision permits without
+            // waiving anything — and in that case the row must record no bypass at all.
+            // Hardcoding true would manufacture an audit entry for a waiver that never happened,
+            // which is as misleading as losing one.
             storageAssociation.IsApprovedByBypass = accessVerdict.IsBypassUsed;
 
-            storageAssociation.ApprovedByBypassReason =
-                accessVerdict.IsBypassUsed ? bypassReason : null;
+            storageAssociation.ApprovedByBypassReason = accessVerdict.IsBypassUsed
+                ? association.ApprovedByBypassReason
+                : null;
 
-            // Approved, not a fact of its own. A bypass approval IS an approval to every
-            // subscriber, and the waiver travels on the row — a second fact would split the
+            // The fact follows the DECISION, not the operation's name. A rejection broadcast
+            // on the Approved address would tell every subscriber the opposite of what
+            // happened, and the fact name is the contract they key on. An override back to
+            // Submitted re-opens the round, which is what the Submitted address already means.
+            //
+            // A bypass approval has no fact of its own and never did: it IS an approval to every
+            // subscriber, and the waiver travels on the row. A second address would split the
             // audience for one outcome and leave a consumer subscribed to Approved alone
             // silently missing exactly the approvals most worth seeing.
+            AssociationEventOperation decision = association.ApprovalStatus switch
+            {
+                ApprovalStatus.Approved => AssociationEventOperation.Approved,
+                ApprovalStatus.Rejected => AssociationEventOperation.Rejected,
+                _ => AssociationEventOperation.Submitted
+            };
+
             return await SaveTransitionAsync(
                 association: storageAssociation,
                 inboundEnvelope: inboundEnvelope,
-                operation: AssociationEventOperation.Approved,
+                operation: decision,
                 receiverName: EventBrokerIdentifiers
-                    .AssociationOnBypassApprovingAssociationSubscriptionName,
+                    .AssociationOnApprovingAssociationSubscriptionName,
                 cancellationToken: cancellationToken);
         }
 

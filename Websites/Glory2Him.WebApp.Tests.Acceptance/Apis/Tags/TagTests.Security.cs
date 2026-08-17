@@ -129,7 +129,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             this.apiBroker.ActAsContributor();
 
             // when
-            var approveTagTask = this.apiBroker.ApproveTagAsync(randomTag).AsTask();
+            var approveTagTask = this.apiBroker.TransitionTagApprovalAsync(randomTag).AsTask();
 
             // then
             await Assert.ThrowsAsync<HttpResponseForbiddenException>(() => approveTagTask);
@@ -147,7 +147,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
             this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.TagReviewer);
 
             // when
-            var approveTagTask = this.apiBroker.ApproveTagAsync(randomTag).AsTask();
+            var approveTagTask = this.apiBroker.TransitionTagApprovalAsync(randomTag).AsTask();
 
             // then
             await Assert.ThrowsAsync<HttpResponseForbiddenException>(() => approveTagTask);

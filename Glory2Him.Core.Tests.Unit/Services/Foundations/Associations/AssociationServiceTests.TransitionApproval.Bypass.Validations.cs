@@ -54,11 +54,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         "fix the errors and try again.",
                     innerException: unauthorizedAssociationException);
 
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = GetRandomString();
+
             // when
             ValueTask<Association> bypassApproveAssociationTask =
-                this.associationService.BypassApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    GetRandomString(),
                     TestContext.Current.CancellationToken);
 
             AssociationValidationException actualAssociationValidationException =
@@ -141,11 +143,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                     .Callback<Exception>(_ => logCallOrder.Add("error"))
                     .Returns(ValueTask.CompletedTask);
 
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = GetRandomString();
+
             // when
             ValueTask<Association> bypassApproveAssociationTask =
-                this.associationService.BypassApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    GetRandomString(),
                     TestContext.Current.CancellationToken);
 
             await Assert.ThrowsAsync<AssociationValidationException>(
@@ -178,11 +182,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             SetupStorageRead(storageAssociation);
             SetupAccessBrokerToRefuse(AccessDenialReason.BypassNotPermitted);
 
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = GetRandomString();
+
             // when
             ValueTask<Association> bypassApproveAssociationTask =
-                this.associationService.BypassApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    GetRandomString(),
                     TestContext.Current.CancellationToken);
 
             AssociationValidationException actualAssociationValidationException =
@@ -228,7 +234,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             invalidAssociationException.AddData(
                 key: nameof(Association.ApprovedByBypassReason),
-                values: "Text is required");
+                values: "Bypass reason is required when bypassing.");
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(
@@ -236,11 +242,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         "fix the errors and try again.",
                     innerException: invalidAssociationException);
 
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = blankReason;
+
             // when
             ValueTask<Association> bypassApproveAssociationTask =
-                this.associationService.BypassApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    blankReason,
                     TestContext.Current.CancellationToken);
 
             AssociationValidationException actualAssociationValidationException =
@@ -285,11 +293,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         "fix the errors and try again.",
                     innerException: invalidAssociationException);
 
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = overlongReason;
+
             // when
             ValueTask<Association> bypassApproveAssociationTask =
-                this.associationService.BypassApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    overlongReason,
                     TestContext.Current.CancellationToken);
 
             AssociationValidationException actualAssociationValidationException =
@@ -371,41 +381,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Theory]
-        [InlineData(ApprovalStatus.Draft)]
         [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Rejected)]
-        [InlineData(ApprovalStatus.Dismissed)]
         public async Task ShouldThrowValidationExceptionOnBypassApproveIfStatusIsNotAnApprovalAsync(
             ApprovalStatus notAnApproval)
         {
-            // given: NARROWER than the ordinary approve, which admits Rejected alongside
-            // Approved. Rejected is the row that matters here, and it is refused: there is no
-            // such thing as a bypass-reject. A rejection withholds approval rather than granting
-            // it, so nothing is being waived, DoNotAllowBypassingSettings does not gate it and
+            // given: NARROWER than the transition itself, which admits all three targets.
+            // Rejected is the row that matters here, and it is refused: there is no such thing
+            // as a bypass-reject. A rejection withholds approval rather than granting it, so
+            // nothing is being waived, DoNotAllowBypassingSettings does not gate it and
             // IsApprovedByBypass stays false (§9.7.5) — and rejecting is already unconditional
-            // through the ordinary verb, so nothing is lost by closing this door.
+            // through the same verb, so nothing is lost by closing this door. Re-opening to
+            // Submitted is refused for the same reason: it decides nothing, so it waives nothing.
             //
-            // Admitting it would go wrong three ways at once: the row would be stamped
+            // Admitting one would go wrong three ways at once: the row would be stamped
             // IsApprovedByBypass on a REJECTION, the access decision would be taken out for
             // Decision = Approve, and the fact published would be Approved — telling every
             // subscriber the opposite of what happened.
+            //
+            // Draft and Dismissed are absent because they are refused one rule earlier, as
+            // targets the transition does not accept at all.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association decision = CreateApprovalDecision(Guid.NewGuid());
             decision.ApprovalStatus = notAnApproval;
 
-            // so the status rule is the ONLY one that can fire — otherwise a green result here
+            // so the bypass rule is the ONLY one that can fire — otherwise a green result here
             // could be coming from the published-without-approval rule instead
             decision.IsPublished = false;
             decision.PublishDate = null;
+
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = GetRandomString();
 
             var invalidAssociationException =
                 new InvalidAssociationException(
                     message: "Content item association is invalid, fix the errors and try again.");
 
             invalidAssociationException.AddData(
-                key: nameof(Association.ApprovalStatus),
-                values: "Approval status must be Approved.");
+                key: nameof(Association.IsApprovedByBypass),
+                values: "Bypass requires an approved content item association.");
 
             var expectedAssociationValidationException =
                 new AssociationValidationException(
@@ -415,9 +430,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             // when
             ValueTask<Association> bypassApproveAssociationTask =
-                this.associationService.BypassApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    GetRandomString(),
                     TestContext.Current.CancellationToken);
 
             AssociationValidationException actualAssociationValidationException =
@@ -466,11 +480,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         "fix the errors and try again.",
                     innerException: unauthorizedAssociationException);
 
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = GetRandomString();
+
             // when
             ValueTask<Association> bypassApproveAssociationTask =
-                this.associationService.BypassApproveAssociationAsync(
+                this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    GetRandomString(),
                     TestContext.Current.CancellationToken);
 
             AssociationValidationException actualAssociationValidationException =
@@ -515,8 +531,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Approved)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
         public async Task ShouldThrowValidationExceptionOnBypassApproveIfStoredRowIsNotInReviewAsync(
             ApprovalStatus storedStatus)
@@ -525,21 +539,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // that. What a bypass waives are the §8.5 approval CONDITIONS — the threshold, a
             // standing rejection, an unresolved comment — not the requirement that there be a
             // submission to decide on. Bypassing a Draft would skip the submission the whole
-            // workflow is built around; bypassing an Approved row would re-publish and re-stamp
-            // one already live.
+            // workflow is built around, and a Dismissed row is not in a round at all.
+            //
+            // Approved and Rejected are absent because they no longer fail HERE: they are
+            // transitionable by an Admin through the override, so a Publisher meeting one is
+            // refused earlier, at the override gate, and never reaches the access decision this
+            // asserts was taken.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Association storageAssociation = CreateStorageAssociationInStatus(storedStatus);
             Association decision = CreateApprovalDecision(storageAssociation.Id);
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = GetRandomString();
 
             SetupStorageRead(storageAssociation);
             SetupAccessBrokerToPermitByBypass(AccessDenialReason.ApprovalThresholdNotMet);
 
             // when / then
             await Assert.ThrowsAsync<AssociationValidationException>(async () =>
-                await this.associationService.BypassApproveAssociationAsync(
+                await this.associationService.TransitionAssociationApprovalAsync(
                     decision,
-                    GetRandomString(),
                     TestContext.Current.CancellationToken));
 
             // the decision was permitted and the row was still refused — the precondition sits
@@ -615,9 +634,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         .Returns(new ValueTask<EventPublishResult<Association>>(
                             new EventPublishResult<Association>()));
 
-            await this.associationService.BypassApproveAssociationAsync(
+            decision.IsApprovedByBypass = true;
+            decision.ApprovedByBypassReason = bypassReason;
+
+            await this.associationService.TransitionAssociationApprovalAsync(
                 decision,
-                bypassReason,
                 TestContext.Current.CancellationToken);
 
             return actualQuery;
