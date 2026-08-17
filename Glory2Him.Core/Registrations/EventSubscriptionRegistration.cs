@@ -29,6 +29,7 @@ using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
 using Glory2Him.Core.Services.Processings.ContentItems;
+using Glory2Him.Core.Services.Processings.Links;
 
 namespace Glory2Him.Core.Registrations
 {
@@ -76,6 +77,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IAssociationService associationService;
         private readonly IContentItemSettingService contentItemSettingService;
         private readonly IContentItemProcessingService contentItemProcessingService;
+        private readonly ILinkProcessingService linkProcessingService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -91,7 +93,8 @@ namespace Glory2Him.Core.Registrations
             IApprovalSettingService approvalSettingService,
             IAssociationService associationService,
             IContentItemSettingService contentItemSettingService,
-            IContentItemProcessingService contentItemProcessingService)
+            IContentItemProcessingService contentItemProcessingService,
+            ILinkProcessingService linkProcessingService)
         {
             this.eventBroker = eventBroker;
             this.contentItemService = contentItemService;
@@ -107,6 +110,7 @@ namespace Glory2Him.Core.Registrations
             this.associationService = associationService;
             this.contentItemSettingService = contentItemSettingService;
             this.contentItemProcessingService = contentItemProcessingService;
+            this.linkProcessingService = linkProcessingService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -641,6 +645,67 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: LinkEventOperation.Approving,
                 linkEventHandler: this.linkService.OnApprovingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Link processing request handlers ──────────────────────────
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkProcessingOnAddingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkProcessingOnAddingLinkSubscriptionName,
+
+                    Description = "Handles add requests: runs the contribution gate, lands " +
+                        "the link as version 1 of a new group via the foundation service " +
+                        "(which publishes Link-Added), and replies with the created entity."
+                },
+                operation: LinkProcessingEventOperation.Adding,
+                linkProcessingEventHandler: this.linkProcessingService.OnAddingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkProcessingOnModifyingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkProcessingOnModifyingLinkSubscriptionName,
+
+                    Description = "Handles modify requests: runs the contribution gate and the " +
+                        "ownership/role permission rules, then modifies the link in place " +
+                        "(which publishes Link-Modified) or forks a new version for an owner " +
+                        "modify of a terminal row (which publishes Link-Added), and replies " +
+                        "with the resulting entity."
+                },
+                operation: LinkProcessingEventOperation.Modifying,
+                linkProcessingEventHandler: this.linkProcessingService.OnModifyingLinkAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkProcessingOnRemovingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkProcessingOnRemovingLinkByIdSubscriptionName,
+
+                    Description = "Handles remove requests: runs the contribution gate and the " +
+                        "owner/Admin permission rule, then soft deletes the link via the " +
+                        "foundation service (which publishes Link-Removed), and replies with " +
+                        "the removed entity; ApprovalStatus is left untouched."
+                },
+                operation: LinkProcessingEventOperation.RemovingById,
+                linkProcessingEventHandler: this.linkProcessingService.OnRemovingLinkByIdAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkProcessingOnRetrievingLinkByIdSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkProcessingOnRetrievingLinkByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: applies the canonical content " +
+                        "visibility rules — public versions reply for any caller, non-public " +
+                        "versions only for the owner or a review role — and replies with the " +
+                        "retrieved entity on the delivery; no completion fact is published."
+                },
+                operation: LinkProcessingEventOperation.RetrievingById,
+                linkProcessingEventHandler: this.linkProcessingService.OnRetrievingLinkByIdAsync,
                 cancellationToken: cancellationToken);
 
             // ── Reaction request handlers ───────────────────────────────────────
