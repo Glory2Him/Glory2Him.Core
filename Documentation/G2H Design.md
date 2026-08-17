@@ -2292,7 +2292,7 @@ Responsibilities:
 
 Business Rules:
 
-1. A content item in `Draft`, `Submitted`, or `Rejected` status may be edited in-place without creating a new version.
+1. A content item in `Draft`, `Submitted` or `Dismissed` status may be edited in-place without creating a new version. `Rejected` was listed here and is not: rule 2 makes it terminal, so an edit of a rejected item forks. `Dismissed` takes its place — it is the one non-terminal status this rule never named.
 2. A **terminal** content item — `Approved` or `Rejected` — is immutable in place, including to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. `Rejected` is here for the same reason `Approved` is: the row is the record of a decision, and amending it in place would rewrite what was decided. The `Admin` in-place carve-out this rule used to describe is withdrawn — see rule 10, which is the governing statement.
 3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
 4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
@@ -2340,7 +2340,7 @@ Responsibilities:
 4. Apply model mapping on every write operation — map only `Name`, `Url` and `LinkType` onto a fresh entity loaded from the database before committing, so no caller can tamper with a control field through the update path.
 5. Process soft delete of the link itself, and nothing else. Dependent associations are left untouched for the reason given in §12.4.1 responsibility 5.
 6. Publish its own completion facts — `LinkProcessing-Added`, `LinkProcessing-Modified` and `LinkProcessing-Removed` — once the processed work has completed. The row-level facts (`Link-Added`, `-Modified`, `-Removed`) belong to `LinkService` and must not be republished here (§10.2 rule 5).
-7. Serve the per-caller read posture of §14.1/§16.6 over links, including the group reads of §15.1.
+7. Serve the per-caller read posture of §14.1 over links, including the group reads whose endpoint shape §17.1 tables for `ContentItem`.
 
 Business Rules:
 

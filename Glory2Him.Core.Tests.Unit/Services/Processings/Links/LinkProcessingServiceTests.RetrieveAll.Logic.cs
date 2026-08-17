@@ -187,6 +187,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        public async Task ShouldRetrieveOnlyPublicLinksOnRetrieveAllIfActorUserIdIsUnresolvedAsync(
+            string? unresolvedActorUserId)
+        {
+            // given: an authenticated caller whose identity cannot be resolved must not
+            // accidentally match rows whose CreatedBy is also blank. Link.CreatedBy defaults
+            // to string.Empty, so without the IsNullOrWhiteSpace guard the ownership term
+            // would be "" == "" and every unstamped non-public row would fall out to a
+            // caller who owns none of them.
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+
+            Link publicLink = CreateRandomPubliclyVisibleLink(
+                linkId: Guid.NewGuid(),
+                currentDateTime: currentDateTime,
+                hasPublishDate: true);
+
+            Link blankOwnerNonPublicLink = CreateRandomNonPublicLink(createdBy: string.Empty);
+            Link otherNonPublicLink = CreateRandomNonPublicLink(createdBy: GetRandomString());
+
+            IQueryable<Link> storageLinks = new[]
+            {
+                publicLink,
+                blankOwnerNonPublicLink,
+                otherNonPublicLink
+            }.AsQueryable();
+
+            IQueryable<Link> expectedLinks = new[]
+            {
+                publicLink.DeepClone()
+            }.AsQueryable();
+
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
+                link: new Link(),
+                securityContext: securityContext);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.Is(SameRetrieveAllRequest())))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.linkServiceMock.Setup(service =>
+                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageLinks);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(unresolvedActorUserId!);
+
+            // when
+            IQueryable<Link> actualLinks =
+                await this.linkProcessingService.RetrieveAllLinksAsync(
+                    TestContext.Current.CancellationToken);
+
+            // then: the blank-owner row stays hidden despite the blank actor id
+            actualLinks.Should().BeEquivalentTo(expectedLinks);
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
         [InlineData(Roles.Reviewer)]
         [InlineData(Roles.LinkReviewer)]
         [InlineData(Roles.Publisher)]

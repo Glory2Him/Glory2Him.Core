@@ -48,10 +48,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             supersededVersion.GroupId = inputGroupId;
             supersededVersion.IsLatestVersion = false;
 
+            // a foreign group's own tip, enumerated FIRST — it satisfies every predicate
+            // except the group, so dropping the GroupId term would return it instead, and
+            // being publicly visible it would sail straight through the read posture
+            Link foreignGroupLatestVersion = CreateRandomPubliclyVisibleLink(
+                linkId: Guid.NewGuid(),
+                currentDateTime: currentDateTime,
+                hasPublishDate: true);
+
+            foreignGroupLatestVersion.GroupId = Guid.NewGuid();
+            foreignGroupLatestVersion.IsLatestVersion = true;
+
             Link expectedLink = latestVersion.DeepClone();
 
             IQueryable<Link> storageLinks = new[]
             {
+                foreignGroupLatestVersion,
                 supersededVersion,
                 latestVersion
             }.AsQueryable();

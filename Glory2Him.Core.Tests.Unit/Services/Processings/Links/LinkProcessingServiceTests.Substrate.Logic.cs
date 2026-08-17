@@ -85,6 +85,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 service.AddLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            // twice, and the count is the whole point: once inside the do-work to carry the
+            // completion fact, once here to mint the reply. Handing the fact's own envelope
+            // back as the reply would make both share an EventId and collapse the causation
+            // chain downstream processes correlate on — and would still satisfy the
+            // equivalence assertion above, since the mock returns one shared instance
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, addedLink),
+                Times.Exactly(2));
+
             VerifyCompletionFactPublished(
                 outboundEnvelope: outboundEnvelope,
                 operation: LinkProcessingEventOperation.Added);
@@ -145,6 +154,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     "LinkProcessingModifying",
                     EnvelopeDirection.Request),
                 Times.Once);
+
+            // one for the completion fact, one for the reply — see the note in the add test
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, updatedLink),
+                Times.Exactly(2));
 
             VerifyCompletionFactPublished(
                 outboundEnvelope: outboundEnvelope,
@@ -225,6 +239,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            // one for the completion fact, one for the reply — see the note in the add test
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateNextAsync(inboundEnvelope, removedLink),
+                Times.Exactly(2));
+
             VerifyCompletionFactPublished(
                 outboundEnvelope: outboundEnvelope,
                 operation: LinkProcessingEventOperation.Removed);
@@ -294,6 +313,73 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
             this.linkServiceMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldForwardEnvelopeSecurityContextOnRetrievingLinkByIdAsync()
+        {
+            // given: the read posture on the event path must run against the INBOUND
+            // envelope's SecurityContext — that context is the original caller, and it is
+            // the one the integrity signature covers (§14.6 rule 4). A non-public row owned
+            // by the caller is the case that proves the forwarding: it can only be returned
+            // by resolving that exact context to that exact user id. Every other retrieve
+            // test short-circuits earlier — on isPubliclyVisible or on IsDeleted — so none
+            // of them would notice the handler minting a fresh context or passing null.
+            Guid inputLinkId = Guid.NewGuid();
+            DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
+            string actorUserId = GetRandomString();
+
+            Link storageLink = CreateRandomNonPublicLink(createdBy: actorUserId);
+            storageLink.Id = inputLinkId;
+            Link expectedLink = storageLink.DeepClone();
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
+                link: new Link { Id = inputLinkId },
+                securityContext: securityContext);
+
+            var replyEnvelope = new EventEnvelope<Link>
+            {
+                Content = storageLink,
+                SecurityContext = securityContext,
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.linkServiceMock.Setup(service =>
+                service.RetrieveLinkByIdAsync(inputLinkId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageLink);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(currentDateTime);
+
+            // stubbed on the exact inbound context instance — a different context resolves
+            // to null, the ownership check fails, and the handler throws not-found instead
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(actorUserId);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateNextAsync(inboundEnvelope, storageLink))
+                    .ReturnsAsync(replyEnvelope);
+
+            // when
+            EventEnvelope<Link>? actualEnvelope =
+                await this.linkProcessingService.OnRetrievingLinkByIdAsync(
+                    inboundEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualEnvelope.Should().BeEquivalentTo(replyEnvelope);
+            actualEnvelope!.Content.Should().BeEquivalentTo(expectedLink);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(securityContext),
+                Times.Once);
+
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
     }

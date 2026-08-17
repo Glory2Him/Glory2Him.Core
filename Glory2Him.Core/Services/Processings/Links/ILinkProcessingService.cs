@@ -117,7 +117,7 @@ namespace Glory2Him.Core.Services.Processings.Links
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Retrieves all versions of a link group (design §15.1 <c>/groups/{groupId}</c>),
+        /// Retrieves all versions of a link group (design §17.1 <c>/groups/{groupId}</c>),
         /// applying the same per-caller visibility filter as
         /// <see cref="RetrieveAllLinksAsync"/>: deleted rows are gone for everyone, anonymous
         /// callers see only publicly visible versions, owners also see their own, and the
