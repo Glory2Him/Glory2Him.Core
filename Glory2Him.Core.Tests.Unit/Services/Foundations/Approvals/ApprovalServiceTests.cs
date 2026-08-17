@@ -25,6 +25,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
@@ -407,6 +408,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 // than drawn: a posture-sensitive test must never depend on the draw. Tests
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(approval => approval.IsDeleted).Use(false)
+
+                // An approval is born undecided, and add now refuses anything else: outcome
+                // statuses arrive only through the modify-side decision gate, and the bypass
+                // pair only as that gate's derived verdict. Pinned rather than drawn for the
+                // same reason as IsDeleted — a random Approved or a random true flag would make
+                // every add test's outcome depend on the draw. Tests that want a decided row or
+                // a recorded waiver set them explicitly.
+                .OnProperty(approval => approval.ApprovalStatus).Use(ApprovalStatus.Submitted)
+                .OnProperty(approval => approval.IsApprovedByBypass).Use(false)
+                .OnProperty(approval => approval.ApprovedByBypassReason).Use((string)null)
+
                 .OnProperty(approval => approval.CreatedBy).Use(userId)
                 .OnProperty(approval => approval.UpdatedBy).Use(userId);
 

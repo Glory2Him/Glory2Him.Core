@@ -132,5 +132,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// The omission survives a later write too. Were the rule present on modify only, a review
+        /// filed without justification could never be edited again — every subsequent save would
+        /// be refused for a field the reviewer was never required to fill in.
+        /// </summary>
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task ShouldModifyApprovalReviewWithoutACommentAsync(string blankComment)
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ApprovalReview randomApprovalReview = CreateRandomModifyApprovalReview(randomDateTimeOffset, randomUserId);
+            randomApprovalReview.Comment = blankComment;
+            ApprovalReview inputApprovalReview = randomApprovalReview;
+            ApprovalReview auditAppliedApprovalReview = inputApprovalReview.DeepClone();
+            ApprovalReview storageApprovalReview = auditAppliedApprovalReview.DeepClone();
+            storageApprovalReview.UpdatedWhen = storageApprovalReview.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            ApprovalReview auditPreservedApprovalReview = auditAppliedApprovalReview.DeepClone();
+            ApprovalReview updatedApprovalReview = auditPreservedApprovalReview.DeepClone();
+            ApprovalReview expectedApprovalReview = updatedApprovalReview.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputApprovalReview, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalReview);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    auditAppliedApprovalReview.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedApprovalReview,
+                    storageApprovalReview))
+                        .ReturnsAsync(auditPreservedApprovalReview);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalReviewAsync(auditPreservedApprovalReview, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedApprovalReview);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalReviewAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    ApprovalReviewEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<ApprovalReview>>(
+                        new EventPublishResult<ApprovalReview>()));
+
+            // when
+            ApprovalReview actualApprovalReview =
+                await this.approvalReviewService.ModifyApprovalReviewAsync(
+                    inputApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalReview.Should().BeEquivalentTo(expectedApprovalReview);
+            actualApprovalReview.Comment.Should().Be(blankComment);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalReviewAsync(auditPreservedApprovalReview, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
     }
 }

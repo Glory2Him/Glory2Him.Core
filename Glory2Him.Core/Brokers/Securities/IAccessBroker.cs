@@ -73,6 +73,26 @@ namespace Glory2Him.Core.Brokers.Securities
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// The §8.6.1 approval decision, asked from the APPROVAL side. The entity services ask
+        /// <see cref="MayDecideApprovalAsync"/> with their own row in hand; ApprovalService
+        /// serves the workflow record and cannot supply the entity's author, content type or
+        /// confidence score, so this overload resolves all three from storage — off the STORED
+        /// approval's target, never a payload's — before asking the same decision function.
+        ///
+        /// <para>The bypass inputs are the caller's REQUEST, not what will land: the decision
+        /// refuses a bypass the policy closes or one with no reason, and its verdict's
+        /// <c>IsBypassUsed</c> — false when the conditions were already met, because nothing was
+        /// waived — is what the service derives the stored pair from (§9.7.5).</para>
+        /// </summary>
+        ValueTask<AccessVerdict> MayDecideApprovalByIdAsync(
+            Guid approvalId,
+            ApprovalDecision decision,
+            bool isBypassRequested,
+            string? bypassReason,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// The cross-entity half of the dismissal gate: is this actor in the publisher tier for
         /// the entity behind the approval. For an association that is either endpoint, which a
         /// single-entity service cannot see for itself.

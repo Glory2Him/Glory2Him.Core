@@ -379,6 +379,143 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 Times.Never);
         }
 
+
+        /// <summary>
+        /// The bypass pair records that the §8.5 conditions were WAIVED and why, so outside an
+        /// approval decision it is pinned to storage — unpinned, an authorized caller could mark
+        /// an approval bypassed, or erase an existing waiver and its stated reason, with no
+        /// waiver ever decided.
+        ///
+        /// <para>The paths where the pair may change are the two that apply an OUTCOME —
+        /// becoming <c>Approved</c> and becoming <c>Rejected</c> — where it is derived from the
+        /// §8.6.1 verdict rather than pinned. The Modify.Outcome tests pin that side; this one
+        /// pins that every path applying no outcome still refuses, which is what the theory
+        /// below exercises with a payload whose status matches storage.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ShouldThrowValidationExceptionOnModifyIfTheBypassPairIsTouchedAsync(
+            bool touchTheFlag)
+        {
+            // given: the owner, so every authorization gate passes and the pin is the only
+            // thing that can refuse
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
+            Approval inputApproval = randomApproval;
+            Approval storageApproval = randomApproval.DeepClone();
+
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            // the STORED waiver differs from what the payload claims
+            if (touchTheFlag)
+            {
+                storageApproval.IsApprovedByBypass = !inputApproval.IsApprovedByBypass;
+            }
+            else
+            {
+                storageApproval.ApprovedByBypassReason =
+                    inputApproval.ApprovedByBypassReason + GetRandomString();
+            }
+
+            SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(inputApproval);
+
+            // when
+            ValueTask<Approval> modifyApprovalTask =
+                this.approvalService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalValidationException actualApprovalValidationException =
+                await Assert.ThrowsAsync<ApprovalValidationException>(
+                    modifyApprovalTask.AsTask);
+
+            // then
+            string pinnedMember = touchTheFlag
+                ? nameof(Approval.IsApprovedByBypass)
+                : nameof(Approval.ApprovedByBypassReason);
+
+            actualApprovalValidationException.InnerException!.Data.Keys
+                .Cast<string>().Should().Contain(pinnedMember);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+
+        /// <summary>
+        /// "No reason recorded" is the same fact whether storage holds null or the payload sends
+        /// an empty string, so a caller sending one for the other is not attempting a change and
+        /// must not be refused. Every sibling pin on this field coalesces for exactly this reason.
+        ///
+        /// <para>Both directions, because a pin that coalesced only one side would still refuse
+        /// half the round-trips. Without the coalescing this theory fails on both rows while the
+        /// rest of the suite stays green — every other Approval modify test clones storage from
+        /// the input, so the two sides are always identical and never exercise null against
+        /// empty.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(null, "")]
+        [InlineData("", null)]
+        public async Task ShouldTreatANullAndAnEmptyBypassReasonAsTheSameAsync(
+            string inputReason,
+            string storageReason)
+        {
+            // given
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
+            Approval inputApproval = randomApproval;
+            inputApproval.ApprovedByBypassReason = inputReason;
+
+            Approval storageApproval = randomApproval.DeepClone();
+            storageApproval.ApprovedByBypassReason = storageReason;
+
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            Approval updatedApproval = inputApproval.DeepClone();
+
+            SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(inputApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalAsync(It.IsAny<Approval>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedApproval);
+
+            // when
+            Approval actualApproval = await this.approvalService.ModifyApprovalAsync(
+                inputApproval,
+                TestContext.Current.CancellationToken);
+
+            // then: accepted, not refused
+            actualApproval.Should().NotBeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
         private void SetupModifyApprovalRun(
             Approval inputApproval,
             Approval storageApproval,

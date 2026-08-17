@@ -161,5 +161,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     ApprovalReviewEventOperation.Added),
                 Times.Once);
         }
+
+        /// <summary>
+        /// A reviewer may approve without justifying it, so a blank <c>Comment</c> is an ordinary
+        /// record rather than a validation error. This is the counterpart to the 1000-character
+        /// cap: the text is bounded when present, never demanded.
+        ///
+        /// <para>Deliberately a positive assertion. The invalid-text theory would also break if a
+        /// required rule were added back, but only as a side effect of asserting an exact error
+        /// set — this test says outright that the omission is allowed, which is the rule itself.
+        /// It differs from <c>ApprovalComment</c>, whose comment IS required.</para>
+        /// </summary>
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        public async Task ShouldAddApprovalReviewWithoutACommentAsync(string blankComment)
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ApprovalReview randomApprovalReview = CreateApprovalReviewFiller(randomDateTimeOffset).Create();
+            randomApprovalReview.Comment = blankComment;
+            ApprovalReview inputApprovalReview = randomApprovalReview;
+            ApprovalReview auditAppliedApprovalReview = inputApprovalReview.DeepClone();
+            ApprovalReview storageApprovalReview = auditAppliedApprovalReview.DeepClone();
+            ApprovalReview expectedApprovalReview = storageApprovalReview.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputApprovalReview, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedApprovalReview.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertApprovalReviewAsync(auditAppliedApprovalReview, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageApprovalReview);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalReviewAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    ApprovalReviewEventOperation.Added))
+                    .Returns(new ValueTask<EventPublishResult<ApprovalReview>>(
+                        new EventPublishResult<ApprovalReview>()));
+
+            // when
+            ApprovalReview actualApprovalReview =
+                await this.approvalReviewService.AddApprovalReviewAsync(
+                    inputApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            // then: it lands, comment and all
+            actualApprovalReview.Should().BeEquivalentTo(expectedApprovalReview);
+            actualApprovalReview.Comment.Should().Be(blankComment);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertApprovalReviewAsync(auditAppliedApprovalReview, It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
     }
 }

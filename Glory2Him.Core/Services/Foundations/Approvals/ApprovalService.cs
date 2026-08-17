@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
@@ -22,6 +23,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
@@ -361,6 +363,24 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 securityContext: inboundEnvelope.SecurityContext,
                 cancellationToken: cancellationToken);
 
+            // A retracted approval is not a workflow record any more, so nothing may be written
+            // to it — least of all an outcome. Without this the decision gate below would happily
+            // approve a round its owner had already withdrawn, because neither gate is told the
+            // row is deleted: AmendApprovalRequest carries no such field and the decision reads
+            // only the status. Reported as not found, the way the read path reports it (§14.5).
+            //
+            // After the permission checks, not before, following the remove path: a caller who
+            // may not touch this row learns nothing about its deletion state either way.
+            ValidateStorageApprovalIsNotDeleted(maybeApproval);
+
+            // Null unless the payload moves the status into Approved or Rejected; the §8.6.1
+            // verdict otherwise, which the derivation below records.
+            AccessVerdict outcomeVerdict = await ValidateUserMayDecideStorageApprovalAsync(
+                inputApproval: approval,
+                storageApproval: maybeApproval,
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
+
             approval = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
                     entity: approval,
@@ -369,6 +389,28 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             ValidateAgainstStorageApprovalOnModify(
                 inputApproval: approval,
                 storageApproval: maybeApproval);
+
+            ValidateBypassPairAgainstStorageOnModify(
+                inputApproval: approval,
+                storageApproval: maybeApproval);
+
+            if (outcomeVerdict is not null)
+            {
+                // DERIVED from the verdict, never copied from the payload. The verdict can come
+                // back IsBypassUsed = false even when a bypass was requested — the conditions
+                // happened to be met, so nothing was waived — and recording the request instead
+                // of the outcome would manufacture a waiver that never happened (§9.7.5).
+                //
+                // On BOTH outcomes, exactly as the entity transitions do. A rejection waives
+                // nothing, so its verdict is always a plain permit and this clears the pair:
+                // deriving only on approval would leave a row that was bypass-approved, reopened
+                // and then rejected asserting a waiver no verb could ever clear.
+                approval.IsApprovedByBypass = outcomeVerdict.IsBypassUsed;
+
+                approval.ApprovedByBypassReason = outcomeVerdict.IsBypassUsed
+                    ? approval.ApprovedByBypassReason
+                    : null;
+            }
 
             Approval updatedApproval =
                 await this.storageBroker.UpdateApprovalAsync(approval, cancellationToken);

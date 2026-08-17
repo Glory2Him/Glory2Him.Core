@@ -206,6 +206,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 (Rule: IsInvalid(approvalReview.CreatedWhen), Parameter: nameof(ApprovalReview.CreatedWhen)),
                 (Rule: IsInvalid(approvalReview.UpdatedWhen), Parameter: nameof(ApprovalReview.UpdatedWhen)),
 
+                // Capped but NOT required, unlike its ApprovalComment sibling. A reviewer may
+                // approve without justifying it, so a verdict with no comment is an ordinary
+                // record and requiring text here would block the common case.
+                (Rule: IsGreaterThan(approvalReview.Comment, 1000),
+                    Parameter: nameof(ApprovalReview.Comment)),
+
                 (Rule: IsGreaterThan(approvalReview.CreatedBy, 255),
                     Parameter: nameof(ApprovalReview.CreatedBy)),
 
@@ -260,6 +266,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 (Rule: IsInvalid(approvalReview.UpdatedBy), Parameter: nameof(ApprovalReview.UpdatedBy)),
                 (Rule: IsInvalid(approvalReview.CreatedWhen), Parameter: nameof(ApprovalReview.CreatedWhen)),
                 (Rule: IsInvalid(approvalReview.UpdatedWhen), Parameter: nameof(ApprovalReview.UpdatedWhen)),
+
+                // Capped but NOT required, unlike its ApprovalComment sibling. A reviewer may
+                // approve without justifying it, so a verdict with no comment is an ordinary
+                // record and requiring text here would block the common case.
+                (Rule: IsGreaterThan(approvalReview.Comment, 1000),
+                    Parameter: nameof(ApprovalReview.Comment)),
 
                 (Rule: IsGreaterThan(approvalReview.CreatedBy, 255),
                     Parameter: nameof(ApprovalReview.CreatedBy)),

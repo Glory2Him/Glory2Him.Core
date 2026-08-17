@@ -66,7 +66,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .HasMaxLength(500)
                 .IsRequired(false);
 
-            model.Property(approvalComment => approvalComment.Comment).IsRequired(false);
+            // The substance of the record, capped to match the foundation's own rule so the
+            // column and the service agree rather than the column silently accepting more.
+            model
+                .Property(approvalComment => approvalComment.Comment)
+                .HasMaxLength(1000)
+                .IsRequired();
 
             model
                 .Property(approvalComment => approvalComment.IsResolved)

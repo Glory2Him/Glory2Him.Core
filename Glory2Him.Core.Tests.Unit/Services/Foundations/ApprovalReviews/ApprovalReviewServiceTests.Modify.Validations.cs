@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -1235,5 +1236,61 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// The cap is 1000 and the boundary is pinned both ways: 1000 characters is accepted, 1001
+        /// is refused. An off-by-one here would either reject legitimate text or let the column —
+        /// which is now <c>nvarchar(1000)</c> — do the rejecting as a dependency failure instead
+        /// of a validation error.
+        /// </summary>
+        [Theory]
+        [InlineData(1000, false)]
+        [InlineData(1001, true)]
+        public async Task ShouldEnforceTheApprovalReviewTextCapAtExactlyOneThousandOnModifyAsync(
+            int commentLength,
+            bool expectRefusal)
+        {
+            // given: no role override, unlike the add counterpart. Modify gates only on
+            // ValidateUserIsAllowedToContribute — authenticated and not ReadOnly — which the
+            // fixture's default context already satisfies, so the run reaches validation. Add
+            // gates on ValidateUserIsAllowedToReviewApprovals and does need a review role there,
+            // or its 1000-character case passes vacuously on an Unauthorized short-circuit.
+            //
+            // Everything else deliberately blank, so the run always throws and the only
+            // question is whether Comment is among the reported errors.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            var invalidApprovalReview = new ApprovalReview
+            {
+                Comment = GetRandomStringWithLengthOf(commentLength),
+            };
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(invalidApprovalReview);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ApprovalReview> modifyApprovalReviewTask =
+                this.approvalReviewService.ModifyApprovalReviewAsync(
+                    invalidApprovalReview,
+                    TestContext.Current.CancellationToken);
+
+            ApprovalReviewValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalReviewValidationException>(modifyApprovalReviewTask.AsTask);
+
+            // then
+            bool commentWasRefused = actualException.InnerException!.Data.Keys
+                .Cast<string>()
+                .Contains(nameof(ApprovalReview.Comment));
+
+            commentWasRefused.Should().Be(expectRefusal);
+        }
+
     }
 }
