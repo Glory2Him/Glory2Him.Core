@@ -29,10 +29,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
     {
         /// <summary>
         /// What lands on the row is DERIVED from the decision's verdict, never copied from the
-        /// payload. The third case is the one that matters most: a bypass was requested but the
-        /// conditions were already met, so nothing was waived — the verdict comes back
-        /// <c>IsBypassUsed = false</c> and the row must record no waiver, or the audit trail
-        /// gains a waiver that never happened.
+        /// payload and never inherited from storage. The third case is the one that matters
+        /// most: a bypass was requested but the conditions were already met, so nothing was
+        /// waived — the verdict comes back <c>IsBypassUsed = false</c> and the row must record
+        /// no waiver, or the audit trail gains a waiver that never happened.
+        ///
+        /// <para>Storage deliberately carries a STALE waiver in every case. That is what makes
+        /// the two <c>verdictBypassUsed: false</c> rows meaningful: they prove the derivation
+        /// CLEARS an existing <c>IsApprovedByBypass</c>/<c>ApprovedByBypassReason</c> rather
+        /// than merely coinciding with an already-empty pair. An approval granted on its own
+        /// merits must not keep claiming it was waived — the flag records how THIS decision was
+        /// reached, not how a previous one was.</para>
         /// </summary>
         [Theory]
         [InlineData(false, false)]
@@ -53,10 +60,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             inputApproval.IsApprovedByBypass = bypassRequested;
             inputApproval.ApprovedByBypassReason = bypassReason;
 
+            // a waiver from an earlier round, which this decision must overwrite either way
             Approval storageApproval = randomApproval.DeepClone();
             storageApproval.ApprovalStatus = ApprovalStatus.Submitted;
-            storageApproval.IsApprovedByBypass = false;
-            storageApproval.ApprovedByBypassReason = null;
+            storageApproval.IsApprovedByBypass = true;
+            storageApproval.ApprovedByBypassReason = "waived on an earlier round";
 
             storageApproval.UpdatedWhen =
                 storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
