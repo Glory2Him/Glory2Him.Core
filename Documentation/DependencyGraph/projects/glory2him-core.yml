@@ -508,6 +508,15 @@ components:
       - from: SubscribeToContentItemProcessingEventAsync
         to: EXT.EventHighway
         method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+      - from: PublishLinkProcessingAsync
+        to: EXT.EventHighway
+        method: V2.EventV2Client.SubmitEventV2Async
+      - from: SubscribeToLinkProcessingEventAsync
+        to: EXT.EventHighway
+        method: V2.RegisterEventHandlerAsync
+      - from: SubscribeToLinkProcessingEventAsync
+        to: EXT.EventHighway
+        method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
   - id: DateTimeBroker
     name: DateTimeBroker
     layer: broker
@@ -2910,11 +2919,179 @@ components:
         handler: OnRemovingContentItemByIdAsync
       - event: ContentItemProcessing.RetrievingById
         handler: OnRetrievingContentItemByIdAsync
+  - id: LP
+    name: LinkProcessingService
+    layer: processing
+    col: 4
+    description: "Core's public write/read surface for links: immutable-version forking on modify of a terminal row (Approved or Rejected), group-based reads, per-caller visibility. Publishes LinkProcessing facts (Added/Modified/Removed) exactly once per operation — a fork writes two foundation rows and still announces once. Same shape as ContentItemProcessingService minus the dedupe-by-hash rule: a Link carries no ContentType and no ContentHash, so there is no IHashBroker. The On*Async handlers delegate to the same Do*Async path as the public methods. Has NO IStorageBroker — ProcessedEvents dedupe lives in the foundation service."
+    methods:
+      - AddLinkAsync
+      - ModifyLinkAsync
+      - RemoveLinkByIdAsync
+      - RetrieveLinkByIdAsync
+      - RetrieveAllLinksAsync
+      - RetrieveAllPublicLinksAsync
+      - RetrieveLinksByGroupIdAsync
+      - RetrieveLatestLinkByGroupIdAsync
+      - RetrievePublishedLinkByGroupIdAsync
+      - OnAddingLinkAsync
+      - OnModifyingLinkAsync
+      - OnRemovingLinkByIdAsync
+      - OnRetrievingLinkByIdAsync
+    calls:
+      - from: AddLinkAsync
+        to: FS.Link
+        method: AddLinkAsync
+      - from: ModifyLinkAsync
+        to: FS.Link
+        method: RetrieveLinkByIdAsync
+      - from: ModifyLinkAsync
+        to: FS.Link
+        method: ModifyLinkAsync
+      - from: ModifyLinkAsync
+        to: FS.Link
+        method: AddLinkAsync
+      - from: RemoveLinkByIdAsync
+        to: FS.Link
+        method: RetrieveLinkByIdAsync
+      - from: RemoveLinkByIdAsync
+        to: FS.Link
+        method: RemoveLinkByIdAsync
+      - from: RetrieveLinkByIdAsync
+        to: FS.Link
+        method: RetrieveLinkByIdAsync
+      - from: RetrieveAllLinksAsync
+        to: FS.Link
+        method: RetrieveAllLinksAsync
+      - from: RetrieveAllPublicLinksAsync
+        to: FS.Link
+        method: RetrieveAllLinksAsync
+      - from: RetrieveLinksByGroupIdAsync
+        to: FS.Link
+        method: RetrieveAllLinksAsync
+      - from: RetrieveLatestLinkByGroupIdAsync
+        to: FS.Link
+        method: RetrieveAllLinksAsync
+      - from: RetrievePublishedLinkByGroupIdAsync
+        to: FS.Link
+        method: RetrieveAllLinksAsync
+      - from: AddLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: ModifyLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllLinksAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveLinksByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveLatestLinkByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrievePublishedLinkByGroupIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: ModifyLinkAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RemoveLinkByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: AddLinkAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyLinkAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: ModifyLinkAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RemoveLinkByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveLinkByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveAllLinksAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveLinksByGroupIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveLatestLinkByGroupIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrievePublishedLinkByGroupIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveLinkByIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllLinksAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveAllPublicLinksAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveLinksByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveLatestLinkByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrievePublishedLinkByGroupIdAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: RetrieveLinkByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveLinkByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: RetrieveLatestLinkByGroupIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveLatestLinkByGroupIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: RetrievePublishedLinkByGroupIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrievePublishedLinkByGroupIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+    publishes:
+      - method: AddLinkAsync
+        event: LinkProcessing.Added
+      - method: ModifyLinkAsync
+        event: LinkProcessing.Modified
+      - method: RemoveLinkByIdAsync
+        event: LinkProcessing.Removed
+    subscribes:
+      - event: LinkProcessing.Adding
+        handler: OnAddingLinkAsync
+      - event: LinkProcessing.Modifying
+        handler: OnModifyingLinkAsync
+      - event: LinkProcessing.RemovingById
+        handler: OnRemovingLinkByIdAsync
+      - event: LinkProcessing.RetrievingById
+        handler: OnRetrievingLinkByIdAsync
   - id: ESR
     name: EventSubscriptionRegistration
     layer: registration
     col: 4
-    description: "Core's public event entry point for hosts: registers the Glory2Him participant + all event addresses on EventHighway, then wires all 74 subscriptions (every purple line in this graph). Not yet called by any production host in this repo — only the unit tests."
+    description: "Core's public event entry point for hosts: registers the Glory2Him participant + all event addresses on EventHighway, then wires every subscription in the system (each purple line in this graph). The graph carries 72 of the 86 currently wired there — this snapshot is hand-maintained and had already drifted before LinkProcessing was added; a full re-scan is needed to close the gap. Not yet called by any production host in this repo — only the unit tests."
     methods:
       - RegisterAsync
     calls:

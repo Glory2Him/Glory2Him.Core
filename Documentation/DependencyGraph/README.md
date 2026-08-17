@@ -75,15 +75,25 @@ view you were on, and switching carries your current selection across.
   toggle reveals the DateTime / Identifier / Logging / Hash broker copies
   that are hidden by default for readability.
 
-## Current truths captured in the data (scanned 2026-08-11)
+## Current truths captured in the data (scanned 2026-08-11; LinkProcessing added 2026-08-17)
 
 - **Glory2Him.WebApp is standalone** — it has no project reference to
   Glory2Him.Core. Its minimal-API endpoint groups use its own view services,
   brokers, Identity database, and in-memory sample data.
 - **Glory2Him.Core has no controllers** — its consumption surface is the DI
   registrations plus `IEventSubscriptionRegistration.RegisterAsync`, which
-  wires all 74 event subscriptions (every purple line). No production host in
+  wires every event subscription (each purple line). No production host in
   this repo calls it yet.
+- **The subscription counts below are stale and this snapshot is partial.**
+  `EventSubscriptionRegistration` wires 86 subscriptions today; the data
+  files carry 72. The gap predates the LinkProcessing addition, which added
+  four to each side. A full re-scan is needed to reconcile them — until then,
+  read the counts here as a floor, not a total.
+- **`LinkProcessingService` (`LP`) is the second processing service**, added
+  2026-08-17 alongside `ContentItemProcessingService`. Same shape minus the
+  dedupe-by-hash rule and the content-type role tier, so it takes no
+  `IHashBroker`. Its component block was added by hand rather than by a full
+  re-scan; everything else in the data still reflects the 2026-08-11 scan.
 - Core's `StorageBroker` derives from `EFxceptionsContext` (EF Core
   DbContext) and passes **itself** into G2H.StorageClient's `EFCoreClient`.
 - `EventBroker` wraps EventHighway (SQL Server): one

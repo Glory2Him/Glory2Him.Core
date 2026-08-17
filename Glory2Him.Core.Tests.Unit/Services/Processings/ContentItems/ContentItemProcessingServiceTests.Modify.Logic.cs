@@ -30,14 +30,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
         [InlineData(ApprovalStatus.Submitted)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
         public async Task ShouldModifyContentItemInPlaceOnModifyIfActorIsOwnerAsync(
             ApprovalStatus approvalStatus)
         {
-            // given: the owner edits a not-yet-approved item — same row, same version
+            // given: the owner edits a non-terminal item — same row, same version
             // (design §3.4 rules 4-5); only the permitted fields are mapped onto the
-            // entity loaded from storage (§12.4.1 BR6-7) and CreatedBy never changes
+            // entity loaded from storage (§12.4.1 BR6-7) and CreatedBy never changes.
+            // Approved and Rejected are absent: both are terminal and fork instead,
+            // which ShouldForkNewVersionOnModifyIfTerminalItemIsModifiedByOwnerAsync covers
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
             string normalizedContent = NormalizeContent(inputContentItem.Content);
@@ -337,13 +338,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             capturedContentItem.ContentType.Should().NotBe(storedContentTypeBeforeAct);
         }
 
-        [Fact]
-        public async Task ShouldForkNewVersionOnModifyIfApprovedItemIsModifiedByOwnerAsync()
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldForkNewVersionOnModifyIfTerminalItemIsModifiedByOwnerAsync(
+            ApprovalStatus terminalApprovalStatus)
         {
-            // given: an approved item is immutable to its owner — the edit forks a new row
-            // with Version + 1 that becomes the latest, the previous latest is demoted
-            // BEFORE the insert (one IsLatestVersion = true per group), and the new
-            // version starts unpublished in Draft (design §3.4 rules 7-12)
+            // given: a terminal item is immutable in place, even to its owner — the edit
+            // forks a new row with Version + 1 that becomes the latest, the previous latest
+            // is demoted BEFORE the insert (one IsLatestVersion = true per group), and the
+            // new version starts unpublished in Draft (design §3.4 rules 7-12, rule 16).
+            // Rejected forks for the same reason Approved does: the row records a decision,
+            // and editing it in place would rewrite what was decided. A Rejected row was
+            // never published, so the fork simply leaves the group with no public row until
+            // the new version is approved.
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
             string normalizedContent = NormalizeContent(inputContentItem.Content);
@@ -353,7 +361,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             ContentItem storageContentItem = CreateRandomStorageContentItem(
                 contentItemId: inputContentItem.Id,
-                approvalStatus: ApprovalStatus.Approved,
+                approvalStatus: terminalApprovalStatus,
                 createdBy: actorUserId);
 
             ContentItem expectedDemotedContentItem = storageContentItem.DeepClone();
@@ -511,16 +519,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [InlineData(ApprovalStatus.Draft, Roles.Reviewer)]
         [InlineData(ApprovalStatus.Submitted, Roles.ContentItemReviewer)]
         [InlineData(ApprovalStatus.Submitted, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemPublisher)]
+        [InlineData(ApprovalStatus.Draft, Roles.ContentItemPublisher)]
         [InlineData(ApprovalStatus.Dismissed, Roles.Admin)]
         public async Task ShouldModifyContentItemInPlaceOnModifyIfActorHasModifyRoleAsync(
             ApprovalStatus approvalStatus,
             string modifyingRole)
         {
-            // given: while an item is not yet approved, a Reviewer, Publisher or Admin
+            // given: while an item is not yet decided, a Reviewer, Publisher or Admin
             // (global or ContentItem-scoped) may modify it in place alongside the owner;
             // the item stays on the same row and their identity lands on UpdatedBy
-            // downstream
+            // downstream. A terminal item is deliberately absent — it belongs to its owner
+            // alone, which ShouldThrowValidationExceptionOnModifyIfActorIsNotPermitted covers
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
             string normalizedContent = NormalizeContent(inputContentItem.Content);

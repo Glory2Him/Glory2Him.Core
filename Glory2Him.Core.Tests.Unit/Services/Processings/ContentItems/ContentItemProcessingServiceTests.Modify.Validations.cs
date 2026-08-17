@@ -410,13 +410,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [InlineData(ApprovalStatus.Approved, Roles.Publisher)]
         [InlineData(ApprovalStatus.Approved, Roles.ContentItemPublisher)]
         [InlineData(ApprovalStatus.Approved, Roles.Admin)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Reviewer)]
+        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemReviewer)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Publisher)]
+        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemPublisher)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Admin)]
         public async Task ShouldThrowValidationExceptionOnModifyIfActorIsNotPermittedAndLogItAsync(
             ApprovalStatus approvalStatus,
             string? actorRole)
         {
-            // given: a plain authenticated user never touches someone else's item, and an
-            // approved item belongs to its owner alone — no role (Reviewer, Publisher or
-            // Admin) may modify it on the owner's behalf
+            // given: a plain authenticated user never touches someone else's item, and a
+            // terminal item — Approved or Rejected — belongs to its owner alone: no role
+            // (Reviewer, Publisher or Admin) may modify it on the owner's behalf, because
+            // the only edit a terminal row admits is a fork, and a moderator forking
+            // someone else's decided row would author a version in their name
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
 
