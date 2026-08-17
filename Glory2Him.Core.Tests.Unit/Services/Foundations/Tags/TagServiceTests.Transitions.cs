@@ -69,6 +69,54 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                 PublishDate = null,
             };
 
+        // The Admin override's target: a terminal row re-opened for a second round. Publication
+        // is not asked for — the validation refuses a published non-approved row, and the
+        // do-work derives it off regardless.
+        private static Tag CreateReopenDecision(Guid tagId) =>
+            new Tag
+            {
+                Id = tagId,
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsPublished = false,
+                PublishDate = null,
+            };
+
+        // A stored row in a terminal state, published as an approved one would be, so a test can
+        // assert the override actually unpublishes it rather than finding it already false.
+        private static Tag CreateTerminalStorageTag(ApprovalStatus terminalStatus)
+        {
+            Tag tag = CreateApprovableStorageTag();
+            tag.ApprovalStatus = terminalStatus;
+            tag.IsPublished = terminalStatus == ApprovalStatus.Approved;
+
+            tag.PublishDate = tag.IsPublished
+                ? GetRandomDateTimeOffset()
+                : null;
+
+            return tag;
+        }
+
+        // The context ApprovalOrchestrationService mints for the workflow's own writes. Roleless
+        // on purpose: the flag is the whole of its authority, so a test that passes with roles
+        // attached would not be proving the flag did anything.
+        private static SecurityContext CreateSystemSecurityContext() =>
+            new SecurityContext
+            {
+                IsAuthenticated = true,
+                Roles = [],
+                IsSystemIdentity = true,
+            };
+
+        // A bypass REQUEST: the caller asks, and the verdict decides what is recorded.
+        private static Tag CreateBypassApprovalRequest(Guid tagId, string bypassReason)
+        {
+            Tag tag = CreateApprovalDecision(tagId);
+            tag.IsApprovedByBypass = true;
+            tag.ApprovedByBypassReason = bypassReason;
+
+            return tag;
+        }
+
         private void SetupTagStorageRead(Tag storageTag) =>
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectTagByIdAsync(
@@ -111,7 +159,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         // the storage broker. The snapshot is taken INSIDE the callback: the service copies onto
         // the instance the storage read handed it, so reading that instance after the act would
         // compare the row with itself and pass however the operation behaved.
-        private async ValueTask<Tag> CaptureSavedTagOnApproveAsync(
+        private async ValueTask<Tag> CaptureSavedTagOnTransitionAsync(
             Tag storageTag,
             Tag inputTag)
         {
@@ -144,7 +192,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                         .Returns(new ValueTask<EventPublishResult<Tag>>(
                             new EventPublishResult<Tag>()));
 
-            await this.tagService.ApproveTagAsync(
+            await this.tagService.TransitionTagApprovalAsync(
                 inputTag,
                 TestContext.Current.CancellationToken);
 
@@ -194,7 +242,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
                         .Returns(new ValueTask<EventPublishResult<Tag>>(
                             new EventPublishResult<Tag>()));
 
-            await this.tagService.ApproveTagAsync(
+            await this.tagService.TransitionTagApprovalAsync(
                 inputTag,
                 TestContext.Current.CancellationToken);
 

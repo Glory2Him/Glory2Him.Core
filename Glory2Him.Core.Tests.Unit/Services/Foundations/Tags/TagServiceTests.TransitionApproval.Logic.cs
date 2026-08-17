@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
     public partial class TagServiceTests
     {
         [Fact]
-        public async Task ShouldApproveTagAsync()
+        public async Task ShouldTransitionTagApprovalAsync()
         {
             // given
             this.ambientSecurityContext =
@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             Tag actualTag =
-                await this.tagService.ApproveTagAsync(
+                await this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -149,7 +149,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             Tag inputTag = CreateRejectionDecision(storageTag.Id);
 
             // when
-            await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             this.eventBrokerMock.Verify(broker =>
@@ -179,7 +179,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             Tag inputTag = CreateApprovalDecision(storageTag.Id);
 
             // when
-            await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             this.eventBrokerMock.Verify(broker =>
@@ -219,7 +219,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             inputTag.PublishDate = GetRandomDateTimeOffset();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             savedTag.Should().NotBeNull();
@@ -264,7 +264,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             SetupAccessBrokerToPermit();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             savedTag.Should().NotBeNull();
@@ -295,7 +295,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             SetupAccessBrokerToPermitByBypass();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             savedTag.Should().NotBeNull();
@@ -320,7 +320,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             SetupAccessBrokerToPermit();
 
             // when
-            Tag savedTag = await CaptureSavedTagOnApproveAsync(storageTag, inputTag);
+            Tag savedTag = await CaptureSavedTagOnTransitionAsync(storageTag, inputTag);
 
             // then
             savedTag.Should().NotBeNull();

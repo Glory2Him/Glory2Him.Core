@@ -54,7 +54,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     nullTag,
                     TestContext.Current.CancellationToken);
 
@@ -79,23 +79,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Submitted)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfStatusIsNotAnOutcomeAsync(
-            ApprovalStatus notAnOutcome)
+        public async Task ShouldThrowValidationExceptionOnTransitionIfStatusIsNotATransitionTargetAsync(
+            ApprovalStatus notATransitionTarget)
         {
-            // given: approve owns IApproval, so it is the one operation allowed to carry a
-            // status — but only to an outcome the workflow produces.
+            // given: this operation owns IApproval, so it is the one allowed to carry a status —
+            // but only to a state the workflow can hold a row in. Draft is reached once, at
+            // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
+            // Submitted is NOT here: it is what an override re-opens a terminal row to.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Tag inputTag = CreateApprovalDecision(Guid.NewGuid());
-            inputTag.ApprovalStatus = notAnOutcome;
+            inputTag.ApprovalStatus = notATransitionTarget;
             inputTag.IsPublished = false;
             inputTag.PublishDate = null;
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -141,7 +142,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -191,7 +192,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -224,7 +225,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -268,7 +269,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -287,15 +288,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
         [Theory]
         [InlineData(ApprovalStatus.Draft)]
-        [InlineData(ApprovalStatus.Approved)]
-        [InlineData(ApprovalStatus.Rejected)]
         [InlineData(ApprovalStatus.Dismissed)]
-        public async Task ShouldThrowValidationExceptionOnApproveIfTheStoredRowIsNotSubmittableAsync(
+        public async Task ShouldThrowValidationExceptionOnTransitionIfTheStoredRowIsNotTransitionableAsync(
             ApprovalStatus storageStatus)
         {
-            // given: only a row actually in review can be decided. The tier and the access
-            // decision pass first (global Publisher, permissive fixture), so this proves the
-            // state gate stands on its own.
+            // given: a Draft has not been submitted and a Dismissed row is not in a round at all,
+            // so neither can be decided. Approved and Rejected are absent because they ARE
+            // transitionable — by an Admin, through the override — and are covered there.
+            //
+            // The tier and the access decision pass first (global Publisher, permissive fixture),
+            // so this proves the state gate stands on its own.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
 
             Tag storageTag = CreateApprovableStorageTag();
@@ -318,7 +320,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -366,7 +368,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -414,7 +416,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -468,7 +470,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 
@@ -515,7 +517,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 
             // when
             ValueTask<Tag> approveTask =
-                this.tagService.ApproveTagAsync(
+                this.tagService.TransitionTagApprovalAsync(
                     inputTag,
                     TestContext.Current.CancellationToken);
 

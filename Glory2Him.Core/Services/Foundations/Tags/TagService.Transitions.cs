@@ -12,7 +12,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -63,7 +62,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     cancellationToken: cancellationToken);
             });
 
-        public ValueTask<Tag> ApproveTagAsync(
+        public ValueTask<Tag> TransitionTagApprovalAsync(
             Tag tag,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -74,9 +73,14 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 EventEnvelope<Tag> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: tag);
 
-                return await DoApproveTagAsync(
+                return await DoTransitionTagApprovalAsync(
                     tag: tag,
                     inboundEnvelope: envelope,
+
+                    // This envelope's context was minted here, in process, from the ambient
+                    // caller — so a system identity on it is one this process asserted about
+                    // itself. The event path passes false; see OnApprovingTagAsync.
+                    isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });
 
@@ -116,53 +120,86 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                 cancellationToken: cancellationToken);
         }
 
-        private async ValueTask<Tag> DoApproveTagAsync(
+        private async ValueTask<Tag> DoTransitionTagApprovalAsync(
             Tag tag,
             EventEnvelope<Tag> inboundEnvelope,
+            bool isSystemIdentityAdmissible,
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnApproveTag(tag);
+
+            // Shape first, and the bypass reason with it, so an unexplained bypass is refused
+            // before any policy is read — under every policy, including one that would have
+            // permitted the waiver.
+            ValidateOnTransitionTagApproval(tag);
+
+            // The system identity is a claim about PROVENANCE, and provenance is not carried by
+            // the payload. It is honoured only where this service minted the context itself; an
+            // envelope that arrived over a public event address carries a deserialized,
+            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
+            // would walk past every rule below by declaring themselves the workflow.
+            bool isSystemIdentity =
+                isSystemIdentityAdmissible
+                    && inboundEnvelope.SecurityContext.IsSystemIdentity;
 
             Tag storageTag =
                 await LoadTransitionTargetAsync(
                     tagId: tag.Id,
                     cancellationToken: cancellationToken);
 
-            // decided against the STORED row. Approving from the caller's copy would let a
-            // contributor name someone else as author and approve their own row.
-            AccessVerdict accessVerdict = await ValidateUserCanApproveStorageTagAsync(
+            // decided against the STORED row. Transitioning from the caller's copy would let a
+            // contributor name someone else as author and approve their own row — and would let
+            // anyone present a terminal row as Submitted to slip past the override gate.
+            bool isBypassUsed = await ValidateUserCanTransitionStorageTagApprovalAsync(
                 storageTag: storageTag,
                 tag: tag,
                 securityContext: inboundEnvelope.SecurityContext,
+                isSystemIdentity: isSystemIdentity,
                 cancellationToken: cancellationToken);
 
-            ValidateStorageTagIsApprovable(storageTag);
+            ValidateStorageTagIsTransitionable(storageTag);
 
             // the whole of IApproval, as one unit — approve and publish are one operation, so
             // there is no separate publish verb and PublishDate belongs here and nowhere else
             storageTag.ApprovalStatus = tag.ApprovalStatus;
-            storageTag.IsPublished = tag.IsPublished;
-            storageTag.PublishDate = tag.PublishDate;
 
-            // The two exceptions, DERIVED from the decision rather than accepted from the
-            // caller. Copying these the way the three above are copied would let a caller
-            // performing a genuine bypass send IsApprovedByBypass = false and erase the record.
+            // Publication is DERIVED, not copied. Any target but Approved unpublishes the row,
+            // so an override out of Approved cannot leave a re-opened item publicly visible
+            // while it waits for a second verdict. The validation above already refuses the
+            // inverse pairing, which makes this a backstop rather than the only guard — but it
+            // is what makes the rule true by construction instead of true by validator.
             //
-            // This operation never requests a bypass, so the decision can only come back false;
-            // a dedicated bypass verb is what would ever write true. Clearing the reason is
-            // deliberate rather than incidental: an item bypass-approved, later amended and then
-            // approved normally must stop claiming it was bypassed.
-            storageTag.IsApprovedByBypass = accessVerdict.IsBypassUsed;
-            storageTag.ApprovedByBypassReason = null;
+            // Nothing republishes whatever this may have demoted: the group simply has no
+            // public row until something is approved again (epic decision 7).
+            bool isApproved = tag.ApprovalStatus == ApprovalStatus.Approved;
+            storageTag.IsPublished = isApproved && tag.IsPublished;
+            storageTag.PublishDate = storageTag.IsPublished ? tag.PublishDate : null;
+
+            // The bypass pair, DERIVED from the decision rather than accepted from the caller.
+            // Copying these the way ApprovalStatus is copied would let a caller performing a
+            // genuine bypass send IsApprovedByBypass = false and erase the record.
+            //
+            // The reason's VALUE is necessarily the caller's own words — no decision can say why
+            // a human chose to override — but its RETENTION is the decision's call. A bypass
+            // that turned out to be unnecessary records no bypass at all, and an item
+            // bypass-approved, later amended and then approved normally stops claiming it was
+            // bypassed (§9.7.1 rule 3, §9.7.5).
+            storageTag.IsApprovedByBypass = isBypassUsed;
+
+            storageTag.ApprovedByBypassReason = isBypassUsed
+                ? tag.ApprovedByBypassReason
+                : null;
 
             // The fact follows the DECISION, not the operation's name. A rejection broadcast on
             // the Approved address would tell every subscriber the opposite of what happened,
-            // and the fact name is the contract they key on.
-            TagEventOperation decision =
-                storageTag.ApprovalStatus == ApprovalStatus.Approved
-                    ? TagEventOperation.Approved
-                    : TagEventOperation.Rejected;
+            // and the fact name is the contract they key on. An override back to Submitted
+            // re-opens the round, which is exactly what the Submitted address already means.
+            TagEventOperation decision = tag.ApprovalStatus switch
+            {
+                ApprovalStatus.Approved => TagEventOperation.Approved,
+                ApprovalStatus.Rejected => TagEventOperation.Rejected,
+                _ => TagEventOperation.Submitted
+            };
 
             return await SaveTransitionAsync(
                 tag: storageTag,

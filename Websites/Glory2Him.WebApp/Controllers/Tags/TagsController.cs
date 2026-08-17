@@ -384,20 +384,23 @@ namespace Glory2Him.WebApp.Controllers.Tags
         }
 
         /// <summary>
-        /// Decides a submitted tag — Approved or Rejected (design §9.7.1, §8.6). The publisher
-        /// tier is the coarse gate here because the design names it; the service still takes the
-        /// real decision against the stored row, including the no-self-approval rule (HR-2).
+        /// Moves a tag's approval state — Approved, Rejected, or back to Submitted (design
+        /// §9.7.1, §8.6). The publisher tier is the coarse gate here because the design names it;
+        /// the service still takes the real decision against the stored row, including the
+        /// no-self-approval rule (HR-2) and the <c>Admin</c>-only override that re-opens a
+        /// terminal row (HR-4). The route keeps its name: the ordinary decision is what nearly
+        /// every caller reaches it for.
         /// </summary>
         [HttpPost("Approve")]
         [Authorize(Roles = Roles.Admin + "," + Roles.Publisher + "," + Roles.TagPublisher)]
-        public async ValueTask<ActionResult<Tag>> ApproveTagAsync(
+        public async ValueTask<ActionResult<Tag>> TransitionTagApprovalAsync(
             [FromBody] Tag tag,
             CancellationToken cancellationToken)
         {
             try
             {
                 Tag approvedTag =
-                    await this.tagService.ApproveTagAsync(tag, cancellationToken);
+                    await this.tagService.TransitionTagApprovalAsync(tag, cancellationToken);
 
                 return Ok(approvedTag);
             }

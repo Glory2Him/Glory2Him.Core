@@ -216,9 +216,17 @@ namespace Glory2Him.Core.Services.Foundations.Tags
                     return null;
 
                 Tag approvedTag =
-                    await DoApproveTagAsync(
+                    await DoTransitionTagApprovalAsync(
                         tag: envelope.Content,
                         inboundEnvelope: envelope,
+
+                        // This envelope arrived over a PUBLIC event address and its security
+                        // context was deserialized, not authenticated (§14.6 rule 4). A caller
+                        // who could assert the system identity here would be granted the
+                        // workflow's own authority — including the override out of a terminal
+                        // state — simply by setting a JSON property. The claim is discarded and
+                        // the caller is treated as the ordinary unprivileged one they are.
+                        isSystemIdentityAdmissible: false,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(
