@@ -39,6 +39,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 (Rule: IsInvalid(entityType), Parameter: nameof(Approval.EntityType)),
                 (Rule: IsInvalid(entityId), Parameter: nameof(Approval.EntityId)));
 
+        private static void ValidateOnProcessEntity(
+            EntityType entityType,
+            Guid entityId) =>
+            Validate(
+                message: "Approval is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(entityType), Parameter: nameof(Approval.EntityType)),
+                (Rule: IsInvalid(entityId), Parameter: nameof(Approval.EntityId)));
+
         private static void ValidateOnDecideApproval(
             EntityType entityType,
             Guid entityId,

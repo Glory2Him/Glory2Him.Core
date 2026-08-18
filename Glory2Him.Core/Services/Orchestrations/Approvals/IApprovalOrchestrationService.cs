@@ -78,5 +78,19 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             bool isBypassRequested = false,
             string bypassReason = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The Added flow (design §9.7.3). Resolves the entity's approval, creating one at
+        /// <c>Draft</c> if the key is unoccupied and reinstating a closed one in place
+        /// (§9.7.2), then — only if the approval is <c>Submitted</c> — runs the shared
+        /// evaluation (§9.7.7).
+        ///
+        /// <para>A <c>Draft</c> ends the flow: it has not entered a round, so no policy is
+        /// resolved and nothing can be approved.</para>
+        /// </summary>
+        ValueTask<ApprovalOutcome> ProcessEntityAddedAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
     }
 }
