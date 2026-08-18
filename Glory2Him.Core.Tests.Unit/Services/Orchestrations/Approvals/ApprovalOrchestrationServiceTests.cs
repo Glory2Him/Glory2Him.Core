@@ -16,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -39,6 +40,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
+        private readonly Mock<IEventBroker> eventBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalOrchestrationService approvalOrchestrationService;
         private SecurityContext ambientSecurityContext;
@@ -50,6 +52,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
+            this.eventBrokerMock = new Mock<IEventBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             // The publisher tier by default, because that is who reaches the verdict at all.
@@ -74,6 +77,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 approvalCommentService: this.approvalCommentServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
+                eventBroker: this.eventBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 

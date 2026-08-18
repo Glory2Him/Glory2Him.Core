@@ -15,6 +15,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -34,6 +35,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
+        private readonly IEventBroker eventBroker;
         private readonly ILoggingBroker loggingBroker;
 
         // Three services and three brokers. The seven entity services are absent on purpose:
@@ -48,6 +50,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             IApprovalCommentService approvalCommentService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
+            IEventBroker eventBroker,
             ILoggingBroker loggingBroker)
         {
             this.approvalService = approvalService;
@@ -55,6 +58,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             this.approvalCommentService = approvalCommentService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
+            this.eventBroker = eventBroker;
             this.loggingBroker = loggingBroker;
         }
 

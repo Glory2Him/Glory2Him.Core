@@ -39,6 +39,51 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 (Rule: IsInvalid(entityType), Parameter: nameof(Approval.EntityType)),
                 (Rule: IsInvalid(entityId), Parameter: nameof(Approval.EntityId)));
 
+        private static void ValidateOnDecideApproval(
+            EntityType entityType,
+            Guid entityId,
+            ApprovalDecision decision,
+            bool isBypassRequested,
+            string bypassReason) =>
+            Validate(
+                message: "Approval is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(entityType), Parameter: nameof(Approval.EntityType)),
+                (Rule: IsInvalid(entityId), Parameter: nameof(Approval.EntityId)),
+                (Rule: IsInvalid(decision), Parameter: nameof(ApprovalDecision)),
+
+                // A bypass is only tolerable because it leaves a record, and an unexplained one
+                // records nothing worth reading. Refused HERE — before any policy is read — so an
+                // unexplained bypass fails under every policy, including one that would have
+                // permitted the waiver (§9.7.5).
+                (Rule: IsMissingBypassReason(isBypassRequested, bypassReason),
+                    Parameter: nameof(bypassReason)));
+
+        // The decision function answers with a reason; this turns its refusal into the layer's
+        // own exception without repeating why. Re-deriving the reason here would put the policy
+        // in a second place beside the one that owns it (§8.6.1 rule 4).
+        private static void ValidateUserMayDecideApproval(AccessVerdict verdict)
+        {
+            if (verdict is null || verdict.IsPermitted is false)
+            {
+                throw new UnauthorizedApprovalOrchestrationException(
+                    message: "The current user is not allowed to decide this approval.");
+            }
+        }
+
+        private static dynamic IsInvalid(ApprovalDecision decision) => new
+        {
+            Condition = Enum.IsDefined(decision) is false,
+            Message = "Value is not a recognized approval decision"
+        };
+
+        private static dynamic IsMissingBypassReason(
+            bool isBypassRequested,
+            string bypassReason) => new
+            {
+                Condition = isBypassRequested && string.IsNullOrWhiteSpace(bypassReason),
+                Message = "Reason is required when a bypass is requested"
+            };
+
         // The verdict names resolved policy — how many approvals are required, which block
         // fired — so it is the moderation view, not a public one (§16.7.2). §14.5 constrains
         // what an ERROR may reveal to an unprivileged probe; this is a deliberate answer to the

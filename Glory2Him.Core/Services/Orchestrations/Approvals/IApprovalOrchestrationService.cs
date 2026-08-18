@@ -12,6 +12,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 
@@ -60,6 +61,22 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         ValueTask<ApprovalVerdict> RetrieveApprovalVerdictAsync(
             EntityType entityType,
             Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Records a human's approve or reject on the <c>Approval</c> row — the source of truth
+        /// (§9.8) — and requests the matching entity write as a command event (§16.7.1).
+        ///
+        /// <para>This is the ONE authorisation in the flow. The bypass pair is written from the
+        /// decision's verdict rather than the request, so a waiver asked for and not needed
+        /// records none.</para>
+        /// </summary>
+        ValueTask<ApprovalOutcome> DecideApprovalAsync(
+            EntityType entityType,
+            Guid entityId,
+            ApprovalDecision decision,
+            bool isBypassRequested = false,
+            string bypassReason = null,
             CancellationToken cancellationToken = default);
     }
 }

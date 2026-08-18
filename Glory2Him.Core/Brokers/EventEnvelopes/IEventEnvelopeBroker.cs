@@ -35,6 +35,22 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
         /// security and request context carried forward unchanged. Used for outbound events
         /// emitted by do-work methods and for replies returned by responder handlers.
         /// </summary>
+        /// <summary>
+        /// Mints an envelope carrying the WORKFLOW's identity rather than a plain caller's, for a
+        /// write no human is permitted to make directly (design §16.7.1) — the approval workflow
+        /// syncing a decision onto its entity.
+        ///
+        /// <para>The deciding subject is retained, so the entity's <c>UpdatedBy</c> still records
+        /// the person whose decision this is; roles are dropped, because the system identity
+        /// stands in for the publisher tier and reading roles off it would suggest an authority
+        /// it is not exercising.</para>
+        ///
+        /// <para>The claim is only worth anything because it is signed: envelopes leave this
+        /// system signed with a key only this system holds, and the security context is inside
+        /// the signed payload (§14.6 rule 4).</para>
+        /// </summary>
+        ValueTask<EventEnvelope<T>> CreateSystemAsync<T>(T content);
+
         ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
             EventEnvelope<TSource> sourceEnvelope,
             T content);

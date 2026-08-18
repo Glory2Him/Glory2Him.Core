@@ -20,14 +20,18 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 {
     internal partial class ApprovalOrchestrationService
     {
-        private delegate ValueTask<ApprovalVerdict> ReturningApprovalVerdictFunction();
+        // Generic in the return type so that every operation on this service shares ONE catch
+        // chain. A second chain for a second return type is the kind of duplication that drifts:
+        // a dependency family added to one and forgotten on the other surfaces as a raw
+        // foundation exception escaping the layer (§12.2), and nothing fails until it does.
+        private delegate ValueTask<T> ReturningValueFunction<T>();
 
-        private async ValueTask<ApprovalVerdict> TryCatch(
-            ReturningApprovalVerdictFunction returningApprovalVerdictFunction)
+        private async ValueTask<T> TryCatch<T>(
+            ReturningValueFunction<T> returningValueFunction)
         {
             try
             {
-                return await returningApprovalVerdictFunction();
+                return await returningValueFunction();
             }
             catch (OperationCanceledException operationCanceledException)
                 when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
@@ -61,6 +65,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: nullApprovalOrchestrationException);
             }
+            catch (NotSupportedApprovalOrchestrationException
+                notSupportedApprovalOrchestrationException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    notSupportedApprovalOrchestrationException);
+            }
+
             catch (NotFoundApprovalOrchestrationException notFoundApprovalOrchestrationException)
             {
                 throw await CreateAndLogValidationExceptionAsync(
