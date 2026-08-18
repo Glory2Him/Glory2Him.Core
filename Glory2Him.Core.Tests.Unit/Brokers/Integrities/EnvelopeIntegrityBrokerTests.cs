@@ -533,6 +533,74 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
             await signTask.Should().ThrowAsync<InvalidOperationException>();
         }
 
+        [Fact]
+        public async Task ShouldRejectAForgedClaimThatSimplyNamesTheWorkflowKeyIdAsync()
+        {
+            // given: why the two secrets MUST differ, demonstrated rather than asserted.
+            //
+            // KeyId is attacker-controlled — it rides on the envelope and the verifier resolves
+            // the key by it. So the forgery is not subtle: mint a system-identity envelope, sign
+            // it with the ordinary key you hold, and simply LABEL it with the workflow's key id.
+            // The verifier then checks the signature against the workflow's secret.
+            //
+            // That attempt fails only because the workflow's secret is a different one. Were the
+            // two configured with the same value, this envelope would verify and the gate would
+            // be a no-op for anyone holding the ordinary key.
+            var generalKey = ActiveKey("key-general", EnvelopeSigningPurpose.General, "general-secret");
+            var workflowKey = ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, "workflow-secret");
+
+            // the attacker's own broker: it holds ONLY the ordinary secret, but declares it as
+            // the workflow's so that it will sign a system-identity envelope at all
+            IEnvelopeIntegrityBroker attackerBroker = BrokerWith(
+                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, "general-secret"));
+
+            EnvelopeIntegrity forged = await attackerBroker.SignAsync(
+                Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
+
+            // it names the workflow's key id, exactly as a genuine one would
+            forged.KeyId.Should().Be("key-workflow");
+
+            IEnvelopeIntegrityBroker realBroker = BrokerWith(generalKey, workflowKey);
+
+            // when
+            bool isValid = await realBroker.VerifyAsync(
+                Envelope(isSystemIdentity: true, integrity: forged),
+                EventName,
+                EnvelopeDirection.Request);
+
+            // then
+            isValid.Should().BeFalse();
+        }
+
+        [Fact]
+        public async Task ShouldShowTheGateIsVoidedWhenBothKeysShareASecretAsync()
+        {
+            // given: the misconfiguration itself, pinned so that its consequence is on record
+            // rather than folklore. Same secret on both purposes — the arrangement the settings
+            // comments warn against.
+            const string sharedSecret = "the-same-secret-for-both";
+
+            IEnvelopeIntegrityBroker attackerBroker = BrokerWith(
+                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, sharedSecret));
+
+            EnvelopeIntegrity forged = await attackerBroker.SignAsync(
+                Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
+
+            IEnvelopeIntegrityBroker realBroker = BrokerWith(
+                ActiveKey("key-general", EnvelopeSigningPurpose.General, sharedSecret),
+                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, sharedSecret));
+
+            // when
+            bool isValid = await realBroker.VerifyAsync(
+                Envelope(isSystemIdentity: true, integrity: forged),
+                EventName,
+                EnvelopeDirection.Request);
+
+            // then: it PASSES — holding the ordinary secret was enough to assert the workflow
+            // identity. Nothing in the code can detect this; only distinct secrets prevent it.
+            isValid.Should().BeTrue();
+        }
+
         // ── helpers ──────────────────────────────────────────────────────────────
 
         private static EventEnvelope<string> Envelope(
