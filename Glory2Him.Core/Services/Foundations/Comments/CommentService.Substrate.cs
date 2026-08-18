@@ -220,13 +220,18 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                         comment: envelope.Content,
                         inboundEnvelope: envelope,
 
-                        // This envelope arrived over a PUBLIC event address and its security
-                        // context was deserialized, not authenticated (§14.6 rule 4). A caller
-                        // who could assert the system identity here would be granted the
-                        // workflow's own authority — including the override out of a terminal
-                        // state — simply by setting a JSON property. The claim is discarded and
-                        // the caller is treated as the ordinary unprivileged one they are.
-                        isSystemIdentityAdmissible: false,
+                        // Admissible because the envelope was VERIFIED above, and verification
+                        // now binds the claim to the key: one asserting the system identity is
+                        // refused unless it was signed with the workflow's own key, which no
+                        // ordinary publisher holds (§16.7.1). The flag sits inside the signed
+                        // payload, so setting it on a genuine envelope breaks the HMAC, and
+                        // minting a fresh one requires the key a caller does not have.
+                        //
+                        // That is verifiable provenance rather than the call-site convention
+                        // this used to rest on — and unlike a call site, it survives the write
+                        // travelling over an event, which is what lets the approval workflow
+                        // sync its decision onto the entity at all.
+                        isSystemIdentityAdmissible: true,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

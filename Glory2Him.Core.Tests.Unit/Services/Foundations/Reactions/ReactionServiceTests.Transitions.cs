@@ -199,6 +199,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             return savedReaction;
         }
 
+        // The same capture, driven over the EVENT path instead of the in-process one, so a test
+        // can assert what the workflow's command actually wrote. DeepClone because the service
+        // mutates the storage row it was handed — comparing a field against the same object
+        // afterwards would compare it with itself and pass whatever the service did.
+        private async ValueTask<Reaction> CaptureSavedReactionOnEventTransitionAsync(
+            Reaction storageReaction,
+            EventEnvelope<Reaction> requestEnvelope)
+        {
+            Reaction savedReaction = null;
+
+            SetupReactionStorageRead(storageReaction);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Reaction>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((Reaction entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateReactionAsync(
+                    It.IsAny<Reaction>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Reaction, CancellationToken>(
+                            (entity, _) => savedReaction = entity.DeepClone())
+                        .ReturnsAsync((Reaction entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishReactionAsync(
+                    It.IsAny<EventEnvelope<Reaction>>(),
+                    It.IsAny<ReactionEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Reaction>>(
+                            new EventPublishResult<Reaction>()));
+
+            await this.reactionService.OnApprovingReactionAsync(
+                requestEnvelope,
+                TestContext.Current.CancellationToken);
+
+            return savedReaction;
+        }
+
         // Runs a permitted approve end to end and hands back the query the service gave the
         // access broker. Permitted rather than refused because the whole operation should run:
         // the query is built before the verdict is read, so this is the query a real approve

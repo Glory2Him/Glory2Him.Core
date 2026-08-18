@@ -199,6 +199,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             return savedComment;
         }
 
+        // The same capture, driven over the EVENT path instead of the in-process one, so a test
+        // can assert what the workflow's command actually wrote. DeepClone because the service
+        // mutates the storage row it was handed — comparing a field against the same object
+        // afterwards would compare it with itself and pass whatever the service did.
+        private async ValueTask<Comment> CaptureSavedCommentOnEventTransitionAsync(
+            Comment storageComment,
+            EventEnvelope<Comment> requestEnvelope)
+        {
+            Comment savedComment = null;
+
+            SetupCommentStorageRead(storageComment);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Comment>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((Comment entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateCommentAsync(
+                    It.IsAny<Comment>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Comment, CancellationToken>(
+                            (entity, _) => savedComment = entity.DeepClone())
+                        .ReturnsAsync((Comment entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishCommentAsync(
+                    It.IsAny<EventEnvelope<Comment>>(),
+                    It.IsAny<CommentEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Comment>>(
+                            new EventPublishResult<Comment>()));
+
+            await this.commentService.OnApprovingCommentAsync(
+                requestEnvelope,
+                TestContext.Current.CancellationToken);
+
+            return savedComment;
+        }
+
         // Runs a permitted approve end to end and hands back the query the service gave the
         // access broker. Permitted rather than refused because the whole operation should run:
         // the query is built before the verdict is read, so this is the query a real approve

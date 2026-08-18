@@ -42,7 +42,19 @@ namespace Glory2Him.Core.Brokers.Integrities
             EnvelopeDirection direction)
         {
             DateTimeOffset signedDate = DateTimeOffset.UtcNow;
-            EventEnvelopeSigningKey signingKey = SelectActiveSigningKey(signedDate);
+
+            // The key is chosen by the identity the envelope asserts, not by the call site.
+            // Signing is central — every publish funnels through one place — so a "sign this as
+            // the workflow" parameter would have to be threaded from the caller through the
+            // broker, and anything a caller can pass, a caller can pass wrongly. Deriving it
+            // from the claim itself makes the two impossible to disagree: an envelope that says
+            // IsSystemIdentity is signed with the workflow key or not at all.
+            EnvelopeSigningPurpose purpose =
+                envelope?.SecurityContext?.IsSystemIdentity is true
+                    ? EnvelopeSigningPurpose.Workflow
+                    : EnvelopeSigningPurpose.General;
+
+            EventEnvelopeSigningKey signingKey = SelectActiveSigningKey(signedDate, purpose);
 
             string signature =
                 ComputeSignature(envelope, eventName, direction, signingKey.Key);
@@ -84,6 +96,19 @@ namespace Glory2Him.Core.Brokers.Integrities
                 return new ValueTask<bool>(false);
             }
 
+            // The claim and the key must agree. This is what turns IsSystemIdentity from an
+            // assertion into evidence: the flag is inside the signed payload, so tampering with
+            // it breaks the HMAC, and minting a fresh envelope that carries it requires the
+            // workflow key. A caller who can reach a public event address has neither.
+            //
+            // Checked BEFORE the signature is computed, so an envelope claiming the workflow
+            // under an ordinary key is refused on the claim rather than on the comparison.
+            if (envelope.SecurityContext?.IsSystemIdentity is true
+                && signingKey.Purpose != EnvelopeSigningPurpose.Workflow)
+            {
+                return new ValueTask<bool>(false);
+            }
+
             string expectedSignature =
                 ComputeSignature(envelope, expectedEventName, expectedDirection, signingKey.Key);
 
@@ -99,18 +124,21 @@ namespace Glory2Him.Core.Brokers.Integrities
         // The first key whose window contains "now" signs. A gap between windows, or a set of
         // wholly-expired keys, leaves nothing to sign with — which must throw rather than emit an
         // unsigned envelope, because an unsigned envelope is one this system will later refuse.
-        private EventEnvelopeSigningKey SelectActiveSigningKey(DateTimeOffset now)
+        private EventEnvelopeSigningKey SelectActiveSigningKey(
+            DateTimeOffset now,
+            EnvelopeSigningPurpose purpose)
         {
             EventEnvelopeSigningKey activeKey =
                 this.signingKeys.FirstOrDefault(key =>
-                    key.ActiveFrom <= now
+                    key.Purpose == purpose
+                        && key.ActiveFrom <= now
                         && (key.ActiveTo is null || now < key.ActiveTo));
 
             if (activeKey is null)
             {
                 throw new InvalidOperationException(
-                    $"No active event envelope signing key is configured as of {now:O}. " +
-                    "Publishing cannot proceed without one.");
+                    $"No active {purpose} event envelope signing key is configured as of " +
+                    $"{now:O}. Publishing cannot proceed without one.");
             }
 
             return activeKey;

@@ -253,16 +253,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         }
 
         [Fact]
-        public async Task ShouldRefuseASystemIdentityClaimedOnAnInboundEnvelopeAsync()
+        public async Task ShouldHonourAVerifiedSystemIdentityOnAnInboundEnvelopeAsync()
         {
-            // given: THE highest-risk case in this change. On the event path the security context
-            // is deserialized and unverified (§14.6 rule 4), so a caller who can reach the public
-            // BibleReference-Approving address would otherwise declare themselves the workflow and walk past
-            // every approval rule in the design by setting one JSON property.
+            // given: the approval workflow syncing its decision onto the entity (§16.7.1). It
+            // holds NO roles — exactly as the genuine system context does — so the claim is the
+            // only thing that can authorize this write, and the row it approves is one no human
+            // present is permitted to decide.
             //
-            // Roleless, exactly as the genuine system context is — so the ONLY thing that could
-            // authorize this is the claim, and the only thing that can refuse it is where the
-            // claim arrived from.
+            // What makes the claim believable is not this service: it is the signature verified
+            // on the way in, which is refused unless the envelope was signed with the workflow's
+            // own key. That binding is proven against the REAL broker in
+            // EnvelopeIntegrityBrokerTests — it CANNOT be proven here, because this suite mocks
+            // VerifyAsync to true.
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -273,44 +275,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
             requestEnvelope.Content.Id = storageBibleReference.Id;
 
-            SetupBibleReferenceStorageRead(storageBibleReference);
-
-            var unauthorizedBibleReferenceException =
-                new UnauthorizedBibleReferenceException(
-                    message: "The current user is not allowed to approve this bible reference.");
-
             // when
-            ValueTask<EventEnvelope<BibleReference>?> transitionTask =
-                this.bibleReferenceService.OnApprovingBibleReferenceAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
+            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnEventTransitionAsync(
+                storageBibleReference: storageBibleReference,
+                requestEnvelope: requestEnvelope);
 
-            BibleReferenceValidationException actualException =
-                await Assert.ThrowsAsync<BibleReferenceValidationException>(transitionTask.AsTask);
+            // then
+            savedBibleReference.Should().NotBeNull();
+            savedBibleReference.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
 
-            // then: treated as the ordinary unprivileged caller it is, and refused at the
-            // publisher tier it does not hold
-            actualException.InnerException.Should()
-                .BeEquivalentTo(unauthorizedBibleReferenceException);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateBibleReferenceAsync(
-                        It.IsAny<BibleReference>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.eventBrokerMock.Verify(broker =>
-                    broker.PublishBibleReferenceAsync(
-                        It.IsAny<EventEnvelope<BibleReference>>(),
-                        It.IsAny<BibleReferenceEventOperation>()),
-                Times.Never);
+            // the workflow asked for no waiver, so none is recorded
+            savedBibleReference.IsApprovedByBypass.Should().BeFalse();
+            savedBibleReference.ApprovedByBypassReason.Should().BeNull();
         }
 
         [Fact]
-        public async Task ShouldRefuseAnInboundEnvelopeClaimingSystemIdentityToOverrideATerminalRowAsync()
+        public async Task ShouldHonourAVerifiedSystemIdentityToOverrideATerminalRowAsync()
         {
-            // given: the same forged claim aimed at the override — the write the flag would be
-            // most valuable for forging, because it re-opens and unpublishes a decided row.
+            // given: the override is the write the workflow most needs and the one a forgery
+            // would most want — it re-opens and unpublishes a decided row. Admitted here only
+            // because the envelope was verified; the sibling demotion that follows a new
+            // version's approval is exactly this write, against a row that is itself Approved
+            // and therefore untouchable by any Publisher.
             var requestEnvelope = new EventEnvelope<BibleReference>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -321,30 +307,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             BibleReference storageBibleReference = CreateTerminalStorageBibleReference(ApprovalStatus.Approved);
             requestEnvelope.Content.Id = storageBibleReference.Id;
 
-            SetupBibleReferenceStorageRead(storageBibleReference);
+            // when
+            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnEventTransitionAsync(
+                storageBibleReference: storageBibleReference,
+                requestEnvelope: requestEnvelope);
 
-            var unauthorizedBibleReferenceException =
-                new UnauthorizedBibleReferenceException(
-                    message: "The current user is not allowed to transition this bible reference.");
+            // then
+            savedBibleReference.Should().NotBeNull();
+            savedBibleReference.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+
+            // publication is DERIVED — a re-opened row cannot stay publicly visible while it
+            // waits for a second verdict
+            savedBibleReference.IsPublished.Should().BeFalse();
+            savedBibleReference.PublishDate.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldCarryTheBypassPairFromTheWorkflowCommandRatherThanErasingItAsync()
+        {
+            // given: a human bypass-approved this item and was authorised for it on the Approval
+            // row; the workflow is now syncing that decision onto the entity. The waiver has
+            // already happened — the sync is a messenger, not a second decision.
+            //
+            // Deriving "no bypass used" here, as an ordinary system-identity write does, would
+            // write IsApprovedByBypass = false onto the entity while the Approval row records
+            // true: the two records diverge (§9.8) and the evidence §9.7.1 rule 3 exists to keep
+            // is erased by the very act of storing it.
+            string bypassReason = GetRandomString();
+
+            var requestEnvelope = new EventEnvelope<BibleReference>
+            {
+                SecurityContext = CreateSystemSecurityContext(),
+                Content = CreateBypassApprovalRequest(
+                    bibleReferenceId: Guid.NewGuid(),
+                    bypassReason: bypassReason),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
+            requestEnvelope.Content.Id = storageBibleReference.Id;
 
             // when
-            ValueTask<EventEnvelope<BibleReference>?> transitionTask =
-                this.bibleReferenceService.OnApprovingBibleReferenceAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
+            BibleReference savedBibleReference = await CaptureSavedBibleReferenceOnEventTransitionAsync(
+                storageBibleReference: storageBibleReference,
+                requestEnvelope: requestEnvelope);
 
-            BibleReferenceValidationException actualException =
-                await Assert.ThrowsAsync<BibleReferenceValidationException>(transitionTask.AsTask);
-
-            // then: refused at the override gate, which is where a non-Admin belongs
-            actualException.InnerException.Should()
-                .BeEquivalentTo(unauthorizedBibleReferenceException);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateBibleReferenceAsync(
-                        It.IsAny<BibleReference>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
+            // then
+            savedBibleReference.Should().NotBeNull();
+            savedBibleReference.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            savedBibleReference.IsApprovedByBypass.Should().BeTrue();
+            savedBibleReference.ApprovedByBypassReason.Should().Be(bypassReason);
         }
 
         [Fact]
