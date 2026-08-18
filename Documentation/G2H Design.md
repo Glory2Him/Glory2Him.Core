@@ -3143,6 +3143,40 @@ Responsible for:
 6. Publishing content versions when approval completes.
 7. Using `SecurityBroker` for user and role checks.
 
+#### 16.7.1 The settled shape
+
+**Three dependencies, not ten.** `IApprovalService`, `IApprovalReviewService` and `IApprovalCommentService` — the three records the workflow owns — plus brokers. It takes **no entity services at all**, which is what keeps it inside the dependency-count guidance that §12.5 entry 1 is already recorded as breaking. It also takes no `IApprovalSettingService`: resolving §8.4 here would put most-specific-wins in a second place beside the decision function, which §8.6.1 rule 4 exists to prevent. Every policy question is asked as a verdict.
+
+**The human authorises once, on the `Approval` row; the entity write is a sync.** This is forced rather than chosen. The decision function refuses any outcome when the approval is not `Submitted` — `ApprovalNotOpenForReview`, checked before policy is resolved — so writing the `Approval` row first and then asking the same question again on the entity under the same human identity fails deterministically on the happy path. And §9.8 names `Approval.ApprovalStatus` the source of truth, so a repair pass can only mean *drive the entity to match the approval*; entity-first would make repair revert a real decision. The entity write is therefore a denormalisation sync performed under the workflow's own identity, not a second authorisation.
+
+**The sync is a command event, not a method call.** The orchestration publishes an instruction to the owning entity's request address and observes the reply, rather than calling the foundation service directly. Two consequences follow, and both are the point: the orchestration needs no entity services, and each side is testable on its own — the orchestration proves it published the command, the foundation proves it honours one. A single method call would be invisible to both.
+
+Because the sync is asynchronous in principle, the orchestration carries an explicit *requested but unconfirmed* state. §9.8's "must never diverge" is a steady-state invariant, not a claim that the two rows are written in one instant, and a reconcile path exists to settle a sync whose reply never arrived.
+
+**Provenance is carried by a signature, not by a call site.** §9.7.1 rule 3 admits the workflow's system identity only on a context minted in process, on the reasoning that provenance is not carried by the payload. That reasoning is superseded here: every inbound envelope is already signature-verified at the receiver, and the signing broker holds a *collection* of keys selected by `KeyId`. The workflow gets its own key, and a foundation service honours `IsSystemIdentity` only on an envelope signed with it. That is verifiable provenance rather than a convention, and unlike the call-site argument it survives the write travelling over an event.
+
+**The system identity must not erase the bypass record.** The seam returns "no bypass used" for a system identity, which is right for an ordinary sync and wrong for the sync of a bypass-approved decision — it would write `IsApprovedByBypass = false` onto the entity while the `Approval` row records `true`, diverging the two records (§9.8) and erasing exactly the evidence §9.7.1 rule 3 exists to protect. The command carries the decided pair, and a system-identity sync writes what it is told rather than deriving.
+
+#### 16.7.2 The verdict, and who may see it
+
+**`RetrieveApprovalVerdictAsync` answers "what may happen to this approval now, and what is stopping it".** It writes nothing, publishes nothing and grants nothing. It carries:
+
+- `IsBlocked` — true when **any** condition blocks. There is no partial block: a blocker is either resolved or waived by a bypass.
+- `IsBypassAllowedForCurrentUser` — one bool folding the caller's role and `DoNotAllowBypassingSettings` into the only question a UI needs. Bypass waives the §8.5 conditions **wholesale** (§9.7.5), so there is no per-reason bypassability to express.
+- `BlockReasons` — **every** current reason, in readable English, not just the first.
+
+A UI enables approve on `IsBlocked == false`, and approve-with-bypass on `IsBlocked && IsBypassAllowedForCurrentUser`.
+
+**Two changes this forces.** `ApprovalConditionsVerdict.BlockReason` is singular — "the first condition that failed" — and must become the full set, evaluating every condition rather than short-circuiting; a caller cannot be told "one more reviewer **and** two unresolved comments" otherwise. And `AccessDenialReason` gains `BlockedDueToDraftStatus`: a `Draft` approval is blocked for a reason a UI must state plainly, and `ApprovalNotOpenForReview` is accurate but too vague to render.
+
+**The readable text is composed in Core, not in the decision function.** The client returns codes and the counts behind them; the orchestration maps them to messages. Putting user-facing English in a policy engine makes it own presentation and fixes one language into a shared package.
+
+**§14.5's non-leakage rule is resolved by the tier, not weakened.** The rule that a caller is told nothing about the policy protects an *ordinary* caller: it exists so that a refusal cannot be used to probe how many approvals a type requires. An approver is not that caller — they are the party the policy is addressed to, and telling them "two more approvals and one unresolved comment" is the operation working, not a leak. So the verdict is exposed to the `Publisher` tier and `Admin` only, and the exposer is gated to those roles. Below that tier the posture is unchanged.
+
+#### 16.7.3 What is deliberately not built
+
+**Bypass cannot rescue an approval that was never submitted.** The decision function refuses a non-`Submitted` approval before the bypass branch is reached, and the foundation refuses `Draft` as a transition source. Both stay. The case this would have served — content whose author has departed — is already served in two steps that leave a full audit trail: a `Publisher` or `Admin` may read a `Draft` (the review roles see non-public rows), amend it as moderation (§9.7.1 rule 2 admits them while the entity is not yet approved), submit it (`Submit<Entity>ByIdAsync` admits the owner *or* the publisher tier), and then approve it normally. Admitting bypass-on-draft instead would cost the invariant that **nothing reaches `Approved` without having passed through a review window**, which is too much to trade for a path that already exists.
+
 ## 17. Recommended API Design
 
 ### 17.1 Content Endpoints
