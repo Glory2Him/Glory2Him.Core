@@ -801,6 +801,16 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.approvalCommentServiceMock.Object.OnResolvingApprovalCommentAsync);
 
+            // The review flow's trigger: a recorded review may complete the round (§9.7.5).
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Added,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalReviewAddedAsync);
+
             VerifyApprovalReviewSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionId,

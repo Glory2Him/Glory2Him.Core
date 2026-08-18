@@ -98,6 +98,17 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                         inboundEnvelope: envelope,
                         cancellationToken: cancellationToken);
 
+                // This service's OWN completion fact, distinct from the foundation's
+                // ContentItem-Approved: that one says a row was decided, this one says the
+                // GROUP was left consistent — the incumbent cleared and the new row
+                // promoted. A subscriber that needs the second cannot infer it from the
+                // first, because the foundation fact is published before this process
+                // has finished (§10.2 rule 5).
+                await PublishContentItemProcessingFactAsync(
+                    inboundEnvelope: envelope,
+                    contentItem: decidedContentItem,
+                    operation: ContentItemProcessingEventOperation.Approved);
+
                 return await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: envelope,
                     content: decidedContentItem);

@@ -826,5 +826,51 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                 SecurityContext = new SecurityContext(),
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
+
+        [Fact]
+        public async Task ShouldEvaluateTheRoundAReviewWasRecordedAgainstOnReviewAddedAsync()
+        {
+            // given: the review fact names its round directly through ApprovalId, so the handler
+            // hands THAT across rather than reaching for the entity — which the flow resolves
+            // anyway. A handler keyed on the wrong id would evaluate somebody else's round.
+            var approvalId = Guid.Parse("bbbbbbbb-1111-1111-1111-111111111111");
+            var otherApprovalId = Guid.Parse("bbbbbbbb-2222-2222-2222-222222222222");
+
+            var reviewEnvelope = new EventEnvelope<ApprovalReview>
+            {
+                Content = new ApprovalReview { Id = otherApprovalId, ApprovalId = approvalId },
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            this.approvalServiceMock.Setup(service =>
+                service.RetrieveApprovalByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new Approval
+                        {
+                            Id = approvalId,
+                            EntityType = EntityType.Link,
+                            EntityId = Guid.NewGuid(),
+                            ApprovalStatus = ApprovalStatus.Draft,
+                        });
+
+            // when
+            EventEnvelope<ApprovalReview>? actualEnvelope =
+                await this.approvalOrchestrationService.OnApprovalReviewAddedAsync(
+                    reviewEnvelope,
+                    TestContext.Current.CancellationToken);
+
+            // then: keyed on ApprovalId, not on the review's own id
+            this.approvalServiceMock.Verify(service =>
+                service.RetrieveApprovalByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // a fact is a notification: replying would put this service's name on a fact another
+            // service published
+            actualEnvelope.Should().BeNull();
+        }
     }
 }

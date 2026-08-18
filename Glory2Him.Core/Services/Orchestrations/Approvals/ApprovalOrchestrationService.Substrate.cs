@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.Comments;
@@ -167,6 +168,33 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 entityType: EntityType.Association,
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
+
+        // The review flow's ear. Keyed on the review's ApprovalId rather than an entity id:
+        // a review names the round it belongs to directly, and the entity is whatever that
+        // approval points at. Reaching for the entity here would be a second lookup for
+        // something the flow resolves anyway.
+        //
+        // -Added only. A review is amended through its own verb and dismissed through
+        // another; neither adds a verdict to the round, and re-evaluating on a dismissal
+        // would run the round twice for one act — the flow that dismissed it already
+        // re-evaluates (§9.7.4).
+        public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewAddedAsync(
+            EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToApprovalReviewFactAsync(envelope, cancellationToken);
+
+        private async ValueTask<EventEnvelope<ApprovalReview>?> ReactToApprovalReviewFactAsync(
+            EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateEntityFactEnvelope(envelope);
+
+            await ProcessApprovalReviewRecordedAsync(
+                approvalId: envelope.Content.ApprovalId,
+                cancellationToken: cancellationToken);
+
+            return null;
+        }
 
         // The shared body. A fact is a notification, so nothing is replied with: returning the
         // inbound envelope would put this service's name on a fact another service published.

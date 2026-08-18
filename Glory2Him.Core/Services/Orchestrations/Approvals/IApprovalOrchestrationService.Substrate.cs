@@ -12,6 +12,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.Comments;
@@ -88,6 +89,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
         ValueTask<EventEnvelope<Association>?> OnAssociationModifiedAsync(
             EventEnvelope<Association> envelope,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Reacts to a recorded approval review by evaluating the round it belongs to
+        /// (design §9.7.5).
+        /// </summary>
+        ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewAddedAsync(
+            EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default);
     }
 }

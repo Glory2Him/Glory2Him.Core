@@ -18,6 +18,7 @@ using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 using Glory2Him.Core.Models.Processings.Links.Exceptions;
@@ -42,6 +43,58 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
     /// </summary>
     public partial class LinkProcessingServiceTests
     {
+        [Fact]
+        public async Task ShouldPublishItsOwnCompletionFactOnApprovingLinkAsync()
+        {
+            // given: distinct from the foundation's Link-Approved. That one says a row was
+            // decided; this one says the GROUP was left consistent — incumbent cleared, new row
+            // promoted. A subscriber cannot infer the second from the first, because the
+            // foundation publishes before this process has finished (§10.2 rule 5).
+            Guid targetLinkId = Guid.Parse("aaaaaaaa-1111-1111-1111-111111111111");
+            Guid groupId = Guid.Parse("aaaaaaaa-3333-3333-3333-333333333333");
+
+            Link promoteCommand = CreatePublicationSwapPromoteCommand(targetLinkId);
+
+            EventEnvelope<Link> inboundEnvelope =
+                CreatePublicationSwapEnvelope(promoteCommand);
+
+            Link storageTargetLink = CreatePublicationSwapRow(
+                linkId: targetLinkId,
+                groupId: groupId,
+                isPublished: false);
+
+            Link promotedLink = storageTargetLink.DeepClone();
+            promotedLink.IsPublished = true;
+            promotedLink.ApprovalStatus = ApprovalStatus.Approved;
+
+            SetupPublicationSwapProbe(
+                targetLinkId: targetLinkId,
+                storageTargetLink: storageTargetLink,
+                groupRows: new List<Link>());
+
+            this.linkServiceMock.Setup(service =>
+                service.TransitionLinkApprovalAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(promotedLink);
+
+            SetupPublicationSwapReply(inboundEnvelope, promotedLink);
+
+            // when
+            await this.linkProcessingService.OnApprovingLinkAsync(
+                inboundEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then
+            this.eventBrokerMock.Verify(broker =>
+                broker.PublishLinkProcessingAsync(
+                    It.Is<EventEnvelope<Link>>(envelope =>
+                        envelope.Content.Id == targetLinkId
+                            && envelope.Content.IsPublished),
+                    LinkProcessingEventOperation.Approved),
+                Times.Once);
+        }
+
         [Fact]
         public async Task ShouldUnpublishIncumbentBeforeForwardingPromoteOnApprovingLinkAsync()
         {

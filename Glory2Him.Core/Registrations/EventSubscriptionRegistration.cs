@@ -1031,6 +1031,27 @@ namespace Glory2Him.Core.Registrations
                 approvalCommentEventHandler: this.approvalCommentService.OnResolvingApprovalCommentAsync,
                 cancellationToken: cancellationToken);
 
+            // The review flow's trigger (§9.7.5). A recorded review may complete the round,
+            // so the workflow evaluates it — or ends it outright where a standing rejection
+            // blocks under BlockOnReject.
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionName,
+
+                    Description = "Reacts to a recorded review: evaluates the round it "
+                        + "belongs to, and ends it immediately where a standing "
+                        + "rejection blocks."
+                },
+                operation: ApprovalReviewEventOperation.Added,
+                approvalReviewEventHandler:
+                    this.approvalOrchestrationService.OnApprovalReviewAddedAsync,
+                cancellationToken: cancellationToken);
+
             // ── ApprovalReview request handlers ──────────────────────────────────
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
                 subscription: new EventSubscription

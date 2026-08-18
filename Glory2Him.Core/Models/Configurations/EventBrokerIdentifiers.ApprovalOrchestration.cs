@@ -31,6 +31,12 @@ namespace Glory2Him.Core.Models.Configurations
         // No -Removed subscription for any of them. A takedown is not a moderation step and
         // must never re-open an approval (§9.7.6).
 
+        public static readonly Guid ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId =
+            new Guid("01a0e17c-4b12-754e-b0d4-1e2525193391");
+
+        public const string ApprovalOrchestrationOnApprovalReviewAddedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalReviewAdded";
+
         public static readonly Guid ApprovalOrchestrationOnTagAddedSubscriptionId =
             new Guid("01a0e17c-3a01-743d-afc3-0d1414082280");
 
