@@ -3153,11 +3153,33 @@ Responsible for:
 
 Because the sync is asynchronous in principle, the orchestration carries an explicit *requested but unconfirmed* state. §9.8's "must never diverge" is a steady-state invariant, not a claim that the two rows are written in one instant, and a reconcile path exists to settle a sync whose reply never arrived.
 
-**Provenance is carried by a signature, not by a call site.** §9.7.1 rule 3 admitted the workflow's system identity only on a context minted in process, on the reasoning that provenance is not carried by the payload. That reasoning is superseded, and the mechanism is now built: the signing key is selected by the identity the envelope asserts, and the verifier refuses a `IsSystemIdentity` claim carried by any key but the workflow's. `SecurityContext` sits inside the signed payload, so setting the flag on a genuine envelope breaks the HMAC, and minting a fresh one carrying it requires a key no ordinary publisher holds. `EnvelopeSigningPurpose` defaults to `General`, so a key configured without a stated purpose cannot grant workflow authority by omission, and signing a system-identity envelope with no workflow key configured throws rather than falling back.
+**Provenance is carried by a signature, not by a call site.** §9.7.1 rule 3 admitted the workflow's system identity only on a context minted in process, on the reasoning that provenance is not carried by the payload. That reasoning is superseded, and the mechanism is now built: the signing key is selected by the identity the envelope asserts, and the verifier refuses an `IsSystemIdentity` claim carried by any key but the workflow's. `SecurityContext` sits inside the signed payload, so setting the flag on a genuine envelope breaks the HMAC, and minting a fresh one carrying it requires a key no ordinary publisher holds. `EnvelopeSigningPurpose` defaults to `General`, so a key configured without a stated purpose cannot grant workflow authority by omission, and signing a system-identity envelope with no workflow key configured throws rather than falling back to one that would later be refused.
 
 The rule is one-directional: a system claim demands the workflow key; the workflow key does not demand a system claim. With that in place the seven `On<Entity>Approving` handlers admit the claim they previously discarded — verification, not the call site, is what makes it safe, and unlike a call site it survives the write travelling over an event.
 
-**The system identity must not erase the bypass record.** The seam returned "no bypass used" for a system identity, which is right for an ordinary sync and wrong for the sync of a bypass-approved decision — it would write `IsApprovedByBypass = false` onto the entity while the `Approval` row records `true`, diverging the two records (§9.8) and erasing exactly the evidence §9.7.1 rule 3 exists to protect. The command carries the decided pair, and a system-identity sync writes what it is told rather than deriving. Nothing unexplained passes: the shape validation refuses a bypass with no reason, and one paired with any target but `Approved`, before any policy is read.
+**The system identity must not erase the bypass record.** The seam returned "no bypass used" for a system identity, which is right for an ordinary sync and wrong for the sync of a bypass-approved decision — it would write `IsApprovedByBypass = false` onto the entity while the `Approval` row records `true`, diverging the two records (§9.8) and erasing exactly the evidence §9.7.1 rule 3 exists to protect. The command carries the decided pair, and a system-identity sync writes what it is told rather than deriving. Nothing unexplained passes on that route: the shape validation refuses a bypass with no reason, and one paired with any target but `Approved`, before any policy is read.
+
+#### 16.7.2 The verdict, and who may see it
+
+**`RetrieveApprovalVerdictAsync` answers "what may happen to this approval now, and what is stopping it".** It writes nothing, publishes nothing and grants nothing. It carries:
+
+- `IsBlocked` — true when **any** condition blocks. There is no partial block: a blocker is either resolved or waived by a bypass.
+- `IsBypassAllowedForCurrentUser` — one bool folding the caller's role and `DoNotAllowBypassingSettings` into the only question a UI needs. Bypass waives the §8.5 conditions **wholesale** (§9.7.5), so there is no per-reason bypassability to express.
+- `BlockReasons` — **every** current reason, in readable English, not just the first.
+
+A UI enables approve on `IsBlocked == false`, and approve-with-bypass on `IsBlocked && IsBypassAllowedForCurrentUser`.
+
+**Two changes this forces.** `ApprovalConditionsVerdict.BlockReason` is singular — "the first condition that failed" — and must become the full set, evaluating every condition rather than short-circuiting; a caller cannot be told "one more reviewer **and** two unresolved comments" otherwise. And `AccessDenialReason` gains `BlockedDueToDraftStatus`: a `Draft` approval is blocked for a reason a UI must state plainly, and `ApprovalNotOpenForReview` is accurate but too vague to render.
+
+**The readable text is composed in Core, not in the decision function.** The client returns codes and the counts behind them; the orchestration maps them to messages. Putting user-facing English in a policy engine makes it own presentation and fixes one language into a shared package.
+
+**§14.5's non-leakage rule is resolved by the tier, not weakened.** The rule that a caller is told nothing about the policy protects an *ordinary* caller: it exists so that a refusal cannot be used to probe how many approvals a type requires. An approver is not that caller — they are the party the policy is addressed to, and telling them "two more approvals and one unresolved comment" is the operation working, not a leak. So the verdict is exposed to the `Publisher` tier and `Admin` only, and the exposer is gated to those roles. Below that tier the posture is unchanged.
+
+#### 16.7.3 What is deliberately not built
+
+**Bypass cannot rescue an approval that was never submitted.** The decision function refuses a non-`Submitted` approval before the bypass branch is reached, and the foundation refuses `Draft` as a transition source. Both stay. The case this would have served — content whose author has departed — is already served in two steps that leave a full audit trail: a `Publisher` or `Admin` may read a `Draft` (the review roles see non-public rows), amend it as moderation (§9.7.1 rule 2 admits them while the entity is not yet approved), submit it (`Submit<Entity>ByIdAsync` admits the owner *or* the publisher tier), and then approve it normally. Admitting bypass-on-draft instead would cost the invariant that **nothing reaches `Approved` without having passed through a review window**, which is too much to trade for a path that already exists.
+
+## 17. Recommended API Design
 
 ### 17.1 Content Endpoints
 
