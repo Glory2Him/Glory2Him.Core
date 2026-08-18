@@ -637,6 +637,33 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
                 .WithMessage("*key-a*");
         }
 
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void ShouldRefuseToStartWhenAKeyHasNoUsableSecret(string secret)
+        {
+            // given: not a weak key but an open door — the HMAC becomes one anyone can recompute.
+            // Key defaults to string.Empty, so an entry naming a KeyId and an ActiveFrom but
+            // omitting Key binds to exactly this.
+            Action buildBroker = () => BrokerWith(
+                ActiveKey("key-a", EnvelopeSigningPurpose.General, secret));
+
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>();
+        }
+
+        [Fact]
+        public void ShouldRefuseToStartWhenAKeyHasNoUsableId()
+        {
+            // given: verification resolves a key BY its id and already refuses a blank one, so a
+            // key configured without one could never verify anything it signed.
+            Action buildBroker = () => BrokerWith(
+                ActiveKey("", EnvelopeSigningPurpose.General, "a-secret"));
+
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>();
+        }
+
         [Fact]
         public void ShouldStartWhenNoKeyIsConfiguredAtAll()
         {

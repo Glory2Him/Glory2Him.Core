@@ -59,6 +59,23 @@ namespace Glory2Him.Core.Brokers.Integrities
                 return;
             }
 
+            // A key with no secret is not a weak key, it is an open door: the HMAC becomes one
+            // anybody can recompute, and Key defaults to string.Empty, so an entry that names a
+            // KeyId and an ActiveFrom but omits Key binds to exactly that. An id is required for
+            // the same practical reason — verification resolves by it, and a blank one is
+            // already refused there, so a key configured with none could never verify anything.
+            EventEnvelopeSigningKey unusableKey = signingKeys.FirstOrDefault(key =>
+                string.IsNullOrWhiteSpace(key.Key)
+                    || string.IsNullOrWhiteSpace(key.KeyId));
+
+            if (unusableKey is not null)
+            {
+                throw new InvalidOperationException(
+                    "An event envelope signing key is configured without a usable KeyId and " +
+                    "secret. Both are required: the secret is what the signature rests on, and " +
+                    "the id is what verification resolves by.");
+            }
+
             var workflowSecrets = new HashSet<string>(
                 signingKeys
                     .Where(key => key.Purpose == EnvelopeSigningPurpose.Workflow)

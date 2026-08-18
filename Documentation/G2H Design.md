@@ -1325,7 +1325,9 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 
    **A second admissible actor: the workflow's own identity.** The transition accepts **either** the `Publisher` tier via `IAccessBroker`, **or** a `SecurityContext` with `IsSystemIdentity = true`. Some of the workflow's writes have no human permitted to make them — §8.6 regardless-rule 1 bars the very reviewer whose review fired an automatic approval from deciding it, and the previously published sibling that a newly approved version demotes is itself `Approved`, so no `Publisher` may touch it. The system identity stands in for the publisher tier and for nothing else: it requests no bypass and is granted none, because waiving the §8.5 conditions is a human act that has to be explained by a human.
 
-   **The flag is a claim about provenance, and provenance is not carried by the payload.** It is honoured only on a context this process minted itself. On the event path the security context is deserialized and unverified (§14.6 rule 4), so an envelope arriving at a public request address with `IsSystemIdentity = true` is treated as the ordinary unprivileged caller it is. Without that boundary, anyone able to reach `<Entity>-Approving` would walk past every approval rule in this document by setting one JSON property. The provenance is therefore passed to the shared do-work as an argument by each entry point — `true` from the direct path, `false` from the substrate handler — rather than read off the data, because the data cannot know where it came from.
+   **The flag is a claim about provenance, and provenance is not carried by the payload.** Anyone able to reach `<Entity>-Approving` would otherwise walk past every approval rule in this document by setting one JSON property. That boundary was originally drawn at the call site — honoured only on a context this process minted itself, refused on the event path — which was sound but could not survive the approval workflow needing to sync its decision onto an entity *over an event* (§16.7.1).
+
+   **It is now drawn at the signing key instead.** `IsSystemIdentity` sits inside the signed payload, so setting it on a genuine envelope breaks the HMAC, and minting a fresh one that carries it requires the `Workflow` key; verification refuses the claim under any other key (§14.6.2). Provenance is still passed to the shared do-work as an argument by each entry point rather than read off the data — but both the direct path and the approve substrate handler now pass `true`, because that handler has verified the envelope before it gets there. Entry points that receive no workflow command still pass `false`; `OnDismissingApprovalReviewAsync` is one.
 
    **Two `IApproval` members are derived rather than copied, and the distinction is load-bearing.** `IsApprovedByBypass` and `ApprovedByBypassReason` are written from the access decision, never from the caller's entity. They exist to record that the approval conditions were waived — and anyone who can *set* a field can equally *clear* it, so a caller allowed to supply them could perform a genuine bypass and then send `IsApprovedByBypass = false`, erasing the one event the field is there to capture. This is the same rule §18.6 applies to an association's denormalised `ContentType`, and for the same reason: a value that will be read back as evidence must not be sourced from the party it is evidence about. The general modify pins both against storage like every other approval field, closing the side door.
 
@@ -2883,7 +2885,9 @@ An exposer (controller, page, or any other host) may bind to a foundation servic
 
    **It compounds once, through a mechanism that is otherwise correct.** A single `SecurityContextPrincipalFactory` feeds both the actor `AccessBroker` sends to `IAccessClient` and the `CreatedBy` that `SecurityAuditBroker` stamps — deliberately, because HR-1 and HR-2 are `actor == CreatedBy` comparisons and two conversions would disagree in the permissive direction (§8.6.1). The consequence on an unauthenticated context is that a forged actor authors the row and then satisfies the self-review and self-approval comparisons *against itself*. The rules are not weakened; they are evaluated against a subject the caller chose.
 
-   **Nothing external can reach this today, and that is checked rather than assumed.** Note that the first two of these checks no longer hold: `Glory2Him.WebApp` now references `Glory2Him.Core` to expose `TagsController` and `ApprovalCommentsController`, registers an `EventBroker`, and configures an `EventHighwayConnectionString`. What still holds — and is what actually closes the hole — is that **no code publishes to any `-ing` request address** (published facts are all past-tense `-ed` notifications) and **no substrate subscription is wired in that host**, so no envelope enters the process from outside. The exposer reaches the foundation by the direct method path, whose `SecurityContext` comes from the authenticated `HttpContext` rather than from a caller-supplied envelope. This remains design debt to pay before the substrate is wired, not a live hole — but the guard is now the absence of subscriptions, not the absence of a host, and a future host that wires one must not assume otherwise. **The remediation is already specified:** the `IEnvelopeIntegrityBroker` in `Documentation/EventSubstrate.md` — sign on publish, verify on receive — applied at the single choke point where an envelope enters the process, `EventBroker`'s deserialization, so that no handler can be reached by an envelope whose `SecurityContext` was not signed. Until that exists, the honest reading of this rule is "enforced against the context the envelope carries", which is not the same claim as "enforced against the caller's identity", and the two must not be conflated on the way to wiring a host.
+   **Nothing external can reach this today, and that is checked rather than assumed.** Note that the first two of these checks no longer hold: `Glory2Him.WebApp` now references `Glory2Him.Core` to expose `TagsController` and `ApprovalCommentsController`, registers an `EventBroker`, and configures an `EventHighwayConnectionString`. What still holds — and is what actually closes the hole — is that **no code publishes to any `-ing` request address** (published facts are all past-tense `-ed` notifications) and **no substrate subscription is wired in that host**, so no envelope enters the process from outside. The exposer reaches the foundation by the direct method path, whose `SecurityContext` comes from the authenticated `HttpContext` rather than from a caller-supplied envelope. This remains design debt to pay before the substrate is wired, not a live hole — but the guard is now the absence of subscriptions, not the absence of a host, and a future host that wires one must not assume otherwise. **The remediation is built.** `IEnvelopeIntegrityBroker` signs on publish and verifies on receive, and each receiving handler verifies before it does anything else — in the receiver rather than the transport, because a handler is reachable without going through the broker. The signature binds the event name, the direction, and the three carried sections plus content, so an envelope cannot be lifted onto another address, replayed as a reply, or edited in any part the rules read.
+
+   What a verified signature establishes is **possession of a configured key** — not, by itself, which holder. Today those are the same statement, because there is exactly one holder; §14.6.2 sets out where they come apart and what is done about the one claim that cannot rest on "signed by someone" alone.
 5. **Denials follow §14.5**: reads answer not-found with the true reason logged server-side; writes answer unauthorized (revealing a write denial leaks nothing the caller did not already assert).
 
 Cross-row rules under visibility filtering: because the entity-returning collection reads are visibility-filtered per caller, a cross-row rule must never be computed over them. Instead the foundation exposes a **boolean probe** for such a rule — `CheckContentItemContentExistsAsync(contentTypeId, contentHash, excludedGroupId)` for the duplicate-content rule (§3.4.2) — which queries the unfiltered store but returns only a yes/no answer. A boolean reveals no row data: the caller must already possess the exact content to probe it, and the duplicate rule already reveals "identical content exists" to submitters. The probe still carries the contribution gate (it exists to support contribution flows), and this is the pattern for any future global rule: filtered reads for entities, gated boolean probes for cross-row facts.
@@ -2933,6 +2937,100 @@ singletons there.
 
 Because the failure is invisible to behavioural tests, **the guard is a registration test that
 asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
+
+### 14.6.2 Signing Keys, and What a Signature Proves
+
+**Today this system is the only thing that signs anything.** One EventHighway participant
+(`Glory2HimParticipantId`), one process — `Glory2Him.Core` is a library inside the host — and
+one component that reads the signing configuration. So "this envelope is signed" and "this
+envelope came from us" are currently the same statement, and the signature alone is the whole of
+the trust boundary.
+
+That is exactly why the distinction below needs recording rather than assuming: it is the
+statement that stops being true the first time anything else holds a key, and nothing fails when
+it does.
+
+One qualification, because "only this system signs" is already not quite true of the repository.
+The acceptance harness boots the same host with its own key set — including a `Workflow` key
+whose secret is committed in plaintext — layered as the highest-precedence configuration source.
+It is a test-only holder and nothing ships it, but it is a holder, and that key set must never
+reach a deployed host or a shared event store.
+
+**One claim cannot rest on "signed by someone".** `SecurityContext.IsSystemIdentity` grants the
+approval workflow authority no human has: it overrides a terminal row (§8.6 HR-4) and decides
+a round the caller's own review completed (§8.6 regardless-rule 1). If possession of *a*
+publishing key were enough to assert it, then handing any future component a key would hand it
+the ability to approve and publish content, silently, as a side effect of letting it emit events.
+
+So keys carry a **purpose**, and the two questions are kept apart:
+
+| | answered by | question |
+|---|---|---|
+| signature | the HMAC | did a holder of a configured key send this, unaltered? |
+| purpose | which key verified it | is this holder allowed to claim the workflow identity? |
+
+`EnvelopeSigningPurpose` is `General` (the default) or `Workflow`. The signing key is selected by
+the identity the envelope asserts — not by the call site, because signing is central and
+anything a caller can pass, a caller can pass wrongly. An envelope claiming `IsSystemIdentity` is
+signed with the `Workflow` key or not at all, and the verifier refuses that claim when it arrives
+under any other purpose. The rule is one-directional: a system claim demands the workflow key, the
+workflow key does not demand a system claim.
+
+**The secret is the only barrier, which is why the two must differ.** `KeyId` travels on the
+envelope and the verifier resolves the key by it, so the forgery is blunt: mint a system-identity
+envelope, sign it with the ordinary key you hold, and label it with the workflow's key id. That
+fails only because the secret behind that id is a different value. Configure one secret under both
+purposes and the gate verifies the forgery, with nothing at runtime to notice — so the
+configuration is refused at construction, the one point that sees every key at once. Duplicate key
+ids are refused for the same reason: verification resolves by id, and a repeat makes which secret,
+and which purpose, checks a signature indeterminate. An unconfigured host still starts, because
+failing closed at the point of signing is a deliberate posture for a site that publishes nothing.
+
+**Rotation is a separate axis and is unchanged.** `ActiveFrom`/`ActiveTo` choose which key signs
+*now*; purpose chooses which key may attest *what*. Rotation happens within a purpose — overlap
+a new key, retire the old with an `ActiveTo` — and verification deliberately ignores the active
+window so envelopes signed by a retired key still verify. A deployment therefore holds one active
+key per purpose, not one key in total.
+
+**Where a second key-holder would come from, and which key it gets.** No second deployed holder
+exists today. The boundary is held open for the first time something *other than this process*
+needs to put an envelope on an address — a worker or scheduler host firing pending events, a
+second instance or host of the same application, a migration or admin tool replaying events, or
+another G2H service publishing content facts.
+
+Which key such a component gets is **not** decided by whether it is "the orchestration". Two
+properties of the mechanism decide it, and both widen the set of holders beyond the obvious:
+
+- **HMAC is symmetric.** A receiver verifies a `Workflow`-signed envelope by recomputing the
+  signature with the same secret, so every process that must *verify* one has to hold it — and
+  holding it is exactly what confers the ability to *mint* one. The foundation services receiving
+  `<Entity>-Approving` are therefore holders of the workflow key, not merely its subjects.
+- **The claim propagates onto the fact.** `CreateNextAsync` copies the source envelope's
+  `SecurityContext` verbatim, and a transition publishes its outcome through it — so a
+  workflow-driven approve emits an `<Entity>-Approved` fact that also carries `IsSystemIdentity`,
+  and that fact is signed with the `Workflow` key too.
+
+So the rule is: **a component holds the `Workflow` key if it publishes as the workflow, verifies
+anything the workflow published, or republishes a fact derived from one.** Everything else — a
+scheduler that only fires pending events, a tool that only emits ordinary content facts, a service
+subscribing to nothing workflow-originated — gets a `General` key and cannot assert the identity.
+
+That is a narrower separation than "the orchestration holds it alone", and worth being exact about:
+a split deployment that gave a foundation host only a `General` key would not fail at configuration
+time. It would write the row and then throw on the fact publish, having already committed the
+change.
+
+What the split still buys is the ordering of a decision. Without purpose, handing a component a key
+and granting it workflow authority are the same act, and nothing fires to distinguish them. With
+purpose, a component with no business asserting the identity cannot, and granting it requires
+deliberately configuring a `Workflow` key for that host.
+
+
+**What this does not defend against.** Purpose separates *holders*, not code paths. A single
+process holding both keys can sign either kind of envelope, so anything running inside it —
+including a defect in this codebase that mints a system identity where it should not — is
+unaffected by the split. This is a boundary held open against a topology change, not a control
+over the code that already sits inside the boundary.
 
 ### 14.7 Per-Entity Security Rules
 
