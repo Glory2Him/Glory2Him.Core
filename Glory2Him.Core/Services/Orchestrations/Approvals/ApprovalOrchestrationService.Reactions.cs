@@ -44,10 +44,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     return DescribeOutcome(approval, isEntitySyncRequested: false);
                 }
 
-                return await EvaluateApprovalAsync(
+                return await EvaluateResolvedApprovalAsync(
                     approval: approval,
                     cancellationToken: cancellationToken);
             });
+
+        // Reads the conditions and evaluates against them. Every caller that has NOT just
+        // changed the review set uses this; the modified flow reads twice on purpose.
+        private async ValueTask<ApprovalOutcome> EvaluateResolvedApprovalAsync(
+            Approval approval,
+            CancellationToken cancellationToken)
+        {
+            ApprovalConditionsVerdict conditions =
+                await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageApprovalConditionsResolved(
+                conditions, approval.EntityType, approval.EntityId);
+
+            return await EvaluateApprovalAsync(
+                approval: approval,
+                conditions: conditions,
+                cancellationToken: cancellationToken);
+        }
 
         // §9.7.2. Runs before every reactive branch, and answers with a row that exists.
         private async ValueTask<Approval> ResolveApprovalAsync(
@@ -110,17 +130,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // the conditions trivially met, and AutoApproveIfAllApprovalRequirementsMet applies
         // Approved once they ALREADY are. The second never waives the first, and the verdict
         // reports them as two fields for that reason.
+        // Takes the verdict rather than reading it, so a caller that has just changed the
+        // review set cannot evaluate against the set it discarded — the modified flow
+        // dismisses reviews and must re-read before deciding anything on them.
         private async ValueTask<ApprovalOutcome> EvaluateApprovalAsync(
             Approval approval,
+            ApprovalConditionsVerdict conditions,
             CancellationToken cancellationToken)
         {
-            ApprovalConditionsVerdict conditions =
-                await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
-                    approvalId: approval.Id,
-                    cancellationToken: cancellationToken);
-
-            ValidateStorageApprovalConditionsResolved(
-                conditions, approval.EntityType, approval.EntityId);
 
             // Rules 3 and 5 reach the same place by different routes, and both are "stay
             // Submitted": conditions unmet, or met but nobody asked for the click to be skipped.

@@ -92,5 +92,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EntityType entityType,
             Guid entityId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The Modified flow (design §9.7.4). Resolves the approval, dismisses the reviews
+        /// already recorded when <c>RequireReapprovalOnChange</c> asks for it, then evaluates.
+        ///
+        /// <para>The status is never moved here: a <c>Draft</c> stays <c>Draft</c>, because
+        /// submitting is somebody's decision to offer the content rather than a side effect of
+        /// editing it, and a <c>Submitted</c> row stays open.</para>
+        /// </summary>
+        ValueTask<ApprovalOutcome> ProcessEntityModifiedAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The Review flow (design §9.7.5). Evaluates the round a review was just recorded
+        /// against, and ends it immediately when a standing rejection blocks under
+        /// <c>BlockOnReject</c> — independent of the approval threshold, and even where
+        /// approvals have already been recorded.
+        /// </summary>
+        ValueTask<ApprovalOutcome> ProcessApprovalReviewRecordedAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
     }
 }

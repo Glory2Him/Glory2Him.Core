@@ -39,6 +39,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 (Rule: IsInvalid(entityType), Parameter: nameof(Approval.EntityType)),
                 (Rule: IsInvalid(entityId), Parameter: nameof(Approval.EntityId)));
 
+        // A fact with no content names no row, so there is nothing to react about. Refused
+        // rather than dereferenced, so a malformed envelope fails as a validation error instead
+        // of a null reference several frames away.
+        private static void ValidateEntityFactEnvelope<TEntity>(EventEnvelope<TEntity> envelope)
+        {
+            if (envelope is null || envelope.Content is null)
+            {
+                throw new InvalidApprovalOrchestrationException(
+                    message: "Approval is invalid, fix the errors and try again.");
+            }
+        }
+
+        private static void ValidateOnProcessApprovalReview(Guid approvalId) =>
+            Validate(
+                message: "Approval is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(approvalId), Parameter: nameof(Approval.Id)));
+
         private static void ValidateOnProcessEntity(
             EntityType entityType,
             Guid entityId) =>

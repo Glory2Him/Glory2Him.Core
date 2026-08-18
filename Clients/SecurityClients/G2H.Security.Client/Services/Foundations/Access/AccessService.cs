@@ -546,6 +546,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 AreConditionsMet = conditionsMet,
                 ShouldAutoApprove =
                     conditionsMet && policy.AutoApproveIfAllApprovalRequirementsMet,
+
+                ShouldResetStaleReviewsOnChange = policy.RequireReapprovalOnChange,
                 BlockReason = blockReason,
                 BlockReasons = blockReasons,
                 UnresolvedApprovalCommentCount = unresolvedCommentCount,

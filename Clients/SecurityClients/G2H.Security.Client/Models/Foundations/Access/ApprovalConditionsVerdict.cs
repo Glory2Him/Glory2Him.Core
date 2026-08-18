@@ -34,6 +34,22 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <c>AutoApproveIfAllApprovalRequirementsMet = true</c> means nobody has to click once
         /// they are. A caller deriving this itself is exactly where those two get confused.</para>
         /// </summary>
+        /// <summary>
+        /// Whether an edit to the approved subject should dismiss the reviews already
+        /// recorded against it — <c>ApprovalSetting.RequireReapprovalOnChange</c>, resolved
+        /// through the same most-specific-wins pass as everything else here (§8.4).
+        ///
+        /// <para>It rides on this verdict rather than being read from a settings service by
+        /// the caller, because resolving §8.4 in a second place would put most-specific-wins
+        /// beside the decision function that owns it (§8.6.1 rule 4). One read answers both
+        /// "should the reviews be reset" and "do the conditions now hold".</para>
+        ///
+        /// <para>Note that the conditions reported ALONGSIDE this flag are the ones that held
+        /// BEFORE any dismissal. A caller that acts on the flag must re-evaluate afterwards,
+        /// or it will decide against a review set it has just discarded.</para>
+        /// </summary>
+        public required bool ShouldResetStaleReviewsOnChange { get; init; }
+
         public required bool ShouldAutoApprove { get; init; }
 
         /// <summary>

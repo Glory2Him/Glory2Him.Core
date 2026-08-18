@@ -447,6 +447,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             {
                 AreConditionsMet = true,
                 ShouldAutoApprove = true,
+                ShouldResetStaleReviewsOnChange = false,
                 BlockReason = AccessDenialReason.None,
                 BlockReasons = new List<AccessDenialReason>(),
                 ApprovalCount = 3,

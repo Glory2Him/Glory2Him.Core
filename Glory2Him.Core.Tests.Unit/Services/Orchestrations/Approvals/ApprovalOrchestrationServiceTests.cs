@@ -141,6 +141,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             {
                 AreConditionsMet = true,
                 ShouldAutoApprove = false,
+                ShouldResetStaleReviewsOnChange = false,
                 BlockReason = AccessDenialReason.None,
                 BlockReasons = new List<AccessDenialReason>(),
                 ApprovalCount = approvalCount,
@@ -158,6 +159,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             {
                 AreConditionsMet = false,
                 ShouldAutoApprove = false,
+                ShouldResetStaleReviewsOnChange = false,
                 BlockReason = blockReasons[0],
                 BlockReasons = blockReasons,
                 ApprovalCount = approvalCount,
