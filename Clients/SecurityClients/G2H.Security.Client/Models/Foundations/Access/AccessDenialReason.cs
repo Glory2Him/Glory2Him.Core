@@ -130,5 +130,20 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// settles it through the resolve operation, or bypasses the block — never by editing it.
         /// </summary>
         NotApprovalCommentAuthor = 19,
+
+        /// <summary>
+        /// The approval has not been submitted for review yet — it is still <c>Draft</c>.
+        ///
+        /// <para>Distinct from <see cref="ApprovalNotOpenForReview"/>, which is accurate for
+        /// every non-<c>Submitted</c> state and therefore too vague to render: a caller shown
+        /// "not open for review" cannot tell a draft awaiting submission from a round already
+        /// decided, and those need opposite actions. This one names the state a moderator can
+        /// actually clear, by amending the content and submitting it (§9.2).</para>
+        ///
+        /// <para>It is a BLOCK reason rather than a refusal: it appears in an approval verdict's
+        /// reason set (§16.7.2), where the answer to "why can I not approve this yet" is the
+        /// whole point.</para>
+        /// </summary>
+        BlockedDueToDraftStatus = 20,
     }
 }

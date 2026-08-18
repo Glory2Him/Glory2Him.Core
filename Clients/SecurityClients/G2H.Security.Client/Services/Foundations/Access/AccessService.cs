@@ -485,41 +485,59 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 ? policy.RequiredNumberOfApprovals
                 : 0;
 
-            AccessDenialReason blockReason = AccessDenialReason.None;
-            string explanation;
+            // Each condition is tested INDEPENDENTLY and every failure collected. The chain
+            // this replaced was an else-if, so it reported the first failure and discarded the
+            // rest — which is the wrong shape for the question an approver asks. Told only
+            // "threshold not met" they add a reviewer, retry, and only then learn about a
+            // comment they could have resolved in the same visit. The evaluation already knows
+            // both; it simply threw one away (§16.7.2).
+            var blockReasons = new List<AccessDenialReason>();
+            var explanations = new List<string>();
+
+            int unresolvedCommentCount = comments
+                .Count(comment => comment.IsDeleted is false && comment.IsResolved is false);
 
             if (policy.RequireApprovals && approvalCount < required)
             {
-                blockReason = AccessDenialReason.ApprovalThresholdNotMet;
-                explanation = $"{approvalCount} of {required} required approvals recorded.";
+                blockReasons.Add(AccessDenialReason.ApprovalThresholdNotMet);
+                explanations.Add($"{approvalCount} of {required} required approvals recorded.");
             }
-            else if (policy.RequireApprovals
+
+            if (policy.RequireApprovals
                 && policy.BlockOnReject
                 && activeReviews.Any(review => review.Verdict == ReviewVerdict.Rejected))
             {
-                blockReason = AccessDenialReason.BlockedByRejection;
-                explanation = "An active rejection blocks this approval.";
+                blockReasons.Add(AccessDenialReason.BlockedByRejection);
+                explanations.Add("An active rejection blocks this approval.");
             }
-            else if (policy.RequireReviewCommentResolutionBeforeApprovals
-                && comments.Any(comment => comment.IsDeleted is false
-                    && comment.IsResolved is false))
+
+            if (policy.RequireReviewCommentResolutionBeforeApprovals
+                && unresolvedCommentCount > 0)
             {
-                blockReason = AccessDenialReason.BlockedByUnresolvedApprovalComment;
-                explanation = "An approval comment is still unresolved.";
+                blockReasons.Add(AccessDenialReason.BlockedByUnresolvedApprovalComment);
+                explanations.Add("An approval comment is still unresolved.");
             }
-            else if (policy.BlockOnZeroApprovalScore && confidenceScore == 0m)
+
+            // Only an explicit zero blocks. Null means the confidence process has not run,
+            // not that the entity was judged worthless (§8.5 rule 8).
+            if (policy.BlockOnZeroApprovalScore && confidenceScore == 0m)
             {
-                // Only an explicit zero blocks. Null means the confidence process has not run,
-                // not that the entity was judged worthless (§8.5 rule 8).
-                blockReason = AccessDenialReason.BlockedByZeroConfidenceScore;
-                explanation = "The entity's confidence score is zero.";
+                blockReasons.Add(AccessDenialReason.BlockedByZeroConfidenceScore);
+                explanations.Add("The entity's confidence score is zero.");
             }
-            else
-            {
-                explanation = policy.RequireApprovals
+
+            // The FIRST failure, in the same precedence order the else-if chain used, so every
+            // single-valued consumer — AccessVerdict.DenialReason, BypassedBlockReason — is
+            // unchanged by this.
+            AccessDenialReason blockReason = blockReasons.Count > 0
+                ? blockReasons[0]
+                : AccessDenialReason.None;
+
+            string explanation = blockReasons.Count > 0
+                ? string.Join(" ", explanations)
+                : policy.RequireApprovals
                     ? $"Conditions met with {approvalCount} of {required} required approvals."
                     : "Conditions trivially met: the policy does not require approvals.";
-            }
 
             bool conditionsMet = blockReason == AccessDenialReason.None;
 
@@ -529,6 +547,8 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 ShouldAutoApprove =
                     conditionsMet && policy.AutoApproveIfAllApprovalRequirementsMet,
                 BlockReason = blockReason,
+                BlockReasons = blockReasons,
+                UnresolvedApprovalCommentCount = unresolvedCommentCount,
                 ApprovalCount = approvalCount,
                 RequiredNumberOfApprovals = required,
                 Explanation = explanation,

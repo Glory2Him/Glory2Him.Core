@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Collections.Generic;
+
 namespace G2H.Security.Client.Models.Foundations.Access
 {
     /// <summary>
@@ -39,6 +41,33 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// conditions are met.
         /// </summary>
         public required AccessDenialReason BlockReason { get; init; }
+
+        /// <summary>
+        /// EVERY condition currently failing, in the same precedence order
+        /// <see cref="BlockReason"/> picks its first from — empty when the conditions are met.
+        ///
+        /// <para>The singular <see cref="BlockReason"/> above cannot answer the question an
+        /// approver actually asks. Told only "approval threshold not met", they add a reviewer,
+        /// retry, and are then told about an unresolved comment they could have settled in the
+        /// same visit. The evaluation knows both at once; short-circuiting threw the rest away.
+        /// So the conditions are each evaluated independently and all failures collected
+        /// (§16.7.2).</para>
+        ///
+        /// <para><see cref="BlockReason"/> is retained rather than replaced, and stays the FIRST
+        /// of these: <c>AccessVerdict.DenialReason</c> and <c>BypassedBlockReason</c> are
+        /// single-valued by design — "there is exactly one value meaning permitted, and it stays
+        /// that way" — so a refusal still names one reason. This set is for the caller who is
+        /// entitled to the whole picture, which §16.7.2 limits to the publisher tier.</para>
+        /// </summary>
+        public required IReadOnlyList<AccessDenialReason> BlockReasons { get; init; }
+
+        /// <summary>
+        /// How many approval comments are outstanding — not deleted and not resolved. Carried so
+        /// a caller can say "two unresolved comments" without re-reading the thread, the same way
+        /// <see cref="ApprovalCount"/> and <see cref="RequiredNumberOfApprovals"/> let it report
+        /// the shortfall. Zero when the policy does not require comment resolution.
+        /// </summary>
+        public required int UnresolvedApprovalCommentCount { get; init; }
 
         /// <summary>
         /// How many active approving reviews were counted — dismissed and soft-deleted rows
