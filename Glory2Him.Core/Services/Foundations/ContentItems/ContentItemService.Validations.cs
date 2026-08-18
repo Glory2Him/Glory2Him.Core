@@ -390,6 +390,32 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             }
         }
 
+        // The add-side half of the create-only rule on ContentType (§12.4.1 rule 7a). The modify
+        // pins the type against the row it is updating; a version fork is an ADD, so there is no
+        // such row and the pin is against the version GROUP instead — a fork carries the type
+        // forward unchanged, it is never re-chosen.
+        //
+        // A null group row means the GroupId is new, which is the first version: the one add that
+        // genuinely chooses a type, and the only place rule 7a allows the choice to be made.
+        private static void ValidateAgainstGroupContentItemOnAdd(
+            ContentItem inputContentItem,
+            ContentItem? groupContentItem)
+        {
+            if (groupContentItem is null)
+            {
+                return;
+            }
+
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+
+                (Rule: IsNotSame(
+                        first: inputContentItem.ContentType,
+                        second: groupContentItem.ContentType,
+                        secondName: nameof(ContentItem.ContentType)),
+                    Parameter: nameof(ContentItem.ContentType)));
+        }
+
         private static void ValidateAgainstStorageContentItemOnModify(
             ContentItem inputContentItem,
             ContentItem storageContentItem,
