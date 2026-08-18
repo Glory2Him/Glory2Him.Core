@@ -66,5 +66,19 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Handles the approval command for this Versioned entity: clears the group's published
+        /// slot before the newly approved row takes it, then forwards the decision to the
+        /// foundation (design §9.7.7 rules 6–7, §12.4.1 rule 10).
+        ///
+        /// <para>The approval workflow addresses Versioned entities HERE rather than at the
+        /// foundation, because the published slot is held by a unique filtered index and
+        /// promoting while the incumbent still holds it is refused outright. Only this layer can
+        /// order the two writes.</para>
+        /// </summary>
+        ValueTask<EventEnvelope<ContentItem>?> OnApprovingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default);
     }
 }

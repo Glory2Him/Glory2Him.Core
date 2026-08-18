@@ -1008,6 +1008,17 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.contentItemSettingServiceMock.Object.OnRetrievingContentItemSettingByIdAsync);
 
+            // The publication swap: versioned entities are approved through the processing
+            // service so the group's published slot is cleared before the promote (§9.7.7 r7).
+            VerifyContentItemProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionName,
+                expectedOperation: ContentItemProcessingEventOperation.Approving,
+                expectedHandler:
+                    this.contentItemProcessingServiceMock.Object.OnApprovingContentItemAsync);
+
             VerifyContentItemProcessingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ContentItemProcessingOnAddingContentItemSubscriptionId,
@@ -1043,6 +1054,17 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ContentItemProcessingEventOperation.RetrievingById,
                 expectedHandler:
                     this.contentItemProcessingServiceMock.Object.OnRetrievingContentItemByIdAsync);
+
+            // The publication swap: versioned entities are approved through the processing
+            // service so the group's published slot is cleared before the promote (§9.7.7 r7).
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.Approving,
+                expectedHandler:
+                    this.linkProcessingServiceMock.Object.OnApprovingLinkAsync);
 
             VerifyLinkProcessingSubscription(
                 expectedSubscriptionId:

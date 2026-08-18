@@ -230,6 +230,25 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // ── ContentItem processing request handlers ───────────────────────
+            // The publication swap. Versioned entities are approved through HERE, not through
+            // the foundation address: granting approval also has to clear the group's published
+            // slot first, and the unique filtered index refuses a promote that runs while the
+            // incumbent still holds it (§9.7.7 rule 7, §12.4.1 rule 10).
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionName,
+
+                    Description = "Handles the approval command for a versioned contentItem: "
+                        + "unpublishes the group's previously published row, then forwards the "
+                        + "decision to the foundation, which publishes ContentItem-Approved or "
+                        + "ContentItem-Rejected."
+                },
+                operation: ContentItemProcessingEventOperation.Approving,
+                contentItemProcessingEventHandler: this.contentItemProcessingService.OnApprovingContentItemAsync,
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
                 subscription: new EventSubscription
                 {
@@ -648,6 +667,25 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // ── Link processing request handlers ──────────────────────────
+            // The publication swap. Versioned entities are approved through HERE, not through
+            // the foundation address: granting approval also has to clear the group's published
+            // slot first, and the unique filtered index refuses a promote that runs while the
+            // incumbent still holds it (§9.7.7 rule 7, §12.4.1 rule 10).
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionName,
+
+                    Description = "Handles the approval command for a versioned link: "
+                        + "unpublishes the group's previously published row, then forwards the "
+                        + "decision to the foundation, which publishes Link-Approved or "
+                        + "Link-Rejected."
+                },
+                operation: LinkProcessingEventOperation.Approving,
+                linkProcessingEventHandler: this.linkProcessingService.OnApprovingLinkAsync,
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
                 subscription: new EventSubscription
                 {

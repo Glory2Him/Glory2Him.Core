@@ -83,6 +83,12 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemProcessingRemovedEventAddressId, "ContentItemProcessing-Removed" }
             };
 
+        public static readonly Guid ContentItemProcessingOnApprovingContentItemSubscriptionId =
+            new Guid("019ff41f-4b3a-7d77-ce60-9b8da4f701e6");
+
+        public const string ContentItemProcessingOnApprovingContentItemSubscriptionName =
+            "ContentItemProcessing.OnApprovingContentItem";
+
         public static readonly Guid ContentItemProcessingOnAddingContentItemSubscriptionId =
             new Guid("019fab26-8096-7007-866e-805ae4cfab7f");
 
