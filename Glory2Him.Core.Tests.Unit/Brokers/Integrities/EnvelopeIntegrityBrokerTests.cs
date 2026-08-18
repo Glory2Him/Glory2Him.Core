@@ -573,32 +573,80 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         }
 
         [Fact]
-        public async Task ShouldShowTheGateIsVoidedWhenBothKeysShareASecretAsync()
+        public void ShouldRefuseToStartWhenAWorkflowKeySharesItsSecretWithAnotherKey()
         {
-            // given: the misconfiguration itself, pinned so that its consequence is on record
-            // rather than folklore. Same secret on both purposes — the arrangement the settings
-            // comments warn against.
+            // given: the misconfiguration that would quietly void the purpose gate. KeyId is
+            // chosen by whoever sends the envelope, so a forger names the workflow's key id and
+            // is refused only because the secret behind it differs. Configure one secret under
+            // both purposes and a forgery signed with the ordinary key verifies — with nothing
+            // at runtime to notice.
+            //
+            // Refused at construction, because a system that has silently lost a security
+            // control must not go on looking like a working one.
             const string sharedSecret = "the-same-secret-for-both";
 
-            IEnvelopeIntegrityBroker attackerBroker = BrokerWith(
-                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, sharedSecret));
-
-            EnvelopeIntegrity forged = await attackerBroker.SignAsync(
-                Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
-
-            IEnvelopeIntegrityBroker realBroker = BrokerWith(
+            // when
+            Action buildBroker = () => BrokerWith(
                 ActiveKey("key-general", EnvelopeSigningPurpose.General, sharedSecret),
                 ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, sharedSecret));
 
-            // when
-            bool isValid = await realBroker.VerifyAsync(
-                Envelope(isSystemIdentity: true, integrity: forged),
-                EventName,
-                EnvelopeDirection.Request);
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>()
+                .WithMessage("*key-general*");
+        }
 
-            // then: it PASSES — holding the ordinary secret was enough to assert the workflow
-            // identity. Nothing in the code can detect this; only distinct secrets prevent it.
-            isValid.Should().BeTrue();
+        [Fact]
+        public void ShouldStartWhenEachPurposeHoldsItsOwnSecret()
+        {
+            // given: the arrangement the guard exists to require — and the one the settings
+            // files ship. It must not be caught by the check it is the answer to.
+            Action buildBroker = () => BrokerWith(
+                ActiveKey("key-general", EnvelopeSigningPurpose.General, "general-secret"),
+                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, "workflow-secret"));
+
+            // then
+            buildBroker.Should().NotThrow();
+        }
+
+        [Fact]
+        public void ShouldStartWhenTwoKeysOfTheSamePurposeShareASecret()
+        {
+            // given: pointless, but not a privilege hazard — neither entry can attest anything
+            // the other cannot, so nothing is separated and nothing is lost. The guard is aimed
+            // at a secret that crosses PURPOSES, and widening it to any repeat would refuse a
+            // configuration that is merely redundant.
+            Action buildBroker = () => BrokerWith(
+                ActiveKey("key-a", EnvelopeSigningPurpose.General, "the-same-secret"),
+                ActiveKey("key-b", EnvelopeSigningPurpose.General, "the-same-secret"));
+
+            // then
+            buildBroker.Should().NotThrow();
+        }
+
+        [Fact]
+        public void ShouldRefuseToStartWhenAKeyIdIsConfiguredTwice()
+        {
+            // given: verification resolves a key BY its id, so duplicates make it indeterminate
+            // which secret — and which purpose — checks a signature.
+            Action buildBroker = () => BrokerWith(
+                ActiveKey("key-a", EnvelopeSigningPurpose.General, "first-secret"),
+                ActiveKey("key-a", EnvelopeSigningPurpose.Workflow, "second-secret"));
+
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>()
+                .WithMessage("*key-a*");
+        }
+
+        [Fact]
+        public void ShouldStartWhenNoKeyIsConfiguredAtAll()
+        {
+            // given: the host's own shipped state. An unconfigured host is a deliberate posture,
+            // not an error — it fails closed at the point of signing, and turning that into a
+            // boot crash would stop a site that has no need to publish anything.
+            Action buildBroker = () => BrokerWith();
+
+            // then
+            buildBroker.Should().NotThrow();
         }
 
         // ── helpers ──────────────────────────────────────────────────────────────
