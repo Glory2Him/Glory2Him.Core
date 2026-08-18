@@ -483,6 +483,56 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
             isValid.Should().BeTrue();
         }
 
+        [Fact]
+        public async Task ShouldTreatAKeyWithNoStatedPurposeAsGeneralAsync()
+        {
+            // given: the deployed shape. An existing host configures KeyId, Key and ActiveFrom
+            // and says nothing about Purpose, so the default is the whole of its behaviour — and
+            // a default that landed on Workflow would hand every ordinary publisher the identity
+            // the gate exists to protect.
+            IEnvelopeIntegrityBroker broker = BrokerWithRawKey(
+                keyId: "key-no-purpose",
+                secret: "a-development-secret",
+                purpose: null);
+
+            EventEnvelope<string> ordinary = Envelope(isSystemIdentity: false);
+
+            // when
+            EnvelopeIntegrity integrity =
+                await broker.SignAsync(ordinary, EventName, EnvelopeDirection.Request);
+
+            bool isValid = await broker.VerifyAsync(
+                Envelope(isSystemIdentity: false, integrity: integrity),
+                EventName,
+                EnvelopeDirection.Request);
+
+            // then: it signs and verifies ordinary traffic exactly as before
+            integrity.KeyId.Should().Be("key-no-purpose");
+            isValid.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task ShouldRefuseToSignAsTheWorkflowWhenOnlyAPurposelessKeyExistsAsync()
+        {
+            // given: the same deployed shape, asked for the one thing it cannot do. This is the
+            // failure a host sees when the Workflow key has not been provisioned yet, and it
+            // must be a throw at the point of signing rather than an envelope signed with the
+            // ordinary key — which every receiver would then refuse, turning a missing setting
+            // into a silent, far-away outage.
+            IEnvelopeIntegrityBroker broker = BrokerWithRawKey(
+                keyId: "key-no-purpose",
+                secret: "a-development-secret",
+                purpose: null);
+
+            // when
+            Func<Task> signTask = async () =>
+                await broker.SignAsync(
+                    Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
+
+            // then
+            await signTask.Should().ThrowAsync<InvalidOperationException>();
+        }
+
         // ── helpers ──────────────────────────────────────────────────────────────
 
         private static EventEnvelope<string> Envelope(
@@ -561,5 +611,30 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
                 .AddInMemoryCollection(settings)
                 .Build();
         }
+        // Builds configuration the way a host file or an environment variable does, so that a
+        // key with NO Purpose entry at all can be exercised. The typed helpers above always
+        // carry one, which is exactly the case a deployed host does not.
+        private static IEnvelopeIntegrityBroker BrokerWithRawKey(
+            string keyId,
+            string secret,
+            string purpose)
+        {
+            var settings = new Dictionary<string, string>
+            {
+                ["EventEnvelopeSigning:0:KeyId"] = keyId,
+                ["EventEnvelopeSigning:0:Key"] = secret,
+                ["EventEnvelopeSigning:0:ActiveFrom"] =
+                    DateTimeOffset.UtcNow.AddYears(-1).ToString("O"),
+            };
+
+            if (purpose is not null)
+            {
+                settings["EventEnvelopeSigning:0:Purpose"] = purpose;
+            }
+
+            return new EnvelopeIntegrityBroker(
+                new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
+        }
+
     }
 }
