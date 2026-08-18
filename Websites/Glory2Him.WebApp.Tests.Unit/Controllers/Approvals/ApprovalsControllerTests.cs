@@ -1,0 +1,1022 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Force.DeepCloner;
+using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
+using Glory2Him.Core.Models.Orchestrations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
+using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.WebApp.Controllers.Approvals;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Moq;
+using RESTFulSense.Clients.Extensions;
+using RESTFulSense.Controllers;
+using RESTFulSense.Models;
+using Tynamix.ObjectFiller;
+using Xeptions;
+
+namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
+{
+    /// <summary>
+    /// Kept in one file rather than split into the per-operation partials the sibling exposer
+    /// suites use, because this controller has two actions and the split would produce six files
+    /// of three tests each.
+    /// </summary>
+    public class ApprovalsControllerTests : RESTFulController
+    {
+        private readonly Mock<IApprovalOrchestrationService> approvalOrchestrationServiceMock;
+        private readonly ApprovalsController approvalsController;
+
+        public ApprovalsControllerTests()
+        {
+            approvalOrchestrationServiceMock = new Mock<IApprovalOrchestrationService>();
+
+            approvalsController =
+                new ApprovalsController(approvalOrchestrationServiceMock.Object);
+        }
+
+        public static TheoryData<Xeption> ValidationExceptions()
+        {
+            var someInnerException = new Xeption();
+            string someMessage = GetRandomString();
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: someInnerException),
+
+                new ApprovalOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: someInnerException)
+            };
+        }
+
+        public static TheoryData<Xeption> DependencyExceptions()
+        {
+            var someInnerException = new Xeption();
+            string someMessage = GetRandomString();
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalOrchestrationDependencyException(
+                    message: someMessage,
+                    innerException: someInnerException)
+            };
+        }
+
+        public static TheoryData<Xeption> ServerExceptions()
+        {
+            var someInnerException = new Xeption();
+            string someMessage = GetRandomString();
+
+            return new TheoryData<Xeption>
+            {
+                new ApprovalOrchestrationServiceException(
+                    message: someMessage,
+                    innerException: someInnerException)
+            };
+        }
+
+        [Fact]
+        public async Task ShouldReturnVerdictOnGetVerdictAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+            ApprovalVerdict randomVerdict = CreateRandomApprovalVerdict();
+            ApprovalVerdict storageVerdict = randomVerdict;
+            ApprovalVerdict expectedVerdict = storageVerdict.DeepClone();
+
+            var expectedObjectResult =
+                new OkObjectResult(expectedVerdict);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalVerdict>(expectedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageVerdict);
+
+            // when
+            ActionResult<ApprovalVerdict> actualActionResult =
+                await this.approvalsController.GetApprovalVerdictAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnGetVerdictIfValidationErrorOccurredAsync(
+            Xeption validationException)
+        {
+            // given
+            EntityType someEntityType = GetRandomEntityType();
+            Guid someEntityId = Guid.NewGuid();
+
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalVerdict>(expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<ApprovalVerdict> actualActionResult =
+                await this.approvalsController.GetApprovalVerdictAsync(
+                    someEntityType,
+                    someEntityId,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnGetVerdictIfApprovalDoesNotExistAsync()
+        {
+            // given
+            EntityType someEntityType = GetRandomEntityType();
+            Guid someEntityId = Guid.NewGuid();
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalVerdict>(expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<ApprovalVerdict> actualActionResult =
+                await this.approvalsController.GetApprovalVerdictAsync(
+                    someEntityType,
+                    someEntityId,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The service-side half of the tier gate (§16.7.2). The controller's bare
+        /// <c>[Authorize]</c> establishes only that a caller is authenticated, so this 401 is the
+        /// answer an authenticated caller below the tier actually receives — which is why the
+        /// mapping is pinned rather than left to the catch-all <c>BadRequest</c>.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnGetVerdictIfUnauthorizedErrorOccurredAsync()
+        {
+            // given
+            EntityType someEntityType = GetRandomEntityType();
+            Guid someEntityId = Guid.NewGuid();
+            string someMessage = GetRandomString();
+
+            var unauthorizedApprovalOrchestrationException =
+                new UnauthorizedApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: unauthorizedApprovalOrchestrationException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalVerdict>(expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<ApprovalVerdict> actualActionResult =
+                await this.approvalsController.GetApprovalVerdictAsync(
+                    someEntityType,
+                    someEntityId,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldReturnFailedDependencyOnGetVerdictIfDependencyErrorOccurredAsync(
+            Xeption dependencyException)
+        {
+            // given
+            EntityType someEntityType = GetRandomEntityType();
+            Guid someEntityId = Guid.NewGuid();
+
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalVerdict>(expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<ApprovalVerdict> actualActionResult =
+                await this.approvalsController.GetApprovalVerdictAsync(
+                    someEntityType,
+                    someEntityId,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task ShouldReturnInternalServerErrorOnGetVerdictIfServerErrorOccurredAsync(
+            Xeption serverException)
+        {
+            // given
+            EntityType someEntityType = GetRandomEntityType();
+            Guid someEntityId = Guid.NewGuid();
+
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalVerdict>(expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<ApprovalVerdict> actualActionResult =
+                await this.approvalsController.GetApprovalVerdictAsync(
+                    someEntityType,
+                    someEntityId,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalVerdictAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The bypass pair is forwarded exactly as it arrived — the verified arguments below are
+        /// the point of the test. The controller must not decide that an unexplained bypass is
+        /// pointless or that a waiver is unnecessary: both are the orchestration's calls, made
+        /// against the stored row and the resolved policy (§9.7.1 rule 3).
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnOutcomeOnPostDecisionAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+            ApprovalDecision randomDecision = GetRandomApprovalDecision();
+            bool randomIsBypassRequested = GetRandomBoolean();
+            string randomBypassReason = GetRandomString();
+            ApprovalOutcome randomOutcome = CreateRandomApprovalOutcome();
+            ApprovalOutcome storageOutcome = randomOutcome;
+            ApprovalOutcome expectedOutcome = storageOutcome.DeepClone();
+
+            var expectedObjectResult =
+                new OkObjectResult(expectedOutcome);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageOutcome);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await this.approvalsController.PostApprovalDecisionAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    randomDecision,
+                    randomIsBypassRequested,
+                    randomBypassReason,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.DecideApprovalAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    randomDecision,
+                    randomIsBypassRequested,
+                    randomBypassReason,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnPostDecisionIfValidationErrorOccurredAsync(
+            Xeption validationException)
+        {
+            // given
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await PostSomeDecisionAsync();
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            VerifyDecideCalledOnce();
+        }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnPostDecisionIfApprovalDoesNotExistAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await PostSomeDecisionAsync();
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            VerifyDecideCalledOnce();
+        }
+
+        /// <summary>
+        /// The one authorisation in the flow (§16.7.1) refusing. It covers every way a decision is
+        /// declined — below the tier, self-approval (HR-2), an unpermitted bypass — because the
+        /// orchestration deliberately does not re-derive the reason the decision function gave
+        /// (§8.6.1 rule 4), so the exposer has exactly one refusal to map.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnPostDecisionIfUnauthorizedErrorOccurredAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var unauthorizedApprovalOrchestrationException =
+                new UnauthorizedApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: unauthorizedApprovalOrchestrationException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await PostSomeDecisionAsync();
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            VerifyDecideCalledOnce();
+        }
+
+        [Fact]
+        public async Task ShouldReturnConflictOnPostDecisionIfAlreadyExistsErrorOccurredAsync()
+        {
+            // given
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var alreadyExistsApprovalException =
+                new AlreadyExistsApprovalException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var approvalOrchestrationDependencyValidationException =
+                new ApprovalOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: alreadyExistsApprovalException);
+
+            ConflictObjectResult expectedConflictObjectResult =
+                Conflict(alreadyExistsApprovalException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedConflictObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationDependencyValidationException);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await PostSomeDecisionAsync();
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            VerifyDecideCalledOnce();
+        }
+
+        [Fact]
+        public async Task ShouldReturnLockedOnPostDecisionIfRecordIsLockedAsync()
+        {
+            // given
+            var someInnerException = new Exception();
+            string someMessage = GetRandomString();
+
+            var lockedApprovalException =
+                new LockedApprovalException(
+                    message: someMessage,
+                    innerException: someInnerException,
+                    data: someInnerException.Data);
+
+            var approvalOrchestrationDependencyValidationException =
+                new ApprovalOrchestrationDependencyValidationException(
+                    message: someMessage,
+                    innerException: lockedApprovalException);
+
+            LockedObjectResult expectedLockedObjectResult =
+                Locked(lockedApprovalException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedLockedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationDependencyValidationException);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await PostSomeDecisionAsync();
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            VerifyDecideCalledOnce();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldReturnFailedDependencyOnPostDecisionIfDependencyErrorOccurredAsync(
+            Xeption dependencyException)
+        {
+            // given
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await PostSomeDecisionAsync();
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            VerifyDecideCalledOnce();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task ShouldReturnInternalServerErrorOnPostDecisionIfServerErrorOccurredAsync(
+            Xeption serverException)
+        {
+            // given
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalOutcome>(expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<ApprovalOutcome> actualActionResult =
+                await PostSomeDecisionAsync();
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            VerifyDecideCalledOnce();
+        }
+
+        [Fact]
+        public void ControllerShouldHaveApiControllerAttribute()
+        {
+            // Given
+            var controllerType = typeof(ApprovalsController);
+            Type attributeType = typeof(ApiControllerAttribute);
+
+            // When
+            var attribute = controllerType
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault();
+
+            // Then
+            attribute.Should().NotBeNull();
+        }
+
+        [Fact]
+        public void ControllerShouldHaveRouteAttributeWithApiTemplate()
+        {
+            // Given
+            var controllerType = typeof(ApprovalsController);
+            Type attributeType = typeof(RouteAttribute);
+            string expectedTemplate = "api/[controller]";
+
+            // When
+            var attribute = controllerType
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault() as RouteAttribute;
+
+            // Then
+            attribute.Should().NotBeNull();
+            attribute.Template.Should().Be(expectedTemplate);
+        }
+
+        /// <summary>
+        /// The verdict names resolved policy and the decision writes the source of truth, so this
+        /// surface is §14.7 posture D throughout — unlike the tag exposer, no action here may opt
+        /// out of authentication.
+        /// </summary>
+        [Fact]
+        public void ControllerShouldNotAllowAnonymous()
+        {
+            // Given
+            var controllerType = typeof(ApprovalsController);
+            Type attributeType = typeof(AllowAnonymousAttribute);
+
+            // When
+            var attribute = controllerType
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault();
+
+            // Then
+            attribute.Should().BeNull();
+        }
+
+        [Fact]
+        public void EveryActionShouldRequireAuthentication()
+        {
+            // Given
+            List<MethodInfo> actions = GetActions();
+
+            // When
+            List<string> unauthorizedActions = actions
+                .Where(action =>
+                    HasAttribute(action, typeof(AuthorizeAttribute)) is false
+                        || HasAttribute(action, typeof(AllowAnonymousAttribute)))
+                .Select(action => action.Name)
+                .ToList();
+
+            // Then
+            unauthorizedActions.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void EveryActionShouldCarryExactlyOneAuthorizationDecision()
+        {
+            // Given
+            List<MethodInfo> actions = GetActions();
+
+            // When
+            List<string> undecidedActions = actions
+                .Where(action =>
+                    HasAttribute(action, typeof(AuthorizeAttribute))
+                        == HasAttribute(action, typeof(AllowAnonymousAttribute)))
+                .Select(action => action.Name)
+                .ToList();
+
+            // Then
+            undecidedActions.Should().BeEmpty();
+        }
+
+        [Fact]
+        public void EveryActionShouldBeAccountedForBySecurityTests()
+        {
+            // Given
+            List<string> expectedActions = new List<string>
+            {
+                nameof(ApprovalsController.GetApprovalVerdictAsync),
+                nameof(ApprovalsController.PostApprovalDecisionAsync)
+            };
+
+            // When
+            List<string> actualActions = GetActions()
+                .Select(action => action.Name)
+                .ToList();
+
+            // Then
+            actualActions.Should().BeEquivalentTo(expectedActions);
+        }
+
+        /// <summary>
+        /// <b>The empty expected list is the assertion, not a placeholder.</b> §16.7.2 restricts
+        /// both operations to the publisher tier and <c>Admin</c>, and that tier is suffix-matched
+        /// — global <c>Publisher</c>, global <c>Admin</c>, any <c>%EntityType%-Publisher</c>, and
+        /// the content-type-scoped <c>%EntityType%-%ContentType%-Publisher</c> of §18.6 rule 5.
+        /// These routes are generic over <c>EntityType</c> as well, so no fixed
+        /// <c>Roles = ...</c> list can express the set, and any partial list would lock out the
+        /// content-type tier today and every entity type added later. The tier decision therefore
+        /// lives in the orchestration alone (§14.6), and this pins the attribute to the coarse
+        /// authenticated-only gate so a future fixed list has to be argued for rather than
+        /// slipped in.
+        /// </summary>
+        [Theory]
+        [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
+        [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        public void ActionShouldCarryAuthorizeWithNoFixedRoleList(string actionName)
+        {
+            // Given
+            var controllerType = typeof(ApprovalsController);
+            MethodInfo methodInfo = controllerType.GetMethod(actionName);
+            Type attributeType = typeof(AuthorizeAttribute);
+            string attributeProperty = "Roles";
+
+            List<string> expectedAttributeValues = new List<string>
+            {
+            };
+
+            // When
+            var methodAttribute = methodInfo?
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault();
+
+            var controllerAttribute = controllerType
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault();
+
+            var attribute = methodAttribute ?? controllerAttribute;
+
+            // Then
+            attribute.Should().NotBeNull();
+
+            var actualAttributeValue = attributeType
+                .GetProperty(attributeProperty)?
+                .GetValue(attribute) as string ?? string.Empty;
+
+            var actualAttributeValues = actualAttributeValue?
+                .Split(',')
+                .Select(role => role.Trim())
+                .Where(role => !string.IsNullOrEmpty(role))
+                .ToList();
+
+            actualAttributeValues.Should().BeEquivalentTo(expectedAttributeValues);
+        }
+
+        [Theory]
+        [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
+        [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        public void ActionShouldNotAllowAnonymous(string actionName)
+        {
+            // Given
+            var controllerType = typeof(ApprovalsController);
+            MethodInfo methodInfo = controllerType.GetMethod(actionName);
+            Type attributeType = typeof(AllowAnonymousAttribute);
+
+            // When
+            var attribute = methodInfo?
+                .GetCustomAttributes(attributeType, inherit: true)
+                .FirstOrDefault();
+
+            // Then
+            attribute.Should().BeNull();
+        }
+
+        /// <summary>
+        /// <c>Approve</c> is the zero member of <c>ApprovalDecision</c>, so an absent
+        /// <c>decision</c> would bind to it with a valid model state and a caller who said nothing
+        /// would approve. <c>[BindRequired]</c> is what makes the omission a 400 instead, and
+        /// nothing else in the stack catches it — the orchestration's shape validation only
+        /// refuses values outside the enum.
+        /// </summary>
+        [Fact]
+        public void PostDecisionShouldRequireTheDecisionToBeBound()
+        {
+            // Given
+            MethodInfo methodInfo = typeof(ApprovalsController)
+                .GetMethod(nameof(ApprovalsController.PostApprovalDecisionAsync));
+
+            ParameterInfo decisionParameter = methodInfo
+                .GetParameters()
+                .Single(parameter => parameter.Name == "decision");
+
+            // When
+            bool isBindRequired = decisionParameter
+                .GetCustomAttributes(typeof(BindRequiredAttribute), inherit: true)
+                .Any();
+
+            // Then
+            isBindRequired.Should().BeTrue();
+        }
+
+        private ValueTask<ActionResult<ApprovalOutcome>> PostSomeDecisionAsync() =>
+            this.approvalsController.PostApprovalDecisionAsync(
+                GetRandomEntityType(),
+                Guid.NewGuid(),
+                GetRandomApprovalDecision(),
+                GetRandomBoolean(),
+                GetRandomString(),
+                default);
+
+        private void VerifyDecideCalledOnce()
+        {
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.DecideApprovalAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        private static List<MethodInfo> GetActions() =>
+            typeof(ApprovalsController)
+                .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+                .Where(method => method.IsSpecialName is false)
+                .ToList();
+
+        private static bool HasAttribute(MethodInfo method, Type attributeType) =>
+            method.GetCustomAttributes(attributeType, inherit: true).Any();
+
+        private static string GetRandomString() =>
+            new MnemonicString(wordCount: GetRandomNumber()).GetValue();
+
+        private static int GetRandomNumber() =>
+            new IntRange(min: 2, max: 10).GetValue();
+
+        private static bool GetRandomBoolean() =>
+            Randomizer<bool>.Create();
+
+        private static EntityType GetRandomEntityType() =>
+            GetRandomEnumValue<EntityType>();
+
+        private static ApprovalDecision GetRandomApprovalDecision() =>
+            GetRandomEnumValue<ApprovalDecision>();
+
+        private static ApprovalStatus GetRandomApprovalStatus() =>
+            GetRandomEnumValue<ApprovalStatus>();
+
+        private static AccessDenialReason GetRandomAccessDenialReason() =>
+            GetRandomEnumValue<AccessDenialReason>();
+
+        private static T GetRandomEnumValue<T>() where T : struct, Enum
+        {
+            T[] values = Enum.GetValues<T>();
+
+            return values[new IntRange(min: 0, max: values.Length - 1).GetValue()];
+        }
+
+        // Built by hand rather than by the object filler: every member is `required` and `init`,
+        // and IsBlocked is derived from BlockReasons, so a filler would either refuse the type or
+        // produce a verdict whose reasons and flags disagree.
+        private static ApprovalVerdict CreateRandomApprovalVerdict()
+        {
+            return new ApprovalVerdict
+            {
+                ApprovalId = Guid.NewGuid(),
+                EntityType = GetRandomEntityType(),
+                EntityId = Guid.NewGuid(),
+                ApprovalStatus = GetRandomApprovalStatus(),
+
+                BlockReasons = new List<ApprovalBlockReason>
+                {
+                    new ApprovalBlockReason
+                    {
+                        Code = GetRandomAccessDenialReason(),
+                        Message = GetRandomString()
+                    }
+                },
+
+                IsBypassAllowedForCurrentUser = GetRandomBoolean(),
+                CanApprove = GetRandomBoolean(),
+                ApprovalCount = GetRandomNumber(),
+                RequiredNumberOfApprovals = GetRandomNumber(),
+                UnresolvedApprovalCommentCount = GetRandomNumber()
+            };
+        }
+
+        private static ApprovalOutcome CreateRandomApprovalOutcome()
+        {
+            return new ApprovalOutcome
+            {
+                ApprovalId = Guid.NewGuid(),
+                EntityType = GetRandomEntityType(),
+                EntityId = Guid.NewGuid(),
+                ApprovalStatus = GetRandomApprovalStatus(),
+                IsApprovedByBypass = GetRandomBoolean(),
+                ApprovedByBypassReason = GetRandomString(),
+                IsEntitySyncRequested = true
+            };
+        }
+    }
+}

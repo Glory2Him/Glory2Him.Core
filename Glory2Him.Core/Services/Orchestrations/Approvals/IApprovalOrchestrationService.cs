@@ -47,11 +47,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// <c>IsBlocked &amp;&amp; IsBypassAllowedForCurrentUser</c>, and otherwise renders
         /// <c>BlockReasons</c> to say why the button is disabled.</para>
         ///
-        /// <para>Restricted to the <c>Publisher</c> tier and <c>Admin</c>, and the exposer is
-        /// gated to the same roles. §14.5's denial posture constrains what an ERROR may reveal
-        /// to an unprivileged probe; it does not constrain what the party the policy is
-        /// addressed to may be told deliberately. An approver can already read the entity, its
-        /// reviews and its comments individually — this assembles them.</para>
+        /// <para>Restricted to the moderation tier — <c>Admin</c>, the <c>Publisher</c>
+        /// tier and the <c>Reviewer</c> tier, matched by suffix so the content-type-scoped
+        /// roles of §18.6 qualify too. A <c>Reviewer</c> cannot decide (HR-3), but the
+        /// verdict is how they see whether their own review completed the round
+        /// (§16.7.2). The exposer gates on the same tier; the duplication is deliberate
+        /// (§14.6 rule 2).</para>
         ///
         /// <para>Throws <c>NotFoundApprovalOrchestrationException</c> when no approval occupies
         /// the key. A <c>Draft</c> approval is NOT that case: it exists, and answers blocked
