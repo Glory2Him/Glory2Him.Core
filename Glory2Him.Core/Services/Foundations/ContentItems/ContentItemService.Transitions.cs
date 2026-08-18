@@ -80,10 +80,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                     // This envelope's context was minted here, in process, from the ambient
                     // caller — so a system identity on it is one this process asserted about
-                    // itself, so a system identity on it is one this process asserted about itself.
-                    // The event path admits the claim too, but only because OnApprovingContentItemAsync
-                    // verifies the envelope first, and verification refuses a system
-                    // identity that did not arrive under the workflow key (§16.7.1).
+                    // itself, so a system identity on it is one this process asserted about
+                    // itself. The event path admits the claim too, because only this
+                    // system holds the signing key — so a verified envelope is one this
+                    // system minted, whichever path it arrived by (§16.7.1).
                     isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });

@@ -261,10 +261,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // present is permitted to decide.
             //
             // What makes the claim believable is not this service: it is the signature verified
-            // on the way in, which is refused unless the envelope was signed with the workflow's
-            // own key. That binding is proven against the REAL broker in
-            // EnvelopeIntegrityBrokerTests — it CANNOT be proven here, because this suite mocks
-            // VerifyAsync to true.
+            // on the way in. Only this system holds the signing key, so a verified
+            // envelope is one this system minted — and the security context is inside the
+            // signed payload, so the flag cannot be added to a genuine envelope without
+            // breaking the HMAC. That binding is proven against the REAL broker in
+            // EnvelopeIntegrityBrokerTests — it CANNOT be proven here, because this suite
+            // mocks VerifyAsync to true.
             var requestEnvelope = new EventEnvelope<Link>
             {
                 SecurityContext = CreateSystemSecurityContext(),

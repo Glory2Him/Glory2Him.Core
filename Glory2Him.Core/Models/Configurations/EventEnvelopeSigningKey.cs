@@ -48,9 +48,5 @@ namespace Glory2Him.Core.Models.Configurations
         /// later key's window overtakes it. Never consulted during verification.
         /// </summary>
         public DateTimeOffset? ActiveTo { get; init; }
-
-        // What this key is allowed to attest. Defaults to General, so a key configured without
-        // a stated purpose cannot grant workflow authority by omission (design §16.7.1).
-        public EnvelopeSigningPurpose Purpose { get; init; } = EnvelopeSigningPurpose.General;
     }
 }

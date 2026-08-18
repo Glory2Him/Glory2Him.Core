@@ -221,17 +221,18 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         contentItem: envelope.Content,
                         inboundEnvelope: envelope,
 
-                        // Admissible because the envelope was VERIFIED above, and verification
-                        // now binds the claim to the key: one asserting the system identity is
-                        // refused unless it was signed with the workflow's own key, which no
-                        // ordinary publisher holds (§16.7.1). The flag sits inside the signed
-                        // payload, so setting it on a genuine envelope breaks the HMAC, and
-                        // minting a fresh one requires the key a caller does not have.
+                        // Admissible because the envelope was VERIFIED above. Only this system
+                        // holds the signing key, so a valid signature is what establishes that
+                        // the envelope was minted here rather than by whoever could reach the
+                        // address — and the security context is inside the signed payload, so a
+                        // caller cannot set the flag on a genuine envelope without breaking the
+                        // HMAC, nor mint a fresh one carrying it.
                         //
-                        // That is verifiable provenance rather than the call-site convention
-                        // this used to rest on — and unlike a call site, it survives the write
-                        // travelling over an event, which is what lets the approval workflow
-                        // sync its decision onto the entity at all.
+                        // That is what lets the approval workflow sync its decision onto the
+                        // entity over an event at all (§16.7.1). It rests on the signing key
+                        // never leaving this system; a future host that publishes with a key of
+                        // its own would be asserting this identity too, and would need its own
+                        // answer here.
                         isSystemIdentityAdmissible: true,
                         cancellationToken: cancellationToken);
 

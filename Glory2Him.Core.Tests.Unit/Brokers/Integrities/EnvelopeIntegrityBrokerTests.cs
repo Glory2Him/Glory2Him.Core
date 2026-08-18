@@ -321,332 +321,17 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
             await signTask.Should().ThrowAsync<InvalidOperationException>();
         }
 
-        // ── the workflow key: provenance the payload cannot assert (design §16.7.1) ──
-
-        [Fact]
-        public async Task ShouldSignASystemIdentityEnvelopeWithTheWorkflowKeyAsync()
-        {
-            // given
-            IEnvelopeIntegrityBroker broker =
-                BrokerWith(ActiveKey("key-general"), ActiveWorkflowKey());
-
-            EventEnvelope<string> systemEnvelope = Envelope(isSystemIdentity: true);
-
-            // when
-            EnvelopeIntegrity integrity =
-                await broker.SignAsync(systemEnvelope, EventName, EnvelopeDirection.Request);
-
-            // then: the general key is active and listed FIRST, so a purpose-blind selection
-            // would have picked it.
-            integrity.KeyId.Should().Be("key-workflow");
-        }
-
-        [Fact]
-        public async Task ShouldSignAnOrdinaryEnvelopeWithTheGeneralKeyDespiteAWorkflowKeyAsync()
-        {
-            // given
-            IEnvelopeIntegrityBroker broker =
-                BrokerWith(ActiveWorkflowKey(), ActiveKey("key-general"));
-
-            // when: the workflow key is listed FIRST here, so a purpose-blind selection picks it
-            EnvelopeIntegrity integrity = await broker.SignAsync(
-                Envelope(isSystemIdentity: false), EventName, EnvelopeDirection.Request);
-
-            // then
-            integrity.KeyId.Should().Be("key-general");
-        }
-
-        [Fact]
-        public async Task ShouldRefuseToSignASystemIdentityEnvelopeWithNoWorkflowKeyAsync()
-        {
-            // given: fails CLOSED. Falling back to the general key would mint an envelope that
-            // every receiver then refuses, turning a configuration mistake into a silent outage.
-            IEnvelopeIntegrityBroker broker = BrokerWith(ActiveKey("key-general"));
-
-            // when
-            Func<Task> signTask = async () =>
-                await broker.SignAsync(
-                    Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
-
-            // then
-            await signTask.Should().ThrowAsync<InvalidOperationException>();
-        }
-
-        [Fact]
-        public async Task ShouldVerifyASystemIdentityEnvelopeSignedWithTheWorkflowKeyAsync()
-        {
-            // given
-            IEnvelopeIntegrityBroker broker =
-                BrokerWith(ActiveKey("key-general"), ActiveWorkflowKey());
-
-            EnvelopeIntegrity integrity = await broker.SignAsync(
-                Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
-
-            EventEnvelope<string> signed =
-                Envelope(isSystemIdentity: true, integrity: integrity);
-
-            // when
-            bool isValid =
-                await broker.VerifyAsync(signed, EventName, EnvelopeDirection.Request);
-
-            // then
-            isValid.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task ShouldRejectASystemIdentityClaimCarriedByANonWorkflowKeyAsync()
-        {
-            // given: the gate in isolation. The SAME key id and the SAME secret on both sides,
-            // so the HMAC matches perfectly and the ONLY difference is the key's declared
-            // purpose — this is the one arrangement where a passing signature must still be
-            // refused. It models the insider who holds the ordinary publishing key and mints an
-            // envelope claiming to be the workflow.
-            const string sharedSecret = "a-shared-secret";
-
-            IEnvelopeIntegrityBroker signingBroker = BrokerWith(
-                ActiveKey("key-a", EnvelopeSigningPurpose.Workflow, sharedSecret));
-
-            EnvelopeIntegrity integrity = await signingBroker.SignAsync(
-                Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
-
-            IEnvelopeIntegrityBroker verifyingBroker = BrokerWith(
-                ActiveKey("key-a", EnvelopeSigningPurpose.General, sharedSecret));
-
-            EventEnvelope<string> signed =
-                Envelope(isSystemIdentity: true, integrity: integrity);
-
-            // when
-            bool isValid = await verifyingBroker.VerifyAsync(
-                signed, EventName, EnvelopeDirection.Request);
-
-            // then
-            isValid.Should().BeFalse();
-
-            // and the same envelope IS accepted where that key is the workflow's, which proves
-            // the refusal came from the purpose and not from a broken signature.
-            bool isValidUnderWorkflowPurpose = await signingBroker.VerifyAsync(
-                signed, EventName, EnvelopeDirection.Request);
-
-            isValidUnderWorkflowPurpose.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task ShouldRejectWhenTheSystemIdentityFlagWasAddedAsync()
-        {
-            // given: the headline forgery — an ordinary caller promoting themselves to the
-            // workflow by setting one JSON property on an envelope that was signed without it.
-            IEnvelopeIntegrityBroker broker =
-                BrokerWith(ActiveKey("key-general"), ActiveWorkflowKey());
-
-            EnvelopeIntegrity integrity = await broker.SignAsync(
-                Envelope(isSystemIdentity: false), EventName, EnvelopeDirection.Request);
-
-            EventEnvelope<string> tampered =
-                Envelope(isSystemIdentity: true, integrity: integrity);
-
-            // when
-            bool isValid =
-                await broker.VerifyAsync(tampered, EventName, EnvelopeDirection.Request);
-
-            // then
-            isValid.Should().BeFalse();
-        }
-
-        [Fact]
-        public async Task ShouldAcceptAWorkflowSignedEnvelopeThatMakesNoSystemClaimAsync()
-        {
-            // given: the rule is one-directional. A system claim demands the workflow key; the
-            // workflow key does not demand a system claim. Exercised by verifying under a
-            // configuration where the signing key has since been re-declared as the workflow's
-            // — same id, same secret — which is the only way an ordinary envelope comes to be
-            // workflow-signed. Were the gate written as an equivalence rather than an
-            // implication, this ordinary envelope would be refused.
-            const string sharedSecret = "a-shared-secret";
-
-            IEnvelopeIntegrityBroker signingBroker = BrokerWith(
-                ActiveKey("key-a", EnvelopeSigningPurpose.General, sharedSecret));
-
-            EnvelopeIntegrity integrity = await signingBroker.SignAsync(
-                Envelope(isSystemIdentity: false), EventName, EnvelopeDirection.Request);
-
-            IEnvelopeIntegrityBroker verifyingBroker = BrokerWith(
-                ActiveKey("key-a", EnvelopeSigningPurpose.Workflow, sharedSecret));
-
-            EventEnvelope<string> signed =
-                Envelope(isSystemIdentity: false, integrity: integrity);
-
-            // when
-            bool isValid = await verifyingBroker.VerifyAsync(
-                signed, EventName, EnvelopeDirection.Request);
-
-            // then
-            isValid.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task ShouldTreatAKeyWithNoStatedPurposeAsGeneralAsync()
-        {
-            // given: the deployed shape. An existing host configures KeyId, Key and ActiveFrom
-            // and says nothing about Purpose, so the default is the whole of its behaviour — and
-            // a default that landed on Workflow would hand every ordinary publisher the identity
-            // the gate exists to protect.
-            IEnvelopeIntegrityBroker broker = BrokerWithRawKey(
-                keyId: "key-no-purpose",
-                secret: "a-development-secret",
-                purpose: null);
-
-            EventEnvelope<string> ordinary = Envelope(isSystemIdentity: false);
-
-            // when
-            EnvelopeIntegrity integrity =
-                await broker.SignAsync(ordinary, EventName, EnvelopeDirection.Request);
-
-            bool isValid = await broker.VerifyAsync(
-                Envelope(isSystemIdentity: false, integrity: integrity),
-                EventName,
-                EnvelopeDirection.Request);
-
-            // then: it signs and verifies ordinary traffic exactly as before
-            integrity.KeyId.Should().Be("key-no-purpose");
-            isValid.Should().BeTrue();
-        }
-
-        [Fact]
-        public async Task ShouldRefuseToSignAsTheWorkflowWhenOnlyAPurposelessKeyExistsAsync()
-        {
-            // given: the same deployed shape, asked for the one thing it cannot do. This is the
-            // failure a host sees when the Workflow key has not been provisioned yet, and it
-            // must be a throw at the point of signing rather than an envelope signed with the
-            // ordinary key — which every receiver would then refuse, turning a missing setting
-            // into a silent, far-away outage.
-            IEnvelopeIntegrityBroker broker = BrokerWithRawKey(
-                keyId: "key-no-purpose",
-                secret: "a-development-secret",
-                purpose: null);
-
-            // when
-            Func<Task> signTask = async () =>
-                await broker.SignAsync(
-                    Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
-
-            // then
-            await signTask.Should().ThrowAsync<InvalidOperationException>();
-        }
-
-        [Fact]
-        public async Task ShouldRejectAForgedClaimThatSimplyNamesTheWorkflowKeyIdAsync()
-        {
-            // given: why the two secrets MUST differ, demonstrated rather than asserted.
-            //
-            // KeyId is attacker-controlled — it rides on the envelope and the verifier resolves
-            // the key by it. So the forgery is not subtle: mint a system-identity envelope, sign
-            // it with the ordinary key you hold, and simply LABEL it with the workflow's key id.
-            // The verifier then checks the signature against the workflow's secret.
-            //
-            // That attempt fails only because the workflow's secret is a different one. Were the
-            // two configured with the same value, this envelope would verify and the gate would
-            // be a no-op for anyone holding the ordinary key.
-            var generalKey = ActiveKey("key-general", EnvelopeSigningPurpose.General, "general-secret");
-            var workflowKey = ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, "workflow-secret");
-
-            // the attacker's own broker: it holds ONLY the ordinary secret, but declares it as
-            // the workflow's so that it will sign a system-identity envelope at all
-            IEnvelopeIntegrityBroker attackerBroker = BrokerWith(
-                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, "general-secret"));
-
-            EnvelopeIntegrity forged = await attackerBroker.SignAsync(
-                Envelope(isSystemIdentity: true), EventName, EnvelopeDirection.Request);
-
-            // it names the workflow's key id, exactly as a genuine one would
-            forged.KeyId.Should().Be("key-workflow");
-
-            IEnvelopeIntegrityBroker realBroker = BrokerWith(generalKey, workflowKey);
-
-            // when
-            bool isValid = await realBroker.VerifyAsync(
-                Envelope(isSystemIdentity: true, integrity: forged),
-                EventName,
-                EnvelopeDirection.Request);
-
-            // then
-            isValid.Should().BeFalse();
-        }
-
-        [Fact]
-        public void ShouldRefuseToStartWhenAWorkflowKeySharesItsSecretWithAnotherKey()
-        {
-            // given: the misconfiguration that would quietly void the purpose gate. KeyId is
-            // chosen by whoever sends the envelope, so a forger names the workflow's key id and
-            // is refused only because the secret behind it differs. Configure one secret under
-            // both purposes and a forgery signed with the ordinary key verifies — with nothing
-            // at runtime to notice.
-            //
-            // Refused at construction, because a system that has silently lost a security
-            // control must not go on looking like a working one.
-            const string sharedSecret = "the-same-secret-for-both";
-
-            // when
-            Action buildBroker = () => BrokerWith(
-                ActiveKey("key-general", EnvelopeSigningPurpose.General, sharedSecret),
-                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, sharedSecret));
-
-            // then
-            buildBroker.Should().Throw<InvalidOperationException>()
-                .WithMessage("*key-general*");
-        }
-
-        [Fact]
-        public void ShouldStartWhenEachPurposeHoldsItsOwnSecret()
-        {
-            // given: the arrangement the guard exists to require — and the one the settings
-            // files ship. It must not be caught by the check it is the answer to.
-            Action buildBroker = () => BrokerWith(
-                ActiveKey("key-general", EnvelopeSigningPurpose.General, "general-secret"),
-                ActiveKey("key-workflow", EnvelopeSigningPurpose.Workflow, "workflow-secret"));
-
-            // then
-            buildBroker.Should().NotThrow();
-        }
-
-        [Fact]
-        public void ShouldStartWhenTwoKeysOfTheSamePurposeShareASecret()
-        {
-            // given: pointless, but not a privilege hazard — neither entry can attest anything
-            // the other cannot, so nothing is separated and nothing is lost. The guard is aimed
-            // at a secret that crosses PURPOSES, and widening it to any repeat would refuse a
-            // configuration that is merely redundant.
-            Action buildBroker = () => BrokerWith(
-                ActiveKey("key-a", EnvelopeSigningPurpose.General, "the-same-secret"),
-                ActiveKey("key-b", EnvelopeSigningPurpose.General, "the-same-secret"));
-
-            // then
-            buildBroker.Should().NotThrow();
-        }
-
-        [Fact]
-        public void ShouldRefuseToStartWhenAKeyIdIsConfiguredTwice()
-        {
-            // given: verification resolves a key BY its id, so duplicates make it indeterminate
-            // which secret — and which purpose — checks a signature.
-            Action buildBroker = () => BrokerWith(
-                ActiveKey("key-a", EnvelopeSigningPurpose.General, "first-secret"),
-                ActiveKey("key-a", EnvelopeSigningPurpose.Workflow, "second-secret"));
-
-            // then
-            buildBroker.Should().Throw<InvalidOperationException>()
-                .WithMessage("*key-a*");
-        }
-
         [Theory]
         [InlineData("")]
         [InlineData("   ")]
         public void ShouldRefuseToStartWhenAKeyHasNoUsableSecret(string secret)
         {
-            // given: not a weak key but an open door — the HMAC becomes one anyone can recompute.
-            // Key defaults to string.Empty, so an entry naming a KeyId and an ActiveFrom but
-            // omitting Key binds to exactly this.
+            // given: not a weak key but an open door — the HMAC becomes one anybody can
+            // recompute. Key defaults to string.Empty, so an entry naming a KeyId and an
+            // ActiveFrom but omitting Key binds to exactly this, and nothing downstream would
+            // notice: it signs, and it verifies, for everyone.
             Action buildBroker = () => BrokerWith(
-                ActiveKey("key-a", EnvelopeSigningPurpose.General, secret));
+                Key("key-a", DateTimeOffset.UtcNow.AddYears(-1), null, secret));
 
             // then
             buildBroker.Should().Throw<InvalidOperationException>();
@@ -658,10 +343,25 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
             // given: verification resolves a key BY its id and already refuses a blank one, so a
             // key configured without one could never verify anything it signed.
             Action buildBroker = () => BrokerWith(
-                ActiveKey("", EnvelopeSigningPurpose.General, "a-secret"));
+                Key("", DateTimeOffset.UtcNow.AddYears(-1), null));
 
             // then
             buildBroker.Should().Throw<InvalidOperationException>();
+        }
+
+        [Fact]
+        public void ShouldRefuseToStartWhenAKeyIdIsConfiguredTwice()
+        {
+            // given: verification resolves by id, so a repeat makes which secret checks a
+            // signature indeterminate — which is how a rotation that reuses an id starts
+            // rejecting traffic it should accept.
+            Action buildBroker = () => BrokerWith(
+                Key("key-a", DateTimeOffset.UtcNow.AddYears(-1), null, "first-secret"),
+                Key("key-a", DateTimeOffset.UtcNow.AddYears(-1), null, "second-secret"));
+
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>()
+                .WithMessage("*key-a*");
         }
 
         [Fact]
@@ -669,7 +369,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         {
             // given: the host's own shipped state. An unconfigured host is a deliberate posture,
             // not an error — it fails closed at the point of signing, and turning that into a
-            // boot crash would stop a site that has no need to publish anything.
+            // boot crash would stop a site that publishes nothing.
             Action buildBroker = () => BrokerWith();
 
             // then
@@ -681,8 +381,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         private static EventEnvelope<string> Envelope(
             string content = "payload",
             string[] roles = null,
-            EnvelopeIntegrity integrity = null,
-            bool isSystemIdentity = false) =>
+            EnvelopeIntegrity integrity = null) =>
             new EventEnvelope<string>
             {
                 Content = content,
@@ -690,43 +389,26 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
                 {
                     SubjectId = "subject-1",
                     IsAuthenticated = true,
-                    IsSystemIdentity = isSystemIdentity,
                     Roles = roles ?? new[] { "Reviewer" }
                 },
                 Metadata = new EventMetadata { EventId = FixedEventId },
                 Integrity = integrity
             };
 
-        private static EventEnvelopeSigningKey ActiveKey(
-            string keyId,
-            EnvelopeSigningPurpose purpose = EnvelopeSigningPurpose.General,
-            string secret = "a-development-secret") =>
-            Key(
-                keyId,
-                DateTimeOffset.UtcNow.AddYears(-1),
-                DateTimeOffset.UtcNow.AddYears(1),
-                secret,
-                purpose);
-
-        // The workflow key carries its OWN secret. Sharing one secret across both purposes would
-        // make a general-signed and a workflow-signed envelope byte-identical, and every test
-        // below would pass without the two keys ever being distinguishable.
-        private static EventEnvelopeSigningKey ActiveWorkflowKey(string keyId = "key-workflow") =>
-            ActiveKey(keyId, EnvelopeSigningPurpose.Workflow, "a-different-workflow-secret");
+        private static EventEnvelopeSigningKey ActiveKey(string keyId) =>
+            Key(keyId, DateTimeOffset.UtcNow.AddYears(-1), DateTimeOffset.UtcNow.AddYears(1));
 
         private static EventEnvelopeSigningKey Key(
             string keyId,
             DateTimeOffset activeFrom,
             DateTimeOffset? activeTo,
-            string secret = "a-development-secret",
-            EnvelopeSigningPurpose purpose = EnvelopeSigningPurpose.General) =>
+            string secret = "a-development-secret") =>
             new EventEnvelopeSigningKey
             {
                 KeyId = keyId,
                 Key = secret,
                 ActiveFrom = activeFrom,
-                ActiveTo = activeTo,
-                Purpose = purpose
+                ActiveTo = activeTo
             };
 
         private static IEnvelopeIntegrityBroker BrokerWith(params EventEnvelopeSigningKey[] keys) =>
@@ -742,7 +424,6 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
                 settings[prefix + "KeyId"] = keys[index].KeyId;
                 settings[prefix + "Key"] = keys[index].Key;
                 settings[prefix + "ActiveFrom"] = keys[index].ActiveFrom.ToString("O");
-                settings[prefix + "Purpose"] = keys[index].Purpose.ToString();
 
                 if (keys[index].ActiveTo is not null)
                 {
@@ -754,30 +435,5 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
                 .AddInMemoryCollection(settings)
                 .Build();
         }
-        // Builds configuration the way a host file or an environment variable does, so that a
-        // key with NO Purpose entry at all can be exercised. The typed helpers above always
-        // carry one, which is exactly the case a deployed host does not.
-        private static IEnvelopeIntegrityBroker BrokerWithRawKey(
-            string keyId,
-            string secret,
-            string purpose)
-        {
-            var settings = new Dictionary<string, string>
-            {
-                ["EventEnvelopeSigning:0:KeyId"] = keyId,
-                ["EventEnvelopeSigning:0:Key"] = secret,
-                ["EventEnvelopeSigning:0:ActiveFrom"] =
-                    DateTimeOffset.UtcNow.AddYears(-1).ToString("O"),
-            };
-
-            if (purpose is not null)
-            {
-                settings["EventEnvelopeSigning:0:Purpose"] = purpose;
-            }
-
-            return new EnvelopeIntegrityBroker(
-                new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
-        }
-
     }
 }

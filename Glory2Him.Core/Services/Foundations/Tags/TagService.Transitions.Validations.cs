@@ -175,8 +175,8 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             //
             // Nothing unexplained gets through on this route: the shape validation refuses a
             // bypass with no reason, and one paired with any target but Approved, before any
-            // policy is read. And the claim to be the workflow is itself evidence — the envelope
-            // carrying it was signed with the workflow's own key (§16.7.1).
+            // policy is read. And the claim reached here only on a verified envelope, which is
+            // what establishes it was minted by this system (§16.7.1).
             if (isSystemIdentity)
             {
                 return tag.IsApprovedByBypass;
