@@ -62,7 +62,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
                 ValidateOnDecideApproval(decideApprovalRequest);
 
                 return new ValueTask<AccessVerdict>(
-                    DecideMayDecideApproval(decideApprovalRequest));
+                    DecideMayRecordApprovalOutcome(decideApprovalRequest));
             });
 
         // ── §7.7 rule 1 / HR-1 / §7.7 rule 2b / §8.9 rule 1 ─────────────────────────────────
@@ -341,7 +341,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
         }
 
         // ── HR-2 / HR-3 / HR-4 / §8.6 regardless-rule 1 ─────────────────────────────────────
-        private static AccessVerdict DecideMayDecideApproval(DecideApprovalRequest request)
+        private static AccessVerdict DecideMayRecordApprovalOutcome(DecideApprovalRequest request)
         {
             if (IsActorUsable(request.Actor) is false)
             {
