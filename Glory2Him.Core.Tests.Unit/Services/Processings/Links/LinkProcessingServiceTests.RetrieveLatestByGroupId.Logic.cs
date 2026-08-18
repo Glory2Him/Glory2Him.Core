@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -27,8 +27,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         [Fact]
         public async Task ShouldRetrieveLatestVersionOnRetrieveLatestByGroupIdAsync()
         {
-            // given: the edit tip of the group (§3.4.1) — at most one non-deleted row per
-            // group carries IsLatestVersion under the unique filtered index
+            // given: the edit tip of the group (§3.4.1) — the highest-versioned non-deleted
+            // row in it. Nothing marks the tip, so the rows below carry distinct Version
+            // numbers and the tip is whichever of them wins on that number alone.
             Guid inputGroupId = Guid.NewGuid();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
@@ -38,7 +39,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 hasPublishDate: true);
 
             latestVersion.GroupId = inputGroupId;
-            latestVersion.IsLatestVersion = true;
+            latestVersion.Version = 2;
 
             Link supersededVersion = CreateRandomPubliclyVisibleLink(
                 linkId: Guid.NewGuid(),
@@ -46,18 +47,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 hasPublishDate: true);
 
             supersededVersion.GroupId = inputGroupId;
-            supersededVersion.IsLatestVersion = false;
+            supersededVersion.Version = 1;
 
-            // a foreign group's own tip, enumerated FIRST — it satisfies every predicate
-            // except the group, so dropping the GroupId term would return it instead, and
-            // being publicly visible it would sail straight through the read posture
+            // a foreign group's own tip, enumerated FIRST and carrying the HIGHEST version
+            // in the table — it satisfies every predicate except the group, so dropping the
+            // GroupId term would now return it in preference to the right answer, and being
+            // publicly visible it would sail straight through the read posture
             Link foreignGroupLatestVersion = CreateRandomPubliclyVisibleLink(
                 linkId: Guid.NewGuid(),
                 currentDateTime: currentDateTime,
                 hasPublishDate: true);
 
             foreignGroupLatestVersion.GroupId = Guid.NewGuid();
-            foreignGroupLatestVersion.IsLatestVersion = true;
+            foreignGroupLatestVersion.Version = 99;
 
             Link expectedLink = latestVersion.DeepClone();
 
@@ -93,6 +95,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // then
             actualLink.Should().BeEquivalentTo(expectedLink);
 
+            // it won on Version, within its group, and nothing else
+            actualLink.Version.Should().BeGreaterThan(supersededVersion.Version);
+            actualLink.GroupId.Should().Be(inputGroupId);
+
             this.linkServiceMock.Verify(service =>
                 service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -109,9 +115,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
 
+            // the group's only live row, so it is the tip by having nothing above it
             Link latestVersion = CreateRandomNonPublicLink(createdBy: actorUserId);
             latestVersion.GroupId = inputGroupId;
-            latestVersion.IsLatestVersion = true;
+            latestVersion.Version = 1;
             Link expectedLink = latestVersion.DeepClone();
 
             IQueryable<Link> storageLinks = new[] { latestVersion }.AsQueryable();

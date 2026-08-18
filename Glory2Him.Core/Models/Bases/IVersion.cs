@@ -40,11 +40,18 @@ namespace Glory2Him.Core.Models.Bases
         /// </summary>
         int Version { get; set; }
 
+        // There is no IsLatestVersion. The tip is DERIVED — the row with the
+        // highest Version in the group — because a stored flag split the
+        // "exactly one tip" invariant in two: a filtered index enforced at
+        // most one, and application code was trusted for at least one. A fork
+        // whose second write failed satisfied the index and left a group with
+        // no tip at all, permanently uneditable (issue #265). Derived, that
+        // state cannot be represented.
+
         /// <summary>
         /// Whether this row is the tip of the version chain — the row edits go to. Distinct from
         /// <c>IsPublished</c>, which marks the row the public reads; during a review window the
         /// two deliberately sit on different rows (design §3.4.1).
         /// </summary>
-        bool IsLatestVersion { get; set; }
     }
 }

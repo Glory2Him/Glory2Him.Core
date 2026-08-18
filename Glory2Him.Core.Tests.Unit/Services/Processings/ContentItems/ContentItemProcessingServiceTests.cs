@@ -10,11 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
@@ -238,7 +240,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         private static ContentItem CreateRandomContentItem() =>
             CreateContentItemFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        // the "current" row the modify flow loads from storage: the modifiable tip of its group
+        // The "current" row the modify flow loads from storage. It can no longer declare
+        // itself the tip: the tip is DERIVED — the highest Version among the group's
+        // non-deleted rows — so the Version is pinned to a known number here and
+        // SetupGroupTip seeds the GROUP that decides the answer.
         private static ContentItem CreateRandomStorageContentItem(
             Guid contentItemId,
             ApprovalStatus approvalStatus,
@@ -248,11 +253,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             storageContentItem.Id = contentItemId;
             storageContentItem.ApprovalStatus = approvalStatus;
             storageContentItem.CreatedBy = createdBy;
-            storageContentItem.IsLatestVersion = true;
+            storageContentItem.Version = 2;
             storageContentItem.IsDeleted = false;
 
             return storageContentItem;
         }
+
+        // Seeds the group the derivation reads, so that storageContentItem genuinely is — or
+        // genuinely is not — its tip. A test cannot state the answer on the row any more; the
+        // only thing that can take the tip away from a row is a live sibling at a higher
+        // Version, so that is what "not the tip" is made of here.
+        private void SetupGroupTip(ContentItem storageContentItem, bool isTheGroupTip)
+        {
+            var groupContentItems = new List<ContentItem> { storageContentItem };
+
+            if (isTheGroupTip is false)
+            {
+                ContentItem newerVersionContentItem = CreateRandomContentItem();
+                newerVersionContentItem.GroupId = storageContentItem.GroupId;
+                newerVersionContentItem.Version = storageContentItem.Version + 1;
+                newerVersionContentItem.IsDeleted = false;
+                groupContentItems.Add(newerVersionContentItem);
+            }
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(groupContentItems.AsQueryable());
+        }
+
+        // the derivation costs one read of the group, which VerifyNoOtherCalls would
+        // otherwise flag
+        private void VerifyGroupTipResolved() =>
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
 
         // a row that satisfies canonical content visibility (§14.1) as of currentDateTime
         private static ContentItem CreateRandomPubliclyVisibleContentItem(

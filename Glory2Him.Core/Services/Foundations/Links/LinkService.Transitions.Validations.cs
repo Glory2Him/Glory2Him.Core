@@ -30,45 +30,6 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 message: "Link is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
 
-        private static void ValidateOnDemoteLinkVersion(Guid linkId) =>
-            Validate(
-                message: "Link is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
-
-        // Forking is the OWNER's act and nobody else's — §3.4 rule 8 says the owner is the only
-        // creator of new versions and that Publisher and Admin roles never fork one. The
-        // demotion is a step inside that fork, so it takes the same gate rather than the
-        // modify's wider one: a Reviewer holds write permission on the row and must still never
-        // move the version tip, and neither may a Publisher.
-        private async ValueTask ValidateUserCanDemoteStorageLinkVersionAsync(
-            Link storageLink,
-            SecurityContext securityContext)
-        {
-            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
-
-            bool isOwner =
-                string.IsNullOrWhiteSpace(actorUserId) is false
-                    && storageLink.CreatedBy == actorUserId;
-
-            if (isOwner is false)
-            {
-                throw new UnauthorizedLinkException(
-                    message: "The current user is not allowed to demote this link version.");
-            }
-        }
-
-        // Only the current tip may be demoted. A row that is already not the latest has nothing
-        // to demote, and letting the call through would publish a Demoted fact for a write that
-        // changed nothing — leaving a subscriber to infer a version move that never happened.
-        private static void ValidateStorageLinkIsDemotable(Link storageLink)
-        {
-            if (storageLink.IsLatestVersion is false)
-            {
-                throw new InvalidLinkException(
-                    message: "Link is not the latest version and cannot be demoted.");
-            }
-        }
-
         private static void ValidateOnUnpublishLink(Guid linkId) =>
             Validate(
                 message: "Link is invalid, fix the errors and try again.",

@@ -83,9 +83,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveLatestByGroupIdIfNoLatestVersionExistsAndLogItAsync()
         {
-            // given: a group whose only tip candidate is soft-deleted has no readable
-            // latest version — like a missing group, it answers not found before the
-            // clock or the caller's identity is ever consulted
+            // given: a group whose rows are ALL soft-deleted has no readable latest version.
+            // The tip is the highest Version among the group's live rows, so this — not a
+            // demoted flag — is what tip-less now means: nothing for the derivation to land
+            // on. Like a missing group, it answers not found before the clock or the caller's
+            // identity is ever consulted.
             Guid randomGroupId = Guid.NewGuid();
             Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
@@ -96,10 +98,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 createdBy: GetRandomString());
 
             olderContentItem.GroupId = inputGroupId;
-            olderContentItem.IsLatestVersion = false;
+            olderContentItem.Version = 1;
+            olderContentItem.IsDeleted = true;
+
             ContentItem deletedLatestContentItem = CreateRandomDeletedContentItem(currentDateTime);
             deletedLatestContentItem.GroupId = inputGroupId;
-            deletedLatestContentItem.IsLatestVersion = true;
+            deletedLatestContentItem.Version = 2;
 
             IQueryable<ContentItem> storageContentItems = new[]
             {

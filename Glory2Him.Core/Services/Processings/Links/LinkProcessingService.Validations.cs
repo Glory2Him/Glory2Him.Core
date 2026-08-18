@@ -78,6 +78,7 @@ namespace Glory2Him.Core.Services.Processings.Links
 
         private static void ValidateCurrentLinkIsModifiable(
             Link currentLink,
+            bool isLatestVersion,
             string actorUserId,
             SecurityContext securityContext)
         {
@@ -87,7 +88,7 @@ namespace Glory2Him.Core.Services.Processings.Links
                     message: "The link was not found.");
             }
 
-            if (currentLink.IsLatestVersion is false)
+            if (isLatestVersion is false)
             {
                 throw new InvalidLinkProcessingException(
                     message: "Only the latest version of a link may be modified.");

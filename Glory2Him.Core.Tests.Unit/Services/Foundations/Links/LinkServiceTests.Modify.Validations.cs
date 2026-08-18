@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -1578,9 +1578,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             invalidLink.ApprovalStatus = terminalStatus;
             storageLink.ApprovalStatus = terminalStatus;
 
-            // the AMENDMENT itself — the rule refuses a content change on a terminal row, not
-            // every write that touches one, because the version fork demotes through this same
-            // modify and changes only IsLatestVersion
+            // the AMENDMENT itself. The refusal is unconditional now that the fork is a single
+            // insert — no write of any kind reaches a terminal row through the general modify —
+            // but a content change is still the case worth stating, because it is the one a
+            // caller actually attempts.
             invalidLink.Name = GetRandomString();
 
             var invalidLinkException =

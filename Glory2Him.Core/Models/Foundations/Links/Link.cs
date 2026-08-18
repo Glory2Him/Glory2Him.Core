@@ -89,11 +89,6 @@ namespace Glory2Him.Core.Models.Foundations.Links
         public int Version { get; set; } = 1;
 
         /// <summary>
-        /// Gets or sets a value indicating whether this is the latest version of the link.
-        /// </summary>
-        public bool IsLatestVersion { get; set; } = false;
-
-        /// <summary>
         /// Optional date and time from which the link becomes visible.
         /// </summary>
         public DateTimeOffset? PublishDate { get; set; }

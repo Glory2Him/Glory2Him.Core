@@ -270,9 +270,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
         // ── The version lineage is the workflow's, not the caller's ──────────────────
         //
-        // Version, IsLatestVersion and GroupId are how an approved item's history
-        // is read back. Left writable, a caller could detach an item from its group or crown
-        // an old version as latest, and the approved version anyone reviewed would be gone.
+        // Version and GroupId are how an approved item's history is read back — and, now that
+        // the tip is DERIVED from the highest Version in the group, they are also the whole of
+        // how the tip is decided. Left writable, a caller could detach an item from its group
+        // or raise its Version above the real tip and crown an old row, and the approved
+        // version anyone reviewed would be gone.
 
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfTheVersionLineageWasChangedAndLogItAsync()
@@ -285,14 +287,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 CreateRandomModifyContentItem(randomDateTimeOffset, ownerUserId);
 
             invalidContentItem.Version = 2;
-            invalidContentItem.IsLatestVersion = false;
 
             ContentItem storageContentItem = invalidContentItem.DeepClone();
             storageContentItem.UpdatedWhen = storageContentItem.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
             invalidContentItem.GroupId = Guid.NewGuid();
+
+            // raising the version IS the attempt to crown this row as the tip, now that the tip
+            // is the highest Version in the group rather than a flag the caller could flip
             invalidContentItem.Version = 7;
-            invalidContentItem.IsLatestVersion = true;
 
             var invalidContentItemException = new InvalidContentItemException(
                 message: "Content item is invalid, fix the errors and try again.");
@@ -304,10 +307,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             invalidContentItemException.AddData(
                 key: nameof(ContentItem.Version),
                 values: $"Value is not the same as {nameof(ContentItem.Version)}");
-
-            invalidContentItemException.AddData(
-                key: nameof(ContentItem.IsLatestVersion),
-                values: $"Value is not the same as {nameof(ContentItem.IsLatestVersion)}");
 
             SetupFailingModifyPathBrokers(
                 invalidContentItem, storageContentItem, ownerUserId, randomDateTimeOffset);

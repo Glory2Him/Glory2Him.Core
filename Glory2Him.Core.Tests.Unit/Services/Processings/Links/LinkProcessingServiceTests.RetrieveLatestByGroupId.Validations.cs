@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -77,14 +77,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         [Fact]
         public async Task ShouldThrowNotFoundExceptionOnRetrieveLatestByGroupIdIfNoLatestVersionAndLogItAsync()
         {
-            // given: a group whose only latest version is soft-deleted has no readable tip,
-            // and the answer is a reason-free not-found for every caller
+            // given: a group whose only row is soft-deleted has no readable tip — the tip is
+            // derived from the LIVE rows, and there are none — and the answer is a
+            // reason-free not-found for every caller
             Guid inputGroupId = Guid.NewGuid();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
             Link deletedLatestVersion = CreateRandomDeletedLink(currentDateTime);
             deletedLatestVersion.GroupId = inputGroupId;
-            deletedLatestVersion.IsLatestVersion = true;
+            deletedLatestVersion.Version = 1;
 
             IQueryable<Link> storageLinks = new[] { deletedLatestVersion }.AsQueryable();
 
@@ -148,7 +149,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             Link latestVersion = CreateRandomNonPublicLink(createdBy: GetRandomString());
             latestVersion.GroupId = inputGroupId;
-            latestVersion.IsLatestVersion = true;
+            latestVersion.Version = 1;
 
             IQueryable<Link> storageLinks = new[] { latestVersion }.AsQueryable();
 

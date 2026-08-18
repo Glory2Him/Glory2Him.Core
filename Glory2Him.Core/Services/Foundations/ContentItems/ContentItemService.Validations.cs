@@ -182,9 +182,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         //
         // The refusal is unconditional, which it can be because the fork no longer writes
         // through here. It used to demote the previous latest by flipping IsLatestVersion on
-        // this path — which this service's own IsLatestVersion pin refused, so the fork could
-        // not complete at all. DemoteContentItemVersionAsync owns that write now, so nothing
-        // legitimate reaches a terminal row through the general modify.
+        // this path — which this service's own pin refused, so the fork could not complete at
+        // all. There is no such write left to make: the tip is derived from Version, so a fork
+        // only inserts, and nothing legitimate reaches a terminal row through the general
+        // modify.
         //
         // It is deliberately NOT inferred from the status pin: that pin's condition is guarded
         // by inputStatus != storageStatus, which a caller echoing the stored status back walks
@@ -435,11 +436,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         secondName: nameof(ContentItem.Version)),
                     Parameter: nameof(ContentItem.Version)),
 
-                (Rule: IsNotSame(
-                        first: inputContentItem.IsLatestVersion,
-                        second: storageContentItem.IsLatestVersion,
-                        secondName: nameof(ContentItem.IsLatestVersion)),
-                    Parameter: nameof(ContentItem.IsLatestVersion)),
 
                 // The general modify is for content only. Every IApproval member belongs to the
                 // approve operation (design §9.7.1 rules 2 and 3), so they are pinned here

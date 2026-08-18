@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -34,7 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
     ///
     /// <para>The verb owns <c>IsPublished</c> and <c>PublishDate</c> and nothing else. The
     /// incumbent is SUPERSEDED, not un-approved, so <c>ApprovalStatus</c> stays
-    /// <c>Approved</c> and <c>IsLatestVersion</c> is untouched (§3.4 rule 18) — which is why
+    /// <c>Approved</c> and the row's <c>Version</c> is untouched (§3.4 rule 18) — which is why
     /// every test below plants those two at values the operation could not reach by accident
     /// and asserts they survived.</para>
     ///
@@ -57,19 +57,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         private static readonly Guid UnpublishPromotedLinkId =
             new Guid("33333333-3333-3333-3333-333333333333");
 
+        // The incumbent's place in its version chain. Pinned above 1 so a service that reset
+        // or recomputed it could not land back on the same number by accident.
+        private const int UnpublishVersion = 3;
+
         private static readonly DateTimeOffset UnpublishPublishDate =
             new DateTimeOffset(2024, 3, 4, 5, 6, 7, TimeSpan.Zero);
 
         // The incumbent as the swap finds it: Approved, actually published with a real
-        // PublishDate — so the clearing is observable rather than already true — and still the
-        // version tip, because a demotion and an unpublish are different operations.
+        // PublishDate — so the clearing is observable rather than already true — and sitting at
+        // a pinned Version, because where a row sits in its chain is no business of an unpublish.
         private static Link CreateUnpublishStorageLink()
         {
             Link link = CreateRandomLink();
             link.Id = UnpublishIncumbentLinkId;
             link.GroupId = UnpublishGroupId;
             link.IsDeleted = false;
-            link.IsLatestVersion = true;
+            link.Version = UnpublishVersion;
             link.ApprovalStatus = ApprovalStatus.Approved;
             link.IsPublished = true;
             link.PublishDate = UnpublishPublishDate;
@@ -205,9 +209,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldNotTouchApprovalOrVersionFieldsOnUnpublishAsync()
         {
             // given: the incumbent is SUPERSEDED, not un-approved — it was approved and the
-            // record of that must stand (§9.7.7 rule 6). IsLatestVersion is a separate
-            // operation's field entirely (§3.4 rule 18): publication and the edit tip move
-            // independently, and clearing the tip here would silently un-fork the group.
+            // record of that must stand (§9.7.7 rule 6). Version is a separate operation's
+            // field entirely (§3.4 rule 18): publication and the edit tip move independently,
+            // and the tip is DERIVED from Version, so an unpublish that moved this row's
+            // Version would silently re-point the whole group's tip.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
             Link storageLink = CreateUnpublishStorageLink();
 
@@ -220,7 +225,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             // then
             savedLink.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-            savedLink.IsLatestVersion.Should().BeTrue();
+            savedLink.Version.Should().Be(UnpublishVersion);
+            savedLink.GroupId.Should().Be(UnpublishGroupId);
 
             // and nothing else moved either: the whole row against the snapshot, excluding
             // only the two fields this verb owns
@@ -300,7 +306,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // then: handed back untouched, and the row it still claims to be
             actualLink.Should().BeEquivalentTo(expectedLink);
             actualLink.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-            actualLink.IsLatestVersion.Should().BeTrue();
+            actualLink.Version.Should().Be(UnpublishVersion);
 
             this.storageBrokerMock.Verify(broker =>
                     broker.UpdateLinkAsync(
@@ -593,7 +599,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             savedLink.IsPublished.Should().BeFalse();
             savedLink.PublishDate.Should().BeNull();
             savedLink.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-            savedLink.IsLatestVersion.Should().BeTrue();
+            savedLink.Version.Should().Be(UnpublishVersion);
 
             // CHAINED, never minted: CreateNextAsync copies the security context forward off
             // the swap's envelope and keeps causation linked. CreateAsync would read the

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -1101,7 +1101,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             link.GroupId = groupId;
             link.IsPublished = isPublished;
             link.IsDeleted = isDeleted;
-            link.IsLatestVersion = false;
 
             link.ApprovalStatus = isPublished
                 ? ApprovalStatus.Approved

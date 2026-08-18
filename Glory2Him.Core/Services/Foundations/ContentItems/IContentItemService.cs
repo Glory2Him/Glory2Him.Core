@@ -84,15 +84,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             ContentItem contentItem,
             CancellationToken cancellationToken = default);
 
-        // The version fork's demotion of the previous latest row, and the ONLY operation that
-        // may move IsLatestVersion (§3.4 rule 18, §9.7.1 rule 2) — the general modify pins it
-        // like every other IVersion member. Owner-gated, because the owner is the only creator
-        // of new versions (§3.4 rule 8). Publishes ContentItem-Demoted, never
-        // ContentItem-Modified, so a demotion cannot be read as a content amendment.
-        ValueTask<ContentItem> DemoteContentItemVersionAsync(
-            Guid contentItemId,
-            CancellationToken cancellationToken = default);
-
         /// <summary>
         /// Clears the group's published slot so a newly approved sibling can take it
         /// (design §9.7.7 rules 6–7). Owns <c>IsPublished</c> and

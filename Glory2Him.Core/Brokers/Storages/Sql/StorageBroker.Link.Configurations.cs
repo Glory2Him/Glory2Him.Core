@@ -75,10 +75,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsRequired()
                  .HasDefaultValue(1);
 
-            model.Property(link => link.IsLatestVersion)
-                 .IsRequired()
-                 .HasDefaultValue(false);
-
             model.Property(link => link.PublishDate)
                  .IsRequired(false);
 
@@ -102,12 +98,6 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.HasIndex(link => new { link.GroupId, link.Version })
                  .IsUnique()
                  .HasDatabaseName("UX_Links_GroupId_Version");
-
-            // Exactly one latest version per group
-            model.HasIndex(link => new { link.GroupId, link.IsLatestVersion })
-                 .IsUnique()
-                 .HasFilter($"[{nameof(Link.IsLatestVersion)}] = 1")
-                 .HasDatabaseName("UX_Links_GroupId_IsLatestVersion");
 
             // Exactly one published version per group
             model.HasIndex(link => new { link.GroupId, link.IsPublished })

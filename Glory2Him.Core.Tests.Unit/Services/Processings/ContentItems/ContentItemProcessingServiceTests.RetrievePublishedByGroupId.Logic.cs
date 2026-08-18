@@ -31,9 +31,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         public async Task ShouldRetrievePublishedContentItemByGroupIdIfPublishedIsPubliclyVisibleAsync(
             bool hasPublishDate)
         {
-            // given: the group's published row is the one the public currently reads — it
-            // is found independently of IsLatestVersion, so it stays readable while a
-            // newer draft moves through review (§3.4.1); the caller here is anonymous
+            // given: the group's published row is the one the public currently reads — it is
+            // found independently of the version tip, so it stays readable while a newer draft
+            // moves through review (§3.4.1). The draft here genuinely IS the tip: it carries
+            // the higher Version, which is the whole of what makes it one.
+            // The caller here is anonymous.
             Guid randomGroupId = Guid.NewGuid();
             Guid inputGroupId = randomGroupId;
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
@@ -44,13 +46,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 hasPublishDate: hasPublishDate);
 
             publishedContentItem.GroupId = inputGroupId;
-            publishedContentItem.IsLatestVersion = false;
+            publishedContentItem.Version = 1;
 
             ContentItem draftLatestContentItem = CreateRandomNonPublicContentItem(
                 createdBy: GetRandomString());
 
             draftLatestContentItem.GroupId = inputGroupId;
-            draftLatestContentItem.IsLatestVersion = true;
+            draftLatestContentItem.Version = 2;
 
             ContentItem otherGroupPublishedContentItem = CreateRandomPubliclyVisibleContentItem(
                 contentItemId: Guid.NewGuid(),

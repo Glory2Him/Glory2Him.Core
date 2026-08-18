@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -251,6 +251,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 createdBy: actorUserId);
 
             storageLink.IsDeleted = true;
+            SetupGroupTipRead(storageLink);
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
@@ -307,7 +308,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         public async Task ShouldThrowValidationExceptionOnModifyIfLinkIsNotLatestVersionAndLogItAsync()
         {
             // given: only the edit tip of a group is modifiable — editing a superseded
-            // version would fork off history and break the single-latest invariant
+            // version would fork off history and leave two live chains from one row.
+            //
+            // The row is superseded because a LIVE SIBLING IN ITS GROUP CARRIES A HIGHER
+            // VERSION, which is the only thing "not the latest" can now mean: the tip is
+            // derived from the rows, so there is no flag to set false and no way to describe
+            // a row as superseded without the row that superseded it actually existing.
             Link inputLink = CreateRandomLink();
             string actorUserId = GetRandomString();
 
@@ -316,7 +322,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 approvalStatus: ApprovalStatus.Approved,
                 createdBy: actorUserId);
 
-            storageLink.IsLatestVersion = false;
+            Link supersedingLink = CreateSupersedingLink(storageLink);
+            SetupGroupTipRead(storageLink, supersedingLink);
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
@@ -357,6 +364,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // then
             actualLinkProcessingValidationException.Should().BeEquivalentTo(
                 expectedLinkProcessingValidationException);
+
+            // the setup said what it meant: same group, strictly higher version, alive
+            supersedingLink.GroupId.Should().Be(storageLink.GroupId);
+            supersedingLink.Version.Should().BeGreaterThan(storageLink.Version);
+            supersedingLink.IsDeleted.Should().BeFalse();
+
+            // and the refusal came from reading the group, not from trusting the row
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
 
             this.linkServiceMock.Verify(service =>
                 service.ModifyLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()),
@@ -406,6 +423,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 linkId: inputLink.Id,
                 approvalStatus: approvalStatus,
                 createdBy: GetRandomString());
+
+            SetupGroupTipRead(storageLink);
 
             string[] actorRoles = actorRole is null
                 ? Array.Empty<string>()

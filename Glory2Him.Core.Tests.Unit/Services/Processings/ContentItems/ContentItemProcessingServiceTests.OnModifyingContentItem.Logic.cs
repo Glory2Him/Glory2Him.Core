@@ -68,6 +68,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(requestEnvelope.SecurityContext))
                     .ReturnsAsync(actorUserId);
@@ -112,6 +114,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            VerifyGroupTipResolved();
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(requestEnvelope.SecurityContext),

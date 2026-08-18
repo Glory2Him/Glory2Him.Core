@@ -251,7 +251,6 @@ namespace Glory2Him.Core.Services.Processings.Links
                 LinkType = link.LinkType,
                 GroupId = await this.identifierBroker.GetIdentifierAsync(),
                 Version = 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
@@ -283,8 +282,16 @@ namespace Glory2Him.Core.Services.Processings.Links
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: inboundEnvelope.SecurityContext);
 
+            // The tip is derived, so "is this the latest version" is a question about
+             // the GROUP rather than a flag on the row. Asked here, where the service can
+            // reach the other versions, and handed to the gate as an answer.
+            bool isLatestVersion = await IsLinkTheGroupTipAsync(
+                candidate: currentLink,
+                cancellationToken: cancellationToken);
+
             ValidateCurrentLinkIsModifiable(
                 currentLink: currentLink,
+                isLatestVersion: isLatestVersion,
                 actorUserId: actorUserId,
                 securityContext: inboundEnvelope.SecurityContext);
 
@@ -441,10 +448,15 @@ namespace Glory2Him.Core.Services.Processings.Links
 
             // the edit tip of the group (§3.4.1) — at most one non-deleted row per group
             // carries IsLatestVersion under the unique filtered index
-            Link? latestLink = allLinks.FirstOrDefault(link =>
-                link.GroupId == groupId
-                    && link.IsLatestVersion
-                    && link.IsDeleted == false);
+            // The tip is DERIVED: the highest Version in the group. There is no
+            // stored flag to disagree with the rows, which is what made a failed
+            // fork able to leave a group with no tip at all (#265).
+            Link? latestLink = allLinks
+                .Where(link =>
+                    link.GroupId == groupId
+                        && link.IsDeleted == false)
+                .OrderByDescending(link => link.Version)
+                .FirstOrDefault();
 
             if (latestLink is null)
             {
@@ -599,6 +611,21 @@ namespace Glory2Him.Core.Services.Processings.Links
                 operation: operation);
         }
 
+        // No row in the group carries a higher Version. Derived rather than read, so
+        // there is no flag that can disagree with the rows it describes (#265).
+        private async ValueTask<bool> IsLinkTheGroupTipAsync(
+            Link candidate,
+            CancellationToken cancellationToken)
+        {
+            IQueryable<Link> allLinks =
+                await this.linkService.RetrieveAllLinksAsync(cancellationToken);
+
+            return allLinks.Any(link =>
+                link.GroupId == candidate.GroupId
+                    && link.IsDeleted == false
+                    && link.Version > candidate.Version) is false;
+        }
+
         private async ValueTask<Link> ModifyLinkInPlaceAsync(
             Link link,
             Link currentLink,
@@ -632,27 +659,10 @@ namespace Glory2Him.Core.Services.Processings.Links
                 LinkType = link.LinkType,
                 GroupId = currentLink.GroupId,
                 Version = currentLink.Version + 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
             };
-
-            // The previous latest is demoted before the new row is inserted — the unique
-            // filtered index allows only one IsLatestVersion = true per group at any time.
-            // IsLatestVersion only marks the edit tip; IsPublished is untouched here, so the
-            // previously published row stays publicly visible until the new version is
-            // approved and published (§3.4.1). A fork off a Rejected row has no published
-            // row to preserve, so the group is simply dark until the new version lands.
-            //
-            // Through the narrow demote verb rather than the general modify: IsLatestVersion is
-            // an IVersion member, which the modify pins against storage like every other
-            // non-content field (§9.7.1 rule 2). Demoting through the modify asked the one path
-            // required to refuse this write to make it, and left the foundation unable to tell
-            // the fork apart from a caller tampering with version bookkeeping.
-            await this.linkService.DemoteLinkVersionAsync(
-                linkId: currentLink.Id,
-                cancellationToken: cancellationToken);
 
             return await this.linkService.AddLinkAsync(
                 link: newVersionLink,

@@ -78,6 +78,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 
         private static void ValidateCurrentContentItemIsModifiable(
             ContentItem currentContentItem,
+            bool isLatestVersion,
             string actorUserId,
             SecurityContext securityContext)
         {
@@ -87,7 +88,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                     message: "The content item was not found.");
             }
 
-            if (currentContentItem.IsLatestVersion is false)
+            if (isLatestVersion is false)
             {
                 throw new InvalidContentItemProcessingException(
                     message: "Only the latest version of a content item may be modified.");

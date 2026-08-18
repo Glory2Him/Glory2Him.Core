@@ -269,7 +269,6 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 ContentHash = contentHash,
                 GroupId = await this.identifierBroker.GetIdentifierAsync(),
                 Version = 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
@@ -301,8 +300,16 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: inboundEnvelope.SecurityContext);
 
+            // The tip is derived, so "is this the latest version" is a question about
+             // the GROUP rather than a flag on the row. Asked here, where the service can
+            // reach the other versions, and handed to the gate as an answer.
+            bool isLatestVersion = await IsContentItemTheGroupTipAsync(
+                candidate: currentContentItem,
+                cancellationToken: cancellationToken);
+
             ValidateCurrentContentItemIsModifiable(
                 currentContentItem: currentContentItem,
+                isLatestVersion: isLatestVersion,
                 actorUserId: actorUserId,
                 securityContext: inboundEnvelope.SecurityContext);
 
@@ -475,10 +482,15 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 
             // the edit tip of the group (§3.4.1) — at most one non-deleted row per group
             // carries IsLatestVersion under the unique filtered index
-            ContentItem? latestContentItem = allContentItems.FirstOrDefault(contentItem =>
-                contentItem.GroupId == groupId
-                    && contentItem.IsLatestVersion
-                    && contentItem.IsDeleted == false);
+            // The tip is DERIVED: the highest Version in the group. There is no
+            // stored flag to disagree with the rows, which is what made a failed
+            // fork able to leave a group with no tip at all (#265).
+            ContentItem? latestContentItem = allContentItems
+                .Where(contentItem =>
+                    contentItem.GroupId == groupId
+                        && contentItem.IsDeleted == false)
+                .OrderByDescending(contentItem => contentItem.Version)
+                .FirstOrDefault();
 
             if (latestContentItem is null)
             {
@@ -639,6 +651,21 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 operation: operation);
         }
 
+        // No row in the group carries a higher Version. Derived rather than read, so
+        // there is no flag that can disagree with the rows it describes (#265).
+        private async ValueTask<bool> IsContentItemTheGroupTipAsync(
+            ContentItem candidate,
+            CancellationToken cancellationToken)
+        {
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(cancellationToken);
+
+            return allContentItems.Any(contentItem =>
+                contentItem.GroupId == candidate.GroupId
+                    && contentItem.IsDeleted == false
+                    && contentItem.Version > candidate.Version) is false;
+        }
+
         private async ValueTask<ContentItem> ModifyContentItemInPlaceAsync(
             ContentItem contentItem,
             ContentItem currentContentItem,
@@ -677,25 +704,10 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 ContentHash = contentHash,
                 GroupId = currentContentItem.GroupId,
                 Version = currentContentItem.Version + 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
             };
-
-            // The previous latest is demoted before the new row is inserted — the unique
-            // filtered index allows only one IsLatestVersion = true per group at any time.
-            // IsLatestVersion only marks the edit tip; IsPublished is untouched here, so the
-            // previously published row stays publicly visible until the new version is
-            // approved and published (§3.4.1).
-            //
-            // Through the narrow demote verb rather than the general modify: IsLatestVersion is
-            // an IVersion member and ContentItemService PINS it against storage (§9.7.1 rule 2),
-            // so demoting through the modify was refused outright and this fork could not
-            // complete. Nothing caught it because this service's tests mock the foundation.
-            await this.contentItemService.DemoteContentItemVersionAsync(
-                contentItemId: currentContentItem.Id,
-                cancellationToken: cancellationToken);
 
             return await this.contentItemService.AddContentItemAsync(
                 contentItem: newVersionContentItem,

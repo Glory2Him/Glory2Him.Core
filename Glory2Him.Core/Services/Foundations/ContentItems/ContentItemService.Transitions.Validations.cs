@@ -30,47 +30,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
-        private static void ValidateOnDemoteContentItemVersion(Guid contentItemId) =>
-            Validate(
-                message: "Content item is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
-
-        // Forking is the OWNER's act and nobody else's — §3.4 rule 8 says the owner is the only
-        // creator of new versions and that Publisher and Admin roles never fork one. The
-        // demotion is a step inside that fork, so it takes the same gate rather than the
-        // modify's wider one: a Reviewer holds write permission on the row and must still never
-        // move the version tip, and neither may a Publisher.
-        private async ValueTask ValidateUserCanDemoteStorageContentItemVersionAsync(
-            ContentItem storageContentItem,
-            SecurityContext securityContext)
-        {
-            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
-
-            bool isOwner =
-                string.IsNullOrWhiteSpace(actorUserId) is false
-                    && storageContentItem.CreatedBy == actorUserId;
-
-            if (isOwner is false)
-            {
-                throw new UnauthorizedContentItemException(
-                    message: "The current user is not allowed to demote " +
-                        "this content item version.");
-            }
-        }
-
-        // Only the current tip may be demoted. A row that is already not the latest has nothing
-        // to demote, and letting the call through would publish a Demoted fact for a write that
-        // changed nothing — leaving a subscriber to infer a version move that never happened.
-        private static void ValidateStorageContentItemIsDemotable(
-            ContentItem storageContentItem)
-        {
-            if (storageContentItem.IsLatestVersion is false)
-            {
-                throw new InvalidContentItemException(
-                    message: "Content item is not the latest version and cannot be demoted.");
-            }
-        }
-
         private static void ValidateOnUnpublishContentItem(Guid contentItemId) =>
             Validate(
                 message: "ContentItem is invalid, fix the errors and try again.",

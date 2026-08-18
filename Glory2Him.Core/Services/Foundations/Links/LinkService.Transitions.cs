@@ -213,68 +213,6 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 cancellationToken: cancellationToken);
         }
 
-        public ValueTask<Link> DemoteLinkVersionAsync(
-            Guid linkId,
-            CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Demote owns only IsLatestVersion and drives it to a fixed value, so the
-                // request carries nothing but the id — the same shape submit has, and for the
-                // same reason: there is nothing to read off a caller's copy.
-                var demoteRequest = new Link { Id = linkId };
-
-                EventEnvelope<Link> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: demoteRequest);
-
-                return await DoDemoteLinkVersionAsync(
-                    linkId: linkId,
-                    inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
-            });
-
-        // The version fork's second write, and the only operation permitted to move
-        // IsLatestVersion off a row (§3.4 rule 18, §9.7.1 rule 2). It exists because the fork
-        // previously demoted through the general modify, which is the one path required to
-        // refuse an IVersion member — so the foundation could not tell the fork apart from a
-        // caller tampering with version bookkeeping, and on ContentItem, where the pin was
-        // actually present, the fork simply could not complete.
-        private async ValueTask<Link> DoDemoteLinkVersionAsync(
-            Guid linkId,
-            EventEnvelope<Link> inboundEnvelope,
-            CancellationToken cancellationToken)
-        {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnDemoteLinkVersion(linkId);
-
-            Link storageLink =
-                await LoadTransitionTargetAsync(
-                    linkId: linkId,
-                    cancellationToken: cancellationToken);
-
-            // decided against the STORED row, like every other transition: forking is the
-            // owner's act, and the author it is measured against must be the one on record
-            // rather than one the caller supplied.
-            await ValidateUserCanDemoteStorageLinkVersionAsync(
-                storageLink: storageLink,
-                securityContext: inboundEnvelope.SecurityContext);
-
-            ValidateStorageLinkIsDemotable(storageLink);
-
-            // the whole of this operation's remit is this one field, and the target is fixed —
-            // demoting only ever means "no longer the tip"
-            storageLink.IsLatestVersion = false;
-
-            return await SaveTransitionAsync(
-                link: storageLink,
-                inboundEnvelope: inboundEnvelope,
-                operation: LinkEventOperation.Demoted,
-                receiverName: EventBrokerIdentifiers
-                    .LinkOnDemotingLinkSubscriptionName,
-                cancellationToken: cancellationToken);
-        }
-
         public ValueTask<Link> UnpublishLinkByIdAsync(
             Guid linkId,
             CancellationToken cancellationToken = default) =>

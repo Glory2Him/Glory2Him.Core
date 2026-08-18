@@ -200,6 +200,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(requestEnvelope.SecurityContext))
                     .ReturnsAsync(actorUserId);
