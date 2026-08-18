@@ -9,6 +9,9 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Linq;
+using Glory2Him.Core.Models.Enums;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -79,6 +82,98 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                     sourceEnvelope: envelope,
                     content: removedContentItem);
             });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnApprovingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemProcessingEventOperation.Approving);
+
+                ContentItem decidedContentItem =
+                    await DoTransitionContentItemApprovalAsync(
+                        command: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: decidedContentItem);
+            });
+
+        // The publication swap (§9.7.7 rules 6–7, §12.4.1 rule 10). Two rows of one entity
+        // in a guaranteed order, which is why it lives here rather than in the foundation (one
+        // row per call) or the orchestration (no entity services, by design).
+        //
+        // The order is guaranteed by the CALL STACK — two sequential awaits in one method —
+        // not by delivery. Re-publishing the two writes as events would lose it: handler
+        // failures are recorded per listener rather than failing the publisher, so a failed
+        // demote would not stop the promote, and the promote is the one the index refuses.
+        private async ValueTask<ContentItem> DoTransitionContentItemApprovalAsync(
+            ContentItem command,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            // Only a PROMOTION needs the group cleared. A rejection, a re-open or an override
+            // takes nothing into the published slot, so no probe runs and the command goes
+            // straight through to the foundation.
+            bool isPromotion =
+                command.ApprovalStatus == ApprovalStatus.Approved
+                    && command.IsPublished;
+
+            if (isPromotion)
+            {
+                await DemoteIncumbentPublishedContentItemAsync(
+                    contentItemId: command.Id,
+                    inboundEnvelope: inboundEnvelope,
+                    cancellationToken: cancellationToken);
+            }
+
+            return await this.contentItemService.TransitionContentItemApprovalAsync(
+                contentItem: command,
+                cancellationToken: cancellationToken);
+        }
+
+        // Clears the group's published slot, if anything holds it.
+        private async ValueTask DemoteIncumbentPublishedContentItemAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            // The group is read from the STORED row. A caller-supplied GroupId would let one
+            // group's approval unpublish another group's live row.
+            ContentItem targetContentItem =
+                await this.contentItemService.RetrieveContentItemByIdAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
+
+            IQueryable<ContentItem> allContentItems =
+                await this.contentItemService.RetrieveAllContentItemsAsync(
+                    cancellationToken: cancellationToken);
+
+            // NOT filtered on IsDeleted, deliberately. A soft delete never clears IsPublished
+            // and the index filter names that column alone, so a tombstone still holds the slot
+            // — skipping it would leave the group permanently unpublishable (§9.7.7 rule 7).
+            ContentItem incumbent = allContentItems.FirstOrDefault(contentItem =>
+                contentItem.GroupId == targetContentItem.GroupId
+                    && contentItem.IsPublished
+                    && contentItem.Id != targetContentItem.Id);
+
+            if (incumbent is null)
+            {
+                return;
+            }
+
+            // Not caught. If the slot cannot be cleared the promote must not be attempted: the
+            // index would refuse it anyway, and failing here leaves the incumbent published
+            // rather than the group dark.
+            await this.contentItemService.UnpublishContentItemByIdAsync(
+                contentItemId: incumbent.Id,
+                inboundEnvelope: inboundEnvelope,
+                cancellationToken: cancellationToken);
+        }
 
         public ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,

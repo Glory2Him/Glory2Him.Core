@@ -280,6 +280,96 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
         }
 
+        public ValueTask<ContentItem> UnpublishContentItemByIdAsync(
+            Guid contentItemId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Owns two fields and drives both to fixed values, so the request
+                // carries nothing but the id — the same shape demote has, for the
+                // same reason: there is nothing to read off a caller's copy.
+                var unpublishRequest = new ContentItem { Id = contentItemId };
+
+                EventEnvelope<ContentItem> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: unpublishRequest);
+
+                return await DoUnpublishContentItemAsync(
+                    contentItemId: contentItemId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<ContentItem> UnpublishContentItemByIdAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Chained off the swap's envelope, so IsSystemIdentity travels with it
+                // and causation stays linked. CreateNextAsync copies the security
+                // context forward; it does not mint one.
+                EventEnvelope<ContentItem> unpublishEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: new ContentItem { Id = contentItemId });
+
+                return await DoUnpublishContentItemAsync(
+                    contentItemId: contentItemId,
+                    inboundEnvelope: unpublishEnvelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        // The publication swap's first write (§9.7.7 rule 7). It exists as its own
+        // verb because the general modify refuses IApproval members and the approve
+        // transition only ever writes publication as a CONSEQUENCE of a decision —
+        // and no decision is being made here. The incumbent is not being un-approved,
+        // it is being superseded.
+        private async ValueTask<ContentItem> DoUnpublishContentItemAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateOnUnpublishContentItem(contentItemId);
+            ValidateUserCanUnpublishContentItem(inboundEnvelope.SecurityContext);
+
+            // NOT LoadTransitionTargetAsync: that refuses a soft-deleted row, and a
+            // soft delete never clears IsPublished. The index filter names that column
+            // alone, so a tombstone still holds the slot, and refusing to clear it
+            // would leave the group permanently unpublishable (§9.7.7 rule 7).
+            ContentItem maybeContentItem =
+                await this.storageBroker.SelectContentItemByIdAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
+
+            ValidateStorageContentItem(maybeContentItem, contentItemId);
+
+            // Idempotent. The swap probes for an incumbent and may race another that
+            // already cleared it; refusing here would fail an approval for work that
+            // is already done.
+            if (maybeContentItem.IsPublished is false)
+            {
+                return maybeContentItem;
+            }
+
+            maybeContentItem.IsPublished = false;
+
+            // A publish date without publication is a date nothing reads, which is
+            // what IsPublishDateWithoutPublication already refuses on the way in.
+            maybeContentItem.PublishDate = null;
+
+            return await SaveTransitionAsync(
+                contentItem: maybeContentItem,
+                inboundEnvelope: inboundEnvelope,
+                operation: ContentItemEventOperation.Unpublished,
+                receiverName: EventBrokerIdentifiers
+                    .ContentItemOnContentItemUnpublishedSubscriptionName,
+                cancellationToken: cancellationToken);
+        }
+
         // Loads the row a transition acts on. Every transition authorizes against what is
         // STORED, so the load has to happen before the authorization decision rather than
         // after it, and the NotFound guard belongs with the load.

@@ -13,6 +13,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 
 namespace Glory2Him.Core.Services.Foundations.Links
@@ -58,6 +59,41 @@ namespace Glory2Him.Core.Services.Foundations.Links
         // demotion cannot be read as a content amendment.
         ValueTask<Link> DemoteLinkVersionAsync(
             Guid linkId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Clears the group's published slot so a newly approved sibling can take it
+        /// (design §9.7.7 rules 6–7). Owns <c>IsPublished</c> and
+        /// <c>PublishDate</c> and nothing else — the row stays <c>Approved</c>,
+        /// because it was approved; it is superseded, not un-approved — and
+        /// <c>IsLatestVersion</c> is untouched (§3.4 rule 18).
+        ///
+        /// <para>Gated to <c>Admin</c> or the workflow's system identity, never the
+        /// publisher tier: the row being unpublished is itself <c>Approved</c>, and
+        /// §8.6 HR-4 bars a <c>Publisher</c> from moving an approved row.</para>
+        ///
+        /// <para>Deliberately loads a soft-deleted row too. The published slot is held
+        /// by an index filtered on <c>IsPublished</c> alone, so a tombstone that kept
+        /// the flag still occupies it — refusing to clear one would make the group
+        /// permanently unpublishable.</para>
+        /// </summary>
+        ValueTask<Link> UnpublishLinkByIdAsync(
+            Guid linkId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The publication swap's route into <see cref="UnpublishLinkByIdAsync(System.Guid,
+        /// System.Threading.CancellationToken)"/>, taking the envelope the swap is acting
+        /// under so the workflow's identity is CARRIED rather than re-asserted.
+        ///
+        /// <para>Minting a fresh context here would read the ambient HTTP caller — who on
+        /// an automatic approval is the reviewer whose own review completed the round, not
+        /// an <c>Admin</c> — and the unpublish would be refused for the one caller entitled
+        /// to make it.</para>
+        /// </summary>
+        internal ValueTask<Link> UnpublishLinkByIdAsync(
+            Guid linkId,
+            EventEnvelope<Link> inboundEnvelope,
             CancellationToken cancellationToken = default);
     }
 }

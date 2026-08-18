@@ -69,6 +69,35 @@ namespace Glory2Him.Core.Services.Foundations.Links
             }
         }
 
+        private static void ValidateOnUnpublishLink(Guid linkId) =>
+            Validate(
+                message: "Link is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
+
+        // Admin or the workflow, and NOT the publisher tier. The row being
+        // unpublished is itself Approved, and §8.6 HR-4 bars a Publisher from moving
+        // an approved row — the same reason the override is Admin-gated. The system
+        // identity is admissible because it arrived on a verified envelope.
+        private static void ValidateUserCanUnpublishLink(SecurityContext securityContext)
+        {
+            if (securityContext is null || securityContext.IsAuthenticated is false)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not authenticated.");
+            }
+
+            bool isPermitted =
+                securityContext.IsSystemIdentity
+                    || securityContext.Roles.Contains(Roles.Admin);
+
+            if (isPermitted is false)
+            {
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not allowed to unpublish this "
+                        + "link.");
+            }
+        }
+
         private static void ValidateOnTransitionLinkApproval(Link link) =>
             Validate(
                 message: "Link is invalid, fix the errors and try again.",

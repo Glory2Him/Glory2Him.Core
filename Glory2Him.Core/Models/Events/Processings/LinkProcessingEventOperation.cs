@@ -17,8 +17,10 @@ namespace Glory2Him.Core.Models.Events.Processings
         Modifying,
         RemovingById,
         RetrievingById,
+        Approving,
         Added,
         Modified,
-        Removed
+        Removed,
+        Approved
     }
 }

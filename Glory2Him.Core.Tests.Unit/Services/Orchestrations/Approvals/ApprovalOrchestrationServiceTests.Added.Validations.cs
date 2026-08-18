@@ -19,6 +19,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
@@ -311,9 +312,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.PublishLinkAsync(
+                broker.PublishLinkProcessingAsync(
                     It.IsAny<EventEnvelope<Link>>(),
-                    It.IsAny<LinkEventOperation>()),
+                    It.IsAny<LinkProcessingEventOperation>()),
                 Times.Never);
 
             this.accessBrokerMock.VerifyNoOtherCalls();
@@ -494,9 +495,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var publishedCommands = new List<EventEnvelope<Link>>();
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishLinkAsync(
+                broker.PublishLinkProcessingAsync(
                     It.IsAny<EventEnvelope<Link>>(),
-                    It.IsAny<LinkEventOperation>()))
+                    It.IsAny<LinkProcessingEventOperation>()))
                         .Returns((EventEnvelope<Link> envelope, LinkEventOperation operation) =>
                         {
                             publishedCommands.Add(envelope);

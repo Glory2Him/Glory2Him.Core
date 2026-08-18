@@ -20,6 +20,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
+using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
@@ -404,9 +405,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             publishedLink.ApprovedByBypassReason.Should().Be(requestedBypassReason);
 
             this.eventBrokerMock.Verify(broker =>
-                broker.PublishLinkAsync(
+                broker.PublishLinkProcessingAsync(
                     It.IsAny<EventEnvelope<Link>>(),
-                    LinkEventOperation.Approving),
+                    LinkProcessingEventOperation.Approving),
                 Times.Once);
         }
 
@@ -533,21 +534,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
                 case EntityType.ContentItem:
                     this.eventBrokerMock.Verify(broker =>
-                        broker.PublishContentItemAsync(
+                        broker.PublishContentItemProcessingAsync(
                             It.Is<EventEnvelope<ContentItem>>(envelope =>
                                 envelope.Content.Id == entityId
                                     && envelope.Content.ApprovalStatus == ApprovalStatus.Approved),
-                            ContentItemEventOperation.Approving),
+                            ContentItemProcessingEventOperation.Approving),
                         Times.Once);
                     break;
 
                 case EntityType.Link:
                     this.eventBrokerMock.Verify(broker =>
-                        broker.PublishLinkAsync(
+                        broker.PublishLinkProcessingAsync(
                             It.Is<EventEnvelope<Link>>(envelope =>
                                 envelope.Content.Id == entityId
                                     && envelope.Content.ApprovalStatus == ApprovalStatus.Approved),
-                            LinkEventOperation.Approving),
+                            LinkProcessingEventOperation.Approving),
                         Times.Once);
                     break;
 
@@ -717,9 +718,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             var publishedCommands = new List<EventEnvelope<Link>>();
 
             this.eventBrokerMock.Setup(broker =>
-                broker.PublishLinkAsync(
+                broker.PublishLinkProcessingAsync(
                     It.IsAny<EventEnvelope<Link>>(),
-                    It.IsAny<LinkEventOperation>()))
+                    It.IsAny<LinkProcessingEventOperation>()))
                         .Returns((EventEnvelope<Link> envelope, LinkEventOperation operation) =>
                         {
                             publishedCommands.Add(envelope);

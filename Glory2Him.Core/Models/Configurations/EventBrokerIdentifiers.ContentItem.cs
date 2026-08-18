@@ -82,8 +82,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemEventOperation.Submitted, ContentItemSubmittedEventAddressId },
                 { ContentItemEventOperation.Approved, ContentItemApprovedEventAddressId },
                 { ContentItemEventOperation.Rejected, ContentItemRejectedEventAddressId },
-                { ContentItemEventOperation.Demoted, ContentItemDemotedEventAddressId }
+                { ContentItemEventOperation.Demoted, ContentItemDemotedEventAddressId },
+                { ContentItemEventOperation.Unpublished, ContentItemUnpublishedEventAddressId }
             };
+
+        // A fact address with no request address behind it — see ContentItemEventOperation.
+        // Unpublishing is never something a caller may ASK for: taking a live row dark
+        // with no replacement is not an operation anybody has a reason to invoke, and
+        // exposing a request address for it would hand one out (§12.4.1 rule 10).
+        public static readonly Guid ContentItemUnpublishedEventAddressId =
+            new Guid("019ff41e-2d18-7b55-ac4e-7f6b82d5e9c4");
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentItemEventAddresses =
             new Dictionary<Guid, string>
@@ -106,6 +114,9 @@ namespace Glory2Him.Core.Models.Configurations
 
         public static readonly Guid ContentItemOnAddingContentItemSubscriptionId =
             new Guid("019f8150-13e6-7411-9c35-38d08c0cfdb1");
+
+        public const string ContentItemOnContentItemUnpublishedSubscriptionName =
+            "ContentItem.OnContentItemUnpublished";
 
         public const string ContentItemOnAddingContentItemSubscriptionName =
             "ContentItemService.OnAddingContentItem";

@@ -135,6 +135,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 cancellationToken: cancellationToken);
         }
 
+        // Carries the decided approval state to whichever entity owns it. Versioned types
+        // (ContentItem, Link) are addressed to their PROCESSING service, which owns the
+        // group's published slot; every other approvable type is Single-Row, has no group,
+        // and goes straight to its foundation (§7.5.1, §12.4.1 rule 10).
+        //
         // Carries the decided approval state to whichever entity owns it. The payload is
         // deliberately minimal — the id and the IApproval members — because the transition reads
         // everything it authorises against from its own stored row and copies only these.
@@ -160,17 +165,23 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                             new Models.Foundations.ContentItems.ContentItem(),
                             approval,
                             isApproved),
-                        Models.Events.Foundations.ContentItemEventOperation.Approving,
+                        // The PROCESSING address, not the foundation's. ContentItem is
+                        // Versioned, so granting approval also has to clear the group's
+                        // published slot first, and only the processing service can order the
+                        // two writes (§12.4.1 rule 10, §9.7.7 rule 7).
+                        Models.Events.Processings.ContentItemProcessingEventOperation.Approving,
                         (envelope, operation) =>
-                            this.eventBroker.PublishContentItemAsync(envelope, operation));
+                            this.eventBroker.PublishContentItemProcessingAsync(
+                                envelope, operation));
                     return;
 
                 case EntityType.Link:
                     await PublishCommandAsync(
                         ApplyDecision(new Models.Foundations.Links.Link(), approval, isApproved),
-                        Models.Events.Foundations.LinkEventOperation.Approving,
+                        // The PROCESSING address — Link is Versioned, same as ContentItem.
+                        Models.Events.Processings.LinkProcessingEventOperation.Approving,
                         (envelope, operation) =>
-                            this.eventBroker.PublishLinkAsync(envelope, operation));
+                            this.eventBroker.PublishLinkProcessingAsync(envelope, operation));
                     return;
 
                 case EntityType.Comment:

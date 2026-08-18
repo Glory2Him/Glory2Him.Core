@@ -82,8 +82,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { LinkEventOperation.Submitted, LinkSubmittedEventAddressId },
                 { LinkEventOperation.Approved, LinkApprovedEventAddressId },
                 { LinkEventOperation.Rejected, LinkRejectedEventAddressId },
-                { LinkEventOperation.Demoted, LinkDemotedEventAddressId }
+                { LinkEventOperation.Demoted, LinkDemotedEventAddressId },
+                { LinkEventOperation.Unpublished, LinkUnpublishedEventAddressId }
             };
+
+        // A fact address with no request address behind it — see LinkEventOperation.
+        // Unpublishing is never something a caller may ASK for: taking a live row dark
+        // with no replacement is not an operation anybody has a reason to invoke, and
+        // exposing a request address for it would hand one out (§12.4.1 rule 10).
+        public static readonly Guid LinkUnpublishedEventAddressId =
+            new Guid("019ff41e-1c07-7a44-9b3d-6e5a71c4d8b3");
 
         internal static readonly IReadOnlyDictionary<Guid, string> LinkEventAddresses =
             new Dictionary<Guid, string>
@@ -106,6 +114,9 @@ namespace Glory2Him.Core.Models.Configurations
 
         public static readonly Guid LinkOnAddingLinkSubscriptionId =
             new Guid("019f8170-a642-7619-927b-3bd82e116681");
+
+        public const string LinkOnLinkUnpublishedSubscriptionName =
+            "Link.OnLinkUnpublished";
 
         public const string LinkOnAddingLinkSubscriptionName =
             "LinkService.OnAddingLink";
