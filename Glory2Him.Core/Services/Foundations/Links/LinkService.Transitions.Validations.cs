@@ -30,6 +30,11 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 message: "Link is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
 
+        private static void ValidateOnFindHighestVersionInGroup(Guid groupId) =>
+            Validate(
+                message: "Link is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(groupId), Parameter: nameof(Link.GroupId)));
+
         private static void ValidateOnFindPublishedLinkByGroup(Guid groupId) =>
             Validate(
                 message: "Link is invalid, fix the errors and try again.",

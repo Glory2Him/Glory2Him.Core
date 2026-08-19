@@ -24,6 +24,8 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     internal partial class ContentItemService
     {
+        private delegate ValueTask<int> ReturningVersionFunction();
+
         private delegate ValueTask<Guid?> ReturningIdentifierFunction();
 
         private delegate ValueTask<ContentItem> ReturningContentItemFunction();
@@ -514,5 +516,66 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     failedContentItemServiceException);
             }
         }
+
+        private async ValueTask<int> TryCatchVersion(
+            ReturningVersionFunction returningVersionFunction)
+        {
+            try
+            {
+                return await returningVersionFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutContentItemException =
+                    new TimeoutContentItemException(
+                        message: "Failed approval timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutContentItemException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedContentItemException unauthorizedContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedContentItemException);
+            }
+            catch (InvalidContentItemException invalidContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidContentItemException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageContentItemException =
+                    new FailedStorageContentItemException(
+                        message: "Failed approval storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageContentItemException);
+            }
+            catch (Exception exception)
+            {
+                var failedContentItemServiceException =
+                    new FailedContentItemServiceException(
+                        message: "Failed approval service error occurred, contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedContentItemServiceException);
+            }
+        }
+
     }
 }

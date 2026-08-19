@@ -142,6 +142,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Never);
         }
 
+        [Fact]
+        public async Task ShouldCountSoftDeletedRowsInTheGroupHighWaterMarkAsync()
+        {
+            // given: THE case #271 is about. A tombstone still owns its version number, because
+            // the unique index on (GroupId, Version) carries no IsDeleted filter. If the
+            // high-water mark skipped it — the way the TIP check deliberately does — the fork
+            // would number its new row onto the tombstone and collide, failing every subsequent
+            // fork in that group.
+            //
+            // The tip and the high-water mark answer different questions on purpose: nobody edits
+            // a tombstone, but a tombstone still holds a number.
+            var groupId = Guid.Parse("11111111-aaaa-aaaa-aaaa-111111111111");
+
+            ContentItem liveVersionOne = CreateProbeRow(
+                id: Guid.NewGuid(), groupId: groupId, isPublished: false, isDeleted: false);
+
+            liveVersionOne.Version = 1;
+
+            ContentItem deletedVersionTwo = CreateProbeRow(
+                id: Guid.NewGuid(), groupId: groupId, isPublished: false, isDeleted: true);
+
+            deletedVersionTwo.Version = 2;
+
+            SetupProbeStore(liveVersionOne, deletedVersionTwo);
+
+            // when
+            int actualHighestVersion =
+                await this.contentItemService.FindHighestVersionInGroupAsync(
+                    groupId: groupId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: 2, not 1 — so the fork numbers its successor 3 and clears the tombstone
+            actualHighestVersion.Should().Be(2);
+        }
+
+        [Fact]
+        public async Task ShouldReportZeroHighWaterMarkForAnUnknownGroupAsync()
+        {
+            // given: the first version of a brand-new group, which numbers itself 1.
+            var groupId = Guid.Parse("22222222-aaaa-aaaa-aaaa-222222222222");
+
+            ContentItem foreignGroupRow = CreateProbeRow(
+                id: Guid.NewGuid(), groupId: Guid.NewGuid(), isPublished: false, isDeleted: false);
+
+            foreignGroupRow.Version = 99;
+
+            SetupProbeStore(foreignGroupRow);
+
+            // when
+            int actualHighestVersion =
+                await this.contentItemService.FindHighestVersionInGroupAsync(
+                    groupId: groupId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            // then: the foreign row's 99 is invisible — scoping is by group
+            actualHighestVersion.Should().Be(0);
+        }
+
         private void SetupProbeStore(params ContentItem[] rows) =>
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))

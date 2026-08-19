@@ -651,6 +651,15 @@ namespace Glory2Him.Core.Services.Processings.Links
             // just closed: edit a terminal link and your publish date rides in on the fork.
             // A fresh draft has no publish date until the approve operation grants one, which
             // is the same reason IsPublished starts false and the status starts Draft.
+            // From the highest version the group has EVER held, not from the tip's own
+            // number. The tip is the highest LIVE row, but a soft-deleted row still owns
+            // its version under the unique index, so numbering from the tip collides
+            // with any tombstone sitting above it (#271).
+            int highestVersionInGroup =
+                await this.linkService.FindHighestVersionInGroupAsync(
+                    groupId: currentLink.GroupId,
+                    cancellationToken: cancellationToken);
+
             var newVersionLink = new Link
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
@@ -658,7 +667,7 @@ namespace Glory2Him.Core.Services.Processings.Links
                 Url = link.Url,
                 LinkType = link.LinkType,
                 GroupId = currentLink.GroupId,
-                Version = currentLink.Version + 1,
+                Version = highestVersionInGroup + 1,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
