@@ -142,8 +142,14 @@ namespace Glory2Him.Core.Services.Processings.Links
                     cancellationToken: cancellationToken);
             }
 
+            // The envelope is FORWARDED here too, not just to the unpublish. Without it
+            // the promote is re-authorised against the ambient caller — who on an
+            // automatic approval is the reviewer whose own review completed the round,
+            // and whose approval row is by now no longer Submitted, so the decision
+            // function refuses it deterministically (§16.7.1).
             return await this.linkService.TransitionLinkApprovalAsync(
                 link: command,
+                inboundEnvelope: inboundEnvelope,
                 cancellationToken: cancellationToken);
         }
 

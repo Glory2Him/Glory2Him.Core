@@ -86,5 +86,22 @@ namespace Glory2Him.Core.Services.Foundations.Links
             Guid linkId,
             EventEnvelope<Link> inboundEnvelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The publication swap's second write, taking the envelope the swap is acting
+        /// under so the workflow's identity is CARRIED rather than re-asserted — the same
+        /// reason <see cref="UnpublishLinkByIdAsync(System.Guid,
+        /// Glory2Him.Core.Models.Events.EventEnvelope{Link}, System.Threading.CancellationToken)"/>
+        /// takes one.
+        ///
+        /// <para>Minting a fresh context here would read the ambient caller and re-ask a
+        /// question already answered on the <c>Approval</c> row. It fails deterministically:
+        /// the decision function refuses any outcome once the approval is no longer
+        /// <c>Submitted</c>, which by this point it is not (§16.7.1).</para>
+        /// </summary>
+        internal ValueTask<Link> TransitionLinkApprovalAsync(
+            Link link,
+            EventEnvelope<Link> inboundEnvelope,
+            CancellationToken cancellationToken = default);
     }
 }

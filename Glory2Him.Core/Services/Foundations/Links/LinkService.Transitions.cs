@@ -123,6 +123,33 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 cancellationToken: cancellationToken);
         }
 
+        public ValueTask<Link> TransitionLinkApprovalAsync(
+            Link link,
+            EventEnvelope<Link> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateLinkIsNotNull(link);
+
+                // Chained off the swap's envelope, so IsSystemIdentity travels with it
+                // and causation stays linked. CreateNextAsync copies the security
+                // context forward; it does not mint one.
+                EventEnvelope<Link> transitionEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: link);
+
+                return await DoTransitionLinkApprovalAsync(
+                    link: link,
+                    inboundEnvelope: transitionEnvelope,
+
+                    // Admissible for the same reason the direct path is: this envelope
+                    // was verified at the swap's own receiver before it got here.
+                    isSystemIdentityAdmissible: true,
+                    cancellationToken: cancellationToken);
+            });
+
         private async ValueTask<Link> DoTransitionLinkApprovalAsync(
             Link link,
             EventEnvelope<Link> inboundEnvelope,

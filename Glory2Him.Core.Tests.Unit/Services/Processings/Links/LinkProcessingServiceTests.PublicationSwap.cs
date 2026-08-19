@@ -44,6 +44,82 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
     public partial class LinkProcessingServiceTests
     {
         [Fact]
+        public async Task ShouldForwardTheInboundEnvelopeToBothWritesOnApprovingLinkAsync()
+        {
+            // given: BOTH writes must carry the workflow's identity, not just the unpublish. The
+            // promote used to be a plain two-argument call, which mints a fresh context from the
+            // ambient caller — on an automatic approval that is the reviewer whose own review
+            // completed the round, and by then the Approval row is no longer Submitted, so the
+            // decision function refuses the write deterministically.
+            Guid targetLinkId = Guid.Parse("cccccccc-1111-1111-1111-111111111111");
+            Guid incumbentLinkId = Guid.Parse("cccccccc-2222-2222-2222-222222222222");
+            Guid groupId = Guid.Parse("cccccccc-3333-3333-3333-333333333333");
+
+            Link promoteCommand = CreatePublicationSwapPromoteCommand(targetLinkId);
+
+            EventEnvelope<Link> inboundEnvelope =
+                CreatePublicationSwapEnvelope(promoteCommand);
+
+            Link storageTargetLink = CreatePublicationSwapRow(
+                linkId: targetLinkId, groupId: groupId, isPublished: false);
+
+            Link incumbentLink = CreatePublicationSwapRow(
+                linkId: incumbentLinkId, groupId: groupId, isPublished: true);
+
+            Link promotedLink = storageTargetLink.DeepClone();
+            promotedLink.IsPublished = true;
+            promotedLink.ApprovalStatus = ApprovalStatus.Approved;
+
+            SetupPublicationSwapProbe(
+                targetLinkId: targetLinkId,
+                storageTargetLink: storageTargetLink,
+                groupRows: new List<Link> { incumbentLink });
+
+            EventEnvelope<Link> capturedOnUnpublish = null;
+            EventEnvelope<Link> capturedOnPromote = null;
+
+            this.linkServiceMock.Setup(service =>
+                service.UnpublishLinkByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<Link>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Guid, EventEnvelope<Link>, CancellationToken>(
+                            (_, envelope, _) => capturedOnUnpublish = envelope)
+                        .ReturnsAsync(incumbentLink);
+
+            this.linkServiceMock.Setup(service =>
+                service.TransitionLinkApprovalAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Link, EventEnvelope<Link>, CancellationToken>(
+                            (_, envelope, _) => capturedOnPromote = envelope)
+                        .ReturnsAsync(promotedLink);
+
+            SetupPublicationSwapReply(inboundEnvelope, promotedLink);
+
+            // when
+            await this.linkProcessingService.OnApprovingLinkAsync(
+                inboundEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then: the SAME envelope instance reaches both, so neither re-mints an identity
+            capturedOnUnpublish.Should().BeSameAs(inboundEnvelope);
+            capturedOnPromote.Should().BeSameAs(inboundEnvelope);
+
+            capturedOnPromote.SecurityContext.IsSystemIdentity.Should().BeTrue();
+
+            // and nothing minted a fresh context on this path
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<Link>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<Link>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task ShouldPublishItsOwnCompletionFactOnApprovingLinkAsync()
         {
             // given: distinct from the foundation's Link-Approved. That one says a row was
@@ -75,6 +151,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(promotedLink);
 
@@ -147,6 +224,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .Callback(() => promoteStep = ++stepCounter)
                         .ReturnsAsync(promotedLink);
@@ -177,6 +255,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     promoteCommand,
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -226,6 +305,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(promotedLink);
 
@@ -257,6 +337,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     promoteCommand,
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -338,6 +419,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(promotedLink);
 
@@ -412,6 +494,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(promotedLink);
 
@@ -435,6 +518,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     promoteCommand,
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -477,6 +561,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(decidedLink);
 
@@ -512,6 +597,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     decisionCommand,
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -572,6 +658,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(promotedLink);
 
@@ -675,6 +762,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -834,6 +922,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -871,6 +960,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Setup(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(dependencyException);
 
@@ -944,6 +1034,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -1036,6 +1127,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             this.linkServiceMock.Verify(service =>
                 service.TransitionLinkApprovalAsync(
                     It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
