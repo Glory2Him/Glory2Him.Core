@@ -714,9 +714,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             storageContentItem.ContentType = ContentType.Story;
             ContentType storedContentType = storageContentItem.ContentType;
 
-            ContentItem expectedDemotedContentItem = storageContentItem.DeepClone();
-            expectedDemotedContentItem.IsLatestVersion = false;
-
             ContentItem addedContentItem = storageContentItem.DeepClone();
             addedContentItem.Id = newVersionContentItemId;
             addedContentItem.Version = storageContentItem.Version + 1;
@@ -761,10 +758,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.identifierBrokerMock.Setup(broker =>
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(newVersionContentItemId);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.DemoteContentItemVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(expectedDemotedContentItem);
 
             ContentItem? capturedNewVersionContentItem = null;
 
