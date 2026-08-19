@@ -279,7 +279,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(groupContentItems.AsQueryable());
-        }
+        
+            // The fork numbers from the group high-water mark, so the seeded group has to
+            // report one. Kept in the same helper as the tip so a test cannot describe a
+            // group whose tip and highest version disagree by accident (#271).
+            this.contentItemServiceMock.Setup(service =>
+                service.FindHighestVersionInGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(groupContentItems.Max(contentItem => contentItem.Version));
+}
 
         // the derivation costs one read of the group, which VerifyNoOtherCalls would
         // otherwise flag

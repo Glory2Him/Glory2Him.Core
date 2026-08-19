@@ -62,5 +62,46 @@ namespace Glory2Him.Core.Services.Foundations.Links
 
                 return publishedLink?.Id;
             });
+
+        public ValueTask<int> FindHighestVersionInGroupAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default) =>
+            TryCatchVersion(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var findRequest = new Link { GroupId = groupId };
+
+                EventEnvelope<Link> envelope =
+                    await this.eventEnvelopeBroker.CreateAsync(content: findRequest);
+
+                ValidateUserIsAllowedToContribute(envelope.SecurityContext);
+                ValidateOnFindHighestVersionInGroup(groupId);
+
+                // UNFILTERED, and for a different reason than the tip is filtered. Which row may
+                // be EDITED is a question about live rows — nobody amends a tombstone. Which
+                // version number is FREE is a question about every row that has ever existed,
+                // because the unique index on (GroupId, Version) carries no IsDeleted filter: a
+                // soft-deleted row still owns its number.
+                //
+                // Conflating the two was issue #271. The tip check skips tombstones, so a live v1
+                // under a soft-deleted v2 looked like the tip; the fork then numbered its
+                // successor v2 and collided, failing every fork in that group from then on.
+                //
+                // A lineage is not renumbered by removing a row from it — the same argument
+                // §9.7.7 rule 7 records for the published slot.
+                IQueryable<Link> allLinks =
+                    await this.storageBroker.SelectAllLinksAsync(cancellationToken);
+
+                var groupVersions = allLinks
+                    .Where(link => link.GroupId == groupId)
+                    .Select(link => link.Version)
+                    .ToList();
+
+                return groupVersions.Count is 0
+                    ? 0
+                    : groupVersions.Max();
+            });
+
     }
 }

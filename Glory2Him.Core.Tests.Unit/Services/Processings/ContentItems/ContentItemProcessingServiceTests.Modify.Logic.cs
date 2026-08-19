@@ -526,6 +526,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.hashBrokerMock.VerifyNoOtherCalls();
+            // the new row is numbered from the group high-water mark, not the tip (#271)
+            this.contentItemServiceMock.Verify(service =>
+                service.FindHighestVersionInGroupAsync(
+                    storageContentItem.GroupId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();
             this.securityAuditBrokerMock.VerifyNoOtherCalls();

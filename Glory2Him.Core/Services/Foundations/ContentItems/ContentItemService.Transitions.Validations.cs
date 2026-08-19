@@ -30,6 +30,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 message: "Content item is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
 
+        private static void ValidateOnFindHighestVersionInGroup(Guid groupId) =>
+            Validate(
+                message: "ContentItem is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(groupId), Parameter: nameof(ContentItem.GroupId)));
+
         private static void ValidateOnFindPublishedContentItemByGroup(Guid groupId) =>
             Validate(
                 message: "ContentItem is invalid, fix the errors and try again.",

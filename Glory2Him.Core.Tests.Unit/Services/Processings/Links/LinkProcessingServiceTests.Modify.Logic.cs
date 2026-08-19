@@ -396,6 +396,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 outboundEnvelope: outboundEnvelope,
                 operation: LinkProcessingEventOperation.Modified);
 
+            // the new row is numbered from the group high-water mark, not the tip (#271)
+            this.linkServiceMock.Verify(service =>
+                service.FindHighestVersionInGroupAsync(
+                    storageLink.GroupId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
             this.linkServiceMock.VerifyNoOtherCalls();
             this.identifierBrokerMock.VerifyNoOtherCalls();

@@ -719,6 +719,15 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // against, so a Story became a Testimony with its content never validated against
             // the target type's rules, its %ContentItem%-%ContentType%-Reviewer/-Publisher tier
             // changed under it (§18.6 rule 5), and its duplicate bucket moved (§3.4.2).
+            // From the highest version the group has EVER held, not from the tip's own
+            // number. The tip is the highest LIVE row, but a soft-deleted row still owns
+            // its version under the unique index, so numbering from the tip collides
+            // with any tombstone sitting above it (#271).
+            int highestVersionInGroup =
+                await this.contentItemService.FindHighestVersionInGroupAsync(
+                    groupId: currentContentItem.GroupId,
+                    cancellationToken: cancellationToken);
+
             var newVersionContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
@@ -728,7 +737,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 Content = contentItem.Content,
                 ContentHash = contentHash,
                 GroupId = currentContentItem.GroupId,
-                Version = currentContentItem.Version + 1,
+                Version = highestVersionInGroup + 1,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false

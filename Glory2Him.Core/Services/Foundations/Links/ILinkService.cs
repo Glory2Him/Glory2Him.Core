@@ -123,5 +123,23 @@ namespace Glory2Him.Core.Services.Foundations.Links
             Guid groupId,
             Guid excludedLinkId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The highest <c>Version</c> any row of this group has ever held, over the UNFILTERED
+        /// store — <c>0</c> when the group has no rows.
+        ///
+        /// <para>Deliberately distinct from "which row is the tip". The tip is the highest LIVE
+        /// version, because nobody edits a tombstone. The next free version number must account
+        /// for tombstones too, because the unique index on <c>(GroupId, Version)</c> carries no
+        /// <c>IsDeleted</c> filter and a soft-deleted row still owns its number.</para>
+        ///
+        /// <para>Conflating the two was issue #271: a live row beneath a soft-deleted higher
+        /// version looked like the tip, and the fork numbered its successor onto the tombstone,
+        /// failing at the index for every subsequent fork in that group.</para>
+        /// </summary>
+        ValueTask<int> FindHighestVersionInGroupAsync(
+            Guid groupId,
+            CancellationToken cancellationToken = default);
+
     }
 }

@@ -256,10 +256,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         // wants its storage row treated as the tip has to let that read see the group, and one
         // that wants it superseded seeds a higher-versioned sibling here rather than clearing a
         // flag that no longer exists.
-        private void SetupGroupTipRead(params Link[] groupLinks) =>
+        private void SetupGroupTipRead(params Link[] groupLinks)
+        {
             this.linkServiceMock.Setup(service =>
                 service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(groupLinks.AsQueryable());
+
+            // The fork numbers from the group high-water mark, so the seeded group has to
+            // report one. Set here beside the tip so a test cannot describe a group whose
+            // tip and highest version disagree by accident (#271).
+            this.linkServiceMock.Setup(service =>
+                service.FindHighestVersionInGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(groupLinks.Length is 0
+                            ? 0
+                            : groupLinks.Max(link => link.Version));
+        }
 
         // A live row in the same group that outranks the given one, which is exactly what
         // makes that one no longer the tip.
