@@ -592,7 +592,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             actualEnvelope.Should().BeSameAs(replyEnvelope);
 
             this.contentItemServiceMock.Verify(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                service.FindPublishedContentItemIdByGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.contentItemServiceMock.Verify(service =>
@@ -1124,7 +1127,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     innerException: failedContentItemProcessingServiceException);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                service.FindPublishedContentItemIdByGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
                     .ThrowsAsync(serviceException);
 
             this.contentItemServiceMock.Setup(service =>
@@ -1236,9 +1242,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageTargetContentItem);
 
+            // The swap probes through the UNFILTERED lookup, so the stub resolves the
+            // incumbent the way that probe does — published, same group, not the
+            // target — and DELIBERATELY does not drop soft-deleted rows. Stubbing
+            // the collection read instead is what made the tombstone test a false
+            // green: the real collection read filters those rows away.
+            ContentItem? incumbent = groupRows.FirstOrDefault(contentItem =>
+                contentItem.GroupId == storageTargetContentItem.GroupId
+                    && contentItem.IsPublished
+                    && contentItem.Id != storageTargetContentItem.Id);
+
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveAllContentItemsAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(groupRows.AsQueryable());
+                service.FindPublishedContentItemIdByGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(incumbent?.Id);
         }
 
         // The reply the swap hands back, which is also the envelope its completion fact rides

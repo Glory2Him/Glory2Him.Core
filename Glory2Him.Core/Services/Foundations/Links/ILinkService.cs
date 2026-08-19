@@ -103,5 +103,25 @@ namespace Glory2Him.Core.Services.Foundations.Links
             Link link,
             EventEnvelope<Link> inboundEnvelope,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The id of the row currently holding this group's published slot, if any, over the
+        /// UNFILTERED store — or <c>null</c> when the slot is free.
+        ///
+        /// <para>The publication swap cannot use the caller-facing collection read: that applies
+        /// the visibility filter, which drops soft-deleted rows. A soft delete never clears
+        /// <c>IsPublished</c> and the slot index names that column alone, so a tombstone still
+        /// occupies the slot while being invisible to every ordinary read. A filtered probe would
+        /// report no incumbent, the demote would be skipped, and the promote would be refused by
+        /// the unique index — permanently, for every future approval in the group
+        /// (design §9.7.7 rule 7).</para>
+        ///
+        /// <para>Only an id crosses back, following the §14.6 pattern of filtered reads for
+        /// entities and gated probes for cross-row facts.</para>
+        /// </summary>
+        ValueTask<Guid?> FindPublishedLinkIdByGroupAsync(
+            Guid groupId,
+            Guid excludedLinkId,
+            CancellationToken cancellationToken = default);
     }
 }

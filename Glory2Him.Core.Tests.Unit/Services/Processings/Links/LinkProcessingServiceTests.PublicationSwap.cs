@@ -578,7 +578,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             actualEnvelope.Should().BeSameAs(replyEnvelope);
 
             this.linkServiceMock.Verify(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                service.FindPublishedLinkIdByGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.linkServiceMock.Verify(service =>
@@ -1098,7 +1101,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     innerException: failedLinkProcessingServiceException);
 
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
+                service.FindPublishedLinkIdByGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
                     .ThrowsAsync(serviceException);
 
             this.linkServiceMock.Setup(service =>
@@ -1214,9 +1220,22 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(storageTargetLink);
 
+            // The swap probes through the UNFILTERED lookup, so the stub resolves the
+            // incumbent the way that probe does — published, same group, not the
+            // target — and DELIBERATELY does not drop soft-deleted rows. Stubbing
+            // the collection read instead is what made the tombstone test a false
+            // green: the real collection read filters those rows away.
+            Link? incumbent = groupRows.FirstOrDefault(link =>
+                link.GroupId == storageTargetLink.GroupId
+                    && link.IsPublished
+                    && link.Id != storageTargetLink.Id);
+
             this.linkServiceMock.Setup(service =>
-                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
-                    .ReturnsAsync(groupRows.AsQueryable());
+                service.FindPublishedLinkIdByGroupAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(incumbent?.Id);
         }
 
         private EventEnvelope<Link> SetupPublicationSwapReply(

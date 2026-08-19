@@ -166,19 +166,18 @@ namespace Glory2Him.Core.Services.Processings.Links
                     linkId: linkId,
                     cancellationToken: cancellationToken);
 
-            IQueryable<Link> allLinks =
-                await this.linkService.RetrieveAllLinksAsync(
+            // Through the UNFILTERED probe, not the collection read. The collection
+            // read applies the visibility filter, which drops soft-deleted rows —
+            // and a tombstone that kept IsPublished still holds the slot. Probing
+            // through a filtered read would skip it and leave the group permanently
+            // unpublishable (§9.7.7 rule 7).
+            Guid? incumbentId =
+                await this.linkService.FindPublishedLinkIdByGroupAsync(
+                    groupId: targetLink.GroupId,
+                    excludedLinkId: targetLink.Id,
                     cancellationToken: cancellationToken);
 
-            // NOT filtered on IsDeleted, deliberately. A soft delete never clears IsPublished
-            // and the index filter names that column alone, so a tombstone still holds the slot
-            // — skipping it would leave the group permanently unpublishable (§9.7.7 rule 7).
-            Link incumbent = allLinks.FirstOrDefault(link =>
-                link.GroupId == targetLink.GroupId
-                    && link.IsPublished
-                    && link.Id != targetLink.Id);
-
-            if (incumbent is null)
+            if (incumbentId is null)
             {
                 return;
             }
@@ -187,7 +186,7 @@ namespace Glory2Him.Core.Services.Processings.Links
             // index would refuse it anyway, and failing here leaves the incumbent published
             // rather than the group dark.
             await this.linkService.UnpublishLinkByIdAsync(
-                linkId: incumbent.Id,
+                linkId: incumbentId.Value,
                 inboundEnvelope: inboundEnvelope,
                 cancellationToken: cancellationToken);
         }
