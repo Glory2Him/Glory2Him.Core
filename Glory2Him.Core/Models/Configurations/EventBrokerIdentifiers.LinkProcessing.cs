@@ -38,6 +38,16 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid LinkProcessingRemovedEventAddressId =
             new Guid("01a01033-b7ef-7356-8b46-1cfa6737799d");
 
+        // The publication swap's request and completion addresses. A Versioned entity is
+        // approved through the PROCESSING tier, because granting approval also has to
+        // clear the group's published slot and only this layer can order the two writes
+        // (§12.4.1 rule 10, §9.7.7 rule 7).
+        public static readonly Guid LinkProcessingApprovingEventAddressId =
+            new Guid("01a01034-c8f0-7467-9c57-2d0b7848a0ae");
+
+        public static readonly Guid LinkProcessingApprovedEventAddressId =
+            new Guid("01a01034-d901-7578-ad68-3e1c8959b1bf");
+
         internal static readonly IReadOnlyDictionary<LinkProcessingEventOperation, Guid>
             LinkProcessingEventAddressIds = new Dictionary<LinkProcessingEventOperation, Guid>
             {
@@ -68,6 +78,14 @@ namespace Glory2Him.Core.Models.Configurations
                 {
                     LinkProcessingEventOperation.Removed,
                     LinkProcessingRemovedEventAddressId
+                },
+                {
+                    LinkProcessingEventOperation.Approving,
+                    LinkProcessingApprovingEventAddressId
+                },
+                {
+                    LinkProcessingEventOperation.Approved,
+                    LinkProcessingApprovedEventAddressId
                 }
             };
 
@@ -80,7 +98,9 @@ namespace Glory2Him.Core.Models.Configurations
                 { LinkProcessingRetrievingByIdEventAddressId, "LinkProcessing-RetrievingById" },
                 { LinkProcessingAddedEventAddressId, "LinkProcessing-Added" },
                 { LinkProcessingModifiedEventAddressId, "LinkProcessing-Modified" },
-                { LinkProcessingRemovedEventAddressId, "LinkProcessing-Removed" }
+                { LinkProcessingRemovedEventAddressId, "LinkProcessing-Removed" },
+                { LinkProcessingApprovingEventAddressId, "LinkProcessing-Approving" },
+                { LinkProcessingApprovedEventAddressId, "LinkProcessing-Approved" }
             };
 
         public static readonly Guid LinkProcessingOnApprovingLinkSubscriptionId =

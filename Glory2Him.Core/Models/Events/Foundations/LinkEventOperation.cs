@@ -60,7 +60,6 @@ namespace Glory2Him.Core.Models.Events.Foundations
         // amendment. §10.17 rule 2 tolerated the Modified by having the approval workflow
         // subscribe to the top-layer fact instead; announcing the demotion honestly is stricter
         // than relying on nobody listening.
-        Demoted,
         Unpublished
     }
 }

@@ -57,8 +57,11 @@ namespace Glory2Him.Core.Models.Configurations
             new Guid("c9c78e35-b357-42dd-aeab-697bc05a8b7a");
 
         // A fact address with no request address behind it — see ContentItemEventOperation.
-        public static readonly Guid ContentItemDemotedEventAddressId =
-            new Guid("019ff41d-8a52-7c64-b3f1-6ad0927e5c48");
+        // Unpublishing is never something a caller may ASK for: taking a live row dark
+        // with no replacement is not an operation anybody has a reason to invoke, and
+        // exposing a request address for it would hand one out (§12.4.1 rule 10).
+        public static readonly Guid ContentItemUnpublishedEventAddressId =
+            new Guid("019ff41e-2d18-7b55-ac4e-7f6b82d5e9c4");
 
         internal static readonly IReadOnlyDictionary<ContentItemEventOperation, Guid>
             ContentItemEventAddressIds = new Dictionary<ContentItemEventOperation, Guid>
@@ -82,16 +85,8 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemEventOperation.Submitted, ContentItemSubmittedEventAddressId },
                 { ContentItemEventOperation.Approved, ContentItemApprovedEventAddressId },
                 { ContentItemEventOperation.Rejected, ContentItemRejectedEventAddressId },
-                { ContentItemEventOperation.Demoted, ContentItemDemotedEventAddressId },
                 { ContentItemEventOperation.Unpublished, ContentItemUnpublishedEventAddressId }
             };
-
-        // A fact address with no request address behind it — see ContentItemEventOperation.
-        // Unpublishing is never something a caller may ASK for: taking a live row dark
-        // with no replacement is not an operation anybody has a reason to invoke, and
-        // exposing a request address for it would hand one out (§12.4.1 rule 10).
-        public static readonly Guid ContentItemUnpublishedEventAddressId =
-            new Guid("019ff41e-2d18-7b55-ac4e-7f6b82d5e9c4");
 
         internal static readonly IReadOnlyDictionary<Guid, string> ContentItemEventAddresses =
             new Dictionary<Guid, string>
@@ -109,7 +104,7 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemSubmittedEventAddressId, "ContentItem-Submitted" },
                 { ContentItemApprovedEventAddressId, "ContentItem-Approved" },
                 { ContentItemRejectedEventAddressId, "ContentItem-Rejected" },
-                { ContentItemDemotedEventAddressId, "ContentItem-Demoted" }
+                { ContentItemUnpublishedEventAddressId, "ContentItem-Unpublished" }
             };
 
         public static readonly Guid ContentItemOnAddingContentItemSubscriptionId =
