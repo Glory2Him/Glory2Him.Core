@@ -10,8 +10,12 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -699,6 +703,252 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // then
             actualContentItemValidationException.Should().BeEquivalentTo(
                 expectedContentItemValidationException);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAddContentItemIfTheOnlyOtherRowsBelongToADifferentGroupAsync()
+        {
+            // given: the pin is scoped to the row's OWN version group, and nothing else asserts
+            // that. Every other test for it seeds a sibling whose GroupId already matches, so the
+            // scoping predicate could be deleted outright and the suite would stay green — while
+            // production pinned every new item against an arbitrary unrelated row and rejected
+            // nearly every first-version add.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            ContentItem inputContentItem =
+                CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+
+            inputContentItem.ContentType = ContentType.Testimony;
+
+            // a row of a DIFFERENT group, under a DIFFERENT type. It must not be pinned against:
+            // this add is the first version of its own group, which is the one add entitled to
+            // choose a type (§12.4.1 rule 7a).
+            ContentItem foreignGroupContentItem = inputContentItem.DeepClone();
+            foreignGroupContentItem.Id = Guid.NewGuid();
+            foreignGroupContentItem.GroupId = Guid.NewGuid();
+            foreignGroupContentItem.ContentType = ContentType.Story;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(inputContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new List<ContentItem> { foreignGroupContentItem }.AsQueryable());
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(inputContentItem);
+
+            // when
+            ContentItem actualContentItem = await this.contentItemService.AddContentItemAsync(
+                inputContentItem,
+                TestContext.Current.CancellationToken);
+
+            // then: the foreign row is invisible to the pin, so the add lands with its own type
+            actualContentItem.ContentType.Should().Be(ContentType.Testimony);
+
+            actualContentItem.ContentType.Should()
+                .NotBe(foreignGroupContentItem.ContentType);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertContentItemAsync(
+                    It.Is<ContentItem>(contentItem =>
+                        contentItem.ContentType == ContentType.Testimony),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+        [Fact]
+        public async Task ShouldPinContentTypeAgainstASiblingAFilteredReadWouldHideAsync()
+        {
+            // given: the pin reads the group UNFILTERED, and that is load-bearing rather than
+            // incidental. A visibility-filtered read drops rows another user created and rows that
+            // are soft-deleted — so a caller who cannot SEE the group's other versions could
+            // otherwise skip the pin entirely and relabel the lineage.
+            //
+            // The existing mismatch test cannot prove this: its sibling is a clone of the caller's
+            // own row, so the filter's own-content clause keeps it and the test passes either way.
+            // This one seeds a sibling the filter would definitely drop.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            string randomUserId = GetRandomString();
+
+            ContentItem invalidContentItem =
+                CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+
+            invalidContentItem.ContentType = ContentType.Testimony;
+
+            // same group, different type — and both soft-deleted AND authored by somebody else,
+            // which is exactly what a filtered read removes. A lineage is not re-typed by removing
+            // a row from it, nor by the relabeller not being its author.
+            ContentItem hiddenSibling = invalidContentItem.DeepClone();
+            hiddenSibling.Id = Guid.NewGuid();
+            hiddenSibling.ContentType = ContentType.Story;
+            hiddenSibling.CreatedBy = GetRandomString();
+            hiddenSibling.IsDeleted = true;
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ContentType),
+                values: $"Value is not the same as {nameof(ContentItem.ContentType)}");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new List<ContentItem> { hiddenSibling }.AsQueryable());
+
+            // when
+            ValueTask<ContentItem> addContentItemTask =
+                this.contentItemService.AddContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    addContentItemTask.AsTask);
+
+            // then: the hidden sibling still pinned the type
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnAddIfContentTypeDiffersFromItsVersionGroupAndLogItAsync()
+        {
+            // given: a row whose GroupId already has rows is a new version joining an existing
+            // lineage — a fork. ContentType is create-only and a fork carries it forward
+            // unchanged (§12.4.1 rule 7a), so it is pinned against the GROUP here for the same
+            // reason the modify pins it against the stored row. The modify's pin cannot reach
+            // this: a fork is an ADD and has no stored row of its own, which made it the one
+            // path that could relabel a group. §8.6.1 — a rule enforced only at the processing
+            // layer is not enforced, and ContentItem-Adding is its own event address (§14.6).
+            //
+            // Like the modify's pins this one compares against persisted state rather than
+            // identity, so it holds even against a forged context.
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            ContentItem randomContentItem =
+                CreateContentItemFiller(randomDateTimeOffset, randomUserId).Create();
+
+            ContentItem invalidContentItem = randomContentItem;
+            invalidContentItem.ContentType = ContentType.Testimony;
+
+            // an existing sibling version of the SAME group, filed under a different type
+            ContentItem groupContentItem = invalidContentItem.DeepClone();
+            groupContentItem.Id = Guid.NewGuid();
+            groupContentItem.ContentType = ContentType.Story;
+
+            var invalidContentItemException =
+                new InvalidContentItemException(
+                    message: "Content item is invalid, fix the errors and try again.");
+
+            invalidContentItemException.AddData(
+                key: nameof(ContentItem.ContentType),
+                values: $"Value is not the same as {nameof(ContentItem.ContentType)}");
+
+            var expectedContentItemValidationException =
+                new ContentItemValidationException(
+                    message: "Content item validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new List<ContentItem> { groupContentItem }.AsQueryable());
+
+            // when
+            ValueTask<ContentItem> addContentItemTask =
+                this.contentItemService.AddContentItemAsync(
+                    invalidContentItem,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemValidationException actualContentItemValidationException =
+                await Assert.ThrowsAsync<ContentItemValidationException>(
+                    addContentItemTask.AsTask);
+
+            // then
+            actualContentItemValidationException.Should().BeEquivalentTo(
+                expectedContentItemValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyAddAuditValuesAsync(invalidContentItem, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // the relabelled row never reached storage
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.loggingBrokerMock.Verify(broker =>
                 broker.LogErrorAsync(It.Is(

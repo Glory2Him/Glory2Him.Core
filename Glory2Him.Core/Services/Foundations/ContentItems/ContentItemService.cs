@@ -361,6 +361,23 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             await ValidateOnAddContentItem(contentItem, inboundEnvelope.SecurityContext);
 
+            // A row carrying a GroupId that already has rows is a new version joining an
+            // existing lineage — a fork. ContentType is create-only (§12.4.1 rule 7a) and a fork
+            // carries it forward unchanged, so it is pinned against the GROUP here for the same
+            // reason ValidateAgainstStorageContentItemOnModify pins it against the stored row.
+            // The modify's pin cannot cover this: a fork is an ADD, and an add has no stored row
+            // of its own to compare against, which made it the one path that could relabel a
+            // group. §8.6.1 — a rule enforced only at the processing layer is not enforced, and
+            // ContentItem-Adding is its own event address (§14.6). Like the modify's pins this
+            // one is identity-independent, so it holds even against a forged context.
+            ContentItem? maybeGroupContentItem = await RetrieveGroupContentItemAsync(
+                groupId: contentItem.GroupId,
+                cancellationToken: cancellationToken);
+
+            ValidateAgainstGroupContentItemOnAdd(
+                inputContentItem: contentItem,
+                groupContentItem: maybeGroupContentItem);
+
             ContentItem addedContentItem = await this.storageBroker.InsertContentItemAsync(
                 contentItem: contentItem,
                 cancellationToken: cancellationToken);
@@ -384,6 +401,25 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
 
             return addedContentItem;
+        }
+
+        // Any one row of the group fixes the group's ContentType, because that is exactly the
+        // invariant being pinned — every version of a group shares the type chosen for version 1.
+        //
+        // Deliberately unfiltered, like the duplicate probe (§3.4.2/§14.6): running the read
+        // visibility filter here would let a caller who cannot SEE the group's other versions
+        // skip the pin, which is the opposite of what a pin is for. Soft-deleted siblings count
+        // for the same reason — a lineage is not re-typed by removing a row from it. No row data
+        // is exposed either way; the row is read to compare one enum and then discarded.
+        private async ValueTask<ContentItem?> RetrieveGroupContentItemAsync(
+            Guid groupId,
+            CancellationToken cancellationToken)
+        {
+            IQueryable<ContentItem> allContentItems =
+                await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
+
+            return allContentItems.FirstOrDefault(contentItem =>
+                contentItem.GroupId == groupId);
         }
 
         private async ValueTask<ContentItem> DoModifyContentItemAsync(

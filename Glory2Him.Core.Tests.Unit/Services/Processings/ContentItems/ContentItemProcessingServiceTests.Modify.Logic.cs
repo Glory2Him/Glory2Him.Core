@@ -680,5 +680,128 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Once);
         }
+
+        [Theory]
+        [InlineData(ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Rejected)]
+        public async Task ShouldKeepTheStoredContentTypeOnModifyWhenForkingANewVersionAsync(
+            ApprovalStatus terminalApprovalStatus)
+        {
+            // given: ContentType is create-only, and a version fork carries it forward unchanged
+            // — it is preserved, never re-chosen (§12.4.1 rule 7a). The in-place edit is held to
+            // that by the foundation's pin against the stored row, but a fork is an ADD: it has no
+            // stored row of its own to be pinned against. That made the fork the one path that
+            // could relabel an item — a Story landing as a Testimony with its content never
+            // validated against the target type's rules, its %ContentItem%-%ContentType%-Reviewer
+            // /-Publisher tier changed under it (§18.6 rule 5), and its duplicate bucket moved
+            // (§3.4.2).
+            //
+            // The caller here sends a DIFFERENT ContentType from the stored tip, which is what the
+            // shared fork test cannot express: the filler ignores ContentType, so both rows carry
+            // the same default there and the caller's value is indistinguishable from storage's.
+            ContentItem inputContentItem = CreateRandomContentItem();
+            inputContentItem.ContentType = ContentType.Testimony;
+            string normalizedContent = NormalizeContent(inputContentItem.Content);
+            string expectedContentHash = ComputeContentHash(inputContentItem.Content);
+            string actorUserId = GetRandomString();
+            Guid newVersionContentItemId = Guid.NewGuid();
+
+            ContentItem storageContentItem = CreateRandomStorageContentItem(
+                contentItemId: inputContentItem.Id,
+                approvalStatus: terminalApprovalStatus,
+                createdBy: actorUserId);
+
+            storageContentItem.ContentType = ContentType.Story;
+            ContentType storedContentType = storageContentItem.ContentType;
+
+            ContentItem addedContentItem = storageContentItem.DeepClone();
+            addedContentItem.Id = newVersionContentItemId;
+            addedContentItem.Version = storageContentItem.Version + 1;
+            addedContentItem.ApprovalStatus = ApprovalStatus.Draft;
+            addedContentItem.IsPublished = false;
+            addedContentItem.PublishDate = null;
+
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext();
+
+            EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
+                contentItem: inputContentItem,
+                securityContext: securityContext);
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(inputContentItem))
+                    .ReturnsAsync(inboundEnvelope);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(securityContext))
+                    .ReturnsAsync(actorUserId);
+
+            this.hashBrokerMock.Setup(broker =>
+                broker.ComputeSha256HashAsync(normalizedContent))
+                    .ReturnsAsync(expectedContentHash);
+
+            // the duplicate rule is scoped per (ContentType, ContentHash) (§3.4.2), so on a fork
+            // the probe is keyed on the STORED type — the type the row will actually land with.
+            // Keyed on the caller's instead it would check one bucket while the row lands in
+            // another, which is how a contributor seeds a duplicate the probe will never match.
+            this.contentItemServiceMock.Setup(service =>
+                service.CheckContentItemContentExistsAsync(
+                    storedContentType,
+                    expectedContentHash,
+                    storageContentItem.GroupId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(false);
+
+            this.identifierBrokerMock.Setup(broker =>
+                broker.GetIdentifierAsync())
+                    .ReturnsAsync(newVersionContentItemId);
+
+            ContentItem? capturedNewVersionContentItem = null;
+
+            this.contentItemServiceMock.Setup(service =>
+                service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
+                    .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
+                        capturedNewVersionContentItem = contentItem.DeepClone())
+                    .ReturnsAsync(addedContentItem);
+
+            SetupCompletionFactPublish(
+                inboundEnvelope: inboundEnvelope,
+                resultContentItem: addedContentItem,
+                operation: ContentItemProcessingEventOperation.Modified);
+
+            // when
+            await this.contentItemProcessingService.ModifyContentItemAsync(
+                inputContentItem,
+                TestContext.Current.CancellationToken);
+
+            // then: the forked row carries the STORED type, not the one the caller asked for. The
+            // content fields are still the caller's — the fork is an edit, and it is only the
+            // create-only control field that is refused them.
+            capturedNewVersionContentItem.Should().NotBeNull();
+            capturedNewVersionContentItem!.ContentType.Should().Be(storedContentType);
+            capturedNewVersionContentItem.ContentType.Should().NotBe(inputContentItem.ContentType);
+            capturedNewVersionContentItem.Title.Should().Be(inputContentItem.Title);
+            capturedNewVersionContentItem.Content.Should().Be(inputContentItem.Content);
+
+            // and the probe was keyed on the type that landed, never on the caller's
+            this.contentItemServiceMock.Verify(service =>
+                service.CheckContentItemContentExistsAsync(
+                    storedContentType,
+                    expectedContentHash,
+                    storageContentItem.GroupId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.contentItemServiceMock.Verify(service =>
+                service.CheckContentItemContentExistsAsync(
+                    inputContentItem.ContentType,
+                    It.IsAny<string>(),
+                    It.IsAny<Guid?>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
     }
 }

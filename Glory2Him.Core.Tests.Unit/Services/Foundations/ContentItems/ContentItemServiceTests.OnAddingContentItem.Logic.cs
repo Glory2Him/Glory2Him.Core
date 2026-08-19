@@ -10,6 +10,8 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -62,6 +64,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
+            // the add pins ContentType against the row's version GROUP (§12.4.1 rule 7a), so it
+            // reads the group before inserting. This row's GroupId is new — no sibling versions,
+            // which is the first version of a group and the one add that chooses a type.
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new List<ContentItem>().AsQueryable());
+
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
@@ -90,6 +99,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     requestEnvelope.Metadata.EventId,
                     EventBrokerIdentifiers.ContentItemOnAddingContentItemSubscriptionName,
                     TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.storageBrokerMock.Verify(broker =>

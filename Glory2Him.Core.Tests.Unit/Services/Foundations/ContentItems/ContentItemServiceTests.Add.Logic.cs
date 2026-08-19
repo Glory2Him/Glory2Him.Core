@@ -10,11 +10,14 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ContentItems;
@@ -48,6 +51,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
 
+            // the add pins ContentType against the row's version GROUP (§12.4.1 rule 7a), so it
+            // reads the group before inserting. This row's GroupId is new — no sibling versions,
+            // which is the first version of a group and the one add that chooses a type.
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new List<ContentItem>().AsQueryable());
+
             this.storageBrokerMock.Setup(broker =>
                 broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
@@ -79,6 +89,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Exactly(3));
 
             this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
                     broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -101,6 +115,68 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldAddContentItemIfContentTypeMatchesItsVersionGroupAsync()
+        {
+            // given: the group pin refuses a MISMATCH, not a version fork. A legitimate fork
+            // carries the group's ContentType forward unchanged (§12.4.1 rule 7a), so a new
+            // version whose type equals its siblings' is the ordinary case and must land.
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            ContentItem randomContentItem = CreateContentItemFiller(randomDateTimeOffset).Create();
+            ContentItem inputContentItem = randomContentItem;
+            inputContentItem.ContentType = ContentType.Story;
+            ContentItem auditAppliedContentItem = inputContentItem.DeepClone();
+            ContentItem storageContentItem = auditAppliedContentItem.DeepClone();
+            ContentItem expectedContentItem = storageContentItem.DeepClone();
+
+            // the previous version of the same group, under the same type
+            ContentItem groupContentItem = inputContentItem.DeepClone();
+            groupContentItem.Id = Guid.NewGuid();
+            groupContentItem.ContentType = ContentType.Story;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyAddAuditValuesAsync(inputContentItem, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedContentItem);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedContentItem.CreatedBy);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new List<ContentItem> { groupContentItem }.AsQueryable());
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(storageContentItem);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemAsync(It.IsAny<EventEnvelope<ContentItem>>(), ContentItemEventOperation.Added))
+                    .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                        new EventPublishResult<ContentItem>()));
+
+            // when
+            ContentItem actualContentItem =
+                await this.contentItemService.AddContentItemAsync(
+                    inputContentItem,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualContentItem.Should().BeEquivalentTo(expectedContentItem);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertContentItemAsync(auditAppliedContentItem, It.IsAny<CancellationToken>()),
+                Times.Once);
         }
     }
 }

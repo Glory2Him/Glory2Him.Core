@@ -315,8 +315,35 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 
             string contentHash = await ComputeContentHashAsync(contentItem.Content);
 
+            // a terminal row is immutable in place — the owner's modify forks a new version
+            // (§3.4 rules 7–8, rule 16). Rejected forks for the same reason Approved does:
+            // the row is the record of a decision, and editing it would rewrite what was
+            // decided. A fork off a Rejected row leaves the group with no published row
+            // until the new version is approved, which is correct — a rejected row was
+            // never published. Dismissed is deliberately absent: it is not a decision this
+            // service may fork off, and refusing it belongs to the foundation's modify.
+            //
+            // Decided before the duplicate probe because the two paths persist a different
+            // ContentType, and the probe is scoped by it.
+            bool shouldForkNewVersion =
+                currentContentItem.ApprovalStatus == ApprovalStatus.Approved
+                    || currentContentItem.ApprovalStatus == ApprovalStatus.Rejected;
+
+            // The duplicate rule (§3.4.2) is scoped per (ContentType, ContentHash), so the probe
+            // has to be keyed on the type the row will actually LAND with — otherwise it checks
+            // one bucket while the row lands in another, and a contributor can seed a global
+            // duplicate by sending a colliding hash under a type the probe will not match.
+            //
+            // In place that is the CALLER's type: MapPermittedFields carries it onto the stored
+            // row and the foundation pins it against storage, so either it equals the stored type
+            // or the modify is refused outright. On a fork it is the STORED type, which the fork
+            // carries forward unchanged and never re-chooses (§12.4.1 rule 7a).
+            ContentType persistedContentType = shouldForkNewVersion
+                ? currentContentItem.ContentType
+                : contentItem.ContentType;
+
             bool duplicateContentExists = await CheckDuplicateContentExistsAsync(
-                contentType: contentItem.ContentType,
+                contentType: persistedContentType,
                 contentHash: contentHash,
                 excludedGroupId: currentContentItem.GroupId,
                 cancellationToken: cancellationToken);
@@ -326,17 +353,6 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 throw new AlreadyExistsContentItemProcessingException(
                     message: "A content item already exists with the same content.");
             }
-
-            // a terminal row is immutable in place — the owner's modify forks a new version
-            // (§3.4 rules 7–8, rule 16). Rejected forks for the same reason Approved does:
-            // the row is the record of a decision, and editing it would rewrite what was
-            // decided. A fork off a Rejected row leaves the group with no published row
-            // until the new version is approved, which is correct — a rejected row was
-            // never published. Dismissed is deliberately absent: it is not a decision this
-            // service may fork off, and refusing it belongs to the foundation's modify.
-            bool shouldForkNewVersion =
-                currentContentItem.ApprovalStatus == ApprovalStatus.Approved
-                    || currentContentItem.ApprovalStatus == ApprovalStatus.Rejected;
 
             ContentItem modifiedContentItem = shouldForkNewVersion
                 ? await ForkContentItemVersionAsync(
@@ -694,10 +710,19 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // just closed: edit an approved item and your publish date rides in on the fork.
             // A fresh draft has no publish date until the approve operation grants one, which
             // is the same reason IsPublished starts false and the status starts Draft.
+            //
+            // ContentType comes from STORAGE, not the caller, like every other control field
+            // here. It is create-only and a fork carries it forward unchanged — it is preserved,
+            // never re-chosen (§12.4.1 rule 7a). Taking it from the caller made the fork the one
+            // path that could relabel an item: the in-place edit is refused by the foundation's
+            // pin against the stored row, but a fork is an ADD and has no stored row to pin
+            // against, so a Story became a Testimony with its content never validated against
+            // the target type's rules, its %ContentItem%-%ContentType%-Reviewer/-Publisher tier
+            // changed under it (§18.6 rule 5), and its duplicate bucket moved (§3.4.2).
             var newVersionContentItem = new ContentItem
             {
                 Id = await this.identifierBroker.GetIdentifierAsync(),
-                ContentType = contentItem.ContentType,
+                ContentType = currentContentItem.ContentType,
                 Title = contentItem.Title,
                 Author = contentItem.Author,
                 Content = contentItem.Content,
