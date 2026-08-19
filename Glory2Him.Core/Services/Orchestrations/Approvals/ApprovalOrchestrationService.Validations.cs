@@ -12,6 +12,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Glory2Him.Core.Brokers.Integrities;
+using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -39,15 +41,32 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 (Rule: IsInvalid(entityType), Parameter: nameof(Approval.EntityType)),
                 (Rule: IsInvalid(entityId), Parameter: nameof(Approval.EntityId)));
 
-        // A fact with no content names no row, so there is nothing to react about. Refused
-        // rather than dereferenced, so a malformed envelope fails as a validation error instead
-        // of a null reference several frames away.
-        private static void ValidateEntityFactEnvelope<TEntity>(EventEnvelope<TEntity> envelope)
+        // Null-check first (a malformed fact names no row), then VERIFY THE SIGNATURE against
+        // the event name this handler serves. The workflow is a receiver like any other, and
+        // §14.6 rule 4 puts verification in the receiver rather than the transport precisely
+        // because a handler is reachable without going through the broker.
+        //
+        // Without it, anyone able to put a message on a fact address could drive the approval
+        // workflow: create approvals for rows they do not own, reset another round's reviews, or
+        // trigger an evaluation that auto-approves. The signature binds the event name too, so a
+        // genuine Tag-Added envelope cannot be replayed onto the Link handler.
+        private async ValueTask ValidateEntityFactEnvelopeAsync<TEntity>(
+            EventEnvelope<TEntity> envelope,
+            string eventName)
         {
-            if (envelope is null || envelope.Content is null)
+            if (envelope is null || envelope.Content is null || envelope.Metadata is null)
             {
                 throw new InvalidApprovalOrchestrationException(
                     message: "Approval is invalid, fix the errors and try again.");
+            }
+
+            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                envelope, eventName, EnvelopeDirection.Request);
+
+            if (isSignatureValid is false)
+            {
+                throw new InvalidApprovalOrchestrationException(
+                    message: "Approval event is invalid. Integrity verification failed.");
             }
         }
 

@@ -17,6 +17,7 @@ using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
@@ -41,6 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<IEventBroker> eventBrokerMock;
+        private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalOrchestrationService approvalOrchestrationService;
         private SecurityContext ambientSecurityContext;
@@ -53,6 +55,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
+            this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
             // The publisher tier by default, because that is who reaches the verdict at all.
@@ -71,6 +74,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
+            // Valid by default. Tests about verification override it; every other
+            // test would otherwise be asserting the guard rather than its own subject.
+            this.envelopeIntegrityBrokerMock.Setup(broker =>
+                broker.VerifyAsync(
+                    It.IsAny<EventEnvelope<It.IsAnyType>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<EnvelopeDirection>()))
+                        .ReturnsAsync(true);
+
             this.approvalOrchestrationService = new ApprovalOrchestrationService(
                 approvalService: this.approvalServiceMock.Object,
                 approvalReviewService: this.approvalReviewServiceMock.Object,
@@ -78,6 +90,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 eventBroker: this.eventBrokerMock.Object,
+                envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
         }
 

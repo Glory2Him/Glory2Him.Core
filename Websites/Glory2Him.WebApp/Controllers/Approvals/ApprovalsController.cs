@@ -43,10 +43,14 @@ namespace Glory2Him.WebApp.Controllers.Approvals
     /// where the admitted set is closed and enumerable — which is why <c>POST api/Tags/Approve</c>
     /// can name <c>Admin,Publisher,Tag-Publisher</c> and why hard removal on the two sibling
     /// approval exposers can name <c>Admin</c>. The set here is neither. §16.7.2 restricts the
-    /// verdict to the <b>publisher tier</b>, and that tier is matched by SUFFIX — global
-    /// <c>Publisher</c>, global <c>Admin</c>, or any role ending <c>-Publisher</c>, including the
-    /// content-type-scoped <c>ContentItem-Testimony-Publisher</c> tier of §18.6 rule 5. These
-    /// routes are also generic over <c>EntityType</c>, so a fixed list would have to enumerate
+    /// verdict to the <b>moderation tier</b> — <c>Admin</c>, the <c>Publisher</c> tier and the
+    /// <c>Reviewer</c> tier — and each tier is matched by SUFFIX: global <c>Publisher</c> or
+    /// <c>Reviewer</c>, global <c>Admin</c>, or any role ending <c>-Publisher</c> or
+    /// <c>-Reviewer</c>, including the content-type-scoped
+    /// <c>ContentItem-Testimony-Publisher</c> tier of §18.6 rule 5. The two actions do not admit
+    /// the same set: a <c>Reviewer</c> may see the verdict but may never decide (§8.6 HR-3), and
+    /// refusing the decision is the orchestration's job rather than the attribute's. These routes
+    /// are also generic over <c>EntityType</c>, so a fixed list would have to enumerate
     /// every entity type AND every content type, and would silently lock out every future one. The
     /// coarse attribute is therefore a bare <c>[Authorize]</c> and the orchestration takes the
     /// whole decision — the same call the review exposer makes for dismissal, for the same

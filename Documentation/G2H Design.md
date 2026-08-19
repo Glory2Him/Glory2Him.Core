@@ -103,8 +103,7 @@ The content item model should contain the following design-relevant properties:
 | `Content` | Required body content. |
 | `ContentHash` | SHA-256 hash of the normalized `Content` (trim, collapse whitespace, lowercase). Control field computed on every write. Non-unique index on (`ContentType`, `ContentHash`) for duplicate detection (§3.4.2). |
 | `GroupId` | Groups multiple versions of the same logical content item. |
-| `Version` | Version number for the item. |
-| `IsLatestVersion` | Identifies the latest version within the content group. Only one row per `GroupId` may be latest. |
+| `Version` | Version number for the item. The group's **tip** — the row edits go to — is the highest `Version` among its non-deleted rows, derived rather than stored (§3.4.1). |
 | `IsPublished` | Identifies the currently published version. Only one row per `GroupId` may be published. |
 | `ApprovalStatus` | Denormalized approval state (`Draft`, `Submitted`, `Approved`, `Rejected`). Mirrors the linked `Approval` record. `Approval` remains the source of truth. |
 | `PublishDate` | Optional date/time from which the content can be visible. |
@@ -126,7 +125,7 @@ Content is versioned by using:
 1. `Id` for the specific version.
 2. `GroupId` for the logical content item across all versions.
 3. `Version` for the version number.
-4. `IsLatestVersion` to identify the latest editable version.
+4. The highest `Version` among the group's non-deleted rows to identify the latest editable version. This is **derived, not a stored flag** (§3.4.1).
 5. `IsPublished` to identify the current public version.
 
 ### 3.4 Content Versioning Rules
@@ -134,7 +133,7 @@ Content is versioned by using:
 The following rules apply:
 
 1. A new content item starts with `Version = 1`.
-2. A new content item starts with `IsLatestVersion = true`.
+2. A new content item is its group's tip by construction — it is the only row, so it carries the highest `Version`. Nothing is written to say so (§3.4.1).
 3. A new content item starts with `IsPublished = false` unless it is approved and published through the approval workflow.
 4. A content item in `Draft` or `Submitted` may be edited in place.
 5. Editing a `Draft` or `Submitted` item does not create a new version.
@@ -143,48 +142,52 @@ The following rules apply:
 8. Editing a terminal content item creates a new `ContentItem` row with the same `GroupId` and incremented `Version`. The owner is the only creator of new versions — `Publisher` and `Admin` roles never create version forks.
 
    A rejected row is terminal on the same terms as an approved one, and for the same reason: reviewers reached a verdict on that text, and text that changes underneath a verdict makes the verdict a record of nothing. The difference is only in what stays live — a **rejected** row never published, so a fork off one leaves the group with no public row until the new version is approved, where a fork off an approved one leaves the approved row published throughout (rule 12).
-9. The new version becomes `IsLatestVersion = true`.
-10. The previous latest version becomes `IsLatestVersion = false`.
+9. The new version becomes the group's tip, because its `Version` is the highest in the group. The fork is therefore ONE write.
+10. The previous latest version stops being the tip for the same reason, and **nothing is written to demote it**. This rule used to require a second write, and that shape is withdrawn: a fork that demoted first and then failed to insert satisfied the old unique index while leaving the group with no tip at all — permanently uneditable, because the demote only ever wrote `false` (issue #265). Derived, that state cannot be represented.
 11. The new version must not become `IsPublished = true` until approved.
 12. The previously published version remains `IsPublished = true` until the new version is approved and published.
-13. Only one content item per `GroupId` may have `IsLatestVersion = true`.
+13. Exactly one content item per `GroupId` is the tip at any moment, and the derivation makes that true rather than enforcing it: the unique index on (`GroupId`, `Version`) admits one row per version, so the highest non-deleted `Version` in a group names exactly one row.
 14. Only one content item per `GroupId` may have `IsPublished = true`.
 15. Previous versions must remain available for audit, approval history, comparison, and rollback.
 16. **There is no in-place amendment of a terminal item, by any role.** This rule previously granted an `Admin` one: amend an approved item without forking, resetting its approval to `Submitted` and dismissing active reviews. It is withdrawn, because a state that one role can edit out of is not terminal, and rule 7 depends on it being terminal for everyone.
 
     What replaces it is narrower and leaves a record. An `Admin` may move a terminal item's **status** back to `Submitted` through the approval transition operation (§8.6 HR-4, §9.7.1 rule 3) — an override, gated to `Admin` alone, which unpublishes the row on the way out of `Approved`. Ordinary editing resumes only once the row is no longer terminal. The two acts stay separate: a status transition changes no content, and a content edit changes no status.
 17. While such a re-opened item is pending, it no longer satisfies canonical content visibility (its `ApprovalStatus` is `Submitted`) and is not publicly visible until approved again.
-18. `IsLatestVersion` is written at exactly two points: creation (`true` on the new row) and version fork (`true` on the new row, `false` on the previous latest). No other operation — submit, review, approve, publish, or an `Admin` status override — changes `IsLatestVersion`.
+18. **There is no stored latest-version flag to write.** This rule used to name the two points at which `IsLatestVersion` was written; the column is gone (issue #265) and the tip is read off the group's rows, so no operation — submit, review, approve, publish, or an `Admin` status override — can move the tip other than by adding a version.
 
-#### 3.4.1 IsLatestVersion Lifecycle
+#### 3.4.1 The Version Tip and the Published Row
 
-`IsLatestVersion` marks the tip of the version chain — the row edits go to. `IsPublished` marks the row the public sees. During a review window the two flags deliberately sit on different rows. Exactly one `IsLatestVersion = true` per `GroupId` at all times; at most one `IsPublished = true` (both enforced by unique filtered indexes).
+The **tip** of the version chain is the row edits go to: the highest `Version` among the group's non-deleted rows. It is **derived, never stored**. `IsPublished` marks the row the public sees, and is stored. During a review window the two deliberately sit on different rows.
 
-| Lifecycle event | `IsLatestVersion` | `IsPublished` |
+Exactly one row per `GroupId` is the tip at any moment — a consequence of the unique (`GroupId`, `Version`) index rather than a rule anything has to uphold. At most one `IsPublished = true` per `GroupId`, and that one *is* enforced, by a unique filtered index.
+
+The asymmetry is the point. "Exactly one tip" was previously enforced in two halves — a filtered unique index guaranteed *at most* one, and application code was trusted for *at least* one — and the halves came apart: a fork was demote-then-insert, so an insert that failed left a group with no tip, permanently uneditable. Derived, the state cannot be represented, and a failed fork writes nothing at all. "At most one published" has no matching failure mode: a group with no published row is an ordinary, recoverable state (§9.7.7 rule 7), so the stored flag and its index stay.
+
+| Lifecycle event | Tip of the group | `IsPublished` |
 | --- | --- | --- |
-| Create V1 | V1 = `true` (the only row is the tip) | V1 = `false` |
+| Create V1 | V1 (the only row) | V1 = `false` |
 | Edit a `Draft` or `Submitted` item (in place) | unchanged | unchanged |
-| Owner edits a terminal item — `Approved` or `Rejected` (fork) | new row = `true`; previous latest = `false` | new row = `false`; previously published row unchanged |
+| Owner edits a terminal item — `Approved` or `Rejected` (fork) | the new row, by carrying the higher `Version`; nothing is written to the previous tip | new row = `false`; previously published row unchanged |
 | Submit / review / reject | unchanged | unchanged |
-| Approve + publish | unchanged (the approved row already carries `true`) | approved row = `true`; previously published row = `false` |
+| Approve + publish | unchanged (approval adds no version) | approved row = `true`; previously published row = `false` |
 | `Admin` overrides a terminal item's status back to `Submitted` | unchanged | that row = `false` (§8.6 HR-4); no other row is republished |
 
 Worked example (V1 published, owner edits):
 
 | Step | V1 | V2 |
 | --- | --- | --- |
-| V1 approved + published | latest=`true`, published=`true` | — |
-| Owner edits → fork V2 | latest=`false`, published=`true` (still live) | latest=`true`, published=`false`, `Draft` |
-| V2 submitted, under review | latest=`false`, published=`true` | latest=`true`, published=`false`, `Submitted` |
-| V2 approved + published | latest=`false`, published=`false` | latest=`true`, published=`true` |
+| V1 approved + published | tip, published=`true` | — |
+| Owner edits → fork V2 | published=`true` (still live) | tip, published=`false`, `Draft` |
+| V2 submitted, under review | published=`true` | tip, published=`false`, `Submitted` |
+| V2 approved + published | published=`false` | tip, published=`true` |
 
 Worked example (V1 rejected, owner edits) — the case that distinguishes a rejected terminal row:
 
 | Step | V1 | V2 |
 | --- | --- | --- |
-| V1 rejected | latest=`true`, published=`false`, `Rejected` | — |
-| Owner edits → fork V2 | latest=`false`, published=`false` | latest=`true`, published=`false`, `Draft` |
-| V2 approved + published | latest=`false`, published=`false` | latest=`true`, published=`true` |
+| V1 rejected | tip, published=`false`, `Rejected` | — |
+| Owner edits → fork V2 | published=`false` | tip, published=`false`, `Draft` |
+| V2 approved + published | published=`false` | tip, published=`true` |
 
 Note the middle row: the group has **no published version at all** while V2 is in review, because V1 never had one to keep. Nothing is demoted at V2's publish, so §9.7.7 rule 7's ordering has nothing to order.
 
@@ -406,6 +409,8 @@ Rules:
 
 `Tag` represents a categorisation label.
 
+**The `GroupId` / `Version` / `IsLatestVersion` rows below are not implemented and never have been.** `Tag` carries `IApproval` only, `EntityTypeVersioning` declares it Single-Row (§7.5.1), and `IsLatestVersion` does not exist on any entity any more (§3.4.1). The rows are left standing because §7.5.1 rule 1 and §12.3.1 both cite this table as their worked example of documentation drift.
+
 | Property | Purpose |
 | --- | --- |
 | `Id` | Unique tag identifier. |
@@ -428,6 +433,8 @@ Rules:
 ### 5.2 Reaction
 
 `Reaction` represents a reusable reaction definition.
+
+**As with `Tag` (§5.1), the `GroupId` / `Version` / `IsLatestVersion` rows below are not implemented and never have been.**
 
 | Property | Purpose |
 | --- | --- |
@@ -558,7 +565,7 @@ All attachment bytes are served by one endpoint: `GET /media/{attachmentId}` (§
 1. A stored binary is immutable. "Editing" an image is uploading a replacement: a **new version row pointing at a new blob** in the same `GroupId`, entering at `Draft` like any other versioned amendment (§3.4, §7.5.1).
 2. The group's **published** row is the vetted one, and it is the only row the §4.9 resolution and the §5.6.2 gate ever surface publicly. A `Draft` replacement is invisible until it passes approval; the previously approved image keeps serving meanwhile.
 3. An association with `AllVersions` on its attachment endpoint follows the group, so a vetted replacement propagates to every host with no association write.
-4. **Known defect to fix before attachment publishing goes live:** the filtered unique indexes `UX_Attachments_GroupId_IsPublished` / `_IsLatestVersion` filter on the flag alone with no `IsDeleted` term — and no remove flow clears `IsPublished` — so a soft-deleted published version would permanently hold its group's published slot. §9.7.6 rule 1 already mandates the unpublish-on-remove half; the missing `IsDeleted` term is the defence-in-depth half.
+4. **Known defect to fix before attachment publishing goes live:** the filtered unique index `UX_Attachments_GroupId_IsPublished` filters on the flag alone with no `IsDeleted` term — and no remove flow clears `IsPublished` — so a soft-deleted published version would permanently hold its group's published slot. §9.7.6 rule 1 already mandates the unpublish-on-remove half; the missing `IsDeleted` term is the defence-in-depth half. The sibling latest-version index this rule also named is gone: `Attachment` lost `IsLatestVersion` with `ContentItem` and `Link` (§3.4.1), and the derived tip already excludes deleted rows.
 
 #### 5.6.5 Approval — Derived From the Host
 
@@ -1223,7 +1230,7 @@ An entity starts in `Draft` when it is created but not yet ready for review.
    *An earlier version of this rule said there was no separate submit operation, on the reasoning that it would be "a surface whose only job was to set one field the modify already had in hand". That was built anyway and the reasoning did not survive contact: the two are not redundant. The narrow verb can be authorized in its own right and carries no payload to validate, which the modify cannot claim; the carve-out keeps edit-then-submit a single event, which the verb cannot. Rules 4 and 5 apply to both.*
 4. **The carve-out is gated on ownership, not on write permission.** It is available to the entity's owner (`CreatedBy`) and to `Publisher` / `Admin`. It is **not** available to a `Reviewer` — a reviewer may hold write permission on the row and may amend its content, but HR-3 forbids them setting `ApprovalStatus` by any route, and a modify is a route.
 5. The carve-out covers `ApprovalStatus` and **only** the `Draft` ↔ `Submitted` pair. Every other approval field stays pinned against storage on modify — `IsPublished` and `PublishDate` absolutely, always. Once the status has left `{Draft, Submitted}`, the owner may not change it at all: `Approved` and `Rejected` are terminal (§9.3, §9.4), and the only thing that moves a row out of either is the `Admin` override on the approval transition operation (§8.6 HR-4). A `Publisher` decides a `Submitted` row; only an `Admin` re-opens a decided one.
-6. A submission through modify sets the entity's denormalized `ApprovalStatus = Submitted`; the `Approval` record is moved in the same orchestration branch (§9.8). It never changes `IsLatestVersion` (§3.4 rule 18) and never changes `IsPublished` (§3.4.1). Because the write is a modify, it publishes `-Modified`, which is exactly what makes in-flight reviews stale under `RequireReapprovalOnChange` (§8.8) — the edit and the resubmission are one event because they are one act.
+6. A submission through modify sets the entity's denormalized `ApprovalStatus = Submitted`; the `Approval` record is moved in the same orchestration branch (§9.8). It adds no version, so it cannot move the group's tip (§3.4 rule 18), and it never changes `IsPublished` (§3.4.1). Because the write is a modify, it publishes `-Modified`, which is exactly what makes in-flight reviews stale under `RequireReapprovalOnChange` (§8.8) — the edit and the resubmission are one event because they are one act.
 7. A version fork produces a new row at `Draft` with its own `Approval` at `Draft`. **The fork does not submit** — the owner must submit the new version explicitly. A fork off an `Approved` row leaves that row `Approved` and `IsPublished = true` until the new version is approved; a fork off a `Rejected` row leaves nothing published at all, because a rejected row never was.
 
 ### 9.3 Approved
@@ -1283,7 +1290,6 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 | `Add<Entity>Async` | `ApprovalStatus` of `Draft` or `Submitted` **only**. Never `IsPublished`, never `PublishDate`, never any other status. | any contributor not blocked by a read-only role |
 | `Modify<Entity>Async` | **content only**, plus the single `Draft` ↔ `Submitted` carve-out of §9.2 rules 4–6. Audit, approval, sorting and confidence fields are pinned against storage. Refused outright when the stored row is `Approved` or `Rejected` (§12.3.1 shared rule 9). | write permission for the row; the carve-out additionally requires ownership or the `Publisher` tier |
 | `Transition<Entity>ApprovalAsync` | all of `IApproval` as one unit — `ApprovalStatus` (`Submitted`, `Approved` or `Rejected`; never `Draft` or `Dismissed`), `IsPublished`, `PublishDate` — plus the bypass pair as a *request*. `IsPublished`/`PublishDate` and the bypass pair that land are derived, not copied. | the `Publisher` tier, **or** a system identity minted in process; never the content's own author (HR-2), and never a user holding an active `ApprovalReview` on the row (§8.6 regardless-rule 1). Out of a terminal stored status it is an override, and then `Admin` or the system identity only (HR-4) |
-| `Demote<Entity>VersionAsync` | `IsLatestVersion` only, and only to `false`. Takes an id, not an entity. `Versioned` entities only. | the **owner** — never `Publisher` or `Admin`, who do not fork (§3.4 rule 8) |
 | the other narrow operations | exactly their own field group and nothing else | per operation (§14.7) |
 
 **Pinning is by comparison against storage, not by omission.** A non-content field is not "left alone" — the validator reads the stored row and refuses the write when the caller's value differs. Omission would let a caller clear a field by sending a default, and `default` is a legal value for most of them: `ApprovalStatus.Draft` is `0`, `Scope.AllVersions` is `0`, `false` is the default for `IsPublished`. A rule that trusts absence cannot tell "not supplied" from "set to the dangerous value".
@@ -1297,7 +1303,7 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 
    | Group | Owned by | Examples |
    | --- | --- | --- |
-   | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `GroupId`, `Version`, `IsLatestVersion`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `IsApprovedByBypass`, `ApprovedByBypassReason`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
+   | Members of `IKey`, `IAudit`, `IVersion`, `IApproval`, `ISortOrder`, `IConfidence` | the identifier broker, the security-audit broker, the version fork, and the approve, sort and set-confidence operations respectively | `Id`, `CreatedBy`, `UpdatedWhen`, `IsDeleted`, `GroupId`, `Version`, `ApprovalStatus`, `IsPublished`, `PublishDate`, `IsApprovedByBypass`, `ApprovedByBypassReason`, `SortOrder`, `ConfidenceScore`, `ConfidenceReason` |
    | Derived content | computed by the service layer that owns the flow — an orchestration or processing service, or a foundation transition where only it sees the moment — from other input or from ambient context | `ContentItem.ContentHash` (from `Content`); `ContentItem.Slug` (by the processing service) and `ShortCode` (by the foundation's approve transition, §9.7.1 rule 3) — both generated, then frozen at first publish (§19.3, §19.7); an association's `EntityAScope` / `EntityBScope` (from the endpoint's publication model), `EntityAContentType` / `EntityBContentType` (from the resolved endpoint) and `UserId` (from the security context) |
    | Caller-supplied, create-only | the caller, once | `ContentItem.ContentType` — a content type carries its own validation rules, so an item cannot be relabelled into a type its content was never checked against (§12.4.1 business rule 7a); an association's `Purpose` (§4.9) |
    | Caller-supplied content | the caller | `ContentItem.Title`, `Author`, `Content`, `MetaDescription` (§19.2) |
@@ -1339,21 +1345,13 @@ This is the end-to-end flow. §7 defines the entities, §8 the policy, §9.1–�
 
    `PublishDate` belongs here and only here. It is an `IApproval` member, so under the subtraction rule in rule 2 it is not content and the general modify never carries it — scheduling publication is a decision made at approval time, by whoever approves.
 
-3a. **The version demotion.** `IsLatestVersion` is an `IVersion` member, so under rule 2's subtraction test the general modify pins it — and rule 18 of §3.4 says it is written at exactly two points, creation and the version fork. The operation that second point implies now exists, on the two `Versioned` entities:
+3a. **The version demotion — withdrawn, with the field it wrote.** This rule described `Demote<Entity>VersionAsync` on the two `Versioned` entities: a narrow verb owning `IsLatestVersion`, gated to the owner, publishing `<Entity>-Demoted` and carrying no request address. Neither the verb nor the field exists any more (issue #265, §3.4.1). The tip is derived from the group's highest non-deleted `Version`, so a fork is one insert and there is no second write for a verb to own.
 
-   ```csharp
-   ValueTask<ContentItem> DemoteContentItemVersionAsync(
-       Guid contentItemId,
-       CancellationToken cancellationToken = default);
-   ```
+   **The reasoning that produced it was sound and is worth keeping, because it is the half that survived.** The verb existed because the fork had nowhere legitimate to write the flag: both processing services demoted the previous latest through the general modify — the one path required to refuse an `IVersion` member — and the two services disagreed about whether that worked. On `Link`, whose modify was missing the pin, the demotion succeeded and left the field writable by any caller with write permission. On `ContentItem`, whose modify had the pin, the demotion was refused outright and forking an approved item could not complete at all. The asymmetry was the tell. What it was pointing at, though, was not a missing verb but a **field that should never have been stored**: a value no operation may legitimately write is a value nothing needs to hold. Deriving it removes the write, the verb, the pin, the index and the fact address together.
 
-   Like submit, it owns one field and drives it to a fixed value, so it takes only an id and reads nothing off a caller's copy. It is gated to the **owner**, because §3.4 rule 8 makes the owner the only creator of new versions and bars `Publisher` and `Admin` from forking — a `Reviewer` holds write permission on the row through the modify and must still never move the version tip. It refuses a row that is not currently the latest, and a soft-deleted one, on the same terms as every other transition.
+   **And it closed a failure the verb could not.** A demote-then-insert fork whose insert failed satisfied the old filtered unique index — the demote only ever wrote `false` — and left the group with no tip at all, permanently uneditable. A narrow verb does not fix that; only removing the second write does.
 
-   **It exists because the fork had nowhere legitimate to make this write.** Both processing services demoted the previous latest by setting `IsLatestVersion` and calling the general modify — the one path required to refuse an `IVersion` member. On `Link`, whose modify was missing the pin, it worked and left the field writable by any caller with write permission. On `ContentItem`, whose modify had the pin, the demotion was refused outright and forking an approved item could not complete at all. The asymmetry between the two services was the tell; the pin is now present on both, and the fork calls this verb instead.
-
-   **It publishes `<Entity>-Demoted`, never `-Modified`.** §10.17 rule 2 previously accepted the demotion emitting a foundation `-Modified` and relied on the approval workflow subscribing to the *top-layer* fact so it would never see it. A demotion that announces itself cannot be misread as a content amendment in the first place, which is stricter than relying on nobody listening. That reason for a `Versioned` entity needing a layer above its foundation is correspondingly weaker now; rules 1 and 3 of §10.17 are unaffected and still require one.
-
-   **It has a fact address and no request address**, the same shape sort has and for an equally concrete reason: the demotion is a step *inside* the fork, never an act of its own, and a public request address would let a caller demote a version without creating its replacement — leaving a `GroupId` with no `IsLatestVersion = true` row and therefore no edit tip at all.
+   **"Only the latest version may be modified" survives as a real check**, and is now a question about the group rather than a flag on the row: the processing service asks whether any non-deleted sibling carries a higher `Version` (§12.4.1). It reaches the row by id, so without that question a superseded row would be silently editable.
 
 4. **Sort.** Ordering is neither content nor approval state, so it is its own interface and its own operation. `ISortOrder` declares a single nullable `int? SortOrder`, and is implemented only by entities that actually appear in an ordered list — today just `Association`.
 
@@ -1446,7 +1444,7 @@ Runs before any branch below.
 
 1. The operation split (§9.7.1 rules 2–3). Approval state is writable only through `Transition<Entity>ApprovalAsync`, which emits `<Entity>-Approved`, `-Rejected` or `-Submitted`. This flow subscribes to `-Modified` and never sees any of them.
 2. The permitted-field mapping (§12.5.2 business rule 2). A general modify carries only caller-editable content fields onto the storage row, so a `-Modified` fact cannot carry an approval-state change even if a caller supplied one.
-3. Orchestration-tier subscription (§10.17 rule 1). A version fork demotes the previous latest row, a bookkeeping write whose only change is `IsLatestVersion`. That demotion has its own operation and its own fact address, `<Entity>-Demoted` (§9.7.1 rule 3a), so it never arrives as a foundation `-Modified` at all — and the orchestration emits exactly one fact per completed amend regardless, so the write is unobservable on both counts.
+3. Orchestration-tier subscription (§10.17 rule 1). A version fork used to write the previous latest row as well, a bookkeeping write whose only change was the stored latest-version flag. There is no such write any more: the tip is derived, so a fork is a single insert and emits a single `-Added` (§3.4.1, §9.7.1 rule 3a) — and the orchestration emits exactly one fact per completed amend regardless, so there is nothing for a subscriber to misread on either count.
 
 There are currently **no** permitted-modify fields that are exempt from approval. `SortOrder` was the one candidate — reordering posts within a series must not reset the membership association and dismiss its reviews — and giving it its own interface and operation (§9.7.1 rule 4) removes it from the modify path entirely. Should a future property be caller-editable but not approval-sensitive, list it alongside that entity's permitted-field mapping; a fact whose only differences are those fields ends this flow immediately.
 
@@ -1472,7 +1470,7 @@ The versioned/single-row split is resolved from §7.5.1, never by probing the en
 **Rejection review.** When the review carries a rejected decision:
 
 1. Record the review, subject to the same gates.
-2. If `BlockOnReject = true`, set the `Approval` and the entity to `Rejected` immediately (§8.7 rule 1). This is **independent of the approval threshold** — the first rejection ends the round even when `RequiredNumberOfApprovals` is higher and even when approvals have already been recorded. No evaluation runs. Do **not** change `IsLatestVersion` or `IsPublished`: rejection leaves both untouched, and any previously published version of the same group stays published. Visibility is gated by `ApprovalStatus` (§14.1).
+2. If `BlockOnReject = true`, set the `Approval` and the entity to `Rejected` immediately (§8.7 rule 1). This is **independent of the approval threshold** — the first rejection ends the round even when `RequiredNumberOfApprovals` is higher and even when approvals have already been recorded. No evaluation runs. Do **not** change `IsPublished`: rejection leaves it untouched, and any previously published version of the same group stays published. The group's tip is untouched too, and cannot be otherwise — a rejection adds no version (§3.4.1). Visibility is gated by `ApprovalStatus` (§14.1).
 3. If `BlockOnReject = false`, the approval stays `Submitted` and reviewing continues. The rejection is recorded for audit, never counts toward `RequiredNumberOfApprovals`, and does not block — approval may still proceed once the §8.5 conditions are met.
 
    Worked example with `RequiredNumberOfApprovals = 2` and `BlockOnReject = false`: reviewer A rejects, reviewers B and C approve. The approval count reaches 2, the conditions are met, and the item may then be approved — automatically if `AutoApproveIfAllApprovalRequirementsMet = true`, otherwise by a `Publisher`/`Admin` clicking approve. The same sequence with `BlockOnReject = true` would have ended at reviewer A.
@@ -1517,7 +1515,7 @@ Invoked identically by the Added, Modified and Review flows. **The phrase "autom
 3. If `conditionsMet` is false, the approval stays `Submitted`. Stop.
 4. If `conditionsMet` is true and `AutoApproveIfAllApprovalRequirementsMet = true`, apply `Approved` automatically with `IsApprovedByBypass = false`.
 5. If `conditionsMet` is true and the flag is false, the approval stays `Submitted` and the manual approve action becomes available to `Publisher` / `Admin` (§8.5 rule 5).
-6. On `Approved`: set the entity's `ApprovalStatus = Approved` and `IsPublished = true`, and set `IsPublished = false` on the previously published row of the same group, so only one published version exists per `GroupId`. `IsLatestVersion` is not changed at publish time (§3.4.1). For a Single-Row entity there is no group and no previous row — the "only one published" clause is vacuous, and only the row's own flag is set.
+6. On `Approved`: set the entity's `ApprovalStatus = Approved` and `IsPublished = true`, and set `IsPublished = false` on the previously published row of the same group, so only one published version exists per `GroupId`. Publication does not move the group's tip, and cannot: approval adds no version (§3.4.1). For a Single-Row entity there is no group and no previous row — the "only one published" clause is vacuous, and only the row's own flag is set.
 7. Both writes in rule 6 span two rows and must be ordered so that no window exists in which two rows are published: demote the previous row first, then promote the new one.
 
    **The ordering is a correctness requirement, not a tidiness one.** The published slot is held by a unique index filtered on `IsPublished = 1`, so promoting while the incumbent still holds it does not merely look wrong — the write is rejected. Any approval on a group that already has a published version fails until the demote lands.
@@ -2089,9 +2087,9 @@ An entity's **top-layer service** is the highest business layer that owns its wr
 1. The approval orchestration subscribes to the top-layer `-Added` and `-Modified` facts **where a layer above the foundation exists** — for `ContentItem` that is `ContentItemProcessing-Added` / `-Modified` (§12.4.1), and for `Link` that is `LinkProcessing-Added` / `-Modified` (§12.4.2). It does not subscribe to `-Removed` at all (§9.7.6). Per §10.2 rule 6 it must not also subscribe to the foundation facts for the same reaction.
 
    Where an approvable entity has nothing above its foundation — today that is every one except `ContentItem` and `Link` — it subscribes to the **foundation** facts instead. That is safe for a Single-Row entity (§7.5.1): the loop is broken by rule 4 below rather than by the subscription tier, and with no version fork there is no multi-row bookkeeping write to misread. A **Versioned** entity must have a service above its foundation before it can participate in approval, for the reason in rule 2.
-2. The reason is §10.2 rule 5. A version fork writes two foundation rows and therefore emits two foundation facts. Reacting to the demotion of the previous latest would reset the still-published previous version's approval and dismiss its review history, for a write that changed only `IsLatestVersion`.
+2. The reason is §10.2 rule 5. A version fork used to write two foundation rows and therefore emit two foundation facts. Reacting to the second — the demotion of the previous latest — would have reset the still-published previous version's approval and dismissed its review history, for a write that changed only a bookkeeping flag.
 
-   **The demotion no longer arrives as a `-Modified`.** It has its own operation and its own fact address, `<Entity>-Demoted` (§9.7.1 rule 3a), so the pair a fork emits is now `-Demoted` and `-Added` rather than `-Modified` and `-Added`. The misreading this rule guards against is therefore impossible rather than merely unsubscribed. The rule stands anyway: rule 1's "one fact per completed amend" and rule 3's "a direct foundation write bypasses invalidation" are independent of it, and a `Versioned` entity still needs a layer above its foundation for those. The top-layer service emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about — and it is the fork that makes this a *layer* question rather than an *orchestration* question, since the fork is single-entity processing work.
+   **There is no demotion fact, because there is no demotion.** The tip is derived rather than stored (§3.4.1, §9.7.1 rule 3a), so a fork writes one row and emits one `-Added`. The misreading this rule guards against is therefore impossible rather than merely unsubscribed — stricter than the interim shape, which gave the demotion its own `<Entity>-Demoted` address so it could not be mistaken for a content amendment. The rule stands anyway: rule 1's "one fact per completed amend" and rule 3's "a direct foundation write bypasses invalidation" are independent of it, and a `Versioned` entity still needs a layer above its foundation for those. The top-layer service emits exactly one fact per completed amend, which is the unit of work the approval workflow actually cares about — and it is the fork that makes this a *layer* question rather than an *orchestration* question, since the fork is single-entity processing work.
 3. The consequence to accept deliberately: a write made directly against a foundation service bypasses approval invalidation. Approvable entities are therefore written through their top-layer service, and an exposer must bind to that service rather than the foundation for any approvable entity.
 
 **Inbound — the workflow's own records.** `ApprovalReview` and `ApprovalComment` are a second inbound channel, and a different one: their facts do not *invalidate* an approval, they prompt the workflow to **re-test the §8.5 conditions** on an approval that may have been blocked. Both are foundation-tier subscriptions — neither is an approvable entity and neither has a layer above its foundation (§12.3.1), so rules 1 and 2 do not apply and there is no fork to misread. Lettered here so the numbered rules above keep their cross-references.
@@ -2398,7 +2396,7 @@ Current intended foundation services:
 
     **The refusal is unconditional on all seven** — a stored `Approved` or `Rejected` status refuses the modify outright, with no comparison of what the caller sent.
 
-    It was briefly written otherwise, and the reason is worth keeping because it is a trap a future entity will walk into. The fork used to **demote** the previous latest row — flipping `IsLatestVersion` to `false` — through this same general modify, so a refusal written against the stored status alone refused the demotion too and broke the very fork the rule exists to redirect amendments into. The first fix was to compare caller-editable content and refuse only when it differed. That was withdrawn: the demotion moved to its own operation (§9.7.1 rule 3a), which leaves nothing legitimate reaching a terminal row through the modify, so the blunt refusal is available again and is both simpler and stricter.
+    It was briefly written otherwise, and the reason is worth keeping because it is a trap a future entity will walk into. The fork used to **demote** the previous latest row — flipping a stored latest-version flag to `false` — through this same general modify, so a refusal written against the stored status alone refused the demotion too and broke the very fork the rule exists to redirect amendments into. The first fix was to compare caller-editable content and refuse only when it differed. That was withdrawn twice over: the demotion first moved to its own operation, and then stopped existing at all when the tip became derived (§9.7.1 rule 3a, §3.4.1). Nothing legitimate reaches a terminal row through the modify any more, so the blunt refusal is available again and is both simpler and stricter.
 
     Refusing on the stored status rather than on a status *change* is the whole point, and is a different check from the pin: the pin's condition is guarded by `inputStatus != storageStatus`, which is exactly the guard a caller echoing the stored status back walks through.
 
@@ -2478,7 +2476,7 @@ Responsibilities:
 
 1. Process content item creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Answer whether the row an edit names is still the group's tip — the derived question that replaced the stored flag (§3.4.1). The row is reached by id, so without this check a superseded version would be silently editable.
 4. Apply model mapping on every write operation — map only the fields that a caller is permitted to change onto a fresh entity loaded from the database before committing. This prevents any caller from tampering with control fields through the update path.
 5. Process soft delete of the content item itself, and **nothing else**. Dependent associations are deliberately left untouched: a soft delete breaks no link, and association visibility is a read-time composite evaluated by whoever can resolve both endpoints (§14.3 rules 3–4), not a flag written on delete. This responsibility previously read "flag dependent associations as appropriate", which predates §14.3 and would have made this a cross-entity write — the single requirement that would have forced this service to be an orchestration.
 6. Publish its own completion facts — `ContentItemProcessing-Added`, `ContentItemProcessing-Modified`, and `ContentItemProcessing-Removed` — via `IEventBroker` once the processed work has completed. The underlying row-level facts (`ContentItem-Added`, `-Modified`, `-Removed`) are published by `ContentItemService` and must not be republished here (§10.2).
@@ -2487,14 +2485,13 @@ Responsibilities:
 Business Rules:
 
 1. A content item in `Draft`, `Submitted` or `Dismissed` status may be edited in-place without creating a new version. `Rejected` was listed here and is not: rule 2 makes it terminal, so an edit of a rejected item forks. `Dismissed` takes its place — it is the one non-terminal status this rule never named.
-2. A **terminal** content item — `Approved` or `Rejected` — is immutable in place, including to its owner. An owner edit must create a new version with incremented `Version` and `IsLatestVersion = true` and the previous version set to `false`. `Rejected` is here for the same reason `Approved` is: the row is the record of a decision, and amending it in place would rewrite what was decided. The `Admin` in-place carve-out this rule used to describe is withdrawn — see rule 10, which is the governing statement.
-3. Only one version per `GroupId` may have `IsLatestVersion = true`. (also enforced by database unique index))
+2. A **terminal** content item — `Approved` or `Rejected` — is immutable in place, including to its owner. An owner edit must create a new version with incremented `Version`, which makes the new row the group's tip; nothing is written to the previous version (§3.4.1). `Rejected` is here for the same reason `Approved` is: the row is the record of a decision, and amending it in place would rewrite what was decided. The `Admin` in-place carve-out this rule used to describe is withdrawn — see rule 10, which is the governing statement.
+3. Exactly one version per `GroupId` is the tip — the highest non-deleted `Version` — and the unique index on (`GroupId`, `Version`) is what makes that name a single row.
 4. Only one version per `GroupId` may have `IsPublished = true`. (also enforced by database unique index)
 5. A content item must not be published until its `ApprovalStatus` is `Approved`. Publication is not a separate act: the foundation's approve transition derives `IsPublished` from the decision it is applying (§9.7.1 rule 3), so a row cannot be published except by being approved. What this service adds is the *group* half — demoting the previously published row before the new one is promoted (rule 10, §9.7.7 rules 6–7). `ApprovalOrchestrationService` decides; it does not write the entity.
 6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by this service or the approval workflow:
    - `GroupId`
    - `Version`
-   - `IsLatestVersion`
    - `IsPublished`
    - `PublishDate`
    - `ApprovalStatus`
@@ -2519,7 +2516,7 @@ Business Rules:
 
     **One approval transition does reach this service, and only one: the publication swap.** This rule used to end "and does not reach this service", on the reasoning that approval state is not processing work. That holds for the *decision* and still does — who may approve, and what the outcome is, are settled on the `Approval` row and never here. What does not hold is publication. §9.7.7 rule 6 requires that granting approval also demotes the group's previously published row, and rule 7 requires the demote to precede the promote. `IX_ContentItem_IsPublished` is a unique index filtered on `IsPublished = 1`, so that ordering is not a preference: promoting while the incumbent still holds the slot violates the index and the write fails outright.
 
-    Two rows of one entity, in a guaranteed order, is processing work by the layering — a foundation is one row per call, and an orchestration reaching the sibling would need entity services it deliberately does not have (§16.7.1). The precedent is already in this service: the version fork demotes the incumbent `IsLatestVersion` before inserting the new row, for the identical index reason one column over. So the approval command for `ContentItem` and `Link` is addressed to the processing service, which orders the two writes and forwards each to the foundation; every other approvable type is Single-Row (§7.5.1), has no group, and keeps the foundation address.
+    Two rows of one entity, in a guaranteed order, is processing work by the layering — a foundation is one row per call, and an orchestration reaching the sibling would need entity services it deliberately does not have (§16.7.1). The published slot is now the **only** thing that makes a group's rows contend: the tip is derived from the highest `Version` rather than stored, so a fork writes one row and needs no ordering at all (§3.4.1). That leaves the published-slot index above as the single constraint any write can violate by ordering two rows of a group wrongly — and one case is enough, because the ordering has to be guaranteed somewhere and this is the only layer that can hold both rows. So the approval command for `ContentItem` and `Link` is addressed to the processing service, which orders the two writes and forwards each to the foundation; every other approvable type is Single-Row (§7.5.1), has no group, and keeps the foundation address.
 11. Duplicate content rule (§3.4.2): before add or modify, compute `ContentHash` from the normalized `Content` and check for a duplicate per (`ContentType`, `ContentHash`) across non-deleted rows (excluding the item's own `GroupId` on modify). Add → polite acknowledgement without creating; modify → validation error.
 12. Slug generation (§19.3 — designed, not built): derive `Slug` from `Title` on add and re-derive while the group has never published; freeze it at the group's first publish; copy it forward on a version fork; pin it thereafter. `Slug` is a control field (rule 6) — derived, never accepted from a caller, the same trust posture as `ContentHash`. `ShortCode` is likewise a control field, but its writer is not this service: it is derived by the foundation's approve transition at the group's first publish (§9.7.1 rule 3, §19.7) — the only operation that runs at that moment, which rule 10 keeps out of this service.
 
@@ -2537,7 +2534,7 @@ Responsibilities:
 
 1. Process link creation and modification, enforcing versioning rules and control field integrity.
 2. Determine whether an edit results in an in-place update or a new version, based on current `ApprovalStatus`.
-3. Update `IsLatestVersion` on the previous version when a new version is created.
+3. Answer whether the row an edit names is still the group's tip, the derived question that replaced the stored flag (§3.4.1).
 4. Apply model mapping on every write operation — map only `Name`, `Url` and `LinkType` onto a fresh entity loaded from the database before committing, so no caller can tamper with a control field through the update path.
 5. Process soft delete of the link itself, and nothing else. Dependent associations are left untouched for the reason given in §12.4.1 responsibility 5.
 6. Publish its own completion facts — `LinkProcessing-Added`, `LinkProcessing-Modified` and `LinkProcessing-Removed` — once the processed work has completed. The row-level facts (`Link-Added`, `-Modified`, `-Removed`) belong to `LinkService` and must not be republished here (§10.2 rule 5).
@@ -2547,10 +2544,10 @@ Business Rules:
 
 1. A link in `Draft`, `Submitted` or `Dismissed` status may be edited in place, by its owner or by a `Reviewer`, `Publisher` or `Admin`.
 2. A terminal link — `Approved` or `Rejected` — is immutable in place and belongs to its owner alone: their edit forks a new version and no role may fork on their behalf, because the fork authors a version and it would land in the moderator's name.
-3. Only one version per `GroupId` may have `IsLatestVersion = true`, and only one may have `IsPublished = true`. Both are also enforced by filtered unique indexes, and both survive a fork because the previous latest is demoted *before* the new row is inserted.
-4. A fork carries `IsPublished` forward untouched on the demoted row (§3.4 rule 12), so a group that had a published version keeps serving it through the review that follows. A fork off a `Rejected` row has no published version to preserve — a rejected row was never published — so the group simply has no public row until the new version is approved.
+3. Exactly one version per `GroupId` is the tip — the highest non-deleted `Version`, named uniquely by the (`GroupId`, `Version`) index — and only one may have `IsPublished = true`, which a filtered unique index enforces. A fork touches neither: it inserts one row, and that row's `Version` makes it the tip without a second write (§3.4.1).
+4. A fork leaves the previous tip's `IsPublished` untouched (§3.4 rule 12), so a group that had a published version keeps serving it through the review that follows. A fork off a `Rejected` row has no published version to preserve — a rejected row was never published — so the group simply has no public row until the new version is approved.
 5. Only the latest version of a group may be modified.
-6. The control fields — `GroupId`, `Version`, `IsLatestVersion`, `IsPublished`, `PublishDate`, `ApprovalStatus`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason` — are never accepted from a caller on add or modify. `PublishDate` is the one that looks like content and is not: it is an `IApproval` member (§9.7.1 rule 2) belonging to the approve operation, so neither the add nor the fork carries it.
+6. The control fields — `GroupId`, `Version`, `IsPublished`, `PublishDate`, `ApprovalStatus`, `IsDeleted`, `CreatedBy`, `CreatedWhen`, `DeletedBy`, `DeletedWhen`, `DeletionReason` — are never accepted from a caller on add or modify. `PublishDate` is the one that looks like content and is not: it is an `IApproval` member (§9.7.1 rule 2) belonging to the approve operation, so neither the add nor the fork carries it.
 7. Removal is a takedown, not a moderation step: the owner or an `Admin`, and no one else. `ApprovalStatus` is left untouched (§10.5), and an already-removed link is reported as not found.
 8. Exactly one processing fact per completed amend, regardless of how many foundation rows the amend wrote.
 
@@ -2636,7 +2633,7 @@ Responsibilities:
 6. Apply `Approved` status when the approval conditions (§8.5) are met and `AutoApproveIfAllApprovalRequirementsMet = true`.
 7. Write the denormalized `ApprovalStatus` onto the owning entity itself, through that entity's state-transition operation rather than a general modify (§10.17 rules 4–5). The two values must never diverge (§9.8).
 8. On `Approved`, set `IsPublished = true` on the newly approved version.
-9. Set `IsPublished = false` on the previously published version, ensuring only one published version exists per `GroupId`, and order the two writes so no window exists in which both are published. `IsLatestVersion` is not changed at publish time (see §3.4.1). For a Single-Row entity (§7.5.1) there is no previous row and this rule is vacuous.
+9. Set `IsPublished = false` on the previously published version, ensuring only one published version exists per `GroupId`, and order the two writes so no window exists in which both are published. The group's tip does not move at publish time, and cannot: approval adds no version (see §3.4.1). For a Single-Row entity (§7.5.1) there is no previous row and this rule is vacuous.
 10. Use `SecurityBroker` to validate user identity and role claims during submission and review.
 11. Publish `ApprovalCreatedEvent`, `ApprovalUpdatedEvent`, and `ApprovalDeletedEvent` via `ApprovalEventService`.
 12. Derive attachment approval from the host (§5.6.5): when a host entity completes approval and publication, approve and publish its purposefully-placed (§4.9) and inline-referenced (§5.6.6) attachments through the attachment submit-then-approve transitions, bypass-audited. Until this orchestration exists, §5.6.5's interim rule applies — the publisher flow that approves the host derives the attachment approvals synchronously.
@@ -2671,7 +2668,7 @@ Business Rules:
 15. The `-Modified` branch runs only when an approval-sensitive field changed (§9.7.4). A fact whose only differences are workflow or bookkeeping fields ends the branch immediately, with no read or write of the approval.
 16. The versioned/single-row branch is resolved from the §7.5.1 publication-model table, never by probing the entity for `IVersion`, by reflection, or by inspecting EF configuration.
 17. No approval transition may be applied to a soft-deleted entity. The approve, reject and bypass operations validate that the subject is not deleted before applying any transition, so a review submitted before a takedown cannot approve and re-publish it afterwards (§9.7.6 rule 3). Removal itself never changes the approval record.
-18. `Rejected` is reachable by exactly two routes: a blocking review rejection when `BlockOnReject = true` (§8.7 rule 1), and a direct `Publisher`/`Admin` rejection (business rule 13). Both apply immediately and independently of `RequiredNumberOfApprovals`, and both leave `IsPublished` and `IsLatestVersion` untouched.
+18. `Rejected` is reachable by exactly two routes: a blocking review rejection when `BlockOnReject = true` (§8.7 rule 1), and a direct `Publisher`/`Admin` rejection (business rule 13). Both apply immediately and independently of `RequiredNumberOfApprovals`, and both leave `IsPublished` untouched — and neither can move the group's tip, which no approval outcome touches (§3.4.1).
 
 ### 12.6 Controller Layer
 
@@ -2892,7 +2889,7 @@ An exposer (controller, page, or any other host) may bind to a foundation servic
 
 1. **Every service enforces security itself.** Each service — foundation, processing, and orchestration — applies authentication, role, ownership, and visibility rules against the ambient `SecurityContext` (captured on its own inbound envelope) for every operation it exposes. No service ever assumes an upstream layer already gated the caller.
 2. **Duplicate enforcement across layers is intended** (defense in depth). An orchestration re-checking a rule its foundation also checks is correct, not redundant: either service must be safe when called alone.
-3. **Each layer enforces the rules appropriate to its altitude.** Foundations enforce row-level rules — the contribution gate (authenticated, not blocked by a `ReadOnly` role), row write permission (owner or moderation role; removal by owner or `Admin`; hard removal by `Admin` only), and read visibility (§14.1, §14.5). Orchestrations additionally enforce process rules that span rows or states — for example that an `Approved` content item is amended only by its owner and only by forking a new version, which requires the foundation to still permit the owner's write to the approved row being demoted.
+3. **Each layer enforces the rules appropriate to its altitude.** Foundations enforce row-level rules — the contribution gate (authenticated, not blocked by a `ReadOnly` role), row write permission (owner or moderation role; removal by owner or `Admin`; hard removal by `Admin` only), and read visibility (§14.1, §14.5). Orchestrations additionally enforce process rules that span rows or states — for example that an `Approved` content item is amended only by its owner and only by forking a new version.
 4. **The same rules apply on both entry paths — but the event path's `SecurityContext` is not authenticated yet.** The direct method path and the event (substrate) path converge on the same do-work methods, so every rule above is enforced on both. What differs is the provenance of the context they are enforced against. **Replay is handled:** `ProcessedEvents` deduplicates on `Metadata.EventId` per receiver, so a re-delivered envelope is a no-op. **Forgery is not.** `EventBroker.DeserializeEnvelope` is a bare `JsonSerializer.Deserialize<EventEnvelope<T>>(content)!`; `EnvelopeIntegrity` is present on the envelope model but has no writer and no verifier anywhere in the repository; the participant registers `IsSecretRequired = false`; and the `Validate*EventEnvelope` methods require `Content` and `Metadata` to be present but never inspect `SecurityContext`. Whoever can put a message on a request address therefore states their own identity and roles, and is believed.
 
    **It compounds once, through a mechanism that is otherwise correct.** A single `SecurityContextPrincipalFactory` feeds both the actor `AccessBroker` sends to `IAccessClient` and the `CreatedBy` that `SecurityAuditBroker` stamps — deliberately, because HR-1 and HR-2 are `actor == CreatedBy` comparisons and two conversions would disagree in the permissive direction (§8.6.1). The consequence on an unauthenticated context is that a forged actor authors the row and then satisfies the self-review and self-approval comparisons *against itself*. The rules are not weakened; they are evaluated against a subject the caller chose.
@@ -3084,12 +3081,11 @@ Resolved by converting `ContentType` from a database entity to a fixed enum (§3
 Responsible for:
 
 1. Creating content item versions.
-2. Updating `IsLatestVersion` flags.
-3. Updating `IsPublished` flags when approval completes.
-4. Validating content item fields.
-5. Reading content by id, group id, type, latest version, and published version.
-6. Reading content by (`ContentType`, `ContentHash`) for duplicate detection.
-7. Applying soft delete fields.
+2. Updating `IsPublished` flags when approval completes.
+3. Validating content item fields.
+4. Reading content by id, group id, type, latest version, and published version.
+5. Reading content by (`ContentType`, `ContentHash`) for duplicate detection.
+6. Applying soft delete fields.
 
 ### 16.2 AssociationService
 

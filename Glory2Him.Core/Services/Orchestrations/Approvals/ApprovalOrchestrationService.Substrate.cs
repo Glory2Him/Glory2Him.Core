@@ -49,6 +49,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Tag,
+                eventName: "TagAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -58,6 +59,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Tag,
+                eventName: "TagModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -67,6 +69,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.ContentItem,
+                eventName: "ContentItemAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -76,6 +79,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.ContentItem,
+                eventName: "ContentItemModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -85,6 +89,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Link,
+                eventName: "LinkAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -94,6 +99,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Link,
+                eventName: "LinkModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -103,6 +109,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Comment,
+                eventName: "CommentAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -112,6 +119,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Comment,
+                eventName: "CommentModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -121,6 +129,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Reaction,
+                eventName: "ReactionAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -130,6 +139,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Reaction,
+                eventName: "ReactionModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -139,6 +149,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.BibleReference,
+                eventName: "BibleReferenceAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -148,6 +159,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.BibleReference,
+                eventName: "BibleReferenceModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -157,6 +169,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Association,
+                eventName: "AssociationAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -166,6 +179,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Association,
+                eventName: "AssociationModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -187,7 +201,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken)
         {
-            ValidateEntityFactEnvelope(envelope);
+            await ValidateEntityFactEnvelopeAsync(envelope, "ApprovalReviewAdded");
 
             await ProcessApprovalReviewRecordedAsync(
                 approvalId: envelope.Content.ApprovalId,
@@ -201,11 +215,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         private async ValueTask<EventEnvelope<TEntity>?> ReactToEntityFactAsync<TEntity>(
             EventEnvelope<TEntity> envelope,
             EntityType entityType,
+            string eventName,
             Func<EntityType, Guid, CancellationToken, ValueTask<ApprovalOutcome>> react,
             CancellationToken cancellationToken)
             where TEntity : IKey
         {
-            ValidateEntityFactEnvelope(envelope);
+            await ValidateEntityFactEnvelopeAsync(envelope, eventName);
 
             await react(entityType, envelope.Content.Id, cancellationToken);
 

@@ -325,10 +325,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // the round rather than closing it (§9.7.4). The invariant holds in BOTH arms of the
             // reset, so the flag is a dimension of the theory rather than a separate case.
             //
-            // The conditions are met, with auto-approve off: the evaluation is genuinely reached
-            // and still writes nothing, which is a stronger claim than blocking before it.
+            // THE BRANCH IS ARMED, which the earlier version of this test was not. It asked for
+            // conditions that write nothing, so the flow had no reachable write at all and the
+            // Times.Never below was true of the ARRANGEMENT rather than of the code: a status
+            // mover would have had to invent its own save for the assertion to notice.
+            //
+            // Here the approval arrives CLOSED, so the resolution genuinely reinstates it in place
+            // (§9.7.2 rule 2) — one real write, on this flow, whose payload is captured. The
+            // status carried into it is the assertion. What each arm now catches:
+            //
+            //  * a flow that submits a Draft on edit, or withdraws a Submitted row to Draft: the
+            //    moved status rides into the reinstate write and the SNAPSHOT names it, and a
+            //    mover that added a save of its own breaks Times.Once.
+            //  * a flow that branches on the PROBE's projected status instead of the stored row's:
+            //    the projection carries a decoy Approved that the stored row never had, so reading
+            //    the wrong one changes the outcome.
+            //  * a flow that skips the re-read after dismissing: the two verdicts differ, so the
+            //    second read cannot be satisfied by repeating the first.
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            // The status the flow must never write on THIS row — the other end of the submit /
+            // withdraw pair the §9.2 and §9.7.4 rules forbid.
+            ApprovalStatus forbiddenStatus = approvalStatus == ApprovalStatus.Draft
+                ? ApprovalStatus.Submitted
+                : ApprovalStatus.Draft;
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
@@ -336,19 +358,46 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 entityType: EntityType.Link,
                 approvalStatus: approvalStatus);
 
-            SetupApprovalProbe(CreateApprovalMatch(approvalStatus, approvalId));
-            SetupFlowApprovalRow(storageApproval);
-            SetupFlowApprovalReviews(approvalReviews: new List<ApprovalReview>());
+            storageApproval.IsDeleted = true;
 
-            ApprovalConditionsVerdict conditions = CreateFlowConditions(
-                areConditionsMet: true,
-                shouldResetStaleReviewsOnChange: shouldResetStaleReviews,
-                approvalCount: 2,
-                requiredNumberOfApprovals: 2);
+            // The projection deliberately DISAGREES with the row it points at. Only IsDeleted is
+            // the resolution's business here; a flow reading the status off the probe would be
+            // reading Approved for a row that is nothing of the kind.
+            SetupApprovalProbe(new ApprovalEntityMatch
+            {
+                Id = approvalId,
+                ApprovalStatus = ApprovalStatus.Approved,
+                IsDeleted = true,
+            });
 
+            List<Approval> savedApprovals = SetupFlowApprovalRow(storageApproval);
+
+            List<Guid> dismissedReviewIds = SetupFlowApprovalReviews(
+                approvalReviews: new List<ApprovalReview>
+                {
+                    CreateFlowApprovalReview(
+                        approvalReviewId: staleReviewId,
+                        approvalId: approvalId,
+                        statusId: ApprovalStatus.Approved),
+                });
+
+            // Neither verdict auto-approves — §9.7.7's own write is a different rule and is
+            // covered elsewhere — and the two differ so a skipped re-read is visible.
             SetupFlowConditionsReads(
-                firstConditions: conditions,
-                secondConditions: conditions);
+                firstConditions: CreateFlowConditions(
+                    areConditionsMet: true,
+                    shouldResetStaleReviewsOnChange: shouldResetStaleReviews,
+                    approvalCount: 2,
+                    requiredNumberOfApprovals: 5),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: shouldResetStaleReviews,
+                    blockReasons: new List<AccessDenialReason>
+                    {
+                        AccessDenialReason.ApprovalThresholdNotMet,
+                    },
+                    approvalCount: 0,
+                    requiredNumberOfApprovals: 5));
 
             // when
             ApprovalOutcome actualOutcome =
@@ -357,15 +406,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     entityId,
                     TestContext.Current.CancellationToken);
 
-            // then
-            actualOutcome.ApprovalStatus.Should().Be(approvalStatus);
-            actualOutcome.IsEntitySyncRequested.Should().BeFalse();
-
+            // then: EXACTLY ONE write happened, and it is the reinstatement — which is what makes
+            // the status claim below a claim about the code rather than about the arrangement.
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
                     It.IsAny<CancellationToken>()),
-                Times.Never);
+                Times.Once);
+
+            savedApprovals.Should().ContainSingle();
+            Approval savedApproval = savedApprovals.Single();
+
+            savedApproval.IsDeleted.Should().BeFalse();
+            savedApproval.Id.Should().Be(approvalId);
+
+            // The status went into that write untouched. This is the whole invariant.
+            savedApproval.ApprovalStatus.Should().Be(approvalStatus);
+            savedApproval.ApprovalStatus.Should().NotBe(forbiddenStatus);
+            savedApproval.ApprovalStatus.Should().NotBe(ApprovalStatus.Approved);
+
+            actualOutcome.ApprovalStatus.Should().Be(approvalStatus);
+            actualOutcome.ApprovalStatus.Should().NotBe(forbiddenStatus);
+            actualOutcome.IsEntitySyncRequested.Should().BeFalse();
+
+            // The reset flag drives the review reads and the second conditions read together, so
+            // both are counted: an arm that dismissed without re-reading, or re-read without
+            // dismissing, is a different bug and each shows up here.
+            dismissedReviewIds.Should()
+                .HaveCount(shouldResetStaleReviews ? 1 : 0);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.EvaluateApprovalConditionsByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                shouldResetStaleReviews ? Times.Exactly(2) : Times.Once());
 
             // and no command reaches the entity, whose own ApprovalStatus must not move either.
             this.eventEnvelopeBrokerMock.Verify(broker =>
@@ -534,16 +608,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             //
             // The conditions are armed to auto-approve, so a short-circuit that leaked would
             // approve and be caught.
+            //
+            // ARMED ON THE OTHER SIDE TOO, which it was not before: the row arrives carrying a
+            // WAIVER PAIR that the flow has no business changing, and the sync path is stubbed so
+            // a leaked gate publishes a command this test can name rather than dying on an
+            // unstubbed broker. What each now catches:
+            //
+            //  * a flow that describes the outcome from a freshly built Approval rather than the
+            //    stored row: the pinned bypass reason is the only place that value exists, so a
+            //    default-constructed answer reads null and fails.
+            //  * a flow that clears or rewrites the waiver on a round it is not deciding: same
+            //    assertion, from the other direction — the pair must arrive unchanged.
+            //  * a gate that leaks: the published-command list is empty rather than merely
+            //    un-thrown, so the failure names what was announced.
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();
+
+            // Captured BEFORE the act. The flow hands its own row onward, so an assertion made
+            // against that object afterwards would be comparing it with itself.
+            const string expectedBypassReason = "waiver recorded on an earlier round";
 
             Approval storageApproval = CreateFlowApproval(
                 approvalId: approvalId,
                 entityId: entityId,
                 entityType: EntityType.Link,
-                approvalStatus: approvalStatus);
+                approvalStatus: approvalStatus,
+                isApprovedByBypass: true,
+                approvedByBypassReason: expectedBypassReason);
 
             SetupFlowApprovalRow(storageApproval);
+            SetupFlowSystemEnvelope<Link>();
+            List<EventEnvelope<Link>> publishedCommands = SetupFlowLinkCommandPublish();
 
             SetupFlowConditionsReads(
                 firstConditions: CreateFlowConditions(
@@ -561,9 +656,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             actualOutcome.EntityId.Should().Be(entityId);
             actualOutcome.EntityType.Should().Be(EntityType.Link);
             actualOutcome.ApprovalStatus.Should().Be(approvalStatus);
+            actualOutcome.ApprovalStatus.Should().NotBe(ApprovalStatus.Submitted);
 
-            // Nothing was asked of the entity, so nothing is claimed to have been asked.
+            // The waiver is reported exactly as stored — neither invented nor discarded by a flow
+            // that decided nothing.
+            actualOutcome.IsApprovedByBypass.Should().BeTrue();
+            actualOutcome.ApprovedByBypassReason.Should().Be(expectedBypassReason);
+
+            // Nothing was asked of the entity, so nothing is claimed to have been asked — and
+            // nothing was in fact sent.
             actualOutcome.IsEntitySyncRequested.Should().BeFalse();
+            publishedCommands.Should().BeEmpty();
 
             // No policy is resolved at all — the status question is answered off the stored row.
             this.accessBrokerMock.Verify(broker =>
