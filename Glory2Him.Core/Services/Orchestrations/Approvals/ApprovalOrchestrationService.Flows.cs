@@ -1,0 +1,199 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, 'I am the way and the truth and the life.
+//                  No one comes to the Father except through me.'"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.Approvals;
+
+namespace Glory2Him.Core.Services.Orchestrations.Approvals
+{
+    internal partial class ApprovalOrchestrationService
+    {
+        public ValueTask<ApprovalOutcome> ProcessEntityModifiedAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnProcessEntity(entityType, entityId);
+
+                Approval approval = await ResolveApprovalAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    cancellationToken: cancellationToken);
+
+                // §9.7.4. This flow only ever sees Draft and Submitted, and that is a property of
+                // the system rather than an assumption: a terminal row is immutable in place, so a
+                // versioned entity's edit becomes a DIFFERENT row running the Added flow, and a
+                // single-row entity's edit is refused at the foundation before any fact is
+                // published. Neither can arrive here.
+                //
+                // Every -Modified reaching this point is a content change by construction, so
+                // there is no field-comparison gate: approval state is writable only through the
+                // transition verb, which publishes -Approved/-Rejected/-Submitted and never
+                // -Modified.
+                ApprovalConditionsVerdict conditions =
+                    await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
+                        approvalId: approval.Id,
+                        cancellationToken: cancellationToken);
+
+                ValidateStorageApprovalConditionsResolved(
+                    conditions, entityType, entityId);
+
+                // The status is deliberately NOT moved. A Draft stays Draft — this flow may never
+                // write Submitted onto one, because submitting is somebody's decision to offer
+                // the content, not a side effect of editing it (§9.2). And a Submitted row stays
+                // Submitted: the edit re-opens the round rather than withdrawing it.
+                if (conditions.ShouldResetStaleReviewsOnChange is false)
+                {
+                    // Never dismisses when the setting is off. The reviews stand, and the
+                    // conditions already read are the ones to evaluate against.
+                    return await EvaluateApprovalAsync(
+                        approval: approval,
+                        conditions: conditions,
+                        cancellationToken: cancellationToken);
+                }
+
+                await DismissStaleApprovalReviewsAsync(
+                    approvalId: approval.Id,
+                    cancellationToken: cancellationToken);
+
+                // RE-READ, and this is the whole reason evaluation takes its verdict rather than
+                // fetching one: the conditions above were measured against reviews that no longer
+                // count. Evaluating on them would auto-approve using approvals just discarded —
+                // exactly inverting what RequireReapprovalOnChange asked for.
+                return await EvaluateResolvedApprovalAsync(
+                    approval: approval,
+                    cancellationToken: cancellationToken);
+            });
+
+        public ValueTask<ApprovalOutcome> ProcessApprovalReviewRecordedAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnProcessApprovalReview(approvalId);
+
+                Approval approval =
+                    await this.approvalService.RetrieveApprovalByIdAsync(
+                        approvalId: approvalId,
+                        cancellationToken: cancellationToken);
+
+                ValidateStorageApprovalExists(
+                    approval is null ? null : new ApprovalEntityMatch
+                    {
+                        Id = approval.Id,
+                        ApprovalStatus = approval.ApprovalStatus,
+                        IsDeleted = approval.IsDeleted,
+                    },
+                    approval?.EntityType ?? default,
+                    approval?.EntityId ?? Guid.Empty);
+
+                // A review recorded against a round that is not open decides nothing. The gates
+                // on recording it are the review service's; this flow only reacts.
+                if (approval.ApprovalStatus != ApprovalStatus.Submitted)
+                {
+                    return DescribeOutcome(approval, isEntitySyncRequested: false);
+                }
+
+                ApprovalConditionsVerdict conditions =
+                    await this.accessBroker.EvaluateApprovalConditionsByIdAsync(
+                        approvalId: approval.Id,
+                        cancellationToken: cancellationToken);
+
+                ValidateStorageApprovalConditionsResolved(
+                    conditions, approval.EntityType, approval.EntityId);
+
+                // §9.7.5 rejection branch. A standing rejection under BlockOnReject ends the round
+                // IMMEDIATELY — independent of the threshold, and even where approvals have
+                // already been recorded. It is reported by the conditions as a block rather than
+                // counted, so no evaluation runs and nothing waits for a second opinion.
+                //
+                // Under BlockOnReject = false the same rejection appears in neither place: it is
+                // recorded for audit, never counts toward the threshold, and reviewing continues.
+                bool isBlockedByRejection = conditions.BlockReasons
+                    .Contains(AccessDenialReason.BlockedByRejection);
+
+                if (isBlockedByRejection)
+                {
+                    return await RejectApprovalOnStandingRejectionAsync(
+                        approval: approval,
+                        cancellationToken: cancellationToken);
+                }
+
+                return await EvaluateApprovalAsync(
+                    approval: approval,
+                    conditions: conditions,
+                    cancellationToken: cancellationToken);
+            });
+
+        // §9.7.5 rule 2. Rejection withholds approval rather than granting it, so nothing is
+        // waived and the bypass pair is CLEARED rather than left alone — a row bypass-approved,
+        // re-opened and then rejected must stop claiming a waiver it no longer carries.
+        //
+        // IsLatestVersion and IsPublished are deliberately untouched: a rejection leaves any
+        // previously published version of the group exactly where it was, and visibility is
+        // gated by ApprovalStatus rather than by unpublishing something (§14.1).
+        private async ValueTask<ApprovalOutcome> RejectApprovalOnStandingRejectionAsync(
+            Approval approval,
+            CancellationToken cancellationToken)
+        {
+            approval.ApprovalStatus = ApprovalStatus.Rejected;
+            approval.IsApprovedByBypass = false;
+            approval.ApprovedByBypassReason = null;
+
+            Approval rejectedApproval = await this.approvalService.ModifyApprovalAsync(
+                approval: approval,
+                cancellationToken: cancellationToken);
+
+            await PublishEntityApprovalCommandAsync(
+                approval: rejectedApproval,
+                cancellationToken: cancellationToken);
+
+            return DescribeOutcome(rejectedApproval, isEntitySyncRequested: true);
+        }
+
+        // §9.7.4. Dismissed, not deleted: the review is a record that somebody looked, and the
+        // audit trail keeps it. Dismissal is what stops it counting toward the threshold.
+        private async ValueTask DismissStaleApprovalReviewsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken)
+        {
+            IQueryable<ApprovalReview> allApprovalReviews =
+                await this.approvalReviewService.RetrieveAllApprovalReviewsAsync(
+                    cancellationToken: cancellationToken);
+
+            List<Guid> staleReviewIds = allApprovalReviews
+                .Where(approvalReview =>
+                    approvalReview.ApprovalId == approvalId
+                        && approvalReview.IsDeleted == false
+                        && approvalReview.StatusId != ApprovalStatus.Dismissed)
+                .Select(approvalReview => approvalReview.Id)
+                .ToList();
+
+            foreach (Guid staleReviewId in staleReviewIds)
+            {
+                await this.approvalReviewService.DismissApprovalReviewAsync(
+                    approvalReviewId: staleReviewId,
+                    cancellationToken: cancellationToken);
+            }
+        }
+    }
+}

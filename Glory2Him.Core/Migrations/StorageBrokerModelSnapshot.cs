@@ -540,11 +540,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsLatestVersion")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<bool>("IsPublished")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -575,11 +570,6 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasIndex("Hash")
                         .HasDatabaseName("IX_Attachments_Hash");
-
-                    b.HasIndex("GroupId", "IsLatestVersion")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Attachments_GroupId_IsLatestVersion")
-                        .HasFilter("[IsLatestVersion] = 1");
 
                     b.HasIndex("GroupId", "IsPublished")
                         .IsUnique()
@@ -942,11 +932,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsLatestVersion")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<bool>("IsPublished")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -984,11 +969,6 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasIndex("ContentType", "ContentHash")
                         .HasDatabaseName("IX_ContentItems_ContentTypeId_ContentHash");
-
-                    b.HasIndex("GroupId", "IsLatestVersion")
-                        .IsUnique()
-                        .HasDatabaseName("IX_ContentItem_IsLatestVersion")
-                        .HasFilter("[IsLatestVersion] = 1");
 
                     b.HasIndex("GroupId", "IsPublished")
                         .IsUnique()
@@ -1053,11 +1033,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
-                    b.Property<bool>("IsLatestVersion")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(false);
-
                     b.Property<bool>("IsPublished")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1095,11 +1070,6 @@ namespace Glory2Him.Core.Migrations
                         .HasDefaultValue(1);
 
                     b.HasKey("Id");
-
-                    b.HasIndex("GroupId", "IsLatestVersion")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Links_GroupId_IsLatestVersion")
-                        .HasFilter("[IsLatestVersion] = 1");
 
                     b.HasIndex("GroupId", "IsPublished")
                         .IsUnique()

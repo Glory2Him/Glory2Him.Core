@@ -29,12 +29,64 @@ namespace Glory2Him.Core.Brokers.Integrities
 
         private readonly IReadOnlyList<EventEnvelopeSigningKey> signingKeys;
 
-        public EnvelopeIntegrityBroker(IConfiguration configuration) =>
+        public EnvelopeIntegrityBroker(IConfiguration configuration)
+        {
             this.signingKeys =
                 configuration
                     .GetSection(SigningSection)
                     .Get<List<EventEnvelopeSigningKey>>()
                         ?? new List<EventEnvelopeSigningKey>();
+
+            ValidateSigningKeys(this.signingKeys);
+        }
+
+        // Two configuration mistakes a signature cannot survive, refused at the one point that
+        // sees every key at once. Both fail at boot rather than at the first publish, because a
+        // host that cannot sign anything usable should not go on looking like a working one.
+        private static void ValidateSigningKeys(
+            IReadOnlyList<EventEnvelopeSigningKey> signingKeys)
+        {
+            // An unconfigured host is NOT an error here — it fails closed at signing time, by
+            // design, and validating an empty set would turn a deliberate posture into a crash.
+            if (signingKeys.Count is 0)
+            {
+                return;
+            }
+
+            // A key with no secret is not a weak key, it is an open door: the HMAC becomes one
+            // anybody can recompute, and Key defaults to string.Empty, so an entry that names a
+            // KeyId and an ActiveFrom but omits Key binds to exactly that. An id is required for
+            // the same practical reason — verification resolves by it, and a blank one is
+            // already refused there, so a key configured with none could never verify anything.
+            EventEnvelopeSigningKey unusableKey = signingKeys.FirstOrDefault(key =>
+                string.IsNullOrWhiteSpace(key.Key)
+                    || string.IsNullOrWhiteSpace(key.KeyId));
+
+            if (unusableKey is not null)
+            {
+                throw new InvalidOperationException(
+                    "An event envelope signing key is configured without a usable KeyId and " +
+                    "secret. Both are required: the secret is what the signature rests on, and " +
+                    "the id is what verification resolves by.");
+            }
+
+            // Two entries under one id resolve arbitrarily on verification, so a genuine envelope
+            // can be checked against the wrong secret — which is how a rotation that reuses an
+            // id starts rejecting traffic it should accept.
+            string duplicateKeyId = signingKeys
+                .GroupBy(key => key.KeyId, StringComparer.Ordinal)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.Key)
+                .FirstOrDefault();
+
+            if (duplicateKeyId is not null)
+            {
+                throw new InvalidOperationException(
+                    $"Event envelope signing key id '{duplicateKeyId}' is configured more than " +
+                    "once. Verification resolves a key by its id, so duplicates make which key " +
+                    "checks a signature indeterminate. Key ids must be unique.");
+            }
+        }
 
         public ValueTask<EnvelopeIntegrity> SignAsync<T>(
             EventEnvelope<T> envelope,

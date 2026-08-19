@@ -38,6 +38,16 @@ namespace Glory2Him.Core.Models.Configurations
         public static readonly Guid ContentItemProcessingRemovedEventAddressId =
             new Guid("019fba7b-a344-7ede-b512-436bbca6932b");
 
+        // The publication swap's request and completion addresses. A Versioned entity is
+        // approved through the PROCESSING tier, because granting approval also has to
+        // clear the group's published slot and only this layer can order the two writes
+        // (§12.4.1 rule 10, §9.7.7 rule 7).
+        public static readonly Guid ContentItemProcessingApprovingEventAddressId =
+            new Guid("01a01034-ea12-7689-be79-4f2d9a6ac2c0");
+
+        public static readonly Guid ContentItemProcessingApprovedEventAddressId =
+            new Guid("01a01034-fb23-779a-cf8a-503eab7bd3d1");
+
         internal static readonly IReadOnlyDictionary<ContentItemProcessingEventOperation, Guid>
             ContentItemProcessingEventAddressIds = new Dictionary<ContentItemProcessingEventOperation, Guid>
             {
@@ -68,6 +78,14 @@ namespace Glory2Him.Core.Models.Configurations
                 {
                     ContentItemProcessingEventOperation.Removed,
                     ContentItemProcessingRemovedEventAddressId
+                },
+                {
+                    ContentItemProcessingEventOperation.Approving,
+                    ContentItemProcessingApprovingEventAddressId
+                },
+                {
+                    ContentItemProcessingEventOperation.Approved,
+                    ContentItemProcessingApprovedEventAddressId
                 }
             };
 
@@ -80,8 +98,16 @@ namespace Glory2Him.Core.Models.Configurations
                 { ContentItemProcessingRetrievingByIdEventAddressId, "ContentItemProcessing-RetrievingById" },
                 { ContentItemProcessingAddedEventAddressId, "ContentItemProcessing-Added" },
                 { ContentItemProcessingModifiedEventAddressId, "ContentItemProcessing-Modified" },
-                { ContentItemProcessingRemovedEventAddressId, "ContentItemProcessing-Removed" }
+                { ContentItemProcessingRemovedEventAddressId, "ContentItemProcessing-Removed" },
+                { ContentItemProcessingApprovingEventAddressId, "ContentItemProcessing-Approving" },
+                { ContentItemProcessingApprovedEventAddressId, "ContentItemProcessing-Approved" }
             };
+
+        public static readonly Guid ContentItemProcessingOnApprovingContentItemSubscriptionId =
+            new Guid("019ff41f-4b3a-7d77-ce60-9b8da4f701e6");
+
+        public const string ContentItemProcessingOnApprovingContentItemSubscriptionName =
+            "ContentItemProcessing.OnApprovingContentItem";
 
         public static readonly Guid ContentItemProcessingOnAddingContentItemSubscriptionId =
             new Guid("019fab26-8096-7007-866e-805ae4cfab7f");

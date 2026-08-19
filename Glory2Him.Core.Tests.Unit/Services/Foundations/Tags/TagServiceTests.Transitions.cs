@@ -199,6 +199,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             return savedTag;
         }
 
+        // The same capture, driven over the EVENT path instead of the in-process one, so a test
+        // can assert what the workflow's command actually wrote. DeepClone because the service
+        // mutates the storage row it was handed — comparing a field against the same object
+        // afterwards would compare it with itself and pass whatever the service did.
+        private async ValueTask<Tag> CaptureSavedTagOnEventTransitionAsync(
+            Tag storageTag,
+            EventEnvelope<Tag> requestEnvelope)
+        {
+            Tag savedTag = null;
+
+            SetupTagStorageRead(storageTag);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((Tag entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateTagAsync(
+                    It.IsAny<Tag>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Tag, CancellationToken>(
+                            (entity, _) => savedTag = entity.DeepClone())
+                        .ReturnsAsync((Tag entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishTagAsync(
+                    It.IsAny<EventEnvelope<Tag>>(),
+                    It.IsAny<TagEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Tag>>(
+                            new EventPublishResult<Tag>()));
+
+            await this.tagService.OnApprovingTagAsync(
+                requestEnvelope,
+                TestContext.Current.CancellationToken);
+
+            return savedTag;
+        }
+
         // Runs a permitted approve end to end and hands back the query the service gave the
         // access broker. Permitted rather than refused because the whole operation should run:
         // the query is built before the verdict is read, so this is the query a real approve

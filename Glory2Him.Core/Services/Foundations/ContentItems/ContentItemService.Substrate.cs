@@ -221,13 +221,19 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                         contentItem: envelope.Content,
                         inboundEnvelope: envelope,
 
-                        // This envelope arrived over a PUBLIC event address and its security
-                        // context was deserialized, not authenticated (§14.6 rule 4). A caller
-                        // who could assert the system identity here would be granted the
-                        // workflow's own authority — including the override out of a terminal
-                        // state — simply by setting a JSON property. The claim is discarded and
-                        // the caller is treated as the ordinary unprivileged one they are.
-                        isSystemIdentityAdmissible: false,
+                        // Admissible because the envelope was VERIFIED above. Only this system
+                        // holds the signing key, so a valid signature is what establishes that
+                        // the envelope was minted here rather than by whoever could reach the
+                        // address — and the security context is inside the signed payload, so a
+                        // caller cannot set the flag on a genuine envelope without breaking the
+                        // HMAC, nor mint a fresh one carrying it.
+                        //
+                        // That is what lets the approval workflow sync its decision onto the
+                        // entity over an event at all (§16.7.1). It rests on the signing key
+                        // never leaving this system; a future host that publishes with a key of
+                        // its own would be asserting this identity too, and would need its own
+                        // answer here.
+                        isSystemIdentityAdmissible: true,
                         cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

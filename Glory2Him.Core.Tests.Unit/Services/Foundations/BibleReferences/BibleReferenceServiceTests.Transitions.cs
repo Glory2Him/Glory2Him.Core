@@ -199,6 +199,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             return savedBibleReference;
         }
 
+        // The same capture, driven over the EVENT path instead of the in-process one, so a test
+        // can assert what the workflow's command actually wrote. DeepClone because the service
+        // mutates the storage row it was handed — comparing a field against the same object
+        // afterwards would compare it with itself and pass whatever the service did.
+        private async ValueTask<BibleReference> CaptureSavedBibleReferenceOnEventTransitionAsync(
+            BibleReference storageBibleReference,
+            EventEnvelope<BibleReference> requestEnvelope)
+        {
+            BibleReference savedBibleReference = null;
+
+            SetupBibleReferenceStorageRead(storageBibleReference);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<BibleReference>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((BibleReference entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateBibleReferenceAsync(
+                    It.IsAny<BibleReference>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<BibleReference, CancellationToken>(
+                            (entity, _) => savedBibleReference = entity.DeepClone())
+                        .ReturnsAsync((BibleReference entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishBibleReferenceAsync(
+                    It.IsAny<EventEnvelope<BibleReference>>(),
+                    It.IsAny<BibleReferenceEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<BibleReference>>(
+                            new EventPublishResult<BibleReference>()));
+
+            await this.bibleReferenceService.OnApprovingBibleReferenceAsync(
+                requestEnvelope,
+                TestContext.Current.CancellationToken);
+
+            return savedBibleReference;
+        }
+
         // Runs a permitted approve end to end and hands back the query the service gave the
         // access broker. Permitted rather than refused because the whole operation should run:
         // the query is built before the verdict is read, so this is the query a real approve

@@ -30,42 +30,37 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 message: "Link is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
 
-        private static void ValidateOnDemoteLinkVersion(Guid linkId) =>
+        private static void ValidateOnFindPublishedLinkByGroup(Guid groupId) =>
+            Validate(
+                message: "Link is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(groupId), Parameter: nameof(Link.GroupId)));
+
+        private static void ValidateOnUnpublishLink(Guid linkId) =>
             Validate(
                 message: "Link is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
 
-        // Forking is the OWNER's act and nobody else's — §3.4 rule 8 says the owner is the only
-        // creator of new versions and that Publisher and Admin roles never fork one. The
-        // demotion is a step inside that fork, so it takes the same gate rather than the
-        // modify's wider one: a Reviewer holds write permission on the row and must still never
-        // move the version tip, and neither may a Publisher.
-        private async ValueTask ValidateUserCanDemoteStorageLinkVersionAsync(
-            Link storageLink,
-            SecurityContext securityContext)
+        // Admin or the workflow, and NOT the publisher tier. The row being
+        // unpublished is itself Approved, and §8.6 HR-4 bars a Publisher from moving
+        // an approved row — the same reason the override is Admin-gated. The system
+        // identity is admissible because it arrived on a verified envelope.
+        private static void ValidateUserCanUnpublishLink(SecurityContext securityContext)
         {
-            string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
-
-            bool isOwner =
-                string.IsNullOrWhiteSpace(actorUserId) is false
-                    && storageLink.CreatedBy == actorUserId;
-
-            if (isOwner is false)
+            if (securityContext is null || securityContext.IsAuthenticated is false)
             {
                 throw new UnauthorizedLinkException(
-                    message: "The current user is not allowed to demote this link version.");
+                    message: "The current user is not authenticated.");
             }
-        }
 
-        // Only the current tip may be demoted. A row that is already not the latest has nothing
-        // to demote, and letting the call through would publish a Demoted fact for a write that
-        // changed nothing — leaving a subscriber to infer a version move that never happened.
-        private static void ValidateStorageLinkIsDemotable(Link storageLink)
-        {
-            if (storageLink.IsLatestVersion is false)
+            bool isPermitted =
+                securityContext.IsSystemIdentity
+                    || securityContext.Roles.Contains(Roles.Admin);
+
+            if (isPermitted is false)
             {
-                throw new InvalidLinkException(
-                    message: "Link is not the latest version and cannot be demoted.");
+                throw new UnauthorizedLinkException(
+                    message: "The current user is not allowed to unpublish this "
+                        + "link.");
             }
         }
 
@@ -206,12 +201,19 @@ namespace Glory2Him.Core.Services.Foundations.Links
             // and the previously published sibling a newly approved version demotes is itself
             // Approved, so no Publisher may touch it either.
             //
-            // The system identity stands in for the publisher tier and for nothing else. It
-            // requests no bypass and is granted none — waiving the §8.5 conditions is a human
-            // act that has to be explained by a human.
+            // The bypass pair is CARRIED, not decided. The workflow reaches here as the
+            // messenger of a decision a human already made and was authorised for on the
+            // Approval row, and re-deriving it would answer a question this actor was never
+            // asked — writing "no bypass" over a waiver the approval records, diverging the two
+            // records (§9.8) and erasing exactly the evidence §9.7.1 rule 3 exists to keep.
+            //
+            // Nothing unexplained gets through on this route: the shape validation refuses a
+            // bypass with no reason, and one paired with any target but Approved, before any
+            // policy is read. And the claim reached here only on a verified envelope, which is
+            // what establishes it was minted by this system (§16.7.1).
             if (isSystemIdentity)
             {
-                return false;
+                return link.IsApprovedByBypass;
             }
 
             if (HasPublisherRole(securityContext) is false)

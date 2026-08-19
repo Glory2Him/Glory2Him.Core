@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -45,6 +45,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 linkId: inputLink.Id,
                 approvalStatus: approvalStatus,
                 createdBy: actorUserId);
+
+            SetupGroupTipRead(storageLink);
 
             Link expectedMappedLink = storageLink.DeepClone();
             expectedMappedLink.Name = inputLink.Name;
@@ -102,6 +104,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 service.RetrieveLinkByIdAsync(inputLink.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
 
+            // even an in-place edit has to establish that this row is the tip, and the tip is
+            // a fact about the group rather than a flag on the row
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(securityContext),
                 Times.Once);
@@ -144,6 +152,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 linkId: inputLink.Id,
                 approvalStatus: ApprovalStatus.Draft,
                 createdBy: actorUserId);
+
+            SetupGroupTipRead(storageLink);
 
             DateTimeOffset storedPublishDate = GetRandomDateTimeOffset();
             storageLink.PublishDate = storedPublishDate;
@@ -198,6 +208,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 linkId: inputLink.Id,
                 approvalStatus: ApprovalStatus.Draft,
                 createdBy: actorUserId);
+
+            SetupGroupTipRead(storageLink);
 
             inputLink.GroupId = Guid.NewGuid();
             inputLink.Version = storageLink.Version + GetRandomNumber();
@@ -255,11 +267,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             ApprovalStatus terminalApprovalStatus)
         {
             // given: a terminal link is immutable in place, even to its owner — the edit
-            // forks a new row with Version + 1 that becomes the latest, the previous latest
-            // is demoted BEFORE the insert (one IsLatestVersion = true per group), and the
-            // new version starts unpublished in Draft (design §3.4 rules 7-12, rule 16).
-            // Rejected forks for the same reason Approved does: the row records a decision,
-            // and editing it in place would rewrite what was decided.
+            // inserts a new row at Version + 1, and that single insert is the whole fork.
+            // The new row becomes the tip by being the highest version in the group, not by
+            // being told it is one: there is no demotion write, so there is no window in
+            // which the group has no tip at all (#265). The new version starts unpublished
+            // in Draft (design §3.4 rules 7-12, rule 16). Rejected forks for the same reason
+            // Approved does: the row records a decision, and editing it in place would
+            // rewrite what was decided.
             Link randomLink = CreateRandomLink();
             Link inputLink = randomLink;
             string actorUserId = GetRandomString();
@@ -270,8 +284,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 approvalStatus: terminalApprovalStatus,
                 createdBy: actorUserId);
 
-            Link expectedDemotedLink = storageLink.DeepClone();
-            expectedDemotedLink.IsLatestVersion = false;
+            SetupGroupTipRead(storageLink);
 
             var expectedNewVersionLink = new Link
             {
@@ -285,7 +298,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 PublishDate = null,
                 GroupId = storageLink.GroupId,
                 Version = storageLink.Version + 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
@@ -315,26 +327,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(newVersionLinkId);
 
-            var callOrder = new List<string>();
-            Guid capturedDemotedLinkId = Guid.Empty;
             Link? capturedNewVersionLink = null;
-
-            this.linkServiceMock.Setup(service =>
-                service.DemoteLinkVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                    .Callback<Guid, CancellationToken>((linkId, cancellationToken) =>
-                    {
-                        callOrder.Add("demote");
-                        capturedDemotedLinkId = linkId;
-                    })
-                    .ReturnsAsync(expectedDemotedLink);
 
             this.linkServiceMock.Setup(service =>
                 service.AddLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()))
                     .Callback<Link, CancellationToken>((link, cancellationToken) =>
-                    {
-                        callOrder.Add("add");
-                        capturedNewVersionLink = link;
-                    })
+                        capturedNewVersionLink = link)
                     .ReturnsAsync(addedLink);
 
             EventEnvelope<Link> outboundEnvelope = SetupCompletionFactPublish(
@@ -350,14 +348,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             // then
             actualLink.Should().BeEquivalentTo(expectedLink);
-            // the demotion names the row and nothing else — IsLatestVersion is the foundation
-            // verb's to write, not this service's to hand over
-            capturedDemotedLinkId.Should().Be(storageLink.Id);
             capturedNewVersionLink.Should().BeEquivalentTo(expectedNewVersionLink);
-            callOrder.Should().Equal("demote", "add");
+
+            // the guarantee the old demote-then-insert pair could only approximate: the new
+            // row outranks the row it forked from, in the same group, so the tip resolves to
+            // it the moment the insert lands — and to the old row if it never does
+            capturedNewVersionLink!.GroupId.Should().Be(storageLink.GroupId);
+            capturedNewVersionLink.Version.Should().BeGreaterThan(storageLink.Version);
 
             this.linkServiceMock.Verify(service =>
                 service.RetrieveLinkByIdAsync(inputLink.Id, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            // the tip is a question about the group, so the service has to go and ask it
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()),
                 Times.Once);
 
             this.securityAuditBrokerMock.Verify(broker =>
@@ -368,19 +373,21 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 broker.GetIdentifierAsync(),
                 Times.Once);
 
-            this.linkServiceMock.Verify(service =>
-                service.DemoteLinkVersionAsync(storageLink.Id, It.IsAny<CancellationToken>()),
-                Times.Once);
-
+            // ONE write. The fork used to be two, and a second write that failed left the
+            // group with no tip at all — the whole of #265.
             this.linkServiceMock.Verify(service =>
                 service.AddLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            this.linkServiceMock.Verify(service =>
+                service.ModifyLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateAsync(inputLink),
                 Times.Once);
 
-            // the fork writes two foundation rows but announces the amend exactly once
+            // the fork announces the amend exactly once
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(inboundEnvelope, addedLink),
                 Times.Once);
@@ -401,10 +408,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         public async Task ShouldLeavePreviouslyPublishedRowPublishedOnForkAsync(
             ApprovalStatus terminalApprovalStatus)
         {
-            // given: the fork demotes the previous latest but leaves IsPublished alone
-            // (§3.4 rule 12), so a group that had a published row keeps serving it while
-            // the new version moves through review. An Approved row is normally the
-            // published one; a Rejected row never was, so the group simply stays dark.
+            // given: the fork writes nothing at all to the row it forked from, so a group
+            // that had a published row keeps serving it while the new version moves through
+            // review (§3.4 rule 12). An Approved row is normally the published one; a
+            // Rejected row never was, so the group simply stays dark.
             Link inputLink = CreateRandomLink();
             string actorUserId = GetRandomString();
 
@@ -412,6 +419,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 linkId: inputLink.Id,
                 approvalStatus: terminalApprovalStatus,
                 createdBy: actorUserId);
+
+            SetupGroupTipRead(storageLink);
 
             storageLink.IsPublished = terminalApprovalStatus == ApprovalStatus.Approved;
             bool storedIsPublished = storageLink.IsPublished;
@@ -438,14 +447,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(Guid.NewGuid());
 
-            Guid capturedDemotedLinkId = Guid.Empty;
             Link? capturedNewVersionLink = null;
-
-            this.linkServiceMock.Setup(service =>
-                service.DemoteLinkVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                    .Callback<Guid, CancellationToken>((linkId, cancellationToken) =>
-                        capturedDemotedLinkId = linkId)
-                    .ReturnsAsync(storageLink);
 
             this.linkServiceMock.Setup(service =>
                 service.AddLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()))
@@ -458,14 +460,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 inputLink,
                 TestContext.Current.CancellationToken);
 
-            // then: the fork demotes the row it read and starts the new one dark. That the
-            // demotion leaves IsPublished alone is the demote verb's field scope to guarantee
-            // and is asserted against the foundation service, not here — this service no longer
-            // hands over an entity it could get wrong.
-            capturedDemotedLinkId.Should().Be(storageLink.Id);
+            // then: the incumbent is left exactly as it was read — still published if it was
+            // — and the new one starts dark. No write reaches the old row at all, so the fork
+            // has no way to disturb its publication.
             storageLink.IsPublished.Should().Be(storedIsPublished);
-            capturedNewVersionLink!.IsLatestVersion.Should().BeTrue();
-            capturedNewVersionLink.IsPublished.Should().BeFalse();
+            capturedNewVersionLink!.IsPublished.Should().BeFalse();
+
+            // and it is the new row the derived tip now resolves to
+            capturedNewVersionLink.GroupId.Should().Be(storageLink.GroupId);
+            capturedNewVersionLink.Version.Should().BeGreaterThan(storageLink.Version);
+
+            this.linkServiceMock.Verify(service =>
+                service.ModifyLinkAsync(It.IsAny<Link>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Theory]
@@ -489,6 +496,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 linkId: inputLink.Id,
                 approvalStatus: approvalStatus,
                 createdBy: GetRandomString());
+
+            SetupGroupTipRead(storageLink);
 
             Link updatedLink = storageLink.DeepClone();
             SecurityContext securityContext = CreateAuthenticatedSecurityContext(modifyingRole);

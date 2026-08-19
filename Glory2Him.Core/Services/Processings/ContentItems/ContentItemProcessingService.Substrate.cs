@@ -9,6 +9,9 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
+using System.Linq;
+using Glory2Him.Core.Models.Enums;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
@@ -79,6 +82,114 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                     sourceEnvelope: envelope,
                     content: removedContentItem);
             });
+
+        public ValueTask<EventEnvelope<ContentItem>?> OnApprovingContentItemAsync(
+            EventEnvelope<ContentItem> envelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchSubstrate(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await ValidateContentItemEventEnvelopeAsync(
+                    envelope, ContentItemProcessingEventOperation.Approving);
+
+                ContentItem decidedContentItem =
+                    await DoTransitionContentItemApprovalAsync(
+                        command: envelope.Content,
+                        inboundEnvelope: envelope,
+                        cancellationToken: cancellationToken);
+
+                // This service's OWN completion fact, distinct from the foundation's
+                // ContentItem-Approved: that one says a row was decided, this one says the
+                // GROUP was left consistent — the incumbent cleared and the new row
+                // promoted. A subscriber that needs the second cannot infer it from the
+                // first, because the foundation fact is published before this process
+                // has finished (§10.2 rule 5).
+                await PublishContentItemProcessingFactAsync(
+                    inboundEnvelope: envelope,
+                    contentItem: decidedContentItem,
+                    operation: ContentItemProcessingEventOperation.Approved);
+
+                return await this.eventEnvelopeBroker.CreateNextAsync(
+                    sourceEnvelope: envelope,
+                    content: decidedContentItem);
+            });
+
+        // The publication swap (§9.7.7 rules 6–7, §12.4.1 rule 10). Two rows of one entity
+        // in a guaranteed order, which is why it lives here rather than in the foundation (one
+        // row per call) or the orchestration (no entity services, by design).
+        //
+        // The order is guaranteed by the CALL STACK — two sequential awaits in one method —
+        // not by delivery. Re-publishing the two writes as events would lose it: handler
+        // failures are recorded per listener rather than failing the publisher, so a failed
+        // demote would not stop the promote, and the promote is the one the index refuses.
+        private async ValueTask<ContentItem> DoTransitionContentItemApprovalAsync(
+            ContentItem command,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            // Only a PROMOTION needs the group cleared. A rejection, a re-open or an override
+            // takes nothing into the published slot, so no probe runs and the command goes
+            // straight through to the foundation.
+            bool isPromotion =
+                command.ApprovalStatus == ApprovalStatus.Approved
+                    && command.IsPublished;
+
+            if (isPromotion)
+            {
+                await DemoteIncumbentPublishedContentItemAsync(
+                    contentItemId: command.Id,
+                    inboundEnvelope: inboundEnvelope,
+                    cancellationToken: cancellationToken);
+            }
+
+            // The envelope is FORWARDED here too, not just to the unpublish. Without it
+            // the promote is re-authorised against the ambient caller — who on an
+            // automatic approval is the reviewer whose own review completed the round,
+            // and whose approval row is by now no longer Submitted, so the decision
+            // function refuses it deterministically (§16.7.1).
+            return await this.contentItemService.TransitionContentItemApprovalAsync(
+                contentItem: command,
+                inboundEnvelope: inboundEnvelope,
+                cancellationToken: cancellationToken);
+        }
+
+        // Clears the group's published slot, if anything holds it.
+        private async ValueTask DemoteIncumbentPublishedContentItemAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            // The group is read from the STORED row. A caller-supplied GroupId would let one
+            // group's approval unpublish another group's live row.
+            ContentItem targetContentItem =
+                await this.contentItemService.RetrieveContentItemByIdAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
+
+            // Through the UNFILTERED probe, not the collection read. The collection
+            // read applies the visibility filter, which drops soft-deleted rows —
+            // and a tombstone that kept IsPublished still holds the slot. Probing
+            // through a filtered read would skip it and leave the group permanently
+            // unpublishable (§9.7.7 rule 7).
+            Guid? incumbentId =
+                await this.contentItemService.FindPublishedContentItemIdByGroupAsync(
+                    groupId: targetContentItem.GroupId,
+                    excludedContentItemId: targetContentItem.Id,
+                    cancellationToken: cancellationToken);
+
+            if (incumbentId is null)
+            {
+                return;
+            }
+
+            // Not caught. If the slot cannot be cleared the promote must not be attempted: the
+            // index would refuse it anyway, and failing here leaves the incumbent published
+            // rather than the group dark.
+            await this.contentItemService.UnpublishContentItemByIdAsync(
+                contentItemId: incumbentId.Value,
+                inboundEnvelope: inboundEnvelope,
+                cancellationToken: cancellationToken);
+        }
 
         public ValueTask<EventEnvelope<ContentItem>?> OnRetrievingContentItemByIdAsync(
             EventEnvelope<ContentItem> envelope,

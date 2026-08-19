@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -53,8 +53,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 PublishDate = null,
                 ContentHash = expectedContentHash,
                 GroupId = groupId,
+
+                // version 1 of a brand-new group, which is the whole of what makes it the
+                // tip: the tip is the highest Version in the group, not a stored flag
                 Version = 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
@@ -228,8 +230,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 PublishDate = null,
                 ContentHash = expectedContentHash,
                 GroupId = groupId,
+
+                // version 1 of a brand-new group, which is the whole of what makes it the
+                // tip: the tip is the highest Version in the group, not a stored flag
                 Version = 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false

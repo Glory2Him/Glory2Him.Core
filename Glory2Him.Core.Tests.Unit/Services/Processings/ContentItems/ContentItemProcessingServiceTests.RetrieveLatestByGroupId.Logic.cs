@@ -44,7 +44,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 hasPublishDate: hasPublishDate);
 
             latestContentItem.GroupId = inputGroupId;
-            latestContentItem.IsLatestVersion = true;
+
+            // the tip is the highest Version among the group's live rows, so the seeding says
+            // it in Version numbers — there is no flag left to declare it with
+            latestContentItem.Version = 2;
 
             ContentItem olderContentItem = CreateRandomPubliclyVisibleContentItem(
                 contentItemId: Guid.NewGuid(),
@@ -52,21 +55,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 hasPublishDate: true);
 
             olderContentItem.GroupId = inputGroupId;
-            olderContentItem.IsLatestVersion = false;
+            olderContentItem.Version = 1;
 
             ContentItem otherGroupContentItem = CreateRandomPubliclyVisibleContentItem(
                 contentItemId: Guid.NewGuid(),
                 currentDateTime: currentDateTime,
                 hasPublishDate: true);
 
-            otherGroupContentItem.IsLatestVersion = true;
+            // a higher Version than the tip under test, in a DIFFERENT group: the derivation
+            // has to be group-scoped, and a version number alone must not win the read
+            otherGroupContentItem.Version = 9;
+
+            // the highest Version in THIS group, but soft-deleted — a removed row does not
+            // hold the tip hostage, which is the guarantee the demoted-flag seeding used to
+            // stand in for
+            ContentItem deletedNewerContentItem = CreateRandomDeletedContentItem(currentDateTime);
+            deletedNewerContentItem.GroupId = inputGroupId;
+            deletedNewerContentItem.Version = 3;
+
             ContentItem expectedContentItem = latestContentItem.DeepClone();
 
             IQueryable<ContentItem> storageContentItems = new[]
             {
                 latestContentItem,
                 olderContentItem,
-                otherGroupContentItem
+                otherGroupContentItem,
+                deletedNewerContentItem
             }.AsQueryable();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(

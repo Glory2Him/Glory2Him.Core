@@ -253,16 +253,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         }
 
         [Fact]
-        public async Task ShouldRefuseASystemIdentityClaimedOnAnInboundEnvelopeAsync()
+        public async Task ShouldHonourAVerifiedSystemIdentityOnAnInboundEnvelopeAsync()
         {
-            // given: THE highest-risk case in this change. On the event path the security context
-            // is deserialized and unverified (§14.6 rule 4), so a caller who can reach the public
-            // Comment-Approving address would otherwise declare themselves the workflow and walk past
-            // every approval rule in the design by setting one JSON property.
+            // given: the approval workflow syncing its decision onto the entity (§16.7.1). It
+            // holds NO roles — exactly as the genuine system context does — so the claim is the
+            // only thing that can authorize this write, and the row it approves is one no human
+            // present is permitted to decide.
             //
-            // Roleless, exactly as the genuine system context is — so the ONLY thing that could
-            // authorize this is the claim, and the only thing that can refuse it is where the
-            // claim arrived from.
+            // What makes the claim believable is not this service: it is the signature verified
+            // on the way in. Only this system holds the signing key, so a verified
+            // envelope is one this system minted — and the security context is inside the
+            // signed payload, so the flag cannot be added to a genuine envelope without
+            // breaking the HMAC. That binding is proven against the REAL broker in
+            // EnvelopeIntegrityBrokerTests — it CANNOT be proven here, because this suite
+            // mocks VerifyAsync to true.
             var requestEnvelope = new EventEnvelope<Comment>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -273,44 +277,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             Comment storageComment = CreateApprovableStorageComment();
             requestEnvelope.Content.Id = storageComment.Id;
 
-            SetupCommentStorageRead(storageComment);
-
-            var unauthorizedCommentException =
-                new UnauthorizedCommentException(
-                    message: "The current user is not allowed to approve this comment.");
-
             // when
-            ValueTask<EventEnvelope<Comment>?> transitionTask =
-                this.commentService.OnApprovingCommentAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
+            Comment savedComment = await CaptureSavedCommentOnEventTransitionAsync(
+                storageComment: storageComment,
+                requestEnvelope: requestEnvelope);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(transitionTask.AsTask);
+            // then
+            savedComment.Should().NotBeNull();
+            savedComment.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
 
-            // then: treated as the ordinary unprivileged caller it is, and refused at the
-            // publisher tier it does not hold
-            actualException.InnerException.Should()
-                .BeEquivalentTo(unauthorizedCommentException);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateCommentAsync(
-                        It.IsAny<Comment>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.eventBrokerMock.Verify(broker =>
-                    broker.PublishCommentAsync(
-                        It.IsAny<EventEnvelope<Comment>>(),
-                        It.IsAny<CommentEventOperation>()),
-                Times.Never);
+            // the workflow asked for no waiver, so none is recorded
+            savedComment.IsApprovedByBypass.Should().BeFalse();
+            savedComment.ApprovedByBypassReason.Should().BeNull();
         }
 
         [Fact]
-        public async Task ShouldRefuseAnInboundEnvelopeClaimingSystemIdentityToOverrideATerminalRowAsync()
+        public async Task ShouldHonourAVerifiedSystemIdentityToOverrideATerminalRowAsync()
         {
-            // given: the same forged claim aimed at the override — the write the flag would be
-            // most valuable for forging, because it re-opens and unpublishes a decided row.
+            // given: the override is the write the workflow most needs and the one a forgery
+            // would most want — it re-opens and unpublishes a decided row. Admitted here only
+            // because the envelope was verified; the sibling demotion that follows a new
+            // version's approval is exactly this write, against a row that is itself Approved
+            // and therefore untouchable by any Publisher.
             var requestEnvelope = new EventEnvelope<Comment>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -321,30 +309,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             Comment storageComment = CreateTerminalStorageComment(ApprovalStatus.Approved);
             requestEnvelope.Content.Id = storageComment.Id;
 
-            SetupCommentStorageRead(storageComment);
+            // when
+            Comment savedComment = await CaptureSavedCommentOnEventTransitionAsync(
+                storageComment: storageComment,
+                requestEnvelope: requestEnvelope);
 
-            var unauthorizedCommentException =
-                new UnauthorizedCommentException(
-                    message: "The current user is not allowed to transition this comment.");
+            // then
+            savedComment.Should().NotBeNull();
+            savedComment.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+
+            // publication is DERIVED — a re-opened row cannot stay publicly visible while it
+            // waits for a second verdict
+            savedComment.IsPublished.Should().BeFalse();
+            savedComment.PublishDate.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldCarryTheBypassPairFromTheWorkflowCommandRatherThanErasingItAsync()
+        {
+            // given: a human bypass-approved this item and was authorised for it on the Approval
+            // row; the workflow is now syncing that decision onto the entity. The waiver has
+            // already happened — the sync is a messenger, not a second decision.
+            //
+            // Deriving "no bypass used" here, as an ordinary system-identity write does, would
+            // write IsApprovedByBypass = false onto the entity while the Approval row records
+            // true: the two records diverge (§9.8) and the evidence §9.7.1 rule 3 exists to keep
+            // is erased by the very act of storing it.
+            string bypassReason = GetRandomString();
+
+            var requestEnvelope = new EventEnvelope<Comment>
+            {
+                SecurityContext = CreateSystemSecurityContext(),
+                Content = CreateBypassApprovalRequest(
+                    commentId: Guid.NewGuid(),
+                    bypassReason: bypassReason),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            Comment storageComment = CreateApprovableStorageComment();
+            requestEnvelope.Content.Id = storageComment.Id;
 
             // when
-            ValueTask<EventEnvelope<Comment>?> transitionTask =
-                this.commentService.OnApprovingCommentAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
+            Comment savedComment = await CaptureSavedCommentOnEventTransitionAsync(
+                storageComment: storageComment,
+                requestEnvelope: requestEnvelope);
 
-            CommentValidationException actualException =
-                await Assert.ThrowsAsync<CommentValidationException>(transitionTask.AsTask);
-
-            // then: refused at the override gate, which is where a non-Admin belongs
-            actualException.InnerException.Should()
-                .BeEquivalentTo(unauthorizedCommentException);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateCommentAsync(
-                        It.IsAny<Comment>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
+            // then
+            savedComment.Should().NotBeNull();
+            savedComment.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            savedComment.IsApprovedByBypass.Should().BeTrue();
+            savedComment.ApprovedByBypassReason.Should().Be(bypassReason);
         }
 
         [Fact]

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -29,7 +29,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         public async Task ShouldRetrievePublishedVersionOnRetrievePublishedByGroupIdAsync()
         {
             // given: the row the public currently reads stays published while a newer draft
-            // moves through review (§3.4.1), so it is found independently of IsLatestVersion
+            // moves through review (§3.4.1), so it is found independently of where it sits
+            // in the version chain — here it is deliberately NOT the tip
             Guid inputGroupId = Guid.NewGuid();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 
@@ -39,11 +40,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 hasPublishDate: true);
 
             publishedVersion.GroupId = inputGroupId;
-            publishedVersion.IsLatestVersion = false;
+            publishedVersion.Version = 1;
 
             Link draftTipVersion = CreateRandomNonPublicLink(createdBy: GetRandomString());
             draftTipVersion.GroupId = inputGroupId;
-            draftTipVersion.IsLatestVersion = true;
+            draftTipVersion.Version = 2;
 
             // a foreign group's published row, enumerated FIRST — it satisfies every
             // predicate except the group, so dropping the GroupId term would return it

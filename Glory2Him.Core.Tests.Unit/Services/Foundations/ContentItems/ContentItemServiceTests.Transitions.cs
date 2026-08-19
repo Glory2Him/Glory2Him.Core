@@ -202,6 +202,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             return savedContentItem;
         }
 
+        // The same capture, driven over the EVENT path instead of the in-process one, so a test
+        // can assert what the workflow's command actually wrote. DeepClone because the service
+        // mutates the storage row it was handed — comparing a field against the same object
+        // afterwards would compare it with itself and pass whatever the service did.
+        private async ValueTask<ContentItem> CaptureSavedContentItemOnEventTransitionAsync(
+            ContentItem storageContentItem,
+            EventEnvelope<ContentItem> requestEnvelope)
+        {
+            ContentItem savedContentItem = null;
+
+            SetupContentItemStorageRead(storageContentItem);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((ContentItem entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateContentItemAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<ContentItem, CancellationToken>(
+                            (entity, _) => savedContentItem = entity.DeepClone())
+                        .ReturnsAsync((ContentItem entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishContentItemAsync(
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<ContentItemEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<ContentItem>>(
+                            new EventPublishResult<ContentItem>()));
+
+            await this.contentItemService.OnApprovingContentItemAsync(
+                requestEnvelope,
+                TestContext.Current.CancellationToken);
+
+            return savedContentItem;
+        }
+
         // Runs a permitted approve end to end and hands back the query the service gave the
         // access broker. Permitted rather than refused because the whole operation should run:
         // the query is built before the verdict is read, so this is the query a real approve

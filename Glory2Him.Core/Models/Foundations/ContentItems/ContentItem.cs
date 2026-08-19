@@ -64,11 +64,6 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         public int Version { get; set; } = 1;
 
         /// <summary>
-        /// Gets or sets a value indicating whether the current instance represents the latest version.
-        /// </summary>
-        public bool IsLatestVersion { get; set; } = false;
-
-        /// <summary>
         /// The date and time when the content item was published. 
         /// This is nullable to allow for drafts that have not yet been published.
         /// </summary>

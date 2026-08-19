@@ -9,6 +9,8 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System.Collections.Generic;
+
 namespace G2H.Security.Client.Models.Foundations.Access
 {
     /// <summary>
@@ -32,6 +34,22 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// <c>AutoApproveIfAllApprovalRequirementsMet = true</c> means nobody has to click once
         /// they are. A caller deriving this itself is exactly where those two get confused.</para>
         /// </summary>
+        /// <summary>
+        /// Whether an edit to the approved subject should dismiss the reviews already
+        /// recorded against it — <c>ApprovalSetting.RequireReapprovalOnChange</c>, resolved
+        /// through the same most-specific-wins pass as everything else here (§8.4).
+        ///
+        /// <para>It rides on this verdict rather than being read from a settings service by
+        /// the caller, because resolving §8.4 in a second place would put most-specific-wins
+        /// beside the decision function that owns it (§8.6.1 rule 4). One read answers both
+        /// "should the reviews be reset" and "do the conditions now hold".</para>
+        ///
+        /// <para>Note that the conditions reported ALONGSIDE this flag are the ones that held
+        /// BEFORE any dismissal. A caller that acts on the flag must re-evaluate afterwards,
+        /// or it will decide against a review set it has just discarded.</para>
+        /// </summary>
+        public required bool ShouldResetStaleReviewsOnChange { get; init; }
+
         public required bool ShouldAutoApprove { get; init; }
 
         /// <summary>
@@ -39,6 +57,33 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// conditions are met.
         /// </summary>
         public required AccessDenialReason BlockReason { get; init; }
+
+        /// <summary>
+        /// EVERY condition currently failing, in the same precedence order
+        /// <see cref="BlockReason"/> picks its first from — empty when the conditions are met.
+        ///
+        /// <para>The singular <see cref="BlockReason"/> above cannot answer the question an
+        /// approver actually asks. Told only "approval threshold not met", they add a reviewer,
+        /// retry, and are then told about an unresolved comment they could have settled in the
+        /// same visit. The evaluation knows both at once; short-circuiting threw the rest away.
+        /// So the conditions are each evaluated independently and all failures collected
+        /// (§16.7.2).</para>
+        ///
+        /// <para><see cref="BlockReason"/> is retained rather than replaced, and stays the FIRST
+        /// of these: <c>AccessVerdict.DenialReason</c> and <c>BypassedBlockReason</c> are
+        /// single-valued by design — "there is exactly one value meaning permitted, and it stays
+        /// that way" — so a refusal still names one reason. This set is for the caller who is
+        /// entitled to the whole picture, which §16.7.2 limits to the publisher tier.</para>
+        /// </summary>
+        public required IReadOnlyList<AccessDenialReason> BlockReasons { get; init; }
+
+        /// <summary>
+        /// How many approval comments are outstanding — not deleted and not resolved. Carried so
+        /// a caller can say "two unresolved comments" without re-reading the thread, the same way
+        /// <see cref="ApprovalCount"/> and <see cref="RequiredNumberOfApprovals"/> let it report
+        /// the shortfall. Zero when the policy does not require comment resolution.
+        /// </summary>
+        public required int UnresolvedApprovalCommentCount { get; init; }
 
         /// <summary>
         /// How many active approving reviews were counted — dismissed and soft-deleted rows

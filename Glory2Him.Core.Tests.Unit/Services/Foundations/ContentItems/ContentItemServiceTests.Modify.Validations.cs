@@ -1133,8 +1133,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             storageContentItem.ApprovalStatus = terminalStatus;
 
             // the AMENDMENT itself — the rule refuses a content change on a terminal row, not
-            // every write that touches one, because the version fork demotes through this same
-            // modify and changes only IsLatestVersion
+            // every write that touches one: the transitions write through their own paths, and
+            // the version fork is now a single insert that never comes through modify at all
             invalidContentItem.Content = GetRandomString();
 
             var invalidContentItemException =

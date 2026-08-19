@@ -68,7 +68,10 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
                     // This envelope's context was minted here, in process, from the ambient
                     // caller — so a system identity on it is one this process asserted about
-                    // itself. The event path passes false; see OnApprovingAssociationAsync.
+                    // itself, so a system identity on it is one this process asserted about
+                    // itself. The event path admits the claim too, because only this
+                    // system holds the signing key — so a verified envelope is one this
+                    // system minted, whichever path it arrived by (§16.7.1).
                     isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });

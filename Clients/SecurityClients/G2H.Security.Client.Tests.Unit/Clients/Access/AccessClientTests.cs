@@ -128,7 +128,10 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
             {
                 AreConditionsMet = true,
                 ShouldAutoApprove = false,
+                ShouldResetStaleReviewsOnChange = false,
                 BlockReason = AccessDenialReason.None,
+                BlockReasons = new List<AccessDenialReason>(),
+                UnresolvedApprovalCommentCount = 0,
                 ApprovalCount = GetRandomNumber(),
                 RequiredNumberOfApprovals = GetRandomNumber(),
                 Explanation = GetRandomString(),

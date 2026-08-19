@@ -27,6 +27,9 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         private delegate ValueTask<Approval> ReturningApprovalFunction();
         private delegate ValueTask<IQueryable<Approval>> ReturningApprovalsFunction();
 
+        private delegate ValueTask<ApprovalEntityMatch?>
+            ReturningApprovalEntityMatchFunction();
+
         private delegate ValueTask<EventEnvelope<Approval>?>
             ReturningApprovalEventEnvelopeFunction();
 
@@ -396,6 +399,71 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             await this.loggingBroker.LogErrorAsync(approvalServiceException);
 
             return approvalServiceException;
+        }
+
+        // The probe is a WRITE-FLOW primitive that happens to read: it runs the contribution
+        // gate and validates its arguments like a write, but only selects. So it needs the
+        // validation catches the write paths have AND the read-style dependency catches — and
+        // none of the write-only ones (duplicate key, foreign key, concurrency), which a select
+        // cannot raise. Mirrors AssociationService's pair-probe overload.
+        private async ValueTask<ApprovalEntityMatch?> TryCatch(
+            ReturningApprovalEntityMatchFunction returningApprovalEntityMatchFunction)
+        {
+            try
+            {
+                return await returningApprovalEntityMatchFunction();
+            }
+            catch (OperationCanceledException operationCanceledException)
+                when (operationCanceledException.CancellationToken.IsCancellationRequested is false)
+            {
+                var timeoutException =
+                    new TimeoutException("The dependency operation timed out.");
+
+                var timeoutApprovalException =
+                    new TimeoutApprovalException(
+                        message: "Failed approval timeout error occurred, contact support.",
+                        innerException: timeoutException,
+                        data: timeoutException.Data);
+
+                throw await CreateAndLogTimeoutDependencyExceptionAsync(
+                    exception: timeoutApprovalException);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (UnauthorizedApprovalException unauthorizedApprovalException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: unauthorizedApprovalException);
+            }
+            catch (InvalidApprovalException invalidApprovalException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(
+                    exception: invalidApprovalException);
+            }
+            catch (SqlException sqlException)
+            {
+                var failedStorageApprovalException =
+                    new FailedStorageApprovalException(
+                        message: "Failed approval storage error occurred, contact support.",
+                        innerException: sqlException,
+                        data: sqlException.Data);
+
+                throw await CreateAndLogCriticalDependencyExceptionAsync(
+                    exception: failedStorageApprovalException);
+            }
+            catch (Exception exception)
+            {
+                var failedApprovalServiceException =
+                    new FailedApprovalServiceException(
+                        message: "Failed approval service error occurred, contact support.",
+                        innerException: exception,
+                        data: exception.Data);
+
+                throw await CreateAndLogServiceExceptionAsync(
+                    failedApprovalServiceException);
+            }
         }
     }
 }

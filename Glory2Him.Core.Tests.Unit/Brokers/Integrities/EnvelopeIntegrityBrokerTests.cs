@@ -321,6 +321,61 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
             await signTask.Should().ThrowAsync<InvalidOperationException>();
         }
 
+        [Theory]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void ShouldRefuseToStartWhenAKeyHasNoUsableSecret(string secret)
+        {
+            // given: not a weak key but an open door — the HMAC becomes one anybody can
+            // recompute. Key defaults to string.Empty, so an entry naming a KeyId and an
+            // ActiveFrom but omitting Key binds to exactly this, and nothing downstream would
+            // notice: it signs, and it verifies, for everyone.
+            Action buildBroker = () => BrokerWith(
+                Key("key-a", DateTimeOffset.UtcNow.AddYears(-1), null, secret));
+
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>();
+        }
+
+        [Fact]
+        public void ShouldRefuseToStartWhenAKeyHasNoUsableId()
+        {
+            // given: verification resolves a key BY its id and already refuses a blank one, so a
+            // key configured without one could never verify anything it signed.
+            Action buildBroker = () => BrokerWith(
+                Key("", DateTimeOffset.UtcNow.AddYears(-1), null));
+
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>();
+        }
+
+        [Fact]
+        public void ShouldRefuseToStartWhenAKeyIdIsConfiguredTwice()
+        {
+            // given: verification resolves by id, so a repeat makes which secret checks a
+            // signature indeterminate — which is how a rotation that reuses an id starts
+            // rejecting traffic it should accept.
+            Action buildBroker = () => BrokerWith(
+                Key("key-a", DateTimeOffset.UtcNow.AddYears(-1), null, "first-secret"),
+                Key("key-a", DateTimeOffset.UtcNow.AddYears(-1), null, "second-secret"));
+
+            // then
+            buildBroker.Should().Throw<InvalidOperationException>()
+                .WithMessage("*key-a*");
+        }
+
+        [Fact]
+        public void ShouldStartWhenNoKeyIsConfiguredAtAll()
+        {
+            // given: the host's own shipped state. An unconfigured host is a deliberate posture,
+            // not an error — it fails closed at the point of signing, and turning that into a
+            // boot crash would stop a site that publishes nothing.
+            Action buildBroker = () => BrokerWith();
+
+            // then
+            buildBroker.Should().NotThrow();
+        }
+
         // ── helpers ──────────────────────────────────────────────────────────────
 
         private static EventEnvelope<string> Envelope(

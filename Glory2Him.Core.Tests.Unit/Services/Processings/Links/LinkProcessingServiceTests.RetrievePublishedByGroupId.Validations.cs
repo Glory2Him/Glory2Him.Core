@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -84,7 +84,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             Link draftTipVersion = CreateRandomNonPublicLink(createdBy: GetRandomString());
             draftTipVersion.GroupId = inputGroupId;
-            draftTipVersion.IsLatestVersion = true;
+            draftTipVersion.Version = 1;
 
             IQueryable<Link> storageLinks = new[] { draftTipVersion }.AsQueryable();
 

@@ -15,8 +15,10 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.Associations.Exceptions;
 using Glory2Him.Core.Models.Securities;
@@ -372,6 +374,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
                         It.IsAny<Association>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        // The same capture, driven over the EVENT path instead of the in-process one, so a test
+        // can assert what the workflow's command actually wrote. DeepClone because the service
+        // mutates the storage row it was handed — comparing a field against the same object
+        // afterwards would compare it with itself and pass whatever the service did.
+        private async ValueTask<Association> CaptureSavedAssociationOnEventTransitionAsync(
+            Association storageAssociation,
+            EventEnvelope<Association> requestEnvelope)
+        {
+            Association savedAssociation = null;
+
+            SetupStorageRead(storageAssociation);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((Association entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateAssociationAsync(
+                    It.IsAny<Association>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Association, CancellationToken>(
+                            (entity, _) => savedAssociation = entity.DeepClone())
+                        .ReturnsAsync((Association entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishAssociationAsync(
+                    It.IsAny<EventEnvelope<Association>>(),
+                    It.IsAny<AssociationEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Association>>(
+                            new EventPublishResult<Association>()));
+
+            await this.associationService.OnApprovingAssociationAsync(
+                requestEnvelope,
+                TestContext.Current.CancellationToken);
+
+            return savedAssociation;
         }
 
         private void SetupStorageRead(Association storageAssociation) =>

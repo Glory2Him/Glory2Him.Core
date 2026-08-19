@@ -20,6 +20,8 @@ using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.Tags;
 
 namespace Glory2Him.WebApp.Infrastructure
@@ -85,6 +87,14 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddScoped<ITagService, TagService>();
             services.AddScoped<IApprovalCommentService, ApprovalCommentService>();
             services.AddScoped<IApprovalReviewService, ApprovalReviewService>();
+            services.AddScoped<IApprovalService, ApprovalService>();
+
+            // Scoped for the same reason the foundations are: it reaches them, and through
+            // them the DbContext. ServiceRegistration.AddApprovalOrchestrationService()
+            // registers a singleton instead, which is right only for a host that binds the
+            // substrate handlers into the singleton event broker as method groups. This host
+            // wires no subscriptions, so it takes the request-bound lifetime.
+            services.AddScoped<IApprovalOrchestrationService, ApprovalOrchestrationService>();
 
             return services;
         }

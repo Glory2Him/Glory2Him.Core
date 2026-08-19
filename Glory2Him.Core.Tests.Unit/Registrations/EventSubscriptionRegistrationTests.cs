@@ -43,6 +43,7 @@ using Glory2Him.Core.Services.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Models.Events.Processings;
+using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 
@@ -65,6 +66,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
         private readonly Mock<IContentItemProcessingService> contentItemProcessingServiceMock;
         private readonly Mock<ILinkProcessingService> linkProcessingServiceMock;
+        private readonly Mock<IApprovalOrchestrationService> approvalOrchestrationServiceMock;
         private readonly IEventSubscriptionRegistration eventSubscriptionRegistration;
 
         public EventSubscriptionRegistrationTests()
@@ -84,6 +86,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
             this.contentItemProcessingServiceMock = new Mock<IContentItemProcessingService>();
             this.linkProcessingServiceMock = new Mock<ILinkProcessingService>();
+            this.approvalOrchestrationServiceMock = new Mock<IApprovalOrchestrationService>();
 
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
@@ -100,7 +103,8 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 associationService: this.associationServiceMock.Object,
                 contentItemSettingService: this.contentItemSettingServiceMock.Object,
                 contentItemProcessingService: this.contentItemProcessingServiceMock.Object,
-                linkProcessingService: this.linkProcessingServiceMock.Object);
+                linkProcessingService: this.linkProcessingServiceMock.Object,
+                approvalOrchestrationService: this.approvalOrchestrationServiceMock.Object);
         }
 
         private void VerifyLinkProcessingSubscription(
@@ -797,6 +801,16 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.approvalCommentServiceMock.Object.OnResolvingApprovalCommentAsync);
 
+            // The review flow's trigger: a recorded review may complete the round (§9.7.5).
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Added,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalReviewAddedAsync);
+
             VerifyApprovalReviewSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ApprovalReviewOnAddingApprovalReviewSubscriptionId,
@@ -1008,6 +1022,17 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.contentItemSettingServiceMock.Object.OnRetrievingContentItemSettingByIdAsync);
 
+            // The publication swap: versioned entities are approved through the processing
+            // service so the group's published slot is cleared before the promote (§9.7.7 r7).
+            VerifyContentItemProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionName,
+                expectedOperation: ContentItemProcessingEventOperation.Approving,
+                expectedHandler:
+                    this.contentItemProcessingServiceMock.Object.OnApprovingContentItemAsync);
+
             VerifyContentItemProcessingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ContentItemProcessingOnAddingContentItemSubscriptionId,
@@ -1043,6 +1068,17 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ContentItemProcessingEventOperation.RetrievingById,
                 expectedHandler:
                     this.contentItemProcessingServiceMock.Object.OnRetrievingContentItemByIdAsync);
+
+            // The publication swap: versioned entities are approved through the processing
+            // service so the group's published slot is cleared before the promote (§9.7.7 r7).
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.Approving,
+                expectedHandler:
+                    this.linkProcessingServiceMock.Object.OnApprovingLinkAsync);
 
             VerifyLinkProcessingSubscription(
                 expectedSubscriptionId:
@@ -1080,11 +1116,141 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedHandler:
                     this.linkProcessingServiceMock.Object.OnRetrievingLinkByIdAsync);
 
+            // The approval workflow listens on each entity's TOP-LAYER fact (§10.17 rule 1):
+            // the processing address for the two entities that have a processing service, the
+            // foundation address for the five that do not. Asserting the address these bind to
+            // is the point of these six — a ContentItem or Link bound to the foundation would
+            // fire twice per version fork, and the other five bound anywhere else never fire.
+            VerifyContentItemProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemAddedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemAddedSubscriptionName,
+                expectedOperation: ContentItemProcessingEventOperation.Added,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnContentItemAddedAsync);
+
+            VerifyContentItemProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemModifiedSubscriptionName,
+                expectedOperation: ContentItemProcessingEventOperation.Modified,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnContentItemModifiedAsync);
+
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnLinkAddedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnLinkAddedSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.Added,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnLinkAddedAsync);
+
+            VerifyLinkProcessingSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnLinkModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnLinkModifiedSubscriptionName,
+                expectedOperation: LinkProcessingEventOperation.Modified,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnLinkModifiedAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnTagAddedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnTagAddedSubscriptionName,
+                expectedOperation: TagEventOperation.Added,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object.OnTagAddedAsync);
+
+            VerifyTagSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnTagModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnTagModifiedSubscriptionName,
+                expectedOperation: TagEventOperation.Modified,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object.OnTagModifiedAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnCommentAddedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnCommentAddedSubscriptionName,
+                expectedOperation: CommentEventOperation.Added,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object.OnCommentAddedAsync);
+
+            VerifyCommentSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnCommentModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnCommentModifiedSubscriptionName,
+                expectedOperation: CommentEventOperation.Modified,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnCommentModifiedAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnReactionAddedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnReactionAddedSubscriptionName,
+                expectedOperation: ReactionEventOperation.Added,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnReactionAddedAsync);
+
+            VerifyReactionSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnReactionModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnReactionModifiedSubscriptionName,
+                expectedOperation: ReactionEventOperation.Modified,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnReactionModifiedAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceAddedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceAddedSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.Added,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnBibleReferenceAddedAsync);
+
+            VerifyBibleReferenceSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnBibleReferenceModifiedSubscriptionName,
+                expectedOperation: BibleReferenceEventOperation.Modified,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnBibleReferenceModifiedAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationAddedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationAddedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Added,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnAssociationAddedAsync);
+
+            VerifyAssociationSubscription(
+                expectedSubscriptionId:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationModifiedSubscriptionId,
+                expectedSubscriptionName:
+                    EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationModifiedSubscriptionName,
+                expectedOperation: AssociationEventOperation.Modified,
+                expectedHandler:
+                    this.approvalOrchestrationServiceMock.Object.OnAssociationModifiedAsync);
+
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.contentItemServiceMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();
             this.contentItemProcessingServiceMock.VerifyNoOtherCalls();
             this.linkProcessingServiceMock.VerifyNoOtherCalls();
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
         }
     }
 }

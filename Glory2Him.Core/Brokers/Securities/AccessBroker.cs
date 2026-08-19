@@ -633,5 +633,52 @@ namespace Glory2Him.Core.Brokers.Securities
                     new List<ReviewRecord>(),
                     new List<ApprovalCommentRecord>());
         }
+
+        // The gathering half of §16.7.2's verdict. Same reads as MayDecideApprovalByIdAsync —
+        // resolved off the STORED approval's target, never a payload — but it asks the
+        // conditions question rather than the may-this-actor question, so it carries no actor
+        // and no bypass request. Whether the caller may act on the answer is asked separately.
+        public async ValueTask<ApprovalConditionsVerdict?> EvaluateApprovalConditionsByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return null;
+            }
+
+            (_, IReadOnlyList<RoleSubject> roleSubjects, decimal? confidenceScore) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
+
+            ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
+
+            IReadOnlyList<ApprovalPolicy> candidatePolicies = await GatherPoliciesAsync(
+                maybeApproval.EntityType,
+                cancellationToken);
+
+            return await this.securityClient.Access.EvaluateApprovalConditionsAsync(
+                new ApprovalConditionsRequest
+                {
+                    CandidatePolicies = candidatePolicies,
+                    EntityType = maybeApproval.EntityType.ToString(),
+
+                    // Only ContentItem scopes its policies by content type; an association's
+                    // policy key is its own type, never an endpoint's (§8.4).
+                    ContentType = maybeApproval.EntityType == EntityType.ContentItem
+                        ? roleSubjects[0].ContentType
+                        : null,
+
+                    Reviews = snapshot.Reviews,
+                    ApprovalComments = snapshot.ApprovalComments,
+                    ConfidenceScore = confidenceScore,
+                });
+        }
     }
 }

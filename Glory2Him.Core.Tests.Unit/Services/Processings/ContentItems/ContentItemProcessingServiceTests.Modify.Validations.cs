@@ -283,6 +283,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
                     .ReturnsAsync(GetRandomString());
@@ -304,6 +306,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            VerifyGroupTipResolved();
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(securityContext),
@@ -328,8 +332,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfContentItemIsNotLatestVersionAndLogItAsync()
         {
-            // given: edits go to the tip of the version chain only (§3.4.1) — modifying a
-            // superseded row would end up creating a second IsLatestVersion = true on fork
+            // given: edits go to the tip of the version chain only (§3.4.1) — forking off a
+            // superseded row would put a second row at the same Version, which is exactly what
+            // the (GroupId, Version) unique index refuses. The row is not made superseded by a
+            // flag on itself: SetupGroupTip seeds a live sibling at a HIGHER Version, and the
+            // derivation reads the answer off the group.
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem inputContentItem = randomContentItem;
 
@@ -338,7 +345,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 approvalStatus: ApprovalStatus.Approved,
                 createdBy: GetRandomString());
 
-            storageContentItem.IsLatestVersion = false;
             SecurityContext securityContext = CreateAuthenticatedSecurityContext();
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
@@ -362,6 +368,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: false);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
                     .ReturnsAsync(GetRandomString());
@@ -379,6 +387,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             // then
             actualContentItemProcessingValidationException.Should().BeEquivalentTo(
                 expectedContentItemProcessingValidationException);
+
+            // the refusal came out of the GROUP, not off a field on the loaded row
+            VerifyGroupTipResolved();
 
             this.contentItemServiceMock.Verify(service =>
                 service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
@@ -459,6 +470,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
                     .ReturnsAsync(GetRandomString());
@@ -533,6 +546,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
+
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))

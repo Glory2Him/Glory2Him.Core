@@ -214,12 +214,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // and the previously published sibling a newly approved version demotes is itself
             // Approved, so no Publisher may touch it either.
             //
-            // The system identity stands in for the publisher tier and for nothing else. It
-            // requests no bypass and is granted none — waiving the §8.5 conditions is a human
-            // act that has to be explained by a human.
+            // The bypass pair is CARRIED, not decided. The workflow reaches here as the
+            // messenger of a decision a human already made and was authorised for on the
+            // Approval row, and re-deriving it would answer a question this actor was never
+            // asked — writing "no bypass" over a waiver the approval records, diverging the two
+            // records (§9.8) and erasing exactly the evidence §9.7.1 rule 3 exists to keep.
+            //
+            // Nothing unexplained gets through on this route: the shape validation refuses a
+            // bypass with no reason, and one paired with any target but Approved, before any
+            // policy is read. And the claim reached here only on a verified envelope, which is
+            // what establishes it was minted by this system (§16.7.1).
             if (isSystemIdentity)
             {
-                return NoDecisionVerdict();
+                return CarriedBypassVerdict(association.IsApprovedByBypass);
             }
 
             if (HasPublisherRoleForAssociation(securityContext, storageAssociation) is false)
@@ -312,6 +319,19 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // A verdict is fabricated here only because this service needs the shape back for its
         // bypass log line; every field says the same thing, which is that nothing was decided
         // and nothing was waived.
+        // The workflow's verdict: permitted, and carrying whatever waiver the decision it is
+        // syncing already recorded. Distinct from NoDecisionVerdict because that one asserts no
+        // bypass occurred, which is a claim this actor is in no position to make.
+        private static AccessVerdict CarriedBypassVerdict(bool isBypassUsed) =>
+            new AccessVerdict
+            {
+                IsPermitted = true,
+                DenialReason = AccessDenialReason.None,
+                IsBypassUsed = isBypassUsed,
+                BypassedBlockReason = AccessDenialReason.None,
+                Explanation = string.Empty,
+            };
+
         private static AccessVerdict NoDecisionVerdict() =>
             new AccessVerdict
             {

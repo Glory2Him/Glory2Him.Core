@@ -128,5 +128,28 @@ namespace Glory2Him.Core.Brokers.Securities
             string commentCreatedBy,
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Evaluates the §8.5 approval conditions for a stored approval and returns the FULL
+        /// verdict — every failing condition, the approval count against the requirement, and
+        /// the outstanding comment count (§16.7.2).
+        ///
+        /// <para>Distinct from <see cref="MayDecideApprovalByIdAsync"/>, which answers "may this
+        /// actor decide?" and collapses to one denial reason because
+        /// <c>AccessVerdict.DenialReason</c> is single-valued by design. This answers "what is
+        /// stopping this approval?", which has no single answer worth giving: an approver told
+        /// only about the threshold adds a reviewer, retries, and only then learns about the
+        /// comments they could have settled in the same visit.</para>
+        ///
+        /// <para>Actor-independent — the conditions are a property of the approval, not of who
+        /// is asking. Whether the caller may act on them is the separate question
+        /// <see cref="MayDecideApprovalByIdAsync"/> answers.</para>
+        ///
+        /// <para>Returns <c>null</c> when no approval carries the id, so a caller can report
+        /// not-found rather than inferring it from an empty verdict.</para>
+        /// </summary>
+        ValueTask<ApprovalConditionsVerdict?> EvaluateApprovalConditionsByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
     }
 }

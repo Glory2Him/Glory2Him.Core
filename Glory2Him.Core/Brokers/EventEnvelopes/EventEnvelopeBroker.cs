@@ -31,6 +31,37 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
             return ConvertToEventEnvelope(externalEventEnvelope);
         }
 
+        // Built on CreateAsync rather than beside it, so metadata, correlation and every other
+        // carried section are minted exactly as any other envelope's are — only the identity
+        // differs, and it differs in one visible place.
+        public async ValueTask<EventEnvelope<T>> CreateSystemAsync<T>(T content)
+        {
+            EventEnvelope<T> callerEnvelope = await CreateAsync(content);
+
+            return new EventEnvelope<T>
+            {
+                Content = callerEnvelope.Content,
+                RequestContext = callerEnvelope.RequestContext,
+                Metadata = callerEnvelope.Metadata,
+                Integrity = callerEnvelope.Integrity,
+
+                SecurityContext = new SecurityContext
+                {
+                    // The deciding human is kept, because the audit answer to "who approved
+                    // this" is a person, not a process. Roles are not: the flag stands in for
+                    // the publisher tier by itself, and carrying them would leave a context that
+                    // looks like it was authorised two different ways.
+                    SubjectId = callerEnvelope.SecurityContext?.SubjectId,
+                    Username = callerEnvelope.SecurityContext?.Username,
+                    TenantId = callerEnvelope.SecurityContext?.TenantId,
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    AuthenticationType = callerEnvelope.SecurityContext?.AuthenticationType
+                        ?? default,
+                }
+            };
+        }
+
         public async ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
             EventEnvelope<TSource> sourceEnvelope,
             T content)

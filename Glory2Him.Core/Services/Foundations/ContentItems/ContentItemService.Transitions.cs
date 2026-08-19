@@ -80,7 +80,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                     // This envelope's context was minted here, in process, from the ambient
                     // caller — so a system identity on it is one this process asserted about
-                    // itself. The event path passes false; see OnApprovingContentItemAsync.
+                    // itself, so a system identity on it is one this process asserted about
+                    // itself. The event path admits the claim too, because only this
+                    // system holds the signing key — so a verified envelope is one this
+                    // system minted, whichever path it arrived by (§16.7.1).
                     isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });
@@ -120,6 +123,33 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     .ContentItemOnSubmittingContentItemSubscriptionName,
                 cancellationToken: cancellationToken);
         }
+
+        public ValueTask<ContentItem> TransitionContentItemApprovalAsync(
+            ContentItem contentItem,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateContentItemIsNotNull(contentItem);
+
+                // Chained off the swap's envelope, so IsSystemIdentity travels with it
+                // and causation stays linked. CreateNextAsync copies the security
+                // context forward; it does not mint one.
+                EventEnvelope<ContentItem> transitionEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: contentItem);
+
+                return await DoTransitionContentItemApprovalAsync(
+                    contentItem: contentItem,
+                    inboundEnvelope: transitionEnvelope,
+
+                    // Admissible for the same reason the direct path is: this envelope
+                    // was verified at the swap's own receiver before it got here.
+                    isSystemIdentityAdmissible: true,
+                    cancellationToken: cancellationToken);
+            });
 
         private async ValueTask<ContentItem> DoTransitionContentItemApprovalAsync(
             ContentItem contentItem,
@@ -215,65 +245,93 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 cancellationToken: cancellationToken);
         }
 
-        public ValueTask<ContentItem> DemoteContentItemVersionAsync(
+        public ValueTask<ContentItem> UnpublishContentItemByIdAsync(
             Guid contentItemId,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Demote owns only IsLatestVersion and drives it to a fixed value, so the
-                // request carries nothing but the id — the same shape submit has, and for the
+                // Owns two fields and drives both to fixed values, so the request
+                // carries nothing but the id — the same shape demote has, for the
                 // same reason: there is nothing to read off a caller's copy.
-                var demoteRequest = new ContentItem { Id = contentItemId };
+                var unpublishRequest = new ContentItem { Id = contentItemId };
 
                 EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: demoteRequest);
+                    await this.eventEnvelopeBroker.CreateAsync(content: unpublishRequest);
 
-                return await DoDemoteContentItemVersionAsync(
+                return await DoUnpublishContentItemAsync(
                     contentItemId: contentItemId,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
             });
 
-        // The version fork's second write, and the only operation permitted to move
-        // IsLatestVersion off a row (§3.4 rule 18, §9.7.1 rule 2). It exists because the fork
-        // previously demoted through the general modify, which pins IsLatestVersion against
-        // storage here — so the demotion was refused and forking an approved item could not
-        // complete at all. Every processing-service test mocks this service, so nothing caught
-        // it.
-        private async ValueTask<ContentItem> DoDemoteContentItemVersionAsync(
+        public ValueTask<ContentItem> UnpublishContentItemByIdAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Chained off the swap's envelope, so IsSystemIdentity travels with it
+                // and causation stays linked. CreateNextAsync copies the security
+                // context forward; it does not mint one.
+                EventEnvelope<ContentItem> unpublishEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: new ContentItem { Id = contentItemId });
+
+                return await DoUnpublishContentItemAsync(
+                    contentItemId: contentItemId,
+                    inboundEnvelope: unpublishEnvelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        // The publication swap's first write (§9.7.7 rule 7). It exists as its own
+        // verb because the general modify refuses IApproval members and the approve
+        // transition only ever writes publication as a CONSEQUENCE of a decision —
+        // and no decision is being made here. The incumbent is not being un-approved,
+        // it is being superseded.
+        private async ValueTask<ContentItem> DoUnpublishContentItemAsync(
             Guid contentItemId,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnDemoteContentItemVersion(contentItemId);
+            ValidateOnUnpublishContentItem(contentItemId);
+            ValidateUserCanUnpublishContentItem(inboundEnvelope.SecurityContext);
 
-            ContentItem storageContentItem =
-                await LoadTransitionTargetAsync(
+            // NOT LoadTransitionTargetAsync: that refuses a soft-deleted row, and a
+            // soft delete never clears IsPublished. The index filter names that column
+            // alone, so a tombstone still holds the slot, and refusing to clear it
+            // would leave the group permanently unpublishable (§9.7.7 rule 7).
+            ContentItem maybeContentItem =
+                await this.storageBroker.SelectContentItemByIdAsync(
                     contentItemId: contentItemId,
                     cancellationToken: cancellationToken);
 
-            // decided against the STORED row, like every other transition: forking is the
-            // owner's act, and the author it is measured against must be the one on record
-            // rather than one the caller supplied.
-            await ValidateUserCanDemoteStorageContentItemVersionAsync(
-                storageContentItem: storageContentItem,
-                securityContext: inboundEnvelope.SecurityContext);
+            ValidateStorageContentItem(maybeContentItem, contentItemId);
 
-            ValidateStorageContentItemIsDemotable(storageContentItem);
+            // Idempotent. The swap probes for an incumbent and may race another that
+            // already cleared it; refusing here would fail an approval for work that
+            // is already done.
+            if (maybeContentItem.IsPublished is false)
+            {
+                return maybeContentItem;
+            }
 
-            // the whole of this operation's remit is this one field, and the target is fixed —
-            // demoting only ever means "no longer the tip"
-            storageContentItem.IsLatestVersion = false;
+            maybeContentItem.IsPublished = false;
+
+            // A publish date without publication is a date nothing reads, which is
+            // what IsPublishDateWithoutPublication already refuses on the way in.
+            maybeContentItem.PublishDate = null;
 
             return await SaveTransitionAsync(
-                contentItem: storageContentItem,
+                contentItem: maybeContentItem,
                 inboundEnvelope: inboundEnvelope,
-                operation: ContentItemEventOperation.Demoted,
+                operation: ContentItemEventOperation.Unpublished,
                 receiverName: EventBrokerIdentifiers
-                    .ContentItemOnDemotingContentItemSubscriptionName,
+                    .ContentItemOnContentItemUnpublishedSubscriptionName,
                 cancellationToken: cancellationToken);
         }
 

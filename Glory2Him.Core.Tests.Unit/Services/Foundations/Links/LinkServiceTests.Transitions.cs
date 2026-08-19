@@ -199,6 +199,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             return savedLink;
         }
 
+        // The same capture, driven over the EVENT path instead of the in-process one, so a test
+        // can assert what the workflow's command actually wrote. DeepClone because the service
+        // mutates the storage row it was handed — comparing a field against the same object
+        // afterwards would compare it with itself and pass whatever the service did.
+        private async ValueTask<Link> CaptureSavedLinkOnEventTransitionAsync(
+            Link storageLink,
+            EventEnvelope<Link> requestEnvelope)
+        {
+            Link savedLink = null;
+
+            SetupLinkStorageRead(storageLink);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync((Link entity, SecurityContext _) => entity);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateLinkAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Link, CancellationToken>(
+                            (entity, _) => savedLink = entity.DeepClone())
+                        .ReturnsAsync((Link entity, CancellationToken _) => entity);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishLinkAsync(
+                    It.IsAny<EventEnvelope<Link>>(),
+                    It.IsAny<LinkEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Link>>(
+                            new EventPublishResult<Link>()));
+
+            await this.linkService.OnApprovingLinkAsync(
+                requestEnvelope,
+                TestContext.Current.CancellationToken);
+
+            return savedLink;
+        }
+
         // Runs a permitted approve end to end and hands back the query the service gave the
         // access broker. Permitted rather than refused because the whole operation should run:
         // the query is built before the verdict is read, so this is the query a real approve

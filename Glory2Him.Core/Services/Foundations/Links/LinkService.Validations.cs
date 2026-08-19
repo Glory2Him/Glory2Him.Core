@@ -112,9 +112,9 @@ namespace Glory2Him.Core.Services.Foundations.Links
         // The refusal is unconditional, which it can be because the fork no longer writes
         // through here. It used to demote the previous latest by flipping IsLatestVersion on
         // this path, which forced this rule to be written against a content comparison so the
-        // demotion could pass; DemoteLinkVersionAsync owns that write now, so nothing legitimate
-        // reaches a terminal row through the general modify and the blunt refusal is both
-        // simpler and stricter.
+        // demotion could pass. There is no such write left to make: the tip is derived from
+        // Version, so a fork only inserts. Nothing legitimate reaches a terminal row through the
+        // general modify, and the blunt refusal is both simpler and stricter.
         //
         // It is deliberately NOT inferred from the status pin: that pin's condition is guarded
         // by inputStatus != storageStatus, which a caller echoing the stored status back walks
@@ -369,11 +369,6 @@ namespace Glory2Him.Core.Services.Foundations.Links
                         secondName: nameof(Link.Version)),
                     Parameter: nameof(Link.Version)),
 
-                (Rule: IsNotSame(
-                        first: inputLink.IsLatestVersion,
-                        second: storageLink.IsLatestVersion,
-                        secondName: nameof(Link.IsLatestVersion)),
-                    Parameter: nameof(Link.IsLatestVersion)),
 
                 // The general modify is for content only. Every IApproval member belongs to the
                 // approve operation (design §9.7.1 rules 2 and 3), so all five are pinned against

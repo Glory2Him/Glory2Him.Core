@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -12,6 +12,7 @@
 using System;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Threading;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
@@ -227,7 +228,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         private static Link CreateRandomLink() =>
             CreateLinkFiller(dateTimeOffset: GetRandomDateTimeOffset()).Create();
 
-        // the "current" row the modify flow loads from storage: the modifiable tip of its group
+        // Where the "current" row sits in its version chain. Pinned above 1 so a superseded
+        // row can be expressed by seeding a live sibling above it, and so a service that
+        // simply assumed version 1 could not satisfy an assertion by coincidence.
+        private const int StorageLinkVersion = 4;
+
+        // the "current" row the modify flow loads from storage: the modifiable tip of its
+        // group. It is the tip because nothing in the group outranks its Version — there is
+        // no flag saying so, so SetupGroupTipRead below is what makes the claim true.
         private static Link CreateRandomStorageLink(
             Guid linkId,
             ApprovalStatus approvalStatus,
@@ -237,10 +245,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             storageLink.Id = linkId;
             storageLink.ApprovalStatus = approvalStatus;
             storageLink.CreatedBy = createdBy;
-            storageLink.IsLatestVersion = true;
+            storageLink.Version = StorageLinkVersion;
             storageLink.IsDeleted = false;
 
             return storageLink;
+        }
+
+        // The tip is DERIVED — the highest Version among the group's live rows — so the modify
+        // flow asks the question of the whole table through RetrieveAllLinksAsync. A test that
+        // wants its storage row treated as the tip has to let that read see the group, and one
+        // that wants it superseded seeds a higher-versioned sibling here rather than clearing a
+        // flag that no longer exists.
+        private void SetupGroupTipRead(params Link[] groupLinks) =>
+            this.linkServiceMock.Setup(service =>
+                service.RetrieveAllLinksAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(groupLinks.AsQueryable());
+
+        // A live row in the same group that outranks the given one, which is exactly what
+        // makes that one no longer the tip.
+        private static Link CreateSupersedingLink(Link storageLink)
+        {
+            Link supersedingLink = CreateRandomLink();
+            supersedingLink.GroupId = storageLink.GroupId;
+            supersedingLink.Version = storageLink.Version + 1;
+            supersedingLink.IsDeleted = false;
+
+            return supersedingLink;
         }
 
         // a row that satisfies canonical content visibility (§14.1) as of currentDateTime

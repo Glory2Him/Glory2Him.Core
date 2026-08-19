@@ -28,6 +28,7 @@ using Glory2Him.Core.Services.Foundations.ContentItemSettings;
 using Glory2Him.Core.Services.Foundations.Links;
 using Glory2Him.Core.Services.Foundations.Reactions;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 
@@ -78,6 +79,7 @@ namespace Glory2Him.Core.Registrations
         private readonly IContentItemSettingService contentItemSettingService;
         private readonly IContentItemProcessingService contentItemProcessingService;
         private readonly ILinkProcessingService linkProcessingService;
+        private readonly IApprovalOrchestrationService approvalOrchestrationService;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
@@ -94,7 +96,8 @@ namespace Glory2Him.Core.Registrations
             IAssociationService associationService,
             IContentItemSettingService contentItemSettingService,
             IContentItemProcessingService contentItemProcessingService,
-            ILinkProcessingService linkProcessingService)
+            ILinkProcessingService linkProcessingService,
+            IApprovalOrchestrationService approvalOrchestrationService)
         {
             this.eventBroker = eventBroker;
             this.contentItemService = contentItemService;
@@ -111,6 +114,7 @@ namespace Glory2Him.Core.Registrations
             this.contentItemSettingService = contentItemSettingService;
             this.contentItemProcessingService = contentItemProcessingService;
             this.linkProcessingService = linkProcessingService;
+            this.approvalOrchestrationService = approvalOrchestrationService;
         }
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
@@ -230,6 +234,25 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // ── ContentItem processing request handlers ───────────────────────
+            // The publication swap. Versioned entities are approved through HERE, not through
+            // the foundation address: granting approval also has to clear the group's published
+            // slot first, and the unique filtered index refuses a promote that runs while the
+            // incumbent still holds it (§9.7.7 rule 7, §12.4.1 rule 10).
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionId,
+                    Name = EventBrokerIdentifiers.ContentItemProcessingOnApprovingContentItemSubscriptionName,
+
+                    Description = "Handles the approval command for a versioned contentItem: "
+                        + "unpublishes the group's previously published row, then forwards the "
+                        + "decision to the foundation, which publishes ContentItem-Approved or "
+                        + "ContentItem-Rejected."
+                },
+                operation: ContentItemProcessingEventOperation.Approving,
+                contentItemProcessingEventHandler: this.contentItemProcessingService.OnApprovingContentItemAsync,
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
                 subscription: new EventSubscription
                 {
@@ -648,6 +671,25 @@ namespace Glory2Him.Core.Registrations
                 cancellationToken: cancellationToken);
 
             // ── Link processing request handlers ──────────────────────────
+            // The publication swap. Versioned entities are approved through HERE, not through
+            // the foundation address: granting approval also has to clear the group's published
+            // slot first, and the unique filtered index refuses a promote that runs while the
+            // incumbent still holds it (§9.7.7 rule 7, §12.4.1 rule 10).
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionId,
+                    Name = EventBrokerIdentifiers.LinkProcessingOnApprovingLinkSubscriptionName,
+
+                    Description = "Handles the approval command for a versioned link: "
+                        + "unpublishes the group's previously published row, then forwards the "
+                        + "decision to the foundation, which publishes Link-Approved or "
+                        + "Link-Rejected."
+                },
+                operation: LinkProcessingEventOperation.Approving,
+                linkProcessingEventHandler: this.linkProcessingService.OnApprovingLinkAsync,
+                cancellationToken: cancellationToken);
+
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
                 subscription: new EventSubscription
                 {
@@ -987,6 +1029,27 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalCommentEventOperation.Resolving,
                 approvalCommentEventHandler: this.approvalCommentService.OnResolvingApprovalCommentAsync,
+                cancellationToken: cancellationToken);
+
+            // The review flow's trigger (§9.7.5). A recorded review may complete the round,
+            // so the workflow evaluates it — or ends it outright where a standing rejection
+            // blocks under BlockOnReject.
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionName,
+
+                    Description = "Reacts to a recorded review: evaluates the round it "
+                        + "belongs to, and ends it immediately where a standing "
+                        + "rejection blocks."
+                },
+                operation: ApprovalReviewEventOperation.Added,
+                approvalReviewEventHandler:
+                    this.approvalOrchestrationService.OnApprovalReviewAddedAsync,
                 cancellationToken: cancellationToken);
 
             // ── ApprovalReview request handlers ──────────────────────────────────
@@ -1369,6 +1432,222 @@ namespace Glory2Him.Core.Registrations
                 operation: ContentItemSettingEventOperation.RetrievingById,
                 contentItemSettingEventHandler:
                     this.contentItemSettingService.OnRetrievingContentItemSettingByIdAsync,
+                cancellationToken: cancellationToken);
+
+            // ── Approval workflow fact subscriptions ─────────────────────────────
+            // Everything above is a request handler; these are the first FACT subscriptions in
+            // the system, and the only ones that cross a service boundary — the address belongs
+            // to whoever publishes it, the handler to the workflow that reacts.
+            //
+            // The tier each one binds to is the whole point (§10.17 rule 1). ContentItem and
+            // Link complete their writes in a processing service, so their completion facts are
+            // ContentItemProcessing-Added/-Modified and LinkProcessing-Added/-Modified; binding
+            // to the foundation instead would react to the version fork's second row as if it
+            // were a second amendment (§10.17 rule 2, §12.4.1 rules 6-7). The other five have
+            // no layer above their foundation, so the foundation fact is their top-layer fact.
+            //
+            // -Removed is absent by design, not by omission: a takedown is not a moderation
+            // step and must never re-open or re-evaluate an approval (§9.7.6).
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemAddedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemAddedSubscriptionName,
+
+                    Description = "Opens or reinstates the content item's approval when the " +
+                        "processing service reports a completed add, and evaluates it if it " +
+                        "is already submitted."
+                },
+                operation: ContentItemProcessingEventOperation.Added,
+                contentItemProcessingEventHandler:
+                    this.approvalOrchestrationService.OnContentItemAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemModifiedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemModifiedSubscriptionName,
+
+                    Description = "Dismisses the content item's recorded reviews when the " +
+                        "effective policy requires re-approval on change, then re-evaluates."
+                },
+                operation: ContentItemProcessingEventOperation.Modified,
+                contentItemProcessingEventHandler:
+                    this.approvalOrchestrationService.OnContentItemModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnLinkAddedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnLinkAddedSubscriptionName,
+
+                    Description = "Opens or reinstates the link's approval when the processing " +
+                        "service reports a completed add, and evaluates it if it is already " +
+                        "submitted."
+                },
+                operation: LinkProcessingEventOperation.Added,
+                linkProcessingEventHandler:
+                    this.approvalOrchestrationService.OnLinkAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToLinkProcessingEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnLinkModifiedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnLinkModifiedSubscriptionName,
+
+                    Description = "Dismisses the link's recorded reviews when the effective " +
+                        "policy requires re-approval on change, then re-evaluates."
+                },
+                operation: LinkProcessingEventOperation.Modified,
+                linkProcessingEventHandler:
+                    this.approvalOrchestrationService.OnLinkModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnTagAddedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnTagAddedSubscriptionName,
+
+                    Description = "Opens or reinstates the tag's approval when one is added, " +
+                        "and evaluates it if it is already submitted."
+                },
+                operation: TagEventOperation.Added,
+                tagEventHandler: this.approvalOrchestrationService.OnTagAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToTagEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnTagModifiedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnTagModifiedSubscriptionName,
+
+                    Description = "Dismisses the tag's recorded reviews when the effective " +
+                        "policy requires re-approval on change, then re-evaluates."
+                },
+                operation: TagEventOperation.Modified,
+                tagEventHandler: this.approvalOrchestrationService.OnTagModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnCommentAddedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnCommentAddedSubscriptionName,
+
+                    Description = "Opens or reinstates the comment's approval when one is " +
+                        "added, and evaluates it if it is already submitted."
+                },
+                operation: CommentEventOperation.Added,
+                commentEventHandler: this.approvalOrchestrationService.OnCommentAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnCommentModifiedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnCommentModifiedSubscriptionName,
+
+                    Description = "Dismisses the comment's recorded reviews when the effective " +
+                        "policy requires re-approval on change, then re-evaluates."
+                },
+                operation: CommentEventOperation.Modified,
+                commentEventHandler: this.approvalOrchestrationService.OnCommentModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnReactionAddedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnReactionAddedSubscriptionName,
+
+                    Description = "Opens or reinstates the reaction's approval when one is " +
+                        "added, and evaluates it if it is already submitted."
+                },
+                operation: ReactionEventOperation.Added,
+                reactionEventHandler: this.approvalOrchestrationService.OnReactionAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToReactionEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnReactionModifiedSubscriptionId,
+                    Name = EventBrokerIdentifiers.ApprovalOrchestrationOnReactionModifiedSubscriptionName,
+
+                    Description = "Dismisses the reaction's recorded reviews when the effective " +
+                        "policy requires re-approval on change, then re-evaluates."
+                },
+                operation: ReactionEventOperation.Modified,
+                reactionEventHandler: this.approvalOrchestrationService.OnReactionModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnBibleReferenceAddedSubscriptionName,
+
+                    Description = "Opens or reinstates the Bible reference's approval when one " +
+                        "is added, and evaluates it if it is already submitted."
+                },
+                operation: BibleReferenceEventOperation.Added,
+                bibleReferenceEventHandler:
+                    this.approvalOrchestrationService.OnBibleReferenceAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToBibleReferenceEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnBibleReferenceModifiedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnBibleReferenceModifiedSubscriptionName,
+
+                    Description = "Dismisses the Bible reference's recorded reviews when the " +
+                        "effective policy requires re-approval on change, then re-evaluates."
+                },
+                operation: BibleReferenceEventOperation.Modified,
+                bibleReferenceEventHandler:
+                    this.approvalOrchestrationService.OnBibleReferenceModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnAssociationAddedSubscriptionName,
+
+                    Description = "Opens or reinstates the association's approval when one is " +
+                        "added, and evaluates it if it is already submitted."
+                },
+                operation: AssociationEventOperation.Added,
+                associationEventHandler:
+                    this.approvalOrchestrationService.OnAssociationAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToAssociationEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnAssociationModifiedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnAssociationModifiedSubscriptionName,
+
+                    Description = "Dismisses the association's recorded reviews when the " +
+                        "effective policy requires re-approval on change, then re-evaluates."
+                },
+                operation: AssociationEventOperation.Modified,
+                associationEventHandler:
+                    this.approvalOrchestrationService.OnAssociationModifiedAsync,
                 cancellationToken: cancellationToken);
         }
     }

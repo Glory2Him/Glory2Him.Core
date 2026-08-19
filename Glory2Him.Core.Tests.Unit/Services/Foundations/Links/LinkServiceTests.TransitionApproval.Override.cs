@@ -253,16 +253,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         }
 
         [Fact]
-        public async Task ShouldRefuseASystemIdentityClaimedOnAnInboundEnvelopeAsync()
+        public async Task ShouldHonourAVerifiedSystemIdentityOnAnInboundEnvelopeAsync()
         {
-            // given: THE highest-risk case in this change. On the event path the security context
-            // is deserialized and unverified (§14.6 rule 4), so a caller who can reach the public
-            // Link-Approving address would otherwise declare themselves the workflow and walk past
-            // every approval rule in the design by setting one JSON property.
+            // given: the approval workflow syncing its decision onto the entity (§16.7.1). It
+            // holds NO roles — exactly as the genuine system context does — so the claim is the
+            // only thing that can authorize this write, and the row it approves is one no human
+            // present is permitted to decide.
             //
-            // Roleless, exactly as the genuine system context is — so the ONLY thing that could
-            // authorize this is the claim, and the only thing that can refuse it is where the
-            // claim arrived from.
+            // What makes the claim believable is not this service: it is the signature verified
+            // on the way in. Only this system holds the signing key, so a verified
+            // envelope is one this system minted — and the security context is inside the
+            // signed payload, so the flag cannot be added to a genuine envelope without
+            // breaking the HMAC. That binding is proven against the REAL broker in
+            // EnvelopeIntegrityBrokerTests — it CANNOT be proven here, because this suite
+            // mocks VerifyAsync to true.
             var requestEnvelope = new EventEnvelope<Link>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -273,44 +277,28 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             Link storageLink = CreateApprovableStorageLink();
             requestEnvelope.Content.Id = storageLink.Id;
 
-            SetupLinkStorageRead(storageLink);
-
-            var unauthorizedLinkException =
-                new UnauthorizedLinkException(
-                    message: "The current user is not allowed to approve this link.");
-
             // when
-            ValueTask<EventEnvelope<Link>?> transitionTask =
-                this.linkService.OnApprovingLinkAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
+            Link savedLink = await CaptureSavedLinkOnEventTransitionAsync(
+                storageLink: storageLink,
+                requestEnvelope: requestEnvelope);
 
-            LinkValidationException actualException =
-                await Assert.ThrowsAsync<LinkValidationException>(transitionTask.AsTask);
+            // then
+            savedLink.Should().NotBeNull();
+            savedLink.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
 
-            // then: treated as the ordinary unprivileged caller it is, and refused at the
-            // publisher tier it does not hold
-            actualException.InnerException.Should()
-                .BeEquivalentTo(unauthorizedLinkException);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateLinkAsync(
-                        It.IsAny<Link>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.eventBrokerMock.Verify(broker =>
-                    broker.PublishLinkAsync(
-                        It.IsAny<EventEnvelope<Link>>(),
-                        It.IsAny<LinkEventOperation>()),
-                Times.Never);
+            // the workflow asked for no waiver, so none is recorded
+            savedLink.IsApprovedByBypass.Should().BeFalse();
+            savedLink.ApprovedByBypassReason.Should().BeNull();
         }
 
         [Fact]
-        public async Task ShouldRefuseAnInboundEnvelopeClaimingSystemIdentityToOverrideATerminalRowAsync()
+        public async Task ShouldHonourAVerifiedSystemIdentityToOverrideATerminalRowAsync()
         {
-            // given: the same forged claim aimed at the override — the write the flag would be
-            // most valuable for forging, because it re-opens and unpublishes a decided row.
+            // given: the override is the write the workflow most needs and the one a forgery
+            // would most want — it re-opens and unpublishes a decided row. Admitted here only
+            // because the envelope was verified; the sibling demotion that follows a new
+            // version's approval is exactly this write, against a row that is itself Approved
+            // and therefore untouchable by any Publisher.
             var requestEnvelope = new EventEnvelope<Link>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -321,30 +309,56 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             Link storageLink = CreateTerminalStorageLink(ApprovalStatus.Approved);
             requestEnvelope.Content.Id = storageLink.Id;
 
-            SetupLinkStorageRead(storageLink);
+            // when
+            Link savedLink = await CaptureSavedLinkOnEventTransitionAsync(
+                storageLink: storageLink,
+                requestEnvelope: requestEnvelope);
 
-            var unauthorizedLinkException =
-                new UnauthorizedLinkException(
-                    message: "The current user is not allowed to transition this link.");
+            // then
+            savedLink.Should().NotBeNull();
+            savedLink.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
+
+            // publication is DERIVED — a re-opened row cannot stay publicly visible while it
+            // waits for a second verdict
+            savedLink.IsPublished.Should().BeFalse();
+            savedLink.PublishDate.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task ShouldCarryTheBypassPairFromTheWorkflowCommandRatherThanErasingItAsync()
+        {
+            // given: a human bypass-approved this item and was authorised for it on the Approval
+            // row; the workflow is now syncing that decision onto the entity. The waiver has
+            // already happened — the sync is a messenger, not a second decision.
+            //
+            // Deriving "no bypass used" here, as an ordinary system-identity write does, would
+            // write IsApprovedByBypass = false onto the entity while the Approval row records
+            // true: the two records diverge (§9.8) and the evidence §9.7.1 rule 3 exists to keep
+            // is erased by the very act of storing it.
+            string bypassReason = GetRandomString();
+
+            var requestEnvelope = new EventEnvelope<Link>
+            {
+                SecurityContext = CreateSystemSecurityContext(),
+                Content = CreateBypassApprovalRequest(
+                    linkId: Guid.NewGuid(),
+                    bypassReason: bypassReason),
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+            };
+
+            Link storageLink = CreateApprovableStorageLink();
+            requestEnvelope.Content.Id = storageLink.Id;
 
             // when
-            ValueTask<EventEnvelope<Link>?> transitionTask =
-                this.linkService.OnApprovingLinkAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
+            Link savedLink = await CaptureSavedLinkOnEventTransitionAsync(
+                storageLink: storageLink,
+                requestEnvelope: requestEnvelope);
 
-            LinkValidationException actualException =
-                await Assert.ThrowsAsync<LinkValidationException>(transitionTask.AsTask);
-
-            // then: refused at the override gate, which is where a non-Admin belongs
-            actualException.InnerException.Should()
-                .BeEquivalentTo(unauthorizedLinkException);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateLinkAsync(
-                        It.IsAny<Link>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
+            // then
+            savedLink.Should().NotBeNull();
+            savedLink.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+            savedLink.IsApprovedByBypass.Should().BeTrue();
+            savedLink.ApprovedByBypassReason.Should().Be(bypassReason);
         }
 
         [Fact]

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -28,8 +28,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         public async Task ShouldAddLinkAsync()
         {
             // given: an add lands version 1 of a brand new group — the id and the group id
-            // are both minted here, the row starts as the latest version, unpublished and
-            // in Draft, and only the caller's content fields are carried across
+            // are both minted here, and being the group's only row it is also its tip, with
+            // nothing written to say so. It starts unpublished and in Draft, and only the
+            // caller's content fields are carried across.
             Link randomLink = CreateRandomLink();
             Link inputLink = randomLink;
             Guid linkId = Guid.NewGuid();
@@ -51,7 +52,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                 PublishDate = null,
                 GroupId = groupId,
                 Version = 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
@@ -166,7 +166,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             Link inputLink = CreateRandomLink();
             inputLink.GroupId = Guid.NewGuid();
             inputLink.Version = GetRandomNumber();
-            inputLink.IsLatestVersion = false;
             inputLink.IsPublished = true;
             inputLink.ApprovalStatus = ApprovalStatus.Approved;
             inputLink.IsDeleted = true;
@@ -202,8 +201,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             // then
             capturedLink!.Id.Should().Be(linkId);
             capturedLink.GroupId.Should().Be(mintedGroupId);
+            // version 1 of a freshly minted group, so it is that group's tip by construction
+            // — the caller's version number is discarded rather than trusted
             capturedLink.Version.Should().Be(1);
-            capturedLink.IsLatestVersion.Should().BeTrue();
             capturedLink.IsPublished.Should().BeFalse();
             capturedLink.ApprovalStatus.Should().Be(ApprovalStatus.Draft);
             capturedLink.IsDeleted.Should().BeFalse();

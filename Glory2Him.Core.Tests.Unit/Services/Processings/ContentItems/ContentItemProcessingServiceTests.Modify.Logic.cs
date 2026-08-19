@@ -73,6 +73,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
                     .ReturnsAsync(actorUserId);
@@ -119,6 +121,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            VerifyGroupTipResolved();
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(securityContext),
@@ -204,6 +208,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
+
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
@@ -292,6 +298,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
                     .ReturnsAsync(actorUserId);
@@ -345,9 +353,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             ApprovalStatus terminalApprovalStatus)
         {
             // given: a terminal item is immutable in place, even to its owner — the edit
-            // forks a new row with Version + 1 that becomes the latest, the previous latest
-            // is demoted BEFORE the insert (one IsLatestVersion = true per group), and the
-            // new version starts unpublished in Draft (design §3.4 rules 7-12, rule 16).
+            // forks a new row with Version + 1, and that higher Version IS what makes it the
+            // group tip. The fork is a SINGLE insert now: nothing is written to the previous
+            // row, so there is no second write to fail and leave the group tip-less (#265).
+            // The new version starts unpublished in Draft (design §3.4 rules 7-12, rule 16).
             // Rejected forks for the same reason Approved does: the row records a decision,
             // and editing it in place would rewrite what was decided. A Rejected row was
             // never published, so the fork simply leaves the group with no public row until
@@ -364,9 +373,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 approvalStatus: terminalApprovalStatus,
                 createdBy: actorUserId);
 
-            ContentItem expectedDemotedContentItem = storageContentItem.DeepClone();
-            expectedDemotedContentItem.IsLatestVersion = false;
-
             var expectedNewVersionContentItem = new ContentItem
             {
                 Id = newVersionContentItemId,
@@ -381,7 +387,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 ContentHash = expectedContentHash,
                 GroupId = storageContentItem.GroupId,
                 Version = storageContentItem.Version + 1,
-                IsLatestVersion = true,
                 IsPublished = false,
                 ApprovalStatus = ApprovalStatus.Draft,
                 IsDeleted = false
@@ -403,6 +408,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
 
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
+
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
                     .ReturnsAsync(actorUserId);
@@ -423,26 +430,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 broker.GetIdentifierAsync())
                     .ReturnsAsync(newVersionContentItemId);
 
-            var callOrder = new List<string>();
-            Guid capturedDemotedContentItemId = Guid.Empty;
             ContentItem? capturedNewVersionContentItem = null;
-
-            this.contentItemServiceMock.Setup(service =>
-                service.DemoteContentItemVersionAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-                    .Callback<Guid, CancellationToken>((contentItemId, cancellationToken) =>
-                    {
-                        callOrder.Add("demote");
-                        capturedDemotedContentItemId = contentItemId;
-                    })
-                    .ReturnsAsync(expectedDemotedContentItem);
 
             this.contentItemServiceMock.Setup(service =>
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()))
                     .Callback<ContentItem, CancellationToken>((contentItem, cancellationToken) =>
-                    {
-                        callOrder.Add("add");
-                        capturedNewVersionContentItem = contentItem;
-                    })
+                        capturedNewVersionContentItem = contentItem)
                     .ReturnsAsync(addedContentItem);
 
             EventEnvelope<ContentItem> outboundEnvelope = SetupCompletionFactPublish(
@@ -458,15 +451,35 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             // then
             actualContentItem.Should().BeEquivalentTo(expectedContentItem);
-            // the demotion names the row and nothing else — IsLatestVersion is the foundation
-            // verb's to write, not this service's to hand over
-            capturedDemotedContentItemId.Should().Be(storageContentItem.Id);
+            capturedNewVersionContentItem.Should().NotBeNull();
             capturedNewVersionContentItem.Should().BeEquivalentTo(expectedNewVersionContentItem);
-            callOrder.Should().Equal("demote", "add");
+
+            // The guarantee the demotion used to carry, stated against the DERIVED tip: the new
+            // row outranks the stored one, so the group's tip — the highest Version among its
+            // live rows — resolves to the new row and to nothing else. No write to the previous
+            // row was needed to make that true.
+            capturedNewVersionContentItem!.Version.Should()
+                .BeGreaterThan(storageContentItem.Version);
+
+            var groupAfterFork = new List<ContentItem>
+            {
+                storageContentItem,
+                capturedNewVersionContentItem
+            };
+
+            groupAfterFork
+                .Where(contentItem =>
+                    contentItem.GroupId == storageContentItem.GroupId
+                        && contentItem.IsDeleted == false)
+                .OrderByDescending(contentItem => contentItem.Version)
+                .First()
+                .Should().BeSameAs(capturedNewVersionContentItem);
 
             this.contentItemServiceMock.Verify(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            VerifyGroupTipResolved();
 
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.GetUserIdAsync(securityContext),
@@ -489,20 +502,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 Times.Once);
 
             this.contentItemServiceMock.Verify(service =>
-                service.DemoteContentItemVersionAsync(
-                    storageContentItem.Id,
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.contentItemServiceMock.Verify(service =>
                 service.AddContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
                 Times.Once);
+
+            // the fork is one write. The stored row is left exactly as it was found, which is
+            // what makes the tip-less state of #265 unreachable rather than merely unlikely.
+            this.contentItemServiceMock.Verify(service =>
+                service.ModifyContentItemAsync(It.IsAny<ContentItem>(), It.IsAny<CancellationToken>()),
+                Times.Never);
 
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateAsync(inputContentItem),
                 Times.Once);
 
-            // the fork writes two foundation rows but announces the amend exactly once
+            // the fork announces the amend exactly once
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateNextAsync(inboundEnvelope, addedContentItem),
                 Times.Once);
@@ -558,6 +571,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
+
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
@@ -627,6 +642,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             this.contentItemServiceMock.Setup(service =>
                 service.RetrieveContentItemByIdAsync(inputContentItem.Id, It.IsAny<CancellationToken>()))
                     .ReturnsAsync(storageContentItem);
+
+            SetupGroupTip(storageContentItem, isTheGroupTip: true);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(securityContext))
