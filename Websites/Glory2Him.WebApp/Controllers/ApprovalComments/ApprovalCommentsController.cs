@@ -113,12 +113,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalComments
         }
 
         [HttpGet]
-#if !DEBUG
-        [EnableQuery(PageSize = 50)]
-#endif
-#if DEBUG
-        [EnableQuery(PageSize = 5000)]
-#endif
+        [EnableQuery]
         [Authorize]
         public async ValueTask<ActionResult<IQueryable<ApprovalComment>>> Get(
             CancellationToken cancellationToken)
