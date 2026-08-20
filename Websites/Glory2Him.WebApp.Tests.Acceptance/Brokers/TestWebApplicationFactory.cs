@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Glory2Him.WebApp.Infrastructure;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
@@ -40,6 +41,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                     .AddInMemoryCollection(new Dictionary<string, string>
                     {
                         // Put your strong overrides here
+
+                        // Paging is a production posture, not something these assertions should
+                        // have to walk: raised so a collection read returns everything the suite
+                        // seeded. This replaces the #if DEBUG [EnableQuery(PageSize = 5000)] that
+                        // used to sit on each exposer — the number now travels with the tests that
+                        // need it instead of with the build configuration.
+                        { ODataPageSizeConvention.ConfigurationKey, "5000" },
                     });
             };
         }
