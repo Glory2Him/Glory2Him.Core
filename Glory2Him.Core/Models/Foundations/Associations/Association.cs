@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Text.Json.Serialization;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
 
@@ -78,6 +79,12 @@ namespace Glory2Him.Core.Models.Foundations.Associations
         /// written by application code — which is why it is the read predicate every panel
         /// seeks on, and why two rows that mean the same thing collapse to one key.
         /// </summary>
+        // [JsonInclude] is load-bearing, not tidiness. System.Text.Json WRITES a property with a
+        // non-public setter but will not READ back into one, and the substrate serializes an
+        // envelope on publish and deserializes it on receive. Without this the receiver rebuilds
+        // the association with this id empty, recomputes a different HMAC over it, and refuses a
+        // genuine fact its own publisher signed — for every association, silently.
+        [JsonInclude]
         public Guid EntityAEffectiveId { get; private set; }
 
         /// <summary>
@@ -105,6 +112,8 @@ namespace Glory2Him.Core.Models.Foundations.Associations
         public Scope EntityBScope { get; set; }
 
         /// <inheritdoc cref="EntityAEffectiveId"/>
+        // [JsonInclude] for the same reason as the low side.
+        [JsonInclude]
         public Guid EntityBEffectiveId { get; private set; }
 
         /// <inheritdoc cref="EntityAContentType"/>
