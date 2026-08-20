@@ -30,8 +30,18 @@ builder.Services.AddCoreServices();
 
 // Attribute-routed controllers alongside the SPA's minimal-API endpoints. OData is added
 // for the [EnableQuery] collection reads.
+//
+// Page size is a host posture rather than something each exposer restates, so those reads
+// carry a bare [EnableQuery] and the convention writes "OData:PageSize" onto them. The
+// value is read here, not inside the options callback below: that callback runs lazily, after
+// the host is built, whereas this line runs downstream of ConfigurationOverridesForTesting —
+// so a test host's override is settled by the time it is taken.
+ODataPageSizeConvention oDataPageSizeConvention =
+    ODataPageSizeConvention.FromConfiguration(builder.Configuration);
+
 builder.Services
     .AddControllers(options =>
+    {
         // MVC otherwise infers [Required] from C# nullability, which turns every non-nullable
         // member of a Core entity into a mandatory field on the wire. That is wrong for entities
         // carrying EF navigations: ApprovalComment.Approval is declared non-nullable because the
@@ -45,7 +55,17 @@ builder.Services
         // accepted, so a missing rule there is a hole here. See issue #238 for one such gap
         // (ApprovalComment.Comment). A parameter that must be present to address the operation at
         // all is still stated explicitly with [BindRequired] — that is binding, not validation.
-        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
+        options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
+
+        options.Conventions.Add(oDataPageSizeConvention);
+    })
+    // These actions return ActionResult<IQueryable<T>> on ordinary attribute routes rather than
+    // through an OData route, so the response is a plain JSON array: no @odata.nextLink, and
+    // $count=true adds no total because there is nowhere in that shape to put one. The page size
+    // above is therefore a CAP, not a cursor — a caller receiving exactly PageSize rows cannot
+    // tell a full collection from a truncated one. $skip does work, so the rest is reachable by a
+    // caller that already knows to ask for it. Giving clients a truncation signal means changing
+    // the response shape, which is a contract decision for the SPA and not one taken here.
     .AddOData(options => options
         .Select()
         .Filter()
