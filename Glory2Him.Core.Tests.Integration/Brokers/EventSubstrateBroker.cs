@@ -50,11 +50,17 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     /// Stands up the REAL <see cref="EventBroker"/> against a real EventHighway store on
     /// LocalDB, and runs the REAL <see cref="EventSubscriptionRegistration"/> against it.
     ///
-    /// <para>Every one of the fifteen SERVICES is mocked, and that is deliberate rather than a
-    /// compromise. The subject here is the WIRING — the address a fact is published to, and the
-    /// subscription that is bound to it — not what a handler does once it is reached. Mocking
-    /// the services leaves all 102 real address-map lookups and all 102 real listener
-    /// registrations executing exactly as they do in a host.</para>
+    /// <para>Fourteen of the fifteen services are mocked, and that is deliberate rather than a
+    /// compromise: for the wiring question — which address a fact goes to, and which
+    /// subscription is bound to it — what a handler DOES once reached is irrelevant, and mocking
+    /// leaves all 102 real address-map lookups and listener registrations executing exactly as
+    /// they do in a host.</para>
+    ///
+    /// <para>The fifteenth, <c>ApprovalOrchestrationService</c>, is REAL. It has to be, because
+    /// a receiver re-verifies the envelope's signature against the event name it expects, and a
+    /// mocked receiver never runs that check — so whether a delivered fact is ACCEPTED cannot be
+    /// asked at all. Its own dependencies are mocked, but set up to let the approval flow run
+    /// rather than fall over.</para>
     ///
     /// <para>This is the only thing in the suite that can see the substrate at all. The unit
     /// tests mock <c>IEventBroker</c>, which is precisely the boundary three separate wiring

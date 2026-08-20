@@ -17,6 +17,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FluentAssertions;
 using Glory2Him.Core.Models.Bases;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Associations;
 
 namespace Glory2Him.Core.Tests.Unit.Models.Events
@@ -38,14 +39,23 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
     public class EventPayloadWireRoundTripTests
     {
         /// <summary>
-        /// Every entity model that can ride an event envelope, derived rather than listed so a
-        /// new entity is covered the day it is added.
+        /// Every type whose contents go into an envelope's signature.
         /// </summary>
         /// <remarks>
-        /// <c>IKey</c> is the discriminator because it is the one the substrate itself uses:
-        /// <c>ReactToEntityFactAsync&lt;TEntity&gt;</c> is constrained <c>where TEntity : IKey</c>.
-        /// Exceptions are excluded — they live in these namespaces too, and they inherit a raft
-        /// of non-public setters from <c>Exception</c> that no envelope ever carries.
+        /// <para>The entity payload is derived rather than listed, so a new entity is covered the
+        /// day it is added. <c>IKey</c> is the discriminator because it is the one the substrate
+        /// itself uses: <c>ReactToEntityFactAsync&lt;TEntity&gt;</c> is constrained
+        /// <c>where TEntity : IKey</c>. Exceptions are excluded — they live in these namespaces
+        /// too, and inherit a raft of non-public setters from <c>Exception</c> that no envelope
+        /// carries.</para>
+        ///
+        /// <para>The three context types are named explicitly because <c>Content</c> is only ONE
+        /// of the four sections <c>EnvelopeIntegrityBroker.ComputeSignature</c> hashes — it signs
+        /// <c>SecurityContext</c>, <c>RequestContext</c> and <c>Metadata</c> alongside it. A
+        /// property lost from any of them breaks the signature exactly as one lost from the
+        /// entity does, and with a wider blast radius: the contexts ride EVERY envelope on every
+        /// subscription, in both directions, where an entity property affects only its own facts.
+        /// They implement no marker interface, so nothing derives them for us.</para>
         /// </remarks>
         public static TheoryData<Type> EventCarriedModels()
         {
@@ -57,7 +67,15 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                 .Where(type => typeof(IKey).IsAssignableFrom(type))
                 .Where(type => !typeof(Exception).IsAssignableFrom(type));
 
-            foreach (Type model in entityModels.OrderBy(type => type.FullName))
+            IEnumerable<Type> signedSections = new[]
+            {
+                typeof(SecurityContext),
+                typeof(RequestContext),
+                typeof(EventMetadata)
+            };
+
+            foreach (Type model in entityModels.Concat(signedSections)
+                .OrderBy(type => type.FullName))
             {
                 models.Add(model);
             }
@@ -82,7 +100,14 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
                 .Where(property => property.CanRead && property.GetMethod.IsPublic)
                 .Where(property => property.SetMethod is null || !property.SetMethod.IsPublic)
                 .Where(property => property.GetCustomAttribute<JsonIncludeAttribute>() is null)
-                .Where(property => property.GetCustomAttribute<JsonIgnoreAttribute>() is null)
+
+                // Only an unconditional ignore is safe. A CONDITIONAL one — WhenWritingNull, say
+                // — still writes the property when the condition does not hold, so it goes into
+                // the signed payload on the way out and cannot be read back on the way in. That
+                // is the defect this guard exists for, not an exemption from it.
+                .Where(property =>
+                    property.GetCustomAttribute<JsonIgnoreAttribute>() is not
+                        { Condition: JsonIgnoreCondition.Always })
                 .Select(property => property.Name)
                 .ToList();
 

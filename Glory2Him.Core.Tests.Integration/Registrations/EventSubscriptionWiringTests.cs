@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -41,11 +41,14 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
     /// EventHighway store, and assert on <c>EventPublishResult.Deliveries</c>, which carries
     /// one entry per listener that genuinely received the event.</para>
     ///
-    /// <para>The fifteen services behind the handlers are mocked, and that costs nothing here:
-    /// the subject is the WIRING — which address a fact goes to, and which subscription is
-    /// bound to that address — not what a handler does once reached. Whether the workflow then
-    /// RESOLVES an approval is a separate question needing real services and a seeded Core
-    /// database; see the remarks at the end of this file.</para>
+    /// <para>The subject here is the WIRING — which address a fact goes to, and which
+    /// subscription is bound to that address — not what a handler does once reached. These
+    /// assertions therefore read <c>SubscriptionId</c> and never <c>IsSuccess</c>: a fact is
+    /// routed to a listener whether or not the handler behind it then succeeds, so routing is
+    /// observable independently of the outcome.
+    ///
+    /// Whether a delivered fact is ACCEPTED by its receiver is the separate question
+    /// <c>EventFactAcceptanceTests</c> answers, against the same fixture.</para>
     /// </summary>
     [Collection(EventSubstrateCollection.Name)]
     public sealed class EventSubscriptionWiringTests
@@ -203,37 +206,37 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 {
                     nameof(ContentItem) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishContentItemAsync(
-                            new EventEnvelope<ContentItem> { Content = new ContentItem() },
+                            new EventEnvelope<ContentItem> { Content = new ContentItem { Id = Guid.NewGuid() } },
                             ContentItemEventOperation.Added)),
 
                     nameof(Link) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishLinkAsync(
-                            new EventEnvelope<Link> { Content = new Link() },
+                            new EventEnvelope<Link> { Content = new Link { Id = Guid.NewGuid() } },
                             LinkEventOperation.Added)),
 
                     nameof(Tag) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishTagAsync(
-                            new EventEnvelope<Tag> { Content = new Tag() },
+                            new EventEnvelope<Tag> { Content = new Tag { Id = Guid.NewGuid() } },
                             TagEventOperation.Added)),
 
                     nameof(Comment) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishCommentAsync(
-                            new EventEnvelope<Comment> { Content = new Comment() },
+                            new EventEnvelope<Comment> { Content = new Comment { Id = Guid.NewGuid() } },
                             CommentEventOperation.Added)),
 
                     nameof(Reaction) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishReactionAsync(
-                            new EventEnvelope<Reaction> { Content = new Reaction() },
+                            new EventEnvelope<Reaction> { Content = new Reaction { Id = Guid.NewGuid() } },
                             ReactionEventOperation.Added)),
 
                     nameof(BibleReference) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishBibleReferenceAsync(
-                            new EventEnvelope<BibleReference> { Content = new BibleReference() },
+                            new EventEnvelope<BibleReference> { Content = new BibleReference { Id = Guid.NewGuid() } },
                             BibleReferenceEventOperation.Added)),
 
                     nameof(Association) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishAssociationAsync(
-                            new EventEnvelope<Association> { Content = new Association() },
+                            new EventEnvelope<Association> { Content = new Association { Id = Guid.NewGuid() } },
                             AssociationEventOperation.Added)),
 
                     _ => throw new ArgumentOutOfRangeException(nameof(entityName), entityName,
@@ -246,12 +249,12 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 {
                     nameof(ContentItem) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishContentItemProcessingAsync(
-                            new EventEnvelope<ContentItem> { Content = new ContentItem() },
+                            new EventEnvelope<ContentItem> { Content = new ContentItem { Id = Guid.NewGuid() } },
                             ContentItemProcessingEventOperation.Added)),
 
                     nameof(Link) => EventSubstrateBroker.SubscriptionsReached(
                         await this.broker.EventBroker.PublishLinkProcessingAsync(
-                            new EventEnvelope<Link> { Content = new Link() },
+                            new EventEnvelope<Link> { Content = new Link { Id = Guid.NewGuid() } },
                             LinkProcessingEventOperation.Added)),
 
                     _ => throw new ArgumentOutOfRangeException(nameof(entityName), entityName,

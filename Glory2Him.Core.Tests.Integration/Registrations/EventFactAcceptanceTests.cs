@@ -51,11 +51,20 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         public EventFactAcceptanceTests(EventSubstrateBroker broker) =>
             this.broker = broker;
 
+        // Added AND Modified, for both entities. Every event name is its own literal on the
+        // receiving side, so covering one operation proves nothing about the other — and the
+        // -Modified arm is the more consequential one. A refused -Added leaves an approval that
+        // was never opened, which is at least visibly absent; a refused -Modified means §9.7.4
+        // re-approval-on-change never runs, so an already-Approved row that is then edited keeps
+        // its verdict and its stale reviews, silently.
         [Theory]
-        [InlineData(nameof(ContentItem))]
-        [InlineData(nameof(Link))]
+        [InlineData(nameof(ContentItem), false)]
+        [InlineData(nameof(ContentItem), true)]
+        [InlineData(nameof(Link), false)]
+        [InlineData(nameof(Link), true)]
         public async Task ShouldAcceptTheVersionedEntityFactFromItsProcessingTierAsync(
-            string entityName)
+            string entityName,
+            bool isModifiedFact)
         {
             // given: the processing tier is the tier that owns these two entities' top-layer
             // fact, so the name it signs is the name its receiver must verify
@@ -69,14 +78,19 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                         {
                             Content = new ContentItem { Id = Guid.NewGuid() }
                         },
-                        ContentItemProcessingEventOperation.Added)),
+                        isModifiedFact
+                            ? ContentItemProcessingEventOperation.Modified
+                            : ContentItemProcessingEventOperation.Added)),
 
                 nameof(Link) => DeliveryOutcomes(
                     await this.broker.EventBroker.PublishLinkProcessingAsync(
                         new EventEnvelope<Link> { Content = new Link { Id = Guid.NewGuid() } },
-                        LinkProcessingEventOperation.Added)),
+                        isModifiedFact
+                            ? LinkProcessingEventOperation.Modified
+                            : LinkProcessingEventOperation.Added)),
 
-                _ => throw new ArgumentOutOfRangeException(nameof(entityName))
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(entityName), entityName, "Only the versioned entities have a tier.")
             };
 
             // then
@@ -88,17 +102,23 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         }
 
         [Theory]
-        [InlineData(nameof(Tag))]
-        [InlineData(nameof(Comment))]
-        [InlineData(nameof(Reaction))]
-        [InlineData(nameof(BibleReference))]
+        [InlineData(nameof(Tag), false)]
+        [InlineData(nameof(Tag), true)]
+        [InlineData(nameof(Comment), false)]
+        [InlineData(nameof(Comment), true)]
+        [InlineData(nameof(Reaction), false)]
+        [InlineData(nameof(Reaction), true)]
+        [InlineData(nameof(BibleReference), false)]
+        [InlineData(nameof(BibleReference), true)]
         public async Task ShouldAcceptTheSingleRowEntityFactFromItsFoundationAsync(
-            string entityName)
+            string entityName,
+            bool isModifiedFact)
         {
             // given: these four have no processing tier, so the foundation signs their fact
 
             // when
-            IReadOnlyList<bool> outcomes = await PublishFoundationAddedFactAsync(entityName);
+            IReadOnlyList<bool> outcomes =
+                await PublishFoundationFactAsync(entityName, isModifiedFact);
 
             // then
             outcomes.Should().Equal(new[] { true },
@@ -106,8 +126,11 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                     "foundation signed");
         }
 
-        [Fact]
-        public async Task ShouldAcceptAnAssociationFactCarryingItsEffectiveIdsAsync()
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldAcceptAnAssociationFactCarryingItsEffectiveIdsAsync(
+            bool isModifiedFact)
         {
             // given: EntityAEffectiveId and EntityBEffectiveId are computed and persisted by the
             // database, so a real published Association fact always carries them. They are set
@@ -125,7 +148,9 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
             IReadOnlyList<bool> outcomes = DeliveryOutcomes(
                 await this.broker.EventBroker.PublishAssociationAsync(
                     new EventEnvelope<Association> { Content = association },
-                    AssociationEventOperation.Added));
+                    isModifiedFact
+                        ? AssociationEventOperation.Modified
+                        : AssociationEventOperation.Added));
 
             // then
             outcomes.Should().Equal(new[] { true },
@@ -135,14 +160,17 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                     "cannot see makes the receiver refuse a genuine envelope");
         }
 
-        private async Task<IReadOnlyList<bool>> PublishFoundationAddedFactAsync(
-            string entityName) =>
+        private async Task<IReadOnlyList<bool>> PublishFoundationFactAsync(
+            string entityName,
+            bool isModifiedFact) =>
                 entityName switch
                 {
                     nameof(Tag) => DeliveryOutcomes(
                         await this.broker.EventBroker.PublishTagAsync(
                             new EventEnvelope<Tag> { Content = new Tag { Id = Guid.NewGuid() } },
-                            TagEventOperation.Added)),
+                            isModifiedFact
+                                ? TagEventOperation.Modified
+                                : TagEventOperation.Added)),
 
                     nameof(Comment) => DeliveryOutcomes(
                         await this.broker.EventBroker.PublishCommentAsync(
@@ -150,7 +178,9 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                             {
                                 Content = new Comment { Id = Guid.NewGuid() }
                             },
-                            CommentEventOperation.Added)),
+                            isModifiedFact
+                                ? CommentEventOperation.Modified
+                                : CommentEventOperation.Added)),
 
                     nameof(Reaction) => DeliveryOutcomes(
                         await this.broker.EventBroker.PublishReactionAsync(
@@ -158,7 +188,9 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                             {
                                 Content = new Reaction { Id = Guid.NewGuid() }
                             },
-                            ReactionEventOperation.Added)),
+                            isModifiedFact
+                                ? ReactionEventOperation.Modified
+                                : ReactionEventOperation.Added)),
 
                     nameof(BibleReference) => DeliveryOutcomes(
                         await this.broker.EventBroker.PublishBibleReferenceAsync(
@@ -166,9 +198,13 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                             {
                                 Content = new BibleReference { Id = Guid.NewGuid() }
                             },
-                            BibleReferenceEventOperation.Added)),
+                            isModifiedFact
+                                ? BibleReferenceEventOperation.Modified
+                                : BibleReferenceEventOperation.Added)),
 
-                    _ => throw new ArgumentOutOfRangeException(nameof(entityName))
+                    _ => throw new ArgumentOutOfRangeException(
+                        nameof(entityName), entityName,
+                        "No foundation fact publish is mapped for this entity.")
                 };
 
         // The per-listener success flags, in order. Asserted as a whole sequence rather than
