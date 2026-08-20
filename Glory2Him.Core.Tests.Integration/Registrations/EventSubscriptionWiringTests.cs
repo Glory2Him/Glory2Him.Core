@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -69,16 +69,18 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         }
 
         [Fact]
-        public async Task ShouldRegisterIdempotentlyAsync()
+        public void ShouldRegisterIdempotently()
         {
-            // given: the fixture already registered once
-
-            // when
-            Func<Task> registeringAgain = async () =>
-                await this.broker.Registration.RegisterAsync(CancellationToken.None);
+            // given, when: the fixture ran RegisterAsync a second time while building.
+            //
+            // Registering from here instead would mean one test mutating the substrate every
+            // other test in this collection shares, at a point in the order xUnit does not
+            // guarantee. Doing it during construction also makes every delivery assertion below
+            // run against a doubly registered substrate, so a duplicated listener would surface
+            // as a delivery count of two rather than passing unnoticed.
 
             // then
-            await registeringAgain.Should().NotThrowAsync(
+            this.broker.SecondRegistrationException.Should().BeNull(
                 because: "registration is documented as idempotent and safe to call once at " +
                     "startup — every participant, address and listener is written through a " +
                     "RetrieveOrAdd against a stable id, so a restart must not duplicate them");
@@ -108,16 +110,17 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 await PublishFoundationAddedFactAsync(entityName);
 
             // then
-            reachedFromProcessing.Should().Contain(
-                workflowSubscriptionId,
-                because: $"the approval workflow must hear about a {entityName} add, and for a " +
-                    "versioned entity the processing tier is the fact it is meant to hear");
+            EventSubstrateBroker.WorkflowSubscriptionsReached(reachedFromProcessing)
+                .Should().Equal(new[] { workflowSubscriptionId },
+                    because: $"the approval workflow must hear about a {entityName} add exactly " +
+                        "once, through that one subscription and no other — a second binding on " +
+                        "this address, whatever its id, evaluates the approval twice per edit");
 
-            reachedFromFoundation.Should().NotContain(
-                workflowSubscriptionId,
-                because: $"a versioned entity's foundation {entityName}-Added must not ALSO " +
-                    "reach the approval workflow — hearing both would evaluate the same " +
-                    "approval twice for one edit");
+            EventSubstrateBroker.WorkflowSubscriptionsReached(reachedFromFoundation)
+                .Should().BeEmpty(
+                    because: $"a versioned entity's foundation {entityName}-Added must not reach " +
+                        "the approval workflow at all — it is routed from the processing tier, " +
+                        "and hearing both would evaluate the same approval twice for one edit");
         }
 
         [Theory]
@@ -137,10 +140,11 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 await PublishFoundationAddedFactAsync(entityName);
 
             // then
-            subscriptionsReached.Should().Contain(
-                FoundationAddedSubscriptionId(entityName),
-                because: $"{entityName} is a single-row entity with no processing tier, so its " +
-                    "foundation -Added fact is the only thing that can open its approval");
+            EventSubstrateBroker.WorkflowSubscriptionsReached(subscriptionsReached)
+                .Should().Equal(new[] { FoundationAddedSubscriptionId(entityName) },
+                    because: $"{entityName} is a single-row entity with no processing tier, so " +
+                        "its foundation -Added fact is the only thing that can open its " +
+                        "approval — exactly once, and through no other workflow subscription");
         }
 
         [Fact]
@@ -158,41 +162,38 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                     ApprovalReviewEventOperation.Added);
 
             // then
-            EventSubstrateBroker.SubscriptionsReached(publishResult).Should().Contain(
-                EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId,
-                because: "an added review either moves the approval count or raises a blocking " +
-                    "rejection, so it must re-test the approval");
+            EventSubstrateBroker.WorkflowSubscriptionsReached(
+                EventSubstrateBroker.SubscriptionsReached(publishResult))
+                .Should().Equal(
+                    new[]
+                    {
+                        EventBrokerIdentifiers
+                            .ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId
+                    },
+                    because: "an added review either moves the approval count or raises a " +
+                        "blocking rejection, so it must re-test the approval exactly once");
         }
 
         [Fact]
         public async Task ShouldNotDeliverAnEntitysFactToAnotherEntitysSubscriptionAsync()
         {
             // given: each entity's fact address is its own. A subscription bound to the wrong
-            // one is invisible to every unit test, because a mocked broker routes nothing
-
-            Guid[] otherEntitiesWorkflowSubscriptions = new[]
-            {
-                EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemAddedSubscriptionId,
-                EventBrokerIdentifiers.ApprovalOrchestrationOnLinkAddedSubscriptionId,
-                EventBrokerIdentifiers.ApprovalOrchestrationOnCommentAddedSubscriptionId,
-                EventBrokerIdentifiers.ApprovalOrchestrationOnReactionAddedSubscriptionId,
-                EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceAddedSubscriptionId,
-                EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationAddedSubscriptionId
-            };
+            // one is invisible to every unit test, because a mocked broker routes nothing.
+            //
+            // This asserts the ENTIRE delivery set rather than the workflow subset the other
+            // tests use, which is what makes it worth keeping alongside them: it fails on ANY
+            // unexpected listener, workflow-owned or not, so a foreign subscription that quietly
+            // shares this address has nowhere to hide.
 
             // when: a Tag fact is published
             IReadOnlyList<Guid> subscriptionsReached =
                 await PublishFoundationAddedFactAsync(nameof(Tag));
 
-            // then: the positive half first, so a dead substrate cannot satisfy this test by
-            // delivering nothing at all
-            subscriptionsReached.Should().Contain(
-                EventBrokerIdentifiers.ApprovalOrchestrationOnTagAddedSubscriptionId,
-                because: "the Tag-Added fact must reach Tag's own workflow subscription");
-
-            subscriptionsReached.Should().NotIntersectWith(
-                otherEntitiesWorkflowSubscriptions,
-                because: "and no other entity's — a fact address shared between two entities " +
+            // then
+            subscriptionsReached.Should().Equal(
+                new[] { EventBrokerIdentifiers.ApprovalOrchestrationOnTagAddedSubscriptionId },
+                because: "Tag-Added is Tag's own address: it must reach Tag's workflow " +
+                    "subscription and nothing else — an address shared with another entity " +
                     "would fire the approval workflow for the wrong row");
         }
 

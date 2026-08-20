@@ -16,6 +16,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Brokers.Integrities;
+using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
@@ -71,20 +72,34 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         private const string TestConnectionStringKey = "EventHighwayIntegrationConnectionString";
 
         private readonly string databaseName;
+        private readonly string masterConnectionString;
 
         public EventSubstrateBroker()
         {
             this.databaseName = TestDatabasePrefix + Environment.ProcessId;
-            IConfiguration configuration = BuildTestConfiguration(this.databaseName);
+            string template = ReadConnectionStringTemplate();
+            IConfiguration configuration = BuildTestConfiguration(template, this.databaseName);
+
+            // The drop MUST reach the same server the store is created on. Both are derived
+            // from the one template for that reason — an independently written master
+            // connection string would silently diverge the moment the template named another
+            // server, creating the catalogue in one place and trying to drop it in another.
+            this.masterConnectionString = WithCatalog(template, "master");
 
             // Dropped up front rather than only on the way out: a previous run that reused this
-            // process id would otherwise leave its listeners registered, and registration is
-            // idempotent by stable id, so the stale rows would silently survive.
-            DropTestDatabase(this.databaseName);
+            // process id would otherwise leave its listeners registered, and RetrieveOrRegister
+            // RETRIEVES rather than updates, so a stale row bound to a different handler would
+            // survive and the routing tests would pass against wiring the source no longer has.
+            //
+            // This one is allowed to THROW, unlike the teardown drop. The teardown swallows so a
+            // cleanup failure cannot mask the run's real result; here the drop is the premise the
+            // whole suite rests on, and a silent failure buys a green run against a stale store —
+            // exactly the false pass this fixture exists to make impossible.
+            DropTestDatabase(
+                this.masterConnectionString, this.databaseName, isBestEffort: false);
 
             var envelopeIntegrityBroker = new EnvelopeIntegrityBroker(configuration);
             EventBroker = new EventBroker(configuration, envelopeIntegrityBroker);
-            ApprovalOrchestrationServiceMock = new Mock<IApprovalOrchestrationService>();
 
             Registration = new EventSubscriptionRegistration(
                 eventBroker: EventBroker,
@@ -102,18 +117,36 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 contentItemSettingService: new Mock<IContentItemSettingService>().Object,
                 contentItemProcessingService: new Mock<IContentItemProcessingService>().Object,
                 linkProcessingService: new Mock<ILinkProcessingService>().Object,
-                approvalOrchestrationService: ApprovalOrchestrationServiceMock.Object);
+                approvalOrchestrationService: new Mock<IApprovalOrchestrationService>().Object);
 
             // Captured rather than thrown, so the failure lands on the test that asserts it
             // with a readable message instead of on a collection-fixture constructor.
+            RegistrationException = TryRegister();
+
+            // Registered a SECOND time, here rather than from a test. Idempotency is a property
+            // of the fixture's construction, and proving it from a test would mean one test
+            // mutating the substrate every other test in the collection shares, at a point in
+            // the order xUnit does not guarantee.
+            //
+            // Doing it up front is also strictly stronger: every delivery assertion then runs
+            // against a DOUBLY registered substrate, and each one pins an exact delivery count.
+            // So if a second registration ever did duplicate a listener, the delivery tests
+            // would catch it rather than silently measure a doubled substrate.
+            SecondRegistrationException = TryRegister();
+        }
+
+        private Exception TryRegister()
+        {
             try
             {
                 Registration.RegisterAsync(CancellationToken.None)
                     .AsTask().GetAwaiter().GetResult();
+
+                return null;
             }
             catch (Exception exception)
             {
-                RegistrationException = exception;
+                return exception;
             }
         }
 
@@ -121,13 +154,18 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
         internal IEventSubscriptionRegistration Registration { get; }
 
-        internal Mock<IApprovalOrchestrationService> ApprovalOrchestrationServiceMock { get; }
-
         /// <summary>
         /// The exception <c>RegisterAsync</c> threw while this fixture was being built, or
         /// <c>null</c> when every subscription registered. Asserted by the registration test.
         /// </summary>
         internal Exception RegistrationException { get; }
+
+        /// <summary>
+        /// The exception the SECOND <c>RegisterAsync</c> threw, or <c>null</c>. Registration is
+        /// documented as idempotent and safe to call once at startup; a restart must not
+        /// duplicate a participant, address or listener.
+        /// </summary>
+        internal Exception SecondRegistrationException { get; }
 
         /// <summary>
         /// The subscription ids a publish actually reached. This is the whole point of running
@@ -141,34 +179,87 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     .Select(delivery => delivery.SubscriptionId)
                     .ToList();
 
-        private static IConfiguration BuildTestConfiguration(string databaseName)
+        /// <summary>
+        /// Every subscription id the approval workflow owns — all fifteen it binds today.
+        /// </summary>
+        /// <remarks>
+        /// Tests assert against this whole set rather than against the one id they expect,
+        /// because §12.4.1's routing has TWO failure modes and issue #270 names both: "makes the
+        /// workflow either never fire or <b>fire twice per edit</b>".
+        ///
+        /// <para>A <c>Contain</c> check sees neither of the doubling shapes, and an exact count
+        /// on the ONE expected id sees only the first of them:</para>
+        /// <list type="bullet">
+        /// <item>the same listener row duplicated — the expected id appears twice; and</item>
+        /// <item>a second subscription, with its OWN id, bound to the same address — the
+        /// expected id still appears exactly once, so counting it proves nothing, yet the
+        /// workflow is reached twice for one edit.</item>
+        /// </list>
+        ///
+        /// <para>Intersecting the delivery set with every workflow id catches both: whatever the
+        /// duplicate's id, it is in here.</para>
+        /// </remarks>
+        internal static readonly IReadOnlyList<Guid> WorkflowSubscriptionIds = new[]
+        {
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnTagAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnTagModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnContentItemModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnLinkAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnLinkModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnCommentAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnCommentModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnReactionAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnReactionModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationModifiedSubscriptionId
+        };
+
+        /// <summary>
+        /// Every delivery this publish made to a subscription the approval workflow owns, in
+        /// order and WITHOUT de-duplication — so a repeated id survives to be asserted on.
+        /// </summary>
+        internal static IReadOnlyList<Guid> WorkflowSubscriptionsReached(
+            IReadOnlyList<Guid> subscriptionsReached) =>
+                subscriptionsReached
+                    .Where(reached => WorkflowSubscriptionIds.Contains(reached))
+                    .ToList();
+
+        private static string ReadConnectionStringTemplate()
         {
             IConfiguration fileConfiguration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json")
                 .AddEnvironmentVariables()
                 .Build();
 
-            string template =
-                fileConfiguration.GetConnectionString(TestConnectionStringKey)
-                    ?? throw new InvalidOperationException(
-                        $"appsettings.json must define ConnectionStrings:{TestConnectionStringKey}.");
+            return fileConfiguration.GetConnectionString(TestConnectionStringKey)
+                ?? throw new InvalidOperationException(
+                    $"appsettings.json must define ConnectionStrings:{TestConnectionStringKey}.");
+        }
 
+        private static string WithCatalog(string template, string catalog) =>
+            new SqlConnectionStringBuilder(template) { InitialCatalog = catalog }
+                .ConnectionString;
+
+        private static IConfiguration BuildTestConfiguration(
+            string template,
+            string databaseName)
+        {
             // One store per process, for the reason AssociationQueryBroker gives: a fixed name
             // means a CLI run alongside the IDE runner drops the database out from under the
             // other. EventHighway creates the schema itself on first use, so a name that does
             // not exist yet is not a problem — it is the normal case.
-            var connectionStringBuilder = new SqlConnectionStringBuilder(template)
-            {
-                InitialCatalog = databaseName
-            };
+            string connectionString = WithCatalog(template, databaseName);
 
             return new ConfigurationBuilder()
                 .AddInMemoryCollection(new Dictionary<string, string>
                 {
                     // Resolved under the PRODUCTION key, but only from this in-memory layer —
                     // never from the ambient environment.
-                    ["ConnectionStrings:EventHighwayConnectionString"] =
-                        connectionStringBuilder.ConnectionString,
+                    ["ConnectionStrings:EventHighwayConnectionString"] = connectionString,
 
                     // EnvelopeIntegrityBroker refuses a blank key or id at construction, and
                     // EventBroker signs on every publish, so the substrate cannot come up
@@ -200,15 +291,16 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             }
         }
 
-        private static void DropTestDatabase(string databaseName)
+        private static void DropTestDatabase(
+            string masterConnectionString,
+            string databaseName,
+            bool isBestEffort)
         {
             GuardAgainstDroppingANonTestDatabase(databaseName);
 
             try
             {
-                using var connection = new SqlConnection(
-                    "Server=(localdb)\\MSSQLLocalDB;Database=master;Trusted_Connection=True");
-
+                using var connection = new SqlConnection(masterConnectionString);
                 connection.Open();
 
                 // EventHighway owns this schema, so there is no DbContext here to call
@@ -223,16 +315,20 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 command.Parameters.AddWithValue("@database", databaseName);
                 command.ExecuteNonQuery();
             }
-            catch
+            catch (Exception exception) when (isBestEffort)
             {
-                // best effort — an orphaned per-process catalogue is a nuisance, and the next
-                // run with the same process id clears it, but throwing from teardown would
-                // mask the run's real result
+                // Teardown only. An orphaned per-process catalogue is a nuisance, and the next
+                // run with the same process id clears it, but throwing from teardown would mask
+                // the run's real result. The startup drop passes isBestEffort: false and is
+                // therefore NOT caught here — see the constructor for why that one must not be
+                // swallowed.
+                _ = exception;
             }
         }
 
         public void Dispose() =>
-            DropTestDatabase(this.databaseName);
+            DropTestDatabase(
+                this.masterConnectionString, this.databaseName, isBestEffort: true);
     }
 
     [CollectionDefinition(EventSubstrateCollection.Name)]
