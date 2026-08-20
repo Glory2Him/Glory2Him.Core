@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -810,6 +810,72 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ApprovalReviewEventOperation.Added,
                 expectedHandler: this.approvalOrchestrationServiceMock.Object
                     .OnApprovalReviewAddedAsync);
+
+            // The other seven workflow-record fact addresses (§10.17(a)). Each can move a §8.5
+            // predicate, so each has an ear.
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Modified,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalReviewModifiedAsync);
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Removed,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalReviewRemovedAsync);
+
+            VerifyApprovalReviewSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionName,
+                expectedOperation: ApprovalReviewEventOperation.Dismissed,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalReviewDismissedAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentAddedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentAddedSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.Added,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalCommentAddedAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.Modified,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalCommentModifiedAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.Resolved,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalCommentResolvedAsync);
+
+            VerifyApprovalCommentSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionName,
+                expectedOperation: ApprovalCommentEventOperation.Removed,
+                expectedHandler: this.approvalOrchestrationServiceMock.Object
+                    .OnApprovalCommentRemovedAsync);
 
             VerifyApprovalReviewSubscription(
                 expectedSubscriptionId:

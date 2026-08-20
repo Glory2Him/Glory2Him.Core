@@ -275,7 +275,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId: invalidApprovalId,
                     cancellationToken: TestContext.Current.CancellationToken);
 
@@ -1053,7 +1053,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1100,7 +1100,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1154,7 +1154,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1211,7 +1211,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1270,7 +1270,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1325,7 +1325,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1386,7 +1386,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1442,7 +1442,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1647,7 +1647,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     cancellationTokenSource.Token);
 
@@ -1687,7 +1687,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when: a live token is handed in, so the entry guard cannot short-circuit this run
             // and only the thrown exception's own token can decide the branch.
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -1736,7 +1736,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ValueTask<ApprovalOutcome> reviewRecordedTask =
-                this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 

@@ -83,13 +83,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     cancellationToken: cancellationToken);
             });
 
-        public ValueTask<ApprovalOutcome> ProcessApprovalReviewRecordedAsync(
+        public ValueTask<ApprovalOutcome> ProcessApprovalInputsChangedAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnProcessApprovalReview(approvalId);
+                ValidateOnProcessApprovalInputsChanged(approvalId);
 
                 Approval approval =
                     await this.approvalService.RetrieveApprovalByIdAsync(
@@ -188,12 +188,45 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 .Select(approvalReview => approvalReview.Id)
                 .ToList();
 
-            foreach (Guid staleReviewId in staleReviewIds)
+            // Each dismissal publishes ApprovalReview-Dismissed, and this service subscribes to
+            // that address (§10.17(a)). Delivery is synchronous, so without this the handler
+            // would re-test the round INSIDE the loop — once per review, each time against a
+            // set that is still being torn down, and the earliest of those sees a population
+            // that has never existed in storage as a settled state.
+            //
+            // Announced for THIS approval only, so a dismissal arriving for any other round is
+            // still heard while this loop runs. try/finally rather than a plain restore because
+            // DismissApprovalReviewAsync can throw — today it usually does, since the loop runs
+            // under the editor's identity and the dismissal wants the publisher tier (#287) —
+            // and a suppression that leaked would silently disable the handler for the rest of
+            // the request.
+            Guid previouslySuppressedApprovalId = suppressedDismissalApprovalId.Value;
+            suppressedDismissalApprovalId.Value = approvalId;
+
+            try
             {
-                await this.approvalReviewService.DismissApprovalReviewAsync(
-                    approvalReviewId: staleReviewId,
-                    cancellationToken: cancellationToken);
+                foreach (Guid staleReviewId in staleReviewIds)
+                {
+                    await this.approvalReviewService.DismissApprovalReviewAsync(
+                        approvalReviewId: staleReviewId,
+                        cancellationToken: cancellationToken);
+                }
+            }
+            finally
+            {
+                suppressedDismissalApprovalId.Value = previouslySuppressedApprovalId;
             }
         }
+
+        // Static because the handler is bound into the singleton broker as a method group while
+        // the WebApp registers this service scoped, so the instance that runs a handler is not
+        // the instance that serves the request. AsyncLocal rather than a field because the flow
+        // and the handler it suppresses are the same logical call, and a field would leak the
+        // suppression across concurrent evaluations of different rounds.
+        private static readonly AsyncLocal<Guid> suppressedDismissalApprovalId = new();
+
+        private static bool IsDismissalReTestSuppressedFor(Guid approvalId) =>
+            approvalId != Guid.Empty
+                && suppressedDismissalApprovalId.Value == approvalId;
     }
 }

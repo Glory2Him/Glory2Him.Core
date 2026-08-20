@@ -28,14 +28,61 @@ namespace Glory2Him.Core.Models.Configurations
         // bookkeeping writes as well as the amendment (§10.17 rule 2). The other five have
         // nothing above their foundation, so the foundation fact IS the top-layer fact.
         //
-        // No -Removed subscription for any of them. A takedown is not a moderation step and
-        // must never re-open an approval (§9.7.6).
+        // No -Removed subscription for any of the seven ENTITIES. A takedown is not a
+        // moderation step and must never re-open an approval (§9.7.6).
+        //
+        // The WORKFLOW RECORDS are the deliberate exception (#196 decision 10): removing an
+        // ApprovalReview or an ApprovalComment moves the threshold rather than withdrawing a
+        // subject, so those removals are subscribed. Their soft and hard removals share one
+        // address, so one subscription each covers both.
 
         public static readonly Guid ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId =
             new Guid("01a0e17c-4b12-754e-b0d4-1e2525193391");
 
         public const string ApprovalOrchestrationOnApprovalReviewAddedSubscriptionName =
             "ApprovalOrchestrationService.OnApprovalReviewAdded";
+
+        public static readonly Guid ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionId =
+            new Guid("01a0e17c-4b13-7a25-9c61-2f3636204402");
+
+        public const string ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalReviewModified";
+
+        public static readonly Guid ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionId =
+            new Guid("01a0e17c-4b14-7b36-8d72-3a4747315513");
+
+        public const string ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalReviewRemoved";
+
+        public static readonly Guid ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionId =
+            new Guid("01a0e17c-4b15-7c47-be83-4b5858426624");
+
+        public const string ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalReviewDismissed";
+
+        public static readonly Guid ApprovalOrchestrationOnApprovalCommentAddedSubscriptionId =
+            new Guid("01a0e17c-4b16-7d58-af94-5c6969537735");
+
+        public const string ApprovalOrchestrationOnApprovalCommentAddedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalCommentAdded";
+
+        public static readonly Guid ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionId =
+            new Guid("01a0e17c-4b17-7e69-90a5-6d7a7a648846");
+
+        public const string ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalCommentModified";
+
+        public static readonly Guid ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionId =
+            new Guid("01a0e17c-4b18-7f7a-81b6-7e8b8b759957");
+
+        public const string ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalCommentResolved";
+
+        public static readonly Guid ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionId =
+            new Guid("01a0e17c-4b19-708b-92c7-8f9c9c86aa68");
+
+        public const string ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionName =
+            "ApprovalOrchestrationService.OnApprovalCommentRemoved";
 
         public static readonly Guid ApprovalOrchestrationOnTagAddedSubscriptionId =
             new Guid("01a0e17c-3a01-743d-afc3-0d1414082280");

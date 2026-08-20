@@ -7,7 +7,7 @@ Data and renderer are separate files, all in this folder:
 
 - [graph.yml](./graph.yml) — the manifest: solution name, project list (which
   also names each project's data file), root order, and the event registry
-  (all 125 `<Entity>.<Operation>` events with their publish/subscribe row
+  (all 171 `<Entity>.<Operation>` events with their publish/subscribe row
   labels).
 - `projects/*.yml` — one file per project / package boundary, each declaring
   that project's components with their methods, outbound calls, publishes and
@@ -75,60 +75,87 @@ view you were on, and switching carries your current selection across.
   toggle reveals the DateTime / Identifier / Logging / Hash broker copies
   that are hidden by default for readability.
 
-## Current truths captured in the data (scanned 2026-08-11; LinkProcessing and the widened approval transition added 2026-08-17)
+## Current truths captured in the data (full re-scan 2026-08-21)
 
-- **Glory2Him.WebApp is standalone** — it has no project reference to
-  Glory2Him.Core. Its minimal-API endpoint groups use its own view services,
-  brokers, Identity database, and in-memory sample data.
-- **Glory2Him.Core has no controllers** — its consumption surface is the DI
-  registrations plus `IEventSubscriptionRegistration.RegisterAsync`, which
-  wires every event subscription (each purple line). No production host in
-  this repo calls it yet.
-- **The subscription counts below are stale and this snapshot is partial.**
-  `EventSubscriptionRegistration` wires 85 subscriptions today; the data
-  files carry 71. The gap of 14 predates the LinkProcessing addition and is
-  almost entirely the state transitions rolled out to `Tag`, `Reaction`,
-  `Comment`, `BibleReference`, `Link` and `ContentItem`: those six are modelled
-  with CRUD and their substrate handlers only, so they carry no `Submitting` /
-  `Approving` subscription and no submit or approval-transition method.
-  `Association` is the one entity whose transitions are modelled. A full
-  re-scan is needed to reconcile them — until then, read the counts here as a
-  floor, not a total.
-- **The version fork gained its own foundation operation 2026-08-17** (issue #263).
-  `Demote<Entity>VersionAsync` on `ContentItem` and `Link` owns `IsLatestVersion`
-  and publishes `<Entity>-Demoted`; the fork edge from each processing service
-  now points at it instead of the general modify. These two are the only
-  transitions the snapshot models on those entities — submit and the approval
-  transition are still missing, per the note above.
-- **The approval transition verb was widened 2026-08-17** (issue #198).
-  `Approve<Entity>Async` became `Transition<Entity>ApprovalAsync` on all seven
-  approvable entities, carrying the ordinary verdict, the `Admin` override out
-  of a terminal row, and the bypass. On `Association` that folded
-  `BypassApproveAssociationAsync` away: its verb, substrate handler and the
-  `Association-BypassApproving` request address are gone, and
-  `Association-Submitted` was added as a fact address so an override that
-  re-opens a round has something to announce. Both changes are reflected here;
-  the six unmodelled entities are unaffected because their transitions were
-  never in the data.
-- **`LinkProcessingService` (`LP`) is the second processing service**, added
-  2026-08-17 alongside `ContentItemProcessingService`. Same shape minus the
-  dedupe-by-hash rule and the content-type role tier, so it takes no
-  `IHashBroker`. Its component block was added by hand rather than by a full
-  re-scan; everything else in the data still reflects the 2026-08-11 scan.
+- **All 109 subscriptions are now drawn.** `EventSubscriptionRegistration`
+  wires 109 and the data files carry 109 — the first time these have matched
+  since the 2026-08-11 scan, which drew 71 against 85. The gap closed in two
+  halves: the six approvable entities gained their `Submitting` / `Approving`
+  subscriptions and their submit and approval-transition verbs, and
+  `ApprovalOrchestrationService` was added with its 22 handlers.
+- **`ApprovalOrchestrationService` (`AO`) is the approval workflow**, added on
+  this branch (PR #289 and the workflow-record subscriptions that followed).
+  It records human approve/reject decisions on the `Approval` row and
+  re-evaluates a round whenever its inputs change. It deliberately holds none
+  of the seven entity services: the decided state reaches its entity as an
+  `<Entity>-Approving` command event published under the system identity,
+  addressed to the PROCESSING tier for the two versioned types and to the
+  foundation for the other five. It has no `IStorageBroker`, so no
+  ProcessedEvents dedupe — its substrate guard is `IEnvelopeIntegrityBroker`
+  instead. `IApprovalCommentService` is injected but currently unused.
+- **Circular event flows now exist, and the red edges are correct.** 14 of the
+  109 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
+  `<Entity>-Approving`, each entity publishes `<Entity>-Added` / `-Modified`
+  back, and Tarjan finds one cyclic component: `AO`, `CIP`, `LP`,
+  `FS.Tag`, `FS.Comment`, `FS.Reaction`, `FS.BibleReference`,
+  `FS.Association`. 21 pub/sub pairs — 42 lines — render red. `FS.ContentItem`
+  and `FS.Link` stay out of it because `AO` addresses their processing tier.
+  The `ApprovalReview` and `ApprovalComment` fact subscriptions stay purple:
+  nothing `AO` publishes reaches those two services.
+- **`EnvelopeIntegrityBroker` is new to the data.** Symmetric HMAC signing and
+  verification of every envelope. It takes only `IConfiguration`, so it is a
+  leaf with no outbound edges — but 16 components call it: `EventBroker` signs
+  on publish and verifies on reply, and all 12 foundations, both processing
+  services and the orchestration verify inside their substrate handlers.
+- **`Demote<Entity>VersionAsync` is gone** — reversed 2026-08-19 by
+  `4d674b7d` (#265), which derives the version tip instead of storing it.
+  There is no `Demote` verb, no `<Entity>-Demoted` address and no
+  `IsLatestVersion` column anywhere in `Glory2Him.Core/`. The fork edge from
+  each processing service now points at `FindHighestVersionInGroupAsync`.
+- **The publication swap lives in the processing tier.** `CIP` and `LP` each
+  gained `OnApproving<Entity>Async`, which clears the group's published slot
+  through `FindPublished<Entity>IdByGroupAsync` + `Unpublish<Entity>ByIdAsync`
+  before forwarding the promote to `Transition<Entity>ApprovalAsync`, then
+  publishes its own `<Entity>Processing-Approved` fact. That handler has no
+  public counterpart on the interface, so — uniquely — its publish and its
+  foundation calls hang off the handler row rather than a public method.
+- **`Glory2Him.WebApp` is no longer standalone.** It gained a project
+  reference to `Glory2Him.Core` on 2026-08-13 (`1780e2bc`) and
+  `Infrastructure/CoreRegistration.cs` registers nine Core brokers plus
+  `ITagService`, `IApprovalCommentService`, `IApprovalReviewService`,
+  `IApprovalService` and `IApprovalOrchestrationService`. Four OData
+  controllers (`Tags`, `ApprovalComments`, `ApprovalReviews`, `Approvals`)
+  call them directly. **None of those four is modelled yet** — they would be
+  the first webapp→core edges in the graph, and adding them is the next
+  scan's job. `RegisterAsync` is still called only by the unit tests.
 - Core's `StorageBroker` derives from `EFxceptionsContext` (EF Core
   DbContext) and passes **itself** into G2H.StorageClient's `EFCoreClient`.
 - `EventBroker` wraps EventHighway (SQL Server): one
   `Publish<Entity>Async` / `SubscribeTo<Entity>EventAsync` pair per entity;
-  the operation enum selects the event address GUID. 71 subscriptions are
-  drawn here, against 85 wired in the source — see the partial-snapshot note
-  above.
+  the operation enum selects the event address GUID.
 - Approval policy is a pure decision function: `AccessClient`
   (`ISecurityClient.Access`) decides, and Core's `AccessBroker` does all the
-  gathering from storage. `AssociationService`'s approval verdicts and
-  `ApprovalReviewService` are its only consumers.
-- `AssociationService` carries five approval state-transition verbs
-  (approve, bypass-approve, sort, set-confidence, set-scope), each
-  publishing its own fact; `Sort` is call-only with no request event.
+  gathering from storage. `IAccessBroker` now carries 9 methods and has eight
+  foundation consumers plus the orchestration — not the two the previous
+  snapshot named.
+- `AssociationService` carries four approval state-transition verbs
+  (transition, sort, set-confidence, set-scope), each publishing its own fact;
+  `Sort` is call-only with no request event. The bypass folded into
+  `TransitionAssociationApprovalAsync` on 2026-08-17 (#198).
+
+### Known gaps in this snapshot
+
+- **`AssociationOrchestrationService`** (`Services/Orchestrations/Associations/`,
+  added 2026-08-12) is not modelled. It has no events, so it does not affect
+  the subscription count.
+- **The four WebApp controllers** above are not modelled.
+- **7 of 178 event addresses are absent from the manifest** — the whole
+  `Attachment` family. They are declared on `IEventBroker` but no service
+  publishes or subscribes them, so nothing would be drawn. The manifest
+  otherwise carries 171 of 178, exactly the set with a producer or consumer.
+- The `Attachment` storage family (`IStorageBroker.Attachment.cs`, 11
+  operations) is likewise unmodelled; only `SelectAttachmentByIdAsync` has a
+  caller today, and it is drawn.
 
 ## The data files
 

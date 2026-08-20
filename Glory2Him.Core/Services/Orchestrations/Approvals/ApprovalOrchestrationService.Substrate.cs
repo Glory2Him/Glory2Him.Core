@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
@@ -37,11 +38,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // than read off the payload, so a forged or mistyped body cannot make a Tag fact drive a
         // ContentItem's approval.
         //
-        // -Added and -Modified only. Removal is not an approval state (§9.7.6): a takedown is not
-        // a moderation step, and re-opening an approval because its subject was withdrawn is the
-        // opposite of what should happen. The consequences of removal are handled where they
-        // belong — the removing flow unpublishes, the queue filters, the transition refuses a
-        // deleted subject.
+        // For the seven ENTITIES: -Added and -Modified only. An entity's removal is not an
+        // approval state (§9.7.6) — a takedown is not a moderation step, and re-opening an
+        // approval because its subject was withdrawn is the opposite of what should happen. The
+        // consequences of removal are handled where they belong: the removing flow unpublishes,
+        // the queue filters, the transition refuses a deleted subject.
+        //
+        // The WORKFLOW RECORDS below are the deliberate exception (#196 decision 10). Removing
+        // an ApprovalReview or an ApprovalComment moves the threshold rather than withdrawing a
+        // subject, so those removals ARE subscribed.
 
         public ValueTask<EventEnvelope<Tag>?> OnTagAddedAsync(
             EventEnvelope<Tag> envelope,
@@ -194,28 +199,143 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
-        // The review flow's ear. Keyed on the review's ApprovalId rather than an entity id:
-        // a review names the round it belongs to directly, and the entity is whatever that
-        // approval points at. Reaching for the entity here would be a second lookup for
-        // something the flow resolves anyway.
+        // ── The workflow records' ears (§10.17(a)) ────────────────────────────────────
         //
-        // -Added only. A review is amended through its own verb and dismissed through
-        // another; neither adds a verdict to the round, and re-evaluating on a dismissal
-        // would run the round twice for one act — the flow that dismissed it already
-        // re-evaluates (§9.7.4).
+        // EVERY fact address on ApprovalReview and ApprovalComment has a subscriber, because
+        // every one of them can move a §8.5 predicate: the evaluation reads comments through
+        // IsDeleted is false && IsResolved is false, and reviews through IsDeleted is false &&
+        // Verdict != Dismissed. An address left unwatched is a gate that moves unnoticed.
+        //
+        // All of them are keyed on the record's ApprovalId rather than an entity id. A workflow
+        // record names the round it belongs to directly, and the entity is whatever that
+        // approval points at, so reaching for the entity would be a second lookup for something
+        // the flow resolves anyway. The id is trusted because it is inside the HMAC: the
+        // envelope was signed by this system over this content, and verified before it is read.
+        //
+        // NEVER infer a direction from the address. A fact means the inputs changed, never that
+        // the approval may now complete — every handler re-runs the WHOLE §8.5 evaluation and
+        // lets the decision function answer. A comment born already settled (§7.8) is the common
+        // case and moves nothing, which the re-test ESTABLISHES rather than assumes.
+        //
+        // Both comment resolution addresses are wired, and that is not belt-and-braces:
+        // IsResolved has two writers by design (§14.7 rule 5) — the owner through the general
+        // modify, the owner or an Admin through the resolve transition — and which one carried a
+        // change depends on nothing more than which control was clicked.
+
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewAddedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>
-            ReactToApprovalReviewFactAsync(envelope, cancellationToken);
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames: new[] { "ApprovalReviewAdded" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
 
-        private async ValueTask<EventEnvelope<ApprovalReview>?> ReactToApprovalReviewFactAsync(
+        public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewModifiedAsync(
             EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames: new[] { "ApprovalReviewModified" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
+
+        // Two names, one address. HardRemoved is published to the Removed address on purpose
+        // (EventBrokerIdentifiers.ApprovalReview.cs), so this handler receives envelopes signed
+        // under either and must accept both — §8.5 reads a withdrawn review the same way
+        // whether the row was soft-deleted or is simply gone.
+        public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewRemovedAsync(
+            EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames:
+                    new[] { "ApprovalReviewRemoved", "ApprovalReviewHardRemoved" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
+
+        // A dismissed verdict leaves the active set (§9.5), which moves the count.
+        //
+        // This is the one address that can be published by this service's OWN work: the
+        // §9.7.4 stale-review reset loops over the round's reviews calling
+        // DismissApprovalReviewAsync, and each of those publishes here. Delivery is synchronous,
+        // so an unguarded re-test would run mid-loop against a HALF-dismissed set and could
+        // auto-approve off a review population that is still being torn down.
+        //
+        // The loop announces itself and this handler stands down for that approval only —
+        // suppressing the re-test, never the signature check. The dismissing flow re-evaluates
+        // once, at the end, which is the correct single evaluation for the whole act.
+        //
+        // The subscription still earns its place: a dismissal also arrives from a HUMAN — a
+        // publisher driving a verdict to Dismissed by hand (§7.7) — and nothing re-evaluates
+        // that. Suppressing our own loop is what lets us hear theirs.
+        public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewDismissedAsync(
+            EventEnvelope<ApprovalReview> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames: new[] { "ApprovalReviewDismissed" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
+
+        public ValueTask<EventEnvelope<ApprovalComment>?> OnApprovalCommentAddedAsync(
+            EventEnvelope<ApprovalComment> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames: new[] { "ApprovalCommentAdded" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
+
+        // The owner flipping IsResolved through the general modify — writer one of two.
+        public ValueTask<EventEnvelope<ApprovalComment>?> OnApprovalCommentModifiedAsync(
+            EventEnvelope<ApprovalComment> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames: new[] { "ApprovalCommentModified" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
+
+        // The owner or an Admin flipping it through the resolve transition — writer two of two.
+        public ValueTask<EventEnvelope<ApprovalComment>?> OnApprovalCommentResolvedAsync(
+            EventEnvelope<ApprovalComment> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames: new[] { "ApprovalCommentResolved" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
+
+        // Two names, one address — see OnApprovalReviewRemovedAsync.
+        public ValueTask<EventEnvelope<ApprovalComment>?> OnApprovalCommentRemovedAsync(
+            EventEnvelope<ApprovalComment> envelope,
+            CancellationToken cancellationToken = default) =>
+            ReactToWorkflowRecordFactAsync(
+                envelope: envelope,
+                acceptedEventNames:
+                    new[] { "ApprovalCommentRemoved", "ApprovalCommentHardRemoved" },
+                approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                cancellationToken: cancellationToken);
+
+        private async ValueTask<EventEnvelope<TRecord>?> ReactToWorkflowRecordFactAsync<TRecord>(
+            EventEnvelope<TRecord> envelope,
+            string[] acceptedEventNames,
+            Guid approvalId,
             CancellationToken cancellationToken)
         {
-            await ValidateEntityFactEnvelopeAsync(envelope, "ApprovalReviewAdded");
+            await ValidateEntityFactEnvelopeAsync(envelope, acceptedEventNames);
 
-            await ProcessApprovalReviewRecordedAsync(
-                approvalId: envelope.Content.ApprovalId,
+            // Deliberately AFTER the signature check. An unverifiable envelope is refused
+            // whether or not we would have acted on it — suppression must never become a way
+            // to skip verification.
+            if (IsDismissalReTestSuppressedFor(approvalId))
+            {
+                return null;
+            }
+
+            await ProcessApprovalInputsChangedAsync(
+                approvalId: approvalId,
                 cancellationToken: cancellationToken);
 
             return null;

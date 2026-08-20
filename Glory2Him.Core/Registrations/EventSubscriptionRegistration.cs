@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -1050,6 +1050,133 @@ namespace Glory2Him.Core.Registrations
                 operation: ApprovalReviewEventOperation.Added,
                 approvalReviewEventHandler:
                     this.approvalOrchestrationService.OnApprovalReviewAddedAsync,
+                cancellationToken: cancellationToken);
+
+            // The other seven workflow-record fact addresses (§10.17(a)). Every one of them can
+            // move a §8.5 predicate, so every one has an ear. None of these handlers infers a
+            // direction from the address it arrived on — each re-runs the whole evaluation and
+            // lets the decision function say whether anything changed.
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionName,
+
+                    Description = "Reacts to an amended verdict: re-tests the round the review belongs to."
+                },
+                operation: ApprovalReviewEventOperation.Modified,
+                approvalReviewEventHandler:
+                    this.approvalOrchestrationService.OnApprovalReviewModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionName,
+
+                    Description = "Reacts to a withdrawn review: re-tests the round, whose count may drop "
+                        + "or whose blocking rejection may lift. Serves the hard removal "
+                        + "too, which shares this address."
+                },
+                operation: ApprovalReviewEventOperation.Removed,
+                approvalReviewEventHandler:
+                    this.approvalOrchestrationService.OnApprovalReviewRemovedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionName,
+
+                    Description = "Reacts to a dismissed verdict leaving the active set. Stands down "
+                        + "while this service is itself dismissing that approval's stale "
+                        + "reviews, so the round is evaluated once for that loop."
+                },
+                operation: ApprovalReviewEventOperation.Dismissed,
+                approvalReviewEventHandler:
+                    this.approvalOrchestrationService.OnApprovalReviewDismissedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentAddedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentAddedSubscriptionName,
+
+                    Description = "Reacts to a new comment: one born outstanding blocks an approval that "
+                        + "was clear, and one born settled moves nothing — which the "
+                        + "re-test establishes rather than assumes."
+                },
+                operation: ApprovalCommentEventOperation.Added,
+                approvalCommentEventHandler:
+                    this.approvalOrchestrationService.OnApprovalCommentAddedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionName,
+
+                    Description = "Reacts to an amended comment: the general modify is one of the two "
+                        + "writers of IsResolved (§14.7 rule 5)."
+                },
+                operation: ApprovalCommentEventOperation.Modified,
+                approvalCommentEventHandler:
+                    this.approvalOrchestrationService.OnApprovalCommentModifiedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionName,
+
+                    Description = "Reacts to a settled comment: the resolve transition is the other of "
+                        + "the two writers of IsResolved (§14.7 rule 5)."
+                },
+                operation: ApprovalCommentEventOperation.Resolved,
+                approvalCommentEventHandler:
+                    this.approvalOrchestrationService.OnApprovalCommentResolvedAsync,
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalCommentEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionName,
+
+                    Description = "Reacts to a removed comment: soft-deleting an outstanding one "
+                        + "unblocks the approval. Serves the hard removal too, which "
+                        + "shares this address."
+                },
+                operation: ApprovalCommentEventOperation.Removed,
+                approvalCommentEventHandler:
+                    this.approvalOrchestrationService.OnApprovalCommentRemovedAsync,
                 cancellationToken: cancellationToken);
 
             // ── ApprovalReview request handlers ──────────────────────────────────

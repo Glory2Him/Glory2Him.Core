@@ -53,7 +53,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     /// <para>Fourteen of the fifteen services are mocked, and that is deliberate rather than a
     /// compromise: for the wiring question — which address a fact goes to, and which
     /// subscription is bound to it — what a handler DOES once reached is irrelevant, and mocking
-    /// leaves all 102 real address-map lookups and listener registrations executing exactly as
+    /// leaves all 109 real address-map lookups and listener registrations executing exactly as
     /// they do in a host.</para>
     ///
     /// <para>The fifteenth, <c>ApprovalOrchestrationService</c>, is REAL. It has to be, because
@@ -111,6 +111,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 this.masterConnectionString, this.databaseName, isBestEffort: false);
 
             var envelopeIntegrityBroker = new EnvelopeIntegrityBroker(configuration);
+            EnvelopeIntegrityBroker = envelopeIntegrityBroker;
             EventBroker = new EventBroker(configuration, envelopeIntegrityBroker);
 
             // The orchestration is REAL, and it is the only service here that is. It has to be:
@@ -183,15 +184,52 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
         internal EventBroker EventBroker { get; }
 
+        // Exposed so a test can build its own orchestration that signs and verifies
+        // against the SAME key as the publisher — otherwise every envelope it sees
+        // would be refused for the wrong reason.
+        internal IEnvelopeIntegrityBroker EnvelopeIntegrityBroker { get; }
+
         internal IApprovalOrchestrationService ApprovalOrchestrationService { get; }
 
         internal IEventSubscriptionRegistration Registration { get; }
 
+        /// <summary>
+        /// Every approval id the workflow's re-test actually asked storage for, in order.
+        /// </summary>
+        /// <remarks>
+        /// The workflow-record handlers key on <c>envelope.Content.ApprovalId</c>, and every
+        /// record also has its own <c>Id</c>. A handler reaching for the wrong one still
+        /// produces a successful delivery, because the read is stubbed on any id — so
+        /// <c>IsSuccess</c> alone cannot tell a correct handler from one keyed on the record
+        /// instead of the round. Recording what was read is what closes that.
+        /// </remarks>
+        internal List<Guid> ApprovalIdsRead { get; } = new List<Guid>();
+
         // Enough for ResolveApprovalAsync to reach a decision: no approval exists for the entity,
         // so one is created at Draft and handed straight back.
-        private static Mock<IApprovalService> BuildApprovalServiceMock()
+        private Mock<IApprovalService> BuildApprovalServiceMock()
         {
             var approvalServiceMock = new Mock<IApprovalService>();
+
+            // The workflow-record re-test reads the round by id. Answered at Submitted, because
+            // that is the only status the flow evaluates — a Draft or terminal round short
+            // circuits before the conditions are read, so a test could not tell a handler that
+            // re-tested from one that did nothing.
+            approvalServiceMock
+                .Setup(service => service.RetrieveApprovalByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid approvalId, CancellationToken _) =>
+                {
+                    ApprovalIdsRead.Add(approvalId);
+
+                    return new Approval
+                    {
+                        Id = approvalId,
+                        EntityType = EntityType.Tag,
+                        EntityId = Guid.NewGuid(),
+                        ApprovalStatus = ApprovalStatus.Submitted
+                    };
+                });
 
             approvalServiceMock
                 .Setup(service => service.FindApprovalByEntityAsync(
@@ -265,7 +303,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     .ToList();
 
         /// <summary>
-        /// Every subscription id the approval workflow owns — all fifteen it binds today.
+        /// Every subscription id the approval workflow owns — all twenty-two it binds today.
         /// </summary>
         /// <remarks>
         /// Tests assert against this whole set rather than against the one id they expect,
@@ -300,7 +338,16 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceAddedSubscriptionId,
             EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceModifiedSubscriptionId,
             EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationAddedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationModifiedSubscriptionId
+            EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationModifiedSubscriptionId,
+
+            // The seven added by #276, completing §10.17(a)'s eight.
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionId
         };
 
         /// <summary>

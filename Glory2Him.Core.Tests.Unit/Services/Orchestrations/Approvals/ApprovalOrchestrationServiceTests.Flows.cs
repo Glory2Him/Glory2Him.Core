@@ -483,7 +483,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalOutcome actualOutcome =
-                await this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -571,7 +571,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalOutcome actualOutcome =
-                await this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -647,7 +647,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalOutcome actualOutcome =
-                await this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 
@@ -720,7 +720,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // when
             ApprovalOutcome actualOutcome =
-                await this.approvalOrchestrationService.ProcessApprovalReviewRecordedAsync(
+                await this.approvalOrchestrationService.ProcessApprovalInputsChangedAsync(
                     approvalId,
                     TestContext.Current.CancellationToken);
 

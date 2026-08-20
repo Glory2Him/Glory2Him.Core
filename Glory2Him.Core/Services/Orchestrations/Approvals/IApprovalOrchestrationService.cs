@@ -113,7 +113,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// <c>BlockOnReject</c> — independent of the approval threshold, and even where
         /// approvals have already been recorded.
         /// </summary>
-        ValueTask<ApprovalOutcome> ProcessApprovalReviewRecordedAsync(
+        ValueTask<ApprovalOutcome> ProcessApprovalInputsChangedAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default);
     }
