@@ -187,11 +187,43 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
         internal IEventSubscriptionRegistration Registration { get; }
 
+        /// <summary>
+        /// Every approval id the workflow's re-test actually asked storage for, in order.
+        /// </summary>
+        /// <remarks>
+        /// The workflow-record handlers key on <c>envelope.Content.ApprovalId</c>, and every
+        /// record also has its own <c>Id</c>. A handler reaching for the wrong one still
+        /// produces a successful delivery, because the read is stubbed on any id — so
+        /// <c>IsSuccess</c> alone cannot tell a correct handler from one keyed on the record
+        /// instead of the round. Recording what was read is what closes that.
+        /// </remarks>
+        internal List<Guid> ApprovalIdsRead { get; } = new List<Guid>();
+
         // Enough for ResolveApprovalAsync to reach a decision: no approval exists for the entity,
         // so one is created at Draft and handed straight back.
-        private static Mock<IApprovalService> BuildApprovalServiceMock()
+        private Mock<IApprovalService> BuildApprovalServiceMock()
         {
             var approvalServiceMock = new Mock<IApprovalService>();
+
+            // The workflow-record re-test reads the round by id. Answered at Submitted, because
+            // that is the only status the flow evaluates — a Draft or terminal round short
+            // circuits before the conditions are read, so a test could not tell a handler that
+            // re-tested from one that did nothing.
+            approvalServiceMock
+                .Setup(service => service.RetrieveApprovalByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid approvalId, CancellationToken _) =>
+                {
+                    ApprovalIdsRead.Add(approvalId);
+
+                    return new Approval
+                    {
+                        Id = approvalId,
+                        EntityType = EntityType.Tag,
+                        EntityId = Guid.NewGuid(),
+                        ApprovalStatus = ApprovalStatus.Submitted
+                    };
+                });
 
             approvalServiceMock
                 .Setup(service => service.FindApprovalByEntityAsync(
@@ -300,7 +332,16 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceAddedSubscriptionId,
             EventBrokerIdentifiers.ApprovalOrchestrationOnBibleReferenceModifiedSubscriptionId,
             EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationAddedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationModifiedSubscriptionId
+            EventBrokerIdentifiers.ApprovalOrchestrationOnAssociationModifiedSubscriptionId,
+
+            // The seven added by #276, completing §10.17(a)'s eight.
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentAddedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionId,
+            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionId
         };
 
         /// <summary>

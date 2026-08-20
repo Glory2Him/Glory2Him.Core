@@ -50,9 +50,31 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // workflow: create approvals for rows they do not own, reset another round's reviews, or
         // trigger an evaluation that auto-approves. The signature binds the event name too, so a
         // genuine Tag-Added envelope cannot be replayed onto the Link handler.
+        private ValueTask ValidateEntityFactEnvelopeAsync<TEntity>(
+            EventEnvelope<TEntity> envelope,
+            string eventName) =>
+            ValidateEntityFactEnvelopeAsync(envelope, new[] { eventName });
+
+        // The accepted set is the PUBLISHER'S COMPOSITION INVERTED:
+        //
+        //     { $"{entityName}{operation}" : operation maps to the address this handler binds }
+        //
+        // One name for every address but two. Removed and HardRemoved are published to ONE
+        // address on purpose — consumers subscribe to a single removal address and tell the two
+        // apart by the composed event name — so a handler bound there receives envelopes signed
+        // under either, and a single expected name would refuse half of them. The event name is
+        // inside the HMAC, so that refusal is silent: the fact is delivered, verified against a
+        // name it was never signed with, and discarded.
+        //
+        // This is NOT a weakening to "accept any name". Both names in a removal set are names
+        // THIS system signs FOR THIS ADDRESS. A TagAdded envelope verifies under neither, and
+        // neither does a forgery.
+        //
+        // A null or empty set falls through the loop and throws, so "no name required" is
+        // unreachable by construction rather than by a guard clause somebody can delete.
         private async ValueTask ValidateEntityFactEnvelopeAsync<TEntity>(
             EventEnvelope<TEntity> envelope,
-            string eventName)
+            string[] acceptedEventNames)
         {
             if (envelope is null || envelope.Content is null || envelope.Metadata is null)
             {
@@ -60,17 +82,22 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     message: "Approval is invalid, fix the errors and try again.");
             }
 
-            bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
-                envelope, eventName, EnvelopeDirection.Request);
-
-            if (isSignatureValid is false)
+            foreach (string eventName in acceptedEventNames ?? Array.Empty<string>())
             {
-                throw new InvalidApprovalOrchestrationException(
-                    message: "Approval event is invalid. Integrity verification failed.");
+                bool isSignatureValid = await this.envelopeIntegrityBroker.VerifyAsync(
+                    envelope, eventName, EnvelopeDirection.Request);
+
+                if (isSignatureValid)
+                {
+                    return;
+                }
             }
+
+            throw new InvalidApprovalOrchestrationException(
+                message: "Approval event is invalid. Integrity verification failed.");
         }
 
-        private static void ValidateOnProcessApprovalReview(Guid approvalId) =>
+        private static void ValidateOnProcessApprovalInputsChanged(Guid approvalId) =>
             Validate(
                 message: "Approval is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalId), Parameter: nameof(Approval.Id)));
