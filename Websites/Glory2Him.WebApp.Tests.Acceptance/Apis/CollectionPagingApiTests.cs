@@ -10,11 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Collections.Generic;
-using System.Linq;
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.OData.Query;
-using Microsoft.Extensions.DependencyInjection;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis
@@ -42,24 +38,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
         [Fact]
         public void ShouldPageEveryQueryableCollectionReadAtTheConfiguredSize()
         {
-            // given
-            IActionDescriptorCollectionProvider actionDescriptorCollectionProvider =
-                this.apiBroker.HostServices
-                    .GetRequiredService<IActionDescriptorCollectionProvider>();
-
-            // when
-            List<EnableQueryAttribute> enableQueryAttributes =
-                actionDescriptorCollectionProvider.ActionDescriptors.Items
-                    .SelectMany(actionDescriptor => actionDescriptor.FilterDescriptors)
-                    .Select(filterDescriptor => filterDescriptor.Filter)
-                    .OfType<EnableQueryAttribute>()
-                    .ToList();
+            // given . when
+            IReadOnlyList<int> actualPageSizes =
+                this.apiBroker.GetQueryableCollectionPageSizes();
 
             // then
-            enableQueryAttributes.Should().NotBeEmpty();
+            actualPageSizes.Should().NotBeEmpty();
 
-            enableQueryAttributes.Should().OnlyContain(enableQueryAttribute =>
-                enableQueryAttribute.PageSize == ExpectedTestPageSize);
+            // Asserted over the sizes rather than over the attributes: EnableQueryAttribute has
+            // no useful ToString, so a predicate over the objects reports the failure without
+            // ever printing the number that was wrong.
+            actualPageSizes.Should().AllBeEquivalentTo(ExpectedTestPageSize);
         }
     }
 }

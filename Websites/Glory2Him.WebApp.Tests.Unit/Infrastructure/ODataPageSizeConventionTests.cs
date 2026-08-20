@@ -9,14 +9,16 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using FluentAssertions;
+using Glory2Him.WebApp.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.AspNetCore.OData.Query;
 using Microsoft.Extensions.Configuration;
-using Glory2Him.WebApp.Infrastructure;
 
 namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 {
@@ -79,26 +81,38 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             enableQueryAttribute.PageSize.Should().Be(50);
         }
 
-        // EnableQueryAttribute.PageSize refuses anything below 1, so "no paging" cannot be
-        // assigned — only left alone, which is what a non-positive setting asks for.
+        // The type cannot hold a size that would serve a collection unpaged, so no caller can
+        // reach Apply with one.
         [Theory]
         [InlineData(0)]
         [InlineData(-1)]
-        public void ShouldLeavePagingOffWhenTheConfiguredPageSizeIsNotPositive(int pageSize)
+        public void ShouldRefuseAPageSizeBelowOne(int pageSize)
         {
-            // given
-            var enableQueryAttribute = new EnableQueryAttribute();
-
-            ApplicationModel applicationModel =
-                CreateApplicationModelWithActionFilter(enableQueryAttribute);
-
-            var oDataPageSizeConvention = new ODataPageSizeConvention(pageSize);
-
-            // when
-            oDataPageSizeConvention.Apply(applicationModel);
+            // given . when
+            Action constructConvention = () => new ODataPageSizeConvention(pageSize);
 
             // then
-            enableQueryAttribute.PageSize.Should().Be(0);
+            constructConvention.Should().Throw<ArgumentOutOfRangeException>();
+        }
+
+        // Paging is the only limit standing between one request and a whole table. A host that
+        // lost it would keep serving with nothing to notice, so the setting stops startup instead.
+        [Theory]
+        [InlineData("0")]
+        [InlineData("-1")]
+        public void ShouldRefuseAConfiguredPageSizeBelowOne(string configuredPageSize)
+        {
+            // given
+            IConfiguration configuration = BuildConfiguration(
+                (ODataPageSizeConvention.ConfigurationKey, configuredPageSize));
+
+            // when
+            Action readConfiguration = () =>
+                ODataPageSizeConvention.FromConfiguration(configuration);
+
+            // then
+            readConfiguration.Should().Throw<InvalidOperationException>()
+                .WithMessage($"*{ODataPageSizeConvention.ConfigurationKey}*");
         }
 
         [Fact]
@@ -144,6 +158,38 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
             // then
             enableQueryAttribute.PageSize.Should()
                 .Be(ODataPageSizeConvention.FallbackPageSize);
+        }
+
+        /// <summary>
+        /// Reads the host's own shipped appsettings.json — the file the portal actually deploys
+        /// with, which lands here because the WebApp project copies it to output. Every other
+        /// test in this class names its own page size, and the acceptance suite overrides the key
+        /// for its run, so without this the shipped value is asserted by nothing: it could be set
+        /// to 0, or to the suite's 5000, and every test would stay green.
+        /// </summary>
+        [Fact]
+        public void ShouldShipAPageSizeThatPagesTheCollectionReads()
+        {
+            // given
+            IConfiguration hostConfiguration = new ConfigurationBuilder()
+                .AddJsonFile(
+                    Path.Combine(AppContext.BaseDirectory, "appsettings.json"),
+                    optional: false)
+                .Build();
+
+            var enableQueryAttribute = new EnableQueryAttribute();
+
+            ApplicationModel applicationModel =
+                CreateApplicationModelWithActionFilter(enableQueryAttribute);
+
+            // when
+            ODataPageSizeConvention oDataPageSizeConvention =
+                ODataPageSizeConvention.FromConfiguration(hostConfiguration);
+
+            oDataPageSizeConvention.Apply(applicationModel);
+
+            // then
+            enableQueryAttribute.PageSize.Should().BePositive();
         }
 
         private static IConfiguration BuildConfiguration(

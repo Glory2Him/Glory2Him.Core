@@ -32,13 +32,19 @@ namespace Glory2Him.WebApp.Infrastructure
     /// <see cref="EnableQueryAttribute.PageSize"/> reads back as <c>0</c> until something assigns
     /// it and its setter refuses anything below <c>1</c>, so <c>0</c> is exactly "this action
     /// named no page size of its own" and is the only case this fills in.</para>
+    ///
+    /// <para><b>What it does not reach.</b> Only the attributes hanging off the application model
+    /// — a controller's and an action's. An <see cref="EnableQueryAttribute"/> registered globally
+    /// through <c>MvcOptions.Filters</c> lives outside that model, so it would keep the framework
+    /// default of no paging at all. Nothing registers one that way today; a change that starts to
+    /// must carry its own page size, because this will not supply one.</para>
     /// </summary>
     public sealed class ODataPageSizeConvention : IApplicationModelConvention
     {
         /// <summary>
-        /// The configuration key holding the page size. A value below <c>1</c> turns server-driven
-        /// paging off altogether, because that is the only way to say it: the attribute's setter
-        /// rejects <c>0</c>, so "no paging" means leaving the attribute untouched.
+        /// The configuration key holding the page size. It must name a positive number — see
+        /// <see cref="FromConfiguration"/> for why a value that would remove paging is refused
+        /// rather than honoured.
         /// </summary>
         public const string ConfigurationKey = "OData:PageSize";
 
@@ -52,6 +58,8 @@ namespace Glory2Him.WebApp.Infrastructure
 
         public ODataPageSizeConvention(int pageSize)
         {
+            ArgumentOutOfRangeException.ThrowIfLessThan(pageSize, 1);
+
             this.pageSize = pageSize;
         }
 
@@ -61,22 +69,33 @@ namespace Glory2Him.WebApp.Infrastructure
         /// what lets the acceptance suite raise the size through
         /// <c>Program.TestConfigurationOverrides</c> — that hook runs before the first
         /// <c>AddControllers</c> call, so a test host's value is the one this sees.
+        ///
+        /// <para>A configured value below <c>1</c> is refused rather than treated as "no paging".
+        /// Paging is the only limit standing between one request and a whole table, and a host
+        /// that lost it would keep serving — no exception, no log line, nothing to notice — so a
+        /// setting that would remove it stops the host at startup instead.</para>
         /// </summary>
+        /// <exception cref="InvalidOperationException">
+        /// The key names a value below <c>1</c>.
+        /// </exception>
         public static ODataPageSizeConvention FromConfiguration(IConfiguration configuration)
         {
             int configuredPageSize =
                 configuration.GetValue<int?>(ConfigurationKey) ?? FallbackPageSize;
+
+            if (configuredPageSize < 1)
+            {
+                throw new InvalidOperationException(
+                    $"Configuration '{ConfigurationKey}' is {configuredPageSize}, which would "
+                        + "serve every queryable collection read unpaged. It must be 1 or greater; "
+                        + $"remove the key to take the default of {FallbackPageSize}.");
+            }
 
             return new ODataPageSizeConvention(configuredPageSize);
         }
 
         public void Apply(ApplicationModel application)
         {
-            if (this.pageSize < 1)
-            {
-                return;
-            }
-
             foreach (ControllerModel controller in application.Controllers)
             {
                 ApplyPageSize(controller.Filters);

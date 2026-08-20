@@ -59,6 +59,13 @@ builder.Services
 
         options.Conventions.Add(oDataPageSizeConvention);
     })
+    // These actions return ActionResult<IQueryable<T>> on ordinary attribute routes rather than
+    // through an OData route, so the response is a plain JSON array: no @odata.nextLink, and
+    // $count=true adds no total because there is nowhere in that shape to put one. The page size
+    // above is therefore a CAP, not a cursor — a caller receiving exactly PageSize rows cannot
+    // tell a full collection from a truncated one. $skip does work, so the rest is reachable by a
+    // caller that already knows to ask for it. Giving clients a truncation signal means changing
+    // the response shape, which is a contract decision for the SPA and not one taken here.
     .AddOData(options => options
         .Select()
         .Filter()

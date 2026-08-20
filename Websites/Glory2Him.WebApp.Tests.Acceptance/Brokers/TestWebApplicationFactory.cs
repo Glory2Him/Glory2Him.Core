@@ -13,12 +13,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Glory2Him.WebApp.Infrastructure;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Glory2Him.WebApp.Infrastructure;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {

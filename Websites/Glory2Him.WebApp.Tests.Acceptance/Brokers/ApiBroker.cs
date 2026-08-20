@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Net.Http;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.Extensions.DependencyInjection;
@@ -37,9 +36,5 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             apiFactoryClient = new RESTFulApiFactoryClient(httpClient);
             storageBroker = webApplicationFactory.Services.GetService<IStorageBroker>();
         }
-
-        // The booted host's own container, for the handful of assertions that are about how
-        // Program.cs composed the host rather than about what an endpoint answers.
-        internal IServiceProvider HostServices => webApplicationFactory.Services;
     }
 }
