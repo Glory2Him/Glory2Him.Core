@@ -14,10 +14,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Integrities;
+using Glory2Him.Core.Brokers.Loggings;
+using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Configurations;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
@@ -44,11 +50,17 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     /// Stands up the REAL <see cref="EventBroker"/> against a real EventHighway store on
     /// LocalDB, and runs the REAL <see cref="EventSubscriptionRegistration"/> against it.
     ///
-    /// <para>Every one of the fifteen SERVICES is mocked, and that is deliberate rather than a
-    /// compromise. The subject here is the WIRING — the address a fact is published to, and the
-    /// subscription that is bound to it — not what a handler does once it is reached. Mocking
-    /// the services leaves all 102 real address-map lookups and all 102 real listener
-    /// registrations executing exactly as they do in a host.</para>
+    /// <para>Fourteen of the fifteen services are mocked, and that is deliberate rather than a
+    /// compromise: for the wiring question — which address a fact goes to, and which
+    /// subscription is bound to it — what a handler DOES once reached is irrelevant, and mocking
+    /// leaves all 102 real address-map lookups and listener registrations executing exactly as
+    /// they do in a host.</para>
+    ///
+    /// <para>The fifteenth, <c>ApprovalOrchestrationService</c>, is REAL. It has to be, because
+    /// a receiver re-verifies the envelope's signature against the event name it expects, and a
+    /// mocked receiver never runs that check — so whether a delivered fact is ACCEPTED cannot be
+    /// asked at all. Its own dependencies are mocked, but set up to let the approval flow run
+    /// rather than fall over.</para>
     ///
     /// <para>This is the only thing in the suite that can see the substrate at all. The unit
     /// tests mock <c>IEventBroker</c>, which is precisely the boundary three separate wiring
@@ -101,6 +113,25 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             var envelopeIntegrityBroker = new EnvelopeIntegrityBroker(configuration);
             EventBroker = new EventBroker(configuration, envelopeIntegrityBroker);
 
+            // The orchestration is REAL, and it is the only service here that is. It has to be:
+            // a receiver re-verifies the envelope's signature against the event name it expects
+            // (ValidateEntityFactEnvelopeAsync), and a mocked receiver never runs that check. The
+            // publisher-signs-X / receiver-verifies-Y defect class is invisible without it.
+            //
+            // Its own dependencies are mocked, but set up to let the flow RUN rather than fall
+            // over — otherwise every delivery fails and "was this fact accepted?" cannot be
+            // asked. The integrity broker is the same instance the publisher signs with, which
+            // is the point: same key, same algorithm, so only the NAME can differ.
+            ApprovalOrchestrationService = new ApprovalOrchestrationService(
+                approvalService: BuildApprovalServiceMock().Object,
+                approvalReviewService: new Mock<IApprovalReviewService>().Object,
+                approvalCommentService: new Mock<IApprovalCommentService>().Object,
+                accessBroker: BuildAccessBrokerMock().Object,
+                eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
+                eventBroker: EventBroker,
+                envelopeIntegrityBroker: envelopeIntegrityBroker,
+                loggingBroker: new Mock<ILoggingBroker>().Object);
+
             Registration = new EventSubscriptionRegistration(
                 eventBroker: EventBroker,
                 contentItemService: new Mock<IContentItemService>().Object,
@@ -117,7 +148,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 contentItemSettingService: new Mock<IContentItemSettingService>().Object,
                 contentItemProcessingService: new Mock<IContentItemProcessingService>().Object,
                 linkProcessingService: new Mock<ILinkProcessingService>().Object,
-                approvalOrchestrationService: new Mock<IApprovalOrchestrationService>().Object);
+                approvalOrchestrationService: ApprovalOrchestrationService);
 
             // Captured rather than thrown, so the failure lands on the test that asserts it
             // with a readable message instead of on a collection-fixture constructor.
@@ -152,7 +183,61 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
         internal EventBroker EventBroker { get; }
 
+        internal IApprovalOrchestrationService ApprovalOrchestrationService { get; }
+
         internal IEventSubscriptionRegistration Registration { get; }
+
+        // Enough for ResolveApprovalAsync to reach a decision: no approval exists for the entity,
+        // so one is created at Draft and handed straight back.
+        private static Mock<IApprovalService> BuildApprovalServiceMock()
+        {
+            var approvalServiceMock = new Mock<IApprovalService>();
+
+            approvalServiceMock
+                .Setup(service => service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ApprovalEntityMatch)null);
+
+            approvalServiceMock
+                .Setup(service => service.AddApprovalAsync(
+                    It.IsAny<Approval>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Approval approval, CancellationToken _) =>
+                    new Approval
+                    {
+                        Id = Guid.NewGuid(),
+                        EntityType = approval.EntityType,
+                        EntityId = approval.EntityId,
+                        ApprovalStatus = approval.ApprovalStatus
+                    });
+
+            return approvalServiceMock;
+        }
+
+        // A verdict that resolves and settles nothing: conditions unmet, no stale-review reset,
+        // no auto-approve. The flow reads it, finds nothing to do, and returns — which is all
+        // that is needed to establish the fact was ACCEPTED rather than refused at the seam.
+        private static Mock<IAccessBroker> BuildAccessBrokerMock()
+        {
+            var accessBrokerMock = new Mock<IAccessBroker>();
+
+            accessBrokerMock
+                .Setup(broker => broker.EvaluateApprovalConditionsByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ApprovalConditionsVerdict
+                {
+                    AreConditionsMet = false,
+                    ShouldResetStaleReviewsOnChange = false,
+                    ShouldAutoApprove = false,
+                    BlockReason = AccessDenialReason.None,
+                    BlockReasons = new List<AccessDenialReason>(),
+                    UnresolvedApprovalCommentCount = 0,
+                    ApprovalCount = 0,
+                    RequiredNumberOfApprovals = 1,
+                    Explanation = "Integration fixture: nothing to decide."
+                });
+
+            return accessBrokerMock;
+        }
 
         /// <summary>
         /// The exception <c>RegisterAsync</c> threw while this fixture was being built, or

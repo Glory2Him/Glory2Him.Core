@@ -63,13 +63,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
+        // The verified name is the name the PUBLISHER signed, and the publisher composes it as
+        // entityName + operation where entityName belongs to the tier that owns the address this
+        // subscription binds. ContentItem and Link take their top-layer fact from the PROCESSING
+        // tier (§12.4.1 rules 6-7), and EventBroker.ContentItemProcessing/LinkProcessing sign
+        // with "ContentItemProcessing"/"LinkProcessing" accordingly — so these four read
+        // "...Processing..." while the five single-row entities below, whose fact comes from
+        // their foundation, use the bare entity name.
+        //
+        // Getting this wrong is silent: the event name is bound INTO the HMAC, so a mismatch
+        // does not misroute anything, it makes the receiver refuse a genuine envelope it was
+        // correctly delivered.
         public ValueTask<EventEnvelope<ContentItem>?> OnContentItemAddedAsync(
             EventEnvelope<ContentItem> envelope,
             CancellationToken cancellationToken = default) =>
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.ContentItem,
-                eventName: "ContentItemAdded",
+                eventName: "ContentItemProcessingAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -79,7 +90,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.ContentItem,
-                eventName: "ContentItemModified",
+                eventName: "ContentItemProcessingModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 
@@ -89,7 +100,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Link,
-                eventName: "LinkAdded",
+                eventName: "LinkProcessingAdded",
                 react: ProcessEntityAddedAsync,
                 cancellationToken: cancellationToken);
 
@@ -99,7 +110,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ReactToEntityFactAsync(
                 envelope: envelope,
                 entityType: EntityType.Link,
-                eventName: "LinkModified",
+                eventName: "LinkProcessingModified",
                 react: ProcessEntityModifiedAsync,
                 cancellationToken: cancellationToken);
 

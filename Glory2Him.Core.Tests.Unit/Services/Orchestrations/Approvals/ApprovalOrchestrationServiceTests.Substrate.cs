@@ -55,16 +55,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     EntityType.Tag, "TagModified", true),
 
                 (nameof(IApprovalOrchestrationService.OnContentItemAddedAsync),
-                    EntityType.ContentItem, "ContentItemAdded", false),
+                    EntityType.ContentItem, "ContentItemProcessingAdded", false),
 
                 (nameof(IApprovalOrchestrationService.OnContentItemModifiedAsync),
-                    EntityType.ContentItem, "ContentItemModified", true),
+                    EntityType.ContentItem, "ContentItemProcessingModified", true),
 
                 (nameof(IApprovalOrchestrationService.OnLinkAddedAsync),
-                    EntityType.Link, "LinkAdded", false),
+                    EntityType.Link, "LinkProcessingAdded", false),
 
                 (nameof(IApprovalOrchestrationService.OnLinkModifiedAsync),
-                    EntityType.Link, "LinkModified", true),
+                    EntityType.Link, "LinkProcessingModified", true),
 
                 (nameof(IApprovalOrchestrationService.OnCommentAddedAsync),
                     EntityType.Comment, "CommentAdded", false),
