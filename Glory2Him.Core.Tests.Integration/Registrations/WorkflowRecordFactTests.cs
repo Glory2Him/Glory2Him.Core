@@ -48,25 +48,47 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         public WorkflowRecordFactTests(EventSubstrateBroker broker) =>
             this.broker = broker;
 
-        public static TheoryData<string> ReviewFactOperations() =>
-            new TheoryData<string>
+        /// <summary>
+        /// Every FACT operation on the record, derived from the enum rather than listed.
+        /// </summary>
+        /// <remarks>
+        /// Derived on purpose. §10.17(a) is a contract over every address, and a hand-typed
+        /// list only ever covers the operations somebody remembered — the failure mode it
+        /// cannot see is precisely the one that matters, an operation added later and wired
+        /// nowhere. Deriving means a new fact operation arrives with a test row already
+        /// attached, and that row fails until it is both subscribed and given an accepted name.
+        ///
+        /// <para>Facts are identified by EXCLUDING requests, never by matching a past-tense
+        /// suffix. A suffix test looks equivalent and is not: <c>ConfidenceSet</c> already
+        /// ships on <c>AssociationEventOperation</c> as a fact that ends in neither "ed" nor
+        /// "ing", so an include-list keyed on "ed" would silently classify a new fact of that
+        /// shape as a request and stop testing it.</para>
+        /// </remarks>
+        private static IReadOnlyList<string> FactOperationNamesOf<TOperation>()
+            where TOperation : struct, Enum =>
+                Enum.GetNames<TOperation>()
+                    .Where(name => IsRequestName(name) is false)
+                    .OrderBy(name => name, StringComparer.Ordinal)
+                    .ToList();
+
+        private static TheoryData<string> FactOperationsOf<TOperation>()
+            where TOperation : struct, Enum
+        {
+            var operations = new TheoryData<string>();
+
+            foreach (string factName in FactOperationNamesOf<TOperation>())
             {
-                nameof(ApprovalReviewEventOperation.Added),
-                nameof(ApprovalReviewEventOperation.Modified),
-                nameof(ApprovalReviewEventOperation.Removed),
-                nameof(ApprovalReviewEventOperation.HardRemoved),
-                nameof(ApprovalReviewEventOperation.Dismissed)
-            };
+                operations.Add(factName);
+            }
+
+            return operations;
+        }
+
+        public static TheoryData<string> ReviewFactOperations() =>
+            FactOperationsOf<ApprovalReviewEventOperation>();
 
         public static TheoryData<string> CommentFactOperations() =>
-            new TheoryData<string>
-            {
-                nameof(ApprovalCommentEventOperation.Added),
-                nameof(ApprovalCommentEventOperation.Modified),
-                nameof(ApprovalCommentEventOperation.Resolved),
-                nameof(ApprovalCommentEventOperation.Removed),
-                nameof(ApprovalCommentEventOperation.HardRemoved)
-            };
+            FactOperationsOf<ApprovalCommentEventOperation>();
 
         [Theory]
         [MemberData(nameof(ReviewFactOperations))]
@@ -181,61 +203,64 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         }
 
         [Fact]
-        public void ShouldGiveEveryWorkflowRecordFactAddressASubscriber()
+        public void ShouldCoverEveryFactOperationOnBothWorkflowRecords()
         {
-            // given: §10.17(a) is a contract over the ADDRESSES, not over a list somebody types.
-            // The theories above cover the ten past-tense operations that exist today; this
-            // fails if an eleventh is added tomorrow and nobody wires it.
-            //
-            // Counted by distinct ADDRESS rather than by operation, because HardRemoved is
-            // published to the Removed address — five operations, four addresses, per record.
-            IReadOnlyList<Guid> reviewFactAddresses = DistinctFactAddresses(
-                EventBrokerIdentifiers.ApprovalReviewEventAddressIds);
-
-            IReadOnlyList<Guid> commentFactAddresses = DistinctFactAddresses(
-                EventBrokerIdentifiers.ApprovalCommentEventAddressIds);
+            // given: the theories above are driven off the enums, so this only has to prove the
+            // derivation SEES everything and lets nothing through that it should not. It
+            // deliberately does not count subscriptions — the theories already prove each
+            // operation is subscribed AND accepted, by publishing it through the real broker
+            // and asserting the round was re-tested.
 
             // when
-            int workflowRecordSubscriptions = EventSubstrateBroker.WorkflowSubscriptionIds
-                .Count(subscriptionId => WorkflowRecordSubscriptionIds.Contains(subscriptionId));
+            IReadOnlyList<string> reviewFacts =
+                FactOperationNamesOf<ApprovalReviewEventOperation>();
+
+            IReadOnlyList<string> commentFacts =
+                FactOperationNamesOf<ApprovalCommentEventOperation>();
 
             // then
-            (reviewFactAddresses.Count + commentFactAddresses.Count).Should().Be(
-                workflowRecordSubscriptions,
-                because: "every fact address on both workflow records must have a subscriber " +
-                    "(§10.17(a)) — each one can move a §8.5 predicate, so an address left " +
-                    "unwatched is a gate that moves unnoticed. A past-tense operation added to " +
-                    "either enum without a subscription fails here rather than in production");
+            reviewFacts.Should().BeEquivalentTo(
+                Enum.GetNames<ApprovalReviewEventOperation>()
+                    .Where(name => IsRequestName(name) is false),
+                because: "every operation that is not a request is a fact, and §10.17(a) needs " +
+                    "every fact address subscribed — so a fact operation added later must " +
+                    "arrive already covered by a theory row rather than waiting to be listed");
+
+            reviewFacts.Should().NotContain(name => IsRequestName(name),
+                because: "a request is answered by the record's own service, never by the " +
+                    "workflow — one leaking in would publish onto an address the workflow does " +
+                    "not subscribe to and fail confusingly rather than usefully");
+
+            commentFacts.Should().BeEquivalentTo(
+                Enum.GetNames<ApprovalCommentEventOperation>()
+                    .Where(name => IsRequestName(name) is false),
+                because: "the same holds for comments");
+
+            commentFacts.Should().NotContain(name => IsRequestName(name),
+                because: "the same holds for comment requests");
         }
 
-        private static readonly HashSet<Guid> WorkflowRecordSubscriptionIds = new()
-        {
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewAddedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewModifiedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewRemovedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalReviewDismissedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentAddedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentModifiedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentResolvedSubscriptionId,
-            EventBrokerIdentifiers.ApprovalOrchestrationOnApprovalCommentRemovedSubscriptionId
-        };
+        // A request is a command somebody sends; a fact is what the service publishes afterwards.
+        // Named by EXCLUSION rather than by a past-tense suffix, because a fact need not end in
+        // "ed" — AssociationEventOperation.ConfidenceSet already does not, so an include-list
+        // keyed on "ed" would quietly stop testing a new fact of that shape.
+        private static bool IsRequestName(string operationName) =>
+            operationName.EndsWith("ing", StringComparison.Ordinal)
+                || operationName.EndsWith("ById", StringComparison.Ordinal);
 
-        // A fact is the past-tense half of the enum. Requests end in -ing and are answered by
-        // the record's own service, not by the workflow.
-        private static IReadOnlyList<Guid> DistinctFactAddresses<TOperation>(
-            IReadOnlyDictionary<TOperation, Guid> eventAddressIds)
-            where TOperation : struct, Enum =>
-                eventAddressIds
-                    .Where(entry => entry.Key.ToString().EndsWith("ed", StringComparison.Ordinal))
-                    .Where(entry => entry.Key.ToString().EndsWith("ing", StringComparison.Ordinal)
-                        is false)
-                    .Select(entry => entry.Value)
-                    .Distinct()
-                    .ToList();
-
+        // The outcomes of the deliveries that went to a subscription the APPROVAL WORKFLOW
+        // owns, in order.
+        //
+        // Filtered to the workflow rather than asserted over every listener, because this
+        // collection's fixture is shared and a sibling test may legitimately attach its own
+        // probe to the same address. An unfiltered assertion would then fail on a delivery that
+        // has nothing to do with what is under test. Filtering keeps BOTH properties that
+        // matter: exactly one workflow subscription is reached, and it accepted the fact.
         private static IReadOnlyList<bool> DeliveryOutcomes<T>(
             EventPublishResult<T> publishResult) =>
                 (publishResult.Deliveries ?? new List<EventDelivery<T>>())
+                    .Where(delivery => EventSubstrateBroker.WorkflowSubscriptionIds
+                        .Contains(delivery.SubscriptionId))
                     .Select(delivery => delivery.IsSuccess)
                     .ToList();
     }

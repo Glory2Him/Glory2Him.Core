@@ -53,7 +53,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     /// <para>Fourteen of the fifteen services are mocked, and that is deliberate rather than a
     /// compromise: for the wiring question — which address a fact goes to, and which
     /// subscription is bound to it — what a handler DOES once reached is irrelevant, and mocking
-    /// leaves all 102 real address-map lookups and listener registrations executing exactly as
+    /// leaves all 109 real address-map lookups and listener registrations executing exactly as
     /// they do in a host.</para>
     ///
     /// <para>The fifteenth, <c>ApprovalOrchestrationService</c>, is REAL. It has to be, because
@@ -111,6 +111,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 this.masterConnectionString, this.databaseName, isBestEffort: false);
 
             var envelopeIntegrityBroker = new EnvelopeIntegrityBroker(configuration);
+            EnvelopeIntegrityBroker = envelopeIntegrityBroker;
             EventBroker = new EventBroker(configuration, envelopeIntegrityBroker);
 
             // The orchestration is REAL, and it is the only service here that is. It has to be:
@@ -182,6 +183,11 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         }
 
         internal EventBroker EventBroker { get; }
+
+        // Exposed so a test can build its own orchestration that signs and verifies
+        // against the SAME key as the publisher — otherwise every envelope it sees
+        // would be refused for the wrong reason.
+        internal IEnvelopeIntegrityBroker EnvelopeIntegrityBroker { get; }
 
         internal IApprovalOrchestrationService ApprovalOrchestrationService { get; }
 
@@ -297,7 +303,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     .ToList();
 
         /// <summary>
-        /// Every subscription id the approval workflow owns — all fifteen it binds today.
+        /// Every subscription id the approval workflow owns — all twenty-two it binds today.
         /// </summary>
         /// <remarks>
         /// Tests assert against this whole set rather than against the one id they expect,

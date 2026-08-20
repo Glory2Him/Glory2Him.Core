@@ -61,7 +61,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         [Fact]
         public void ShouldRegisterEverySubscriptionWithoutThrowing()
         {
-            // given, when: the fixture ran the real RegisterAsync over all 102 subscriptions
+            // given, when: the fixture ran the real RegisterAsync over all 109 subscriptions
 
             // then
             this.broker.RegistrationException.Should().BeNull(
