@@ -69,6 +69,7 @@ roots:
   - WA.CartService
   - CIP
   - LP
+  - AO
   - ESR
   - SecurityBroker
   - AccessBroker
@@ -124,9 +125,6 @@ events:
   - id: ContentItem.HardRemoved
     publish: PublishContentItemAsync
     subscribe: SubscribeToContentItemEventAsync
-  - id: ContentItem.Demoted
-    publish: PublishContentItemAsync
-    subscribe: SubscribeToContentItemEventAsync
   - id: Association.Adding
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
@@ -164,9 +162,6 @@ events:
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
   - id: Association.Submitted
-    publish: PublishAssociationAsync
-    subscribe: SubscribeToAssociationEventAsync
-  - id: Association.Approved
     publish: PublishAssociationAsync
     subscribe: SubscribeToAssociationEventAsync
   - id: Association.Sorted
@@ -263,9 +258,6 @@ events:
     publish: PublishLinkAsync
     subscribe: SubscribeToLinkEventAsync
   - id: Link.HardRemoved
-    publish: PublishLinkAsync
-    subscribe: SubscribeToLinkEventAsync
-  - id: Link.Demoted
     publish: PublishLinkAsync
     subscribe: SubscribeToLinkEventAsync
   - id: Reaction.Adding
@@ -497,5 +489,125 @@ events:
     publish: PublishLinkProcessingAsync
     subscribe: SubscribeToLinkProcessingEventAsync
   - id: LinkProcessing.Removed
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: ContentItem.Submitting
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Approving
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Submitted
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Approved
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Rejected
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: ContentItem.Unpublished
+    publish: PublishContentItemAsync
+    subscribe: SubscribeToContentItemEventAsync
+  - id: Link.Submitting
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Approving
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Submitted
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Approved
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Rejected
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Link.Unpublished
+    publish: PublishLinkAsync
+    subscribe: SubscribeToLinkEventAsync
+  - id: Tag.Submitting
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Approving
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Submitted
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Approved
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Tag.Rejected
+    publish: PublishTagAsync
+    subscribe: SubscribeToTagEventAsync
+  - id: Reaction.Submitting
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Approving
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Submitted
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Approved
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Reaction.Rejected
+    publish: PublishReactionAsync
+    subscribe: SubscribeToReactionEventAsync
+  - id: Comment.Submitting
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Approving
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Submitted
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Approved
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: Comment.Rejected
+    publish: PublishCommentAsync
+    subscribe: SubscribeToCommentEventAsync
+  - id: BibleReference.Submitting
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Approving
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Submitted
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Approved
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: BibleReference.Rejected
+    publish: PublishBibleReferenceAsync
+    subscribe: SubscribeToBibleReferenceEventAsync
+  - id: ApprovalComment.Resolving
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalComment.Resolved
+    publish: PublishApprovalCommentAsync
+    subscribe: SubscribeToApprovalCommentEventAsync
+  - id: ApprovalReview.Dismissing
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReview.Dismissed
+    publish: PublishApprovalReviewAsync
+    subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ContentItemProcessing.Approving
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: ContentItemProcessing.Approved
+    publish: PublishContentItemProcessingAsync
+    subscribe: SubscribeToContentItemProcessingEventAsync
+  - id: LinkProcessing.Approving
+    publish: PublishLinkProcessingAsync
+    subscribe: SubscribeToLinkProcessingEventAsync
+  - id: LinkProcessing.Approved
     publish: PublishLinkProcessingAsync
     subscribe: SubscribeToLinkProcessingEventAsync

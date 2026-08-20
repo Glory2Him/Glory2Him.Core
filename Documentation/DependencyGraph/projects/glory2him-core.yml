@@ -517,6 +517,14 @@ components:
       - from: SubscribeToLinkProcessingEventAsync
         to: EXT.EventHighway
         method: V2.EventListenerV2Client.RetrieveOrRegisterEventListenerV2Async
+  - id: EnvelopeIntegrityBroker
+    name: EnvelopeIntegrityBroker
+    layer: broker
+    col: 6
+    description: "Symmetric HMAC over a shared secret: signs every envelope on publish and verifies it on receive, so a tampered payload or an envelope that never went through the proper code path is detectable (design 14.6 rule 4). Takes only IConfiguration, so it makes no outbound calls - a leaf. Sixteen components use it: EventBroker signs on publish and verifies the reply, and every foundation, processing and orchestration service verifies inside its substrate handlers before any work is done."
+    methods:
+      - SignAsync
+      - VerifyAsync
   - id: DateTimeBroker
     name: DateTimeBroker
     layer: broker
@@ -568,6 +576,11 @@ components:
       - OnHardRemovingContentItemByIdAsync
       - OnRetrievingContentItemByIdAsync
       - DemoteContentItemVersionAsync
+      - SubmitContentItemByIdAsync
+      - TransitionContentItemApprovalAsync
+      - UnpublishContentItemByIdAsync
+      - FindPublishedContentItemIdByGroupAsync
+      - FindHighestVersionInGroupAsync
     calls:
       - from: AddContentItemAsync
         to: EventEnvelopeBroker
@@ -754,6 +767,10 @@ components:
         handler: OnRemovingContentItemByIdAsync
       - event: ContentItem.HardRemovingById
         handler: OnHardRemovingContentItemByIdAsync
+      - event: ContentItem.Submitting
+        handler: OnSubmittingContentItemAsync
+      - event: ContentItem.Approving
+        handler: OnApprovingContentItemAsync
       - event: ContentItem.RetrievingById
         handler: OnRetrievingContentItemByIdAsync
   - id: FS.Association
@@ -1046,6 +1063,8 @@ components:
       - OnRemovingBibleReferenceByIdAsync
       - OnHardRemovingBibleReferenceByIdAsync
       - OnRetrievingBibleReferenceByIdAsync
+      - SubmitBibleReferenceByIdAsync
+      - TransitionBibleReferenceApprovalAsync
     calls:
       - from: AddBibleReferenceAsync
         to: EventEnvelopeBroker
@@ -1203,6 +1222,10 @@ components:
         handler: OnRemovingBibleReferenceByIdAsync
       - event: BibleReference.HardRemovingById
         handler: OnHardRemovingBibleReferenceByIdAsync
+      - event: BibleReference.Submitting
+        handler: OnSubmittingBibleReferenceAsync
+      - event: BibleReference.Approving
+        handler: OnApprovingBibleReferenceAsync
       - event: BibleReference.RetrievingById
         handler: OnRetrievingBibleReferenceByIdAsync
   - id: FS.Comment
@@ -1222,6 +1245,8 @@ components:
       - OnRemovingCommentByIdAsync
       - OnHardRemovingCommentByIdAsync
       - OnRetrievingCommentByIdAsync
+      - SubmitCommentByIdAsync
+      - TransitionCommentApprovalAsync
     calls:
       - from: AddCommentAsync
         to: EventEnvelopeBroker
@@ -1379,6 +1404,10 @@ components:
         handler: OnRemovingCommentByIdAsync
       - event: Comment.HardRemovingById
         handler: OnHardRemovingCommentByIdAsync
+      - event: Comment.Submitting
+        handler: OnSubmittingCommentAsync
+      - event: Comment.Approving
+        handler: OnApprovingCommentAsync
       - event: Comment.RetrievingById
         handler: OnRetrievingCommentByIdAsync
   - id: FS.Link
@@ -1399,6 +1428,11 @@ components:
       - OnHardRemovingLinkByIdAsync
       - OnRetrievingLinkByIdAsync
       - DemoteLinkVersionAsync
+      - SubmitLinkByIdAsync
+      - TransitionLinkApprovalAsync
+      - UnpublishLinkByIdAsync
+      - FindPublishedLinkIdByGroupAsync
+      - FindHighestVersionInGroupAsync
     calls:
       - from: AddLinkAsync
         to: EventEnvelopeBroker
@@ -1579,6 +1613,10 @@ components:
         handler: OnRemovingLinkByIdAsync
       - event: Link.HardRemovingById
         handler: OnHardRemovingLinkByIdAsync
+      - event: Link.Submitting
+        handler: OnSubmittingLinkAsync
+      - event: Link.Approving
+        handler: OnApprovingLinkAsync
       - event: Link.RetrievingById
         handler: OnRetrievingLinkByIdAsync
   - id: FS.Reaction
@@ -1598,6 +1636,8 @@ components:
       - OnRemovingReactionByIdAsync
       - OnHardRemovingReactionByIdAsync
       - OnRetrievingReactionByIdAsync
+      - SubmitReactionByIdAsync
+      - TransitionReactionApprovalAsync
     calls:
       - from: AddReactionAsync
         to: EventEnvelopeBroker
@@ -1755,6 +1795,10 @@ components:
         handler: OnRemovingReactionByIdAsync
       - event: Reaction.HardRemovingById
         handler: OnHardRemovingReactionByIdAsync
+      - event: Reaction.Submitting
+        handler: OnSubmittingReactionAsync
+      - event: Reaction.Approving
+        handler: OnApprovingReactionAsync
       - event: Reaction.RetrievingById
         handler: OnRetrievingReactionByIdAsync
   - id: FS.Tag
@@ -1774,6 +1818,8 @@ components:
       - OnRemovingTagByIdAsync
       - OnHardRemovingTagByIdAsync
       - OnRetrievingTagByIdAsync
+      - SubmitTagByIdAsync
+      - TransitionTagApprovalAsync
     calls:
       - from: AddTagAsync
         to: EventEnvelopeBroker
@@ -1931,6 +1977,10 @@ components:
         handler: OnRemovingTagByIdAsync
       - event: Tag.HardRemovingById
         handler: OnHardRemovingTagByIdAsync
+      - event: Tag.Submitting
+        handler: OnSubmittingTagAsync
+      - event: Tag.Approving
+        handler: OnApprovingTagAsync
       - event: Tag.RetrievingById
         handler: OnRetrievingTagByIdAsync
   - id: FS.Approval
@@ -2120,6 +2170,7 @@ components:
       - OnRemovingApprovalCommentByIdAsync
       - OnHardRemovingApprovalCommentByIdAsync
       - OnRetrievingApprovalCommentByIdAsync
+      - ResolveApprovalCommentAsync
     calls:
       - from: AddApprovalCommentAsync
         to: EventEnvelopeBroker
@@ -2271,6 +2322,8 @@ components:
         handler: OnRemovingApprovalCommentByIdAsync
       - event: ApprovalComment.HardRemovingById
         handler: OnHardRemovingApprovalCommentByIdAsync
+      - event: ApprovalComment.Resolving
+        handler: OnResolvingApprovalCommentAsync
       - event: ApprovalComment.RetrievingById
         handler: OnRetrievingApprovalCommentByIdAsync
   - id: FS.ApprovalReview
@@ -2290,6 +2343,7 @@ components:
       - OnRemovingApprovalReviewByIdAsync
       - OnHardRemovingApprovalReviewByIdAsync
       - OnRetrievingApprovalReviewByIdAsync
+      - DismissApprovalReviewAsync
     calls:
       - from: AddApprovalReviewAsync
         to: EventEnvelopeBroker
@@ -2444,6 +2498,8 @@ components:
         handler: OnRemovingApprovalReviewByIdAsync
       - event: ApprovalReview.HardRemovingById
         handler: OnHardRemovingApprovalReviewByIdAsync
+      - event: ApprovalReview.Dismissing
+        handler: OnDismissingApprovalReviewAsync
       - event: ApprovalReview.RetrievingById
         handler: OnRetrievingApprovalReviewByIdAsync
   - id: FS.ApprovalSetting
@@ -2781,6 +2837,7 @@ components:
       - OnModifyingContentItemAsync
       - OnRemovingContentItemByIdAsync
       - OnRetrievingContentItemByIdAsync
+      - OnApprovingContentItemAsync
     calls:
       - from: AddContentItemAsync
         to: FS.ContentItem
@@ -2943,6 +3000,8 @@ components:
         handler: OnModifyingContentItemAsync
       - event: ContentItemProcessing.RemovingById
         handler: OnRemovingContentItemByIdAsync
+      - event: ContentItemProcessing.Approving
+        handler: OnApprovingContentItemAsync
       - event: ContentItemProcessing.RetrievingById
         handler: OnRetrievingContentItemByIdAsync
   - id: LP
@@ -2964,6 +3023,7 @@ components:
       - OnModifyingLinkAsync
       - OnRemovingLinkByIdAsync
       - OnRetrievingLinkByIdAsync
+      - OnApprovingLinkAsync
     calls:
       - from: AddLinkAsync
         to: FS.Link
@@ -3114,8 +3174,296 @@ components:
         handler: OnModifyingLinkAsync
       - event: LinkProcessing.RemovingById
         handler: OnRemovingLinkByIdAsync
+      - event: LinkProcessing.Approving
+        handler: OnApprovingLinkAsync
       - event: LinkProcessing.RetrievingById
         handler: OnRetrievingLinkByIdAsync
+  - id: AO
+    name: ApprovalOrchestrationService
+    layer: orchestration
+    col: 4
+    description: "The approval workflow (design 12.5.3, 16.7, 9.7, 10.17). Records human approve/reject decisions on the Approval row - the source of truth - and re-evaluates a round whenever its inputs change. Holds NONE of the seven entity services on purpose: the decided state reaches its entity as an <Entity>.Approving command event published under the system identity (CreateSystemAsync), addressed to the PROCESSING tier for the versioned types (ContentItem, Link) and to the foundation for the other five. Holds no IApprovalSettingService either - every policy question is asked as a verdict from IAccessBroker. The 22 On*Async handlers verify the envelope signature through IEnvelopeIntegrityBroker and then delegate to the same ProcessEntityAdded / ProcessEntityModified / ProcessApprovalInputsChanged path as the public methods. Has NO IStorageBroker, so no ProcessedEvents dedupe - the integrity verify is its substrate guard instead. The -Removed handlers serve both soft and hard removal; no entity -Removed is subscribed by design (a takedown is not a moderation step). IApprovalCommentService is injected but currently unused. ILoggingBroker is exception-path only, so no logging edge is drawn."
+    methods:
+      - RetrieveApprovalVerdictAsync
+      - DecideApprovalAsync
+      - ProcessEntityAddedAsync
+      - ProcessEntityModifiedAsync
+      - ProcessApprovalInputsChangedAsync
+      - OnTagAddedAsync
+      - OnTagModifiedAsync
+      - OnContentItemAddedAsync
+      - OnContentItemModifiedAsync
+      - OnLinkAddedAsync
+      - OnLinkModifiedAsync
+      - OnCommentAddedAsync
+      - OnCommentModifiedAsync
+      - OnReactionAddedAsync
+      - OnReactionModifiedAsync
+      - OnBibleReferenceAddedAsync
+      - OnBibleReferenceModifiedAsync
+      - OnAssociationAddedAsync
+      - OnAssociationModifiedAsync
+      - OnApprovalReviewAddedAsync
+      - OnApprovalReviewModifiedAsync
+      - OnApprovalReviewRemovedAsync
+      - OnApprovalReviewDismissedAsync
+      - OnApprovalCommentAddedAsync
+      - OnApprovalCommentModifiedAsync
+      - OnApprovalCommentResolvedAsync
+      - OnApprovalCommentRemovedAsync
+    calls:
+      - from: RetrieveApprovalVerdictAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalVerdictAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: RetrieveApprovalVerdictAsync
+        to: AccessBroker
+        method: EvaluateApprovalConditionsByIdAsync
+      - from: RetrieveApprovalVerdictAsync
+        to: AccessBroker
+        method: MayDecideApprovalByIdAsync
+      - from: DecideApprovalAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: DecideApprovalAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: DecideApprovalAsync
+        to: AccessBroker
+        method: MayDecideApprovalByIdAsync
+      - from: DecideApprovalAsync
+        to: FS.Approval
+        method: RetrieveApprovalByIdAsync
+      - from: DecideApprovalAsync
+        to: FS.Approval
+        method: ModifyApprovalAsync
+      - from: DecideApprovalAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
+      - from: ProcessEntityAddedAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: ProcessEntityAddedAsync
+        to: FS.Approval
+        method: AddApprovalAsync
+      - from: ProcessEntityAddedAsync
+        to: FS.Approval
+        method: RetrieveApprovalByIdAsync
+      - from: ProcessEntityAddedAsync
+        to: FS.Approval
+        method: ModifyApprovalAsync
+      - from: ProcessEntityAddedAsync
+        to: AccessBroker
+        method: EvaluateApprovalConditionsByIdAsync
+      - from: ProcessEntityAddedAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.Approval
+        method: AddApprovalAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.Approval
+        method: RetrieveApprovalByIdAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.Approval
+        method: ModifyApprovalAsync
+      - from: ProcessEntityModifiedAsync
+        to: AccessBroker
+        method: EvaluateApprovalConditionsByIdAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.ApprovalReview
+        method: RetrieveAllApprovalReviewsAsync
+      - from: ProcessEntityModifiedAsync
+        to: FS.ApprovalReview
+        method: DismissApprovalReviewAsync
+      - from: ProcessEntityModifiedAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
+      - from: ProcessApprovalInputsChangedAsync
+        to: FS.Approval
+        method: RetrieveApprovalByIdAsync
+      - from: ProcessApprovalInputsChangedAsync
+        to: AccessBroker
+        method: EvaluateApprovalConditionsByIdAsync
+      - from: ProcessApprovalInputsChangedAsync
+        to: FS.Approval
+        method: ModifyApprovalAsync
+      - from: ProcessApprovalInputsChangedAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
+      - from: OnTagAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnTagModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnContentItemAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnContentItemModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnLinkAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnLinkModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnCommentAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnCommentModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnReactionAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnReactionModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnBibleReferenceAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnBibleReferenceModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnAssociationAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnAssociationModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalReviewAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalReviewModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalReviewRemovedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalReviewDismissedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalCommentAddedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalCommentModifiedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalCommentResolvedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+      - from: OnApprovalCommentRemovedAsync
+        to: EnvelopeIntegrityBroker
+        method: VerifyAsync
+    publishes:
+      - method: DecideApprovalAsync
+        event: Tag.Approving
+      - method: DecideApprovalAsync
+        event: ContentItemProcessing.Approving
+      - method: DecideApprovalAsync
+        event: LinkProcessing.Approving
+      - method: DecideApprovalAsync
+        event: Comment.Approving
+      - method: DecideApprovalAsync
+        event: Reaction.Approving
+      - method: DecideApprovalAsync
+        event: BibleReference.Approving
+      - method: DecideApprovalAsync
+        event: Association.Approving
+      - method: ProcessEntityAddedAsync
+        event: Tag.Approving
+      - method: ProcessEntityAddedAsync
+        event: ContentItemProcessing.Approving
+      - method: ProcessEntityAddedAsync
+        event: LinkProcessing.Approving
+      - method: ProcessEntityAddedAsync
+        event: Comment.Approving
+      - method: ProcessEntityAddedAsync
+        event: Reaction.Approving
+      - method: ProcessEntityAddedAsync
+        event: BibleReference.Approving
+      - method: ProcessEntityAddedAsync
+        event: Association.Approving
+      - method: ProcessEntityModifiedAsync
+        event: Tag.Approving
+      - method: ProcessEntityModifiedAsync
+        event: ContentItemProcessing.Approving
+      - method: ProcessEntityModifiedAsync
+        event: LinkProcessing.Approving
+      - method: ProcessEntityModifiedAsync
+        event: Comment.Approving
+      - method: ProcessEntityModifiedAsync
+        event: Reaction.Approving
+      - method: ProcessEntityModifiedAsync
+        event: BibleReference.Approving
+      - method: ProcessEntityModifiedAsync
+        event: Association.Approving
+      - method: ProcessApprovalInputsChangedAsync
+        event: Tag.Approving
+      - method: ProcessApprovalInputsChangedAsync
+        event: ContentItemProcessing.Approving
+      - method: ProcessApprovalInputsChangedAsync
+        event: LinkProcessing.Approving
+      - method: ProcessApprovalInputsChangedAsync
+        event: Comment.Approving
+      - method: ProcessApprovalInputsChangedAsync
+        event: Reaction.Approving
+      - method: ProcessApprovalInputsChangedAsync
+        event: BibleReference.Approving
+      - method: ProcessApprovalInputsChangedAsync
+        event: Association.Approving
+    subscribes:
+      - event: Tag.Added
+        handler: OnTagAddedAsync
+      - event: Tag.Modified
+        handler: OnTagModifiedAsync
+      - event: ContentItemProcessing.Added
+        handler: OnContentItemAddedAsync
+      - event: ContentItemProcessing.Modified
+        handler: OnContentItemModifiedAsync
+      - event: LinkProcessing.Added
+        handler: OnLinkAddedAsync
+      - event: LinkProcessing.Modified
+        handler: OnLinkModifiedAsync
+      - event: Comment.Added
+        handler: OnCommentAddedAsync
+      - event: Comment.Modified
+        handler: OnCommentModifiedAsync
+      - event: Reaction.Added
+        handler: OnReactionAddedAsync
+      - event: Reaction.Modified
+        handler: OnReactionModifiedAsync
+      - event: BibleReference.Added
+        handler: OnBibleReferenceAddedAsync
+      - event: BibleReference.Modified
+        handler: OnBibleReferenceModifiedAsync
+      - event: Association.Added
+        handler: OnAssociationAddedAsync
+      - event: Association.Modified
+        handler: OnAssociationModifiedAsync
+      - event: ApprovalReview.Added
+        handler: OnApprovalReviewAddedAsync
+      - event: ApprovalReview.Modified
+        handler: OnApprovalReviewModifiedAsync
+      - event: ApprovalReview.Removed
+        handler: OnApprovalReviewRemovedAsync
+      - event: ApprovalReview.Dismissed
+        handler: OnApprovalReviewDismissedAsync
+      - event: ApprovalComment.Added
+        handler: OnApprovalCommentAddedAsync
+      - event: ApprovalComment.Modified
+        handler: OnApprovalCommentModifiedAsync
+      - event: ApprovalComment.Resolved
+        handler: OnApprovalCommentResolvedAsync
+      - event: ApprovalComment.Removed
+        handler: OnApprovalCommentRemovedAsync
   - id: ESR
     name: EventSubscriptionRegistration
     layer: registration
