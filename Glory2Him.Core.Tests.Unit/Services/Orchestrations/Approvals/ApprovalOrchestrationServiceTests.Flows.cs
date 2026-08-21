@@ -871,6 +871,72 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         // The listing answers with EVERY review in the store, as the real one does. Handing back
         // only this approval's rows would move the filter into the fixture and prove nothing about
         // the one under test.
+        [Fact]
+        public async Task ShouldDismissStaleReviewsTheEditorCannotSeeOnEntityModifiedAsync()
+        {
+            // given: an author revising their own submitted content — the ordinary case, and
+            // the one every other test here misses.
+            //
+            // The workflow runs under the editor's identity, and the caller-facing review read
+            // is identity-filtered: an actor holding no review role sees only reviews they
+            // wrote themselves. HR-1 forbids reviewing your own content, so an author sees
+            // NOTHING — the round's real approvals are invisible to them.
+            //
+            // The evaluation that follows reads storage UNFILTERED. So if the dismissal half
+            // reads the filtered view, the two halves of one decision disagree: nothing is
+            // dismissed, nothing throws, and the round is then approved on the strength of a
+            // review of the text the author just replaced. That is §9.7.4 inverted, and it
+            // fails OPEN.
+            var entityId = Guid.NewGuid();
+            var approvalId = Guid.NewGuid();
+            var reviewTheEditorCannotSeeId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Tag,
+                approvalStatus: ApprovalStatus.Submitted);
+
+            SetupApprovalProbe(CreateApprovalMatch(ApprovalStatus.Submitted, approvalId));
+            SetupFlowApprovalRow(storageApproval);
+
+            // The editor's view: empty. Not because the round has no reviews, but because this
+            // caller may not see the ones it has.
+            List<Guid> dismissedReviewIds = SetupFlowApprovalReviews(
+                approvalReviews: new List<ApprovalReview>());
+
+            // What storage actually holds, which is what the decision must be made against.
+            SetupDismissableReviews(approvalId, reviewTheEditorCannotSeeId);
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true),
+
+                secondConditions: CreateFlowConditions(
+                    shouldResetStaleReviewsOnChange: true));
+
+            // when
+            await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                EntityType.Tag,
+                entityId,
+                TestContext.Current.CancellationToken);
+
+            // then
+            dismissedReviewIds.Should().Equal(new[] { reviewTheEditorCannotSeeId },
+                because: "what a round's reviews ARE is a fact about storage, not about who is " +
+                    "asking. An identity-filtered read must never decide an invariant — the " +
+                    "evaluation that follows reads unfiltered, so a filtered dismissal lets " +
+                    "content be approved on reviews of text it no longer matches");
+        }
+
+        // The unfiltered view: what storage holds for the round, regardless of who is asking.
+        private void SetupDismissableReviews(Guid approvalId, params Guid[] approvalReviewIds) =>
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(approvalReviewIds.ToList());
+
         private List<Guid> SetupFlowApprovalReviews(
             List<ApprovalReview> approvalReviews,
             Action onReviewDismissed = null)
@@ -881,6 +947,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 service.RetrieveAllApprovalReviewsAsync(
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(approvalReviews.AsQueryable());
+
+            // The same rows through the seam the flow actually reads. The caller-facing read
+            // above is identity-filtered and cannot answer "what does this round hold" — a test
+            // that supplied only that view would be describing one caller's slice as if it were
+            // the round, which is exactly the bug this seam exists to close.
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((Guid approvalId, CancellationToken _) =>
+                            approvalReviews
+                                .Where(approvalReview =>
+                                    approvalReview.ApprovalId == approvalId
+                                        && approvalReview.IsDeleted == false
+                                        && approvalReview.StatusId != ApprovalStatus.Dismissed)
+                                .Select(approvalReview => approvalReview.Id)
+                                .ToList());
 
             this.approvalReviewServiceMock.Setup(service =>
                 service.DismissApprovalReviewAsync(

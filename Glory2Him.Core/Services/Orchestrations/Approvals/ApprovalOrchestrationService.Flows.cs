@@ -176,17 +176,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             Guid approvalId,
             CancellationToken cancellationToken)
         {
-            IQueryable<ApprovalReview> allApprovalReviews =
-                await this.approvalReviewService.RetrieveAllApprovalReviewsAsync(
+            // Read UNFILTERED, through the gathering seam rather than the caller-facing service.
+            //
+            // The caller-facing read is identity-filtered: an actor with no review role sees
+            // only reviews they wrote. HR-1 forbids reviewing your own content, so an author
+            // revising their own submission sees none of the round's real approvals — the
+            // ordinary case. Deciding what to dismiss from that view dismisses nothing and
+            // throws nothing, and the evaluation that follows reads storage unfiltered and
+            // approves the edit on the strength of a review of the text it just replaced.
+            //
+            // What a round's reviews ARE is a fact about storage, not about who is asking. An
+            // identity-filtered read must never be the input to an invariant.
+            List<Guid> staleReviewIds =
+                await this.accessBroker.FindDismissableApprovalReviewIdsAsync(
+                    approvalId: approvalId,
                     cancellationToken: cancellationToken);
-
-            List<Guid> staleReviewIds = allApprovalReviews
-                .Where(approvalReview =>
-                    approvalReview.ApprovalId == approvalId
-                        && approvalReview.IsDeleted == false
-                        && approvalReview.StatusId != ApprovalStatus.Dismissed)
-                .Select(approvalReview => approvalReview.Id)
-                .ToList();
 
             // Each dismissal publishes ApprovalReview-Dismissed, and this service subscribes to
             // that address (§10.17(a)). Delivery is synchronous, so without this the handler

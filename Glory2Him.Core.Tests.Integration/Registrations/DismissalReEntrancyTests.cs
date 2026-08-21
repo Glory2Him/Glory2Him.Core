@@ -241,6 +241,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                     return SubmittedApproval(readApprovalId);
                 });
 
+            var accessBrokerMock = new Mock<IAccessBroker>();
             var approvalReviewServiceMock = new Mock<IApprovalReviewService>();
 
             List<ApprovalReview> staleReviews = Enumerable.Range(0, staleReviewCount)
@@ -257,6 +258,14 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 .Setup(service => service.RetrieveAllApprovalReviewsAsync(
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(staleReviews.AsQueryable());
+
+            // The flow reads the round's reviews through the unfiltered gather, not the
+            // caller-facing read — what a round holds is a fact about storage, not about who
+            // is asking.
+            accessBrokerMock
+                .Setup(broker => broker.FindDismissableApprovalReviewIdsAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(staleReviews.Select(review => review.Id).ToList());
 
             // THE POINT OF THIS FIXTURE: the dismissal actually publishes, so the subscribed
             // handler is re-entered from inside the loop exactly as it would be in a host.
@@ -292,8 +301,6 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
 
                     return new ApprovalReview { Id = reviewId, ApprovalId = approvalId };
                 });
-
-            var accessBrokerMock = new Mock<IAccessBroker>();
 
             accessBrokerMock
                 .Setup(accessBroker => accessBroker.EvaluateApprovalConditionsByIdAsync(
