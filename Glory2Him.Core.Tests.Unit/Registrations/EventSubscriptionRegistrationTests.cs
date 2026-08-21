@@ -21,7 +21,9 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ContentItems;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using System.Collections.Generic;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
 using Glory2Him.Core.Services.Foundations.BibleReferences;
 using Glory2Him.Core.Models.Foundations.Tags;
@@ -52,6 +54,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
     public partial class EventSubscriptionRegistrationTests
     {
         private readonly Mock<IEventBroker> eventBrokerMock;
+        private readonly Mock<IServiceScopeFactory> serviceScopeFactoryMock;
         private readonly Mock<IContentItemService> contentItemServiceMock;
         private readonly Mock<IApprovalService> approvalServiceMock;
         private readonly Mock<IBibleReferenceService> bibleReferenceServiceMock;
@@ -88,23 +91,53 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.linkProcessingServiceMock = new Mock<ILinkProcessingService>();
             this.approvalOrchestrationServiceMock = new Mock<IApprovalOrchestrationService>();
 
+            // The registration no longer holds services; it opens a scope per delivery and
+            // resolves from it. The provider hands back the same mocks, so every assertion
+            // below still reads as "this subscription reaches this service's method" — and now
+            // proves the scope resolution does it, which a held method group never could.
+            var serviceProviderMock = new Mock<IServiceProvider>();
+            serviceProviderMock.Setup(p => p.GetService(typeof(IContentItemService)))
+                .Returns(this.contentItemServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalService)))
+                .Returns(this.approvalServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IBibleReferenceService)))
+                .Returns(this.bibleReferenceServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(ITagService)))
+                .Returns(this.tagServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(ILinkService)))
+                .Returns(this.linkServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IReactionService)))
+                .Returns(this.reactionServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(ICommentService)))
+                .Returns(this.commentServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalCommentService)))
+                .Returns(this.approvalCommentServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalReviewService)))
+                .Returns(this.approvalReviewServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalSettingService)))
+                .Returns(this.approvalSettingServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IAssociationService)))
+                .Returns(this.associationServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IContentItemSettingService)))
+                .Returns(this.contentItemSettingServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IContentItemProcessingService)))
+                .Returns(this.contentItemProcessingServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(ILinkProcessingService)))
+                .Returns(this.linkProcessingServiceMock.Object);
+            serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalOrchestrationService)))
+                .Returns(this.approvalOrchestrationServiceMock.Object);
+
+            var serviceScopeMock = new Mock<IServiceScope>();
+            serviceScopeMock.Setup(scope => scope.ServiceProvider)
+                .Returns(serviceProviderMock.Object);
+
+            this.serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
+            this.serviceScopeFactoryMock.Setup(factory => factory.CreateScope())
+                .Returns(serviceScopeMock.Object);
+
             this.eventSubscriptionRegistration = new EventSubscriptionRegistration(
                 eventBroker: this.eventBrokerMock.Object,
-                contentItemService: this.contentItemServiceMock.Object,
-                approvalService: this.approvalServiceMock.Object,
-                bibleReferenceService: this.bibleReferenceServiceMock.Object,
-                tagService: this.tagServiceMock.Object,
-                linkService: this.linkServiceMock.Object,
-                reactionService: this.reactionServiceMock.Object,
-                commentService: this.commentServiceMock.Object,
-                approvalCommentService: this.approvalCommentServiceMock.Object,
-                approvalReviewService: this.approvalReviewServiceMock.Object,
-                approvalSettingService: this.approvalSettingServiceMock.Object,
-                associationService: this.associationServiceMock.Object,
-                contentItemSettingService: this.contentItemSettingServiceMock.Object,
-                contentItemProcessingService: this.contentItemProcessingServiceMock.Object,
-                linkProcessingService: this.linkProcessingServiceMock.Object,
-                approvalOrchestrationService: this.approvalOrchestrationServiceMock.Object);
+                serviceScopeFactory: this.serviceScopeFactoryMock.Object);
         }
 
         private void VerifyLinkProcessingSubscription(
@@ -114,17 +147,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<Link>, CancellationToken,
                 ValueTask<EventEnvelope<Link>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToLinkProcessingEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<Link>, CancellationToken,
-                        ValueTask<EventEnvelope<Link>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<Link>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToLinkProcessingEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<Link>, CancellationToken,
+                                ValueTask<EventEnvelope<Link>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyContentItemProcessingSubscription(
@@ -134,17 +171,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<ContentItem>, CancellationToken,
                 ValueTask<EventEnvelope<ContentItem>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToContentItemProcessingEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
-                        ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<ContentItem>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToContentItemProcessingEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
+                                ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyContentItemSubscription(
@@ -154,17 +195,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<ContentItem>, CancellationToken,
                 ValueTask<EventEnvelope<ContentItem>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToContentItemEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
-                        ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<ContentItem>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToContentItemEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<ContentItem>, CancellationToken,
+                                ValueTask<EventEnvelope<ContentItem>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyApprovalSubscription(
@@ -174,17 +219,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<Approval>, CancellationToken,
                 ValueTask<EventEnvelope<Approval>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToApprovalEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<Approval>, CancellationToken,
-                        ValueTask<EventEnvelope<Approval>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<Approval>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToApprovalEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<Approval>, CancellationToken,
+                                ValueTask<EventEnvelope<Approval>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyBibleReferenceSubscription(
@@ -194,17 +243,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<BibleReference>, CancellationToken,
                 ValueTask<EventEnvelope<BibleReference>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToBibleReferenceEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<BibleReference>, CancellationToken,
-                        ValueTask<EventEnvelope<BibleReference>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<BibleReference>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToBibleReferenceEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<BibleReference>, CancellationToken,
+                                ValueTask<EventEnvelope<BibleReference>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyTagSubscription(
@@ -214,17 +267,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<Tag>, CancellationToken,
                 ValueTask<EventEnvelope<Tag>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToTagEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<Tag>, CancellationToken,
-                        ValueTask<EventEnvelope<Tag>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<Tag>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToTagEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<Tag>, CancellationToken,
+                                ValueTask<EventEnvelope<Tag>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyLinkSubscription(
@@ -234,17 +291,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<Link>, CancellationToken,
                 ValueTask<EventEnvelope<Link>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToLinkEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<Link>, CancellationToken,
-                        ValueTask<EventEnvelope<Link>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<Link>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToLinkEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<Link>, CancellationToken,
+                                ValueTask<EventEnvelope<Link>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyReactionSubscription(
@@ -254,17 +315,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<Reaction>, CancellationToken,
                 ValueTask<EventEnvelope<Reaction>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToReactionEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<Reaction>, CancellationToken,
-                        ValueTask<EventEnvelope<Reaction>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<Reaction>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToReactionEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<Reaction>, CancellationToken,
+                                ValueTask<EventEnvelope<Reaction>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyCommentSubscription(
@@ -274,17 +339,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<Comment>, CancellationToken,
                 ValueTask<EventEnvelope<Comment>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToCommentEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<Comment>, CancellationToken,
-                        ValueTask<EventEnvelope<Comment>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<Comment>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToCommentEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<Comment>, CancellationToken,
+                                ValueTask<EventEnvelope<Comment>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyApprovalCommentSubscription(
@@ -294,17 +363,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<ApprovalComment>, CancellationToken,
                 ValueTask<EventEnvelope<ApprovalComment>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToApprovalCommentEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<ApprovalComment>, CancellationToken,
-                        ValueTask<EventEnvelope<ApprovalComment>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<ApprovalComment>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToApprovalCommentEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<ApprovalComment>, CancellationToken,
+                                ValueTask<EventEnvelope<ApprovalComment>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyApprovalReviewSubscription(
@@ -314,17 +387,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<ApprovalReview>, CancellationToken,
                 ValueTask<EventEnvelope<ApprovalReview>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToApprovalReviewEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<ApprovalReview>, CancellationToken,
-                        ValueTask<EventEnvelope<ApprovalReview>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<ApprovalReview>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToApprovalReviewEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<ApprovalReview>, CancellationToken,
+                                ValueTask<EventEnvelope<ApprovalReview>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyApprovalSettingSubscription(
@@ -334,17 +411,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<ApprovalSetting>, CancellationToken,
                 ValueTask<EventEnvelope<ApprovalSetting>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToApprovalSettingEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<ApprovalSetting>, CancellationToken,
-                        ValueTask<EventEnvelope<ApprovalSetting>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<ApprovalSetting>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToApprovalSettingEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<ApprovalSetting>, CancellationToken,
+                                ValueTask<EventEnvelope<ApprovalSetting>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyAssociationSubscription(
@@ -354,17 +435,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<Association>, CancellationToken,
                 ValueTask<EventEnvelope<Association>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToAssociationEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<Association>, CancellationToken,
-                        ValueTask<EventEnvelope<Association>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<Association>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToAssociationEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<Association>, CancellationToken,
+                                ValueTask<EventEnvelope<Association>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         private void VerifyContentItemSettingSubscription(
@@ -374,17 +459,21 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             Func<EventEnvelope<ContentItemSetting>, CancellationToken,
                 ValueTask<EventEnvelope<ContentItemSetting>?>> expectedHandler)
         {
-            this.eventBrokerMock.Verify(broker =>
-                broker.SubscribeToContentItemSettingEventAsync(
-                    It.Is<EventSubscription>(subscription =>
-                        subscription.Id == expectedSubscriptionId
-                            && subscription.Name == expectedSubscriptionName),
-                    expectedOperation,
-                    It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
-                        ValueTask<EventEnvelope<ContentItemSetting>?>>>(handler =>
-                            handler.Equals(expectedHandler)),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
+            VerifySubscription<ContentItemSetting>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToContentItemSettingEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<ContentItemSetting>, CancellationToken,
+                                ValueTask<EventEnvelope<ContentItemSetting>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
         }
 
         [Fact]
@@ -1318,5 +1407,78 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.linkProcessingServiceMock.VerifyNoOtherCalls();
             this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
         }
+
+        // The registration binds a scope-opening lambda, not a method group, so a delegate
+        // IDENTITY check can no longer work — and identity was never the property worth
+        // asserting anyway. What matters is that invoking whatever was bound reaches the right
+        // method on the right service, resolved out of a scope. So the captured delegate is
+        // invoked and the expectation is invoked beside it, and the two are compared by which
+        // service method each one drove.
+        private bool MatchesHandler<TEntity>(
+            Func<EventEnvelope<TEntity>, CancellationToken, ValueTask<EventEnvelope<TEntity>?>> actual,
+            Func<EventEnvelope<TEntity>, CancellationToken, ValueTask<EventEnvelope<TEntity>?>> expected)
+        {
+            var envelope = new EventEnvelope<TEntity>();
+
+            string Drove(
+                Func<EventEnvelope<TEntity>, CancellationToken, ValueTask<EventEnvelope<TEntity>?>> handler)
+            {
+                foreach (Mock mock in AllServiceMocks())
+                {
+                    mock.Invocations.Clear();
+                }
+
+                try
+                {
+                    handler(envelope, CancellationToken.None).AsTask().GetAwaiter().GetResult();
+                }
+                catch
+                {
+                    // A mocked handler may throw on a bare envelope; the invocation is still
+                    // recorded, which is the only thing read here.
+                }
+
+                foreach (Mock mock in AllServiceMocks())
+                {
+                    foreach (IInvocation invocation in mock.Invocations)
+                    {
+                        return $"{mock.Object.GetType().Name}.{invocation.Method.Name}";
+                    }
+                }
+
+                return "(nothing)";
+            }
+
+            string actualDrove = Drove(actual);
+            string expectedDrove = Drove(expected);
+
+            // Probing invoked the handlers, which recorded invocations on the mocks. Cleared
+            // again so the comparison leaves no trace — the test asserts VerifyNoOtherCalls at
+            // the end, and a probe's own footprints would read as a stray subscription.
+            foreach (Mock mock in AllServiceMocks())
+            {
+                mock.Invocations.Clear();
+            }
+
+            return actualDrove != "(nothing)" && actualDrove == expectedDrove;
+        }
+
+        private void VerifySubscription<TEntity>(
+            string expectedSubscriptionName,
+            Func<EventEnvelope<TEntity>, CancellationToken, ValueTask<EventEnvelope<TEntity>?>> expectedHandler,
+            Action<Func<Func<EventEnvelope<TEntity>, CancellationToken, ValueTask<EventEnvelope<TEntity>?>>, bool>> capture) =>
+            capture(actual => MatchesHandler(actual, expectedHandler));
+
+        private IEnumerable<Mock> AllServiceMocks() =>
+            new Mock[]
+            {
+                this.contentItemServiceMock, this.approvalServiceMock,
+                this.bibleReferenceServiceMock, this.tagServiceMock, this.linkServiceMock,
+                this.reactionServiceMock, this.commentServiceMock,
+                this.approvalCommentServiceMock, this.approvalReviewServiceMock,
+                this.approvalSettingServiceMock, this.associationServiceMock,
+                this.contentItemSettingServiceMock, this.contentItemProcessingServiceMock,
+                this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock
+            };
     }
 }

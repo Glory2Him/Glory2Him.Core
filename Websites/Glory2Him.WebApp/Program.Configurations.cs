@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.EntityFrameworkCore;
 
@@ -36,7 +37,7 @@ public partial class Program
             try
             {
                 MigrateCoreDatabase(app);
-                await RegisterCoreEventAddressesAsync(app);
+                await RegisterCoreEventSubstrateAsync(app);
 
                 return;
             }
@@ -71,11 +72,38 @@ public partial class Program
         storageBroker.Database.Migrate();
     }
 
-    private static async Task RegisterCoreEventAddressesAsync(WebApplication app)
+    // Brings the whole substrate up, not just its addresses: the participant, all 165 event
+    // addresses, and every one of the 109 subscriptions. RegisterAsync does all three, so this
+    // is a superset of the participant-and-addresses call it replaces.
+    //
+    // Until this existed the substrate was dormant — every handler on every service was
+    // unreachable in the only deployment there is, and the reactive half of the approval
+    // workflow did not run at all. This is the call that makes a published fact reach the
+    // handler subscribed to it.
+    //
+    // It is safe to run here, under the same retry and the same non-fatal posture as the
+    // migration above, because registration is idempotent: participant, addresses and listeners
+    // are all written through a RetrieveOrAdd against a stable id, so a restart re-registers
+    // nothing. A failure still leaves the portal serving and disables only the Core endpoints.
+    private static async Task RegisterCoreEventSubstrateAsync(WebApplication app)
     {
-        var eventBroker = app.Services.GetRequiredService<IEventBroker>();
+        var eventSubscriptionRegistration =
+            app.Services.GetRequiredService<IEventSubscriptionRegistration>();
 
-        await eventBroker.RegisterEventParticipantAsync();
-        await eventBroker.RegisterEventAddressesAsync();
+        await eventSubscriptionRegistration.RegisterAsync();
+        IsCoreEventSubstrateRegistered = true;
     }
+
+    /// <summary>
+    /// Whether the event substrate came up on this host. False until
+    /// <see cref="RegisterCoreEventSubstrateAsync"/> completes.
+    /// </summary>
+    /// <remarks>
+    /// Recorded because startup registration is deliberately non-fatal: a failure is retried,
+    /// logged and then swallowed, so a broken event store disables the Core endpoints rather
+    /// than taking the portal down. That posture leaves nothing observable, and the acceptance
+    /// suite would stay green with the substrate completely dead — which is what it was before
+    /// this host registered it at all.
+    /// </remarks>
+    internal static bool IsCoreEventSubstrateRegistered { get; private set; }
 }

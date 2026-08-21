@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -18,11 +18,22 @@ using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
+using Glory2Him.Core.Services.Processings.Links;
+using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.Tags;
+using Glory2Him.Core.Services.Foundations.ApprovalSettings;
+using Glory2Him.Core.Services.Foundations.Reactions;
+using Glory2Him.Core.Services.Foundations.Links;
+using Glory2Him.Core.Services.Foundations.ContentItemSettings;
+using Glory2Him.Core.Services.Foundations.ContentItems;
+using Glory2Him.Core.Services.Foundations.Comments;
+using Glory2Him.Core.Services.Foundations.BibleReferences;
+using Glory2Him.Core.Services.Foundations.Associations;
 
 namespace Glory2Him.WebApp.Infrastructure
 {
@@ -90,13 +101,55 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddScoped<IApprovalService, ApprovalService>();
 
             // Scoped for the same reason the foundations are: it reaches them, and through
-            // them the DbContext. ServiceRegistration.AddApprovalOrchestrationService()
-            // registers a singleton instead, which is right only for a host that binds the
-            // substrate handlers into the singleton event broker as method groups. This host
-            // wires no subscriptions, so it takes the request-bound lifetime.
+            // them the DbContext.
             services.AddScoped<IApprovalOrchestrationService, ApprovalOrchestrationService>();
 
+            // The remaining ten. Not exposed by any endpoint this host serves — they are here
+            // because this host now BINDS all 109 subscriptions, and a subscription resolves its
+            // service out of a scope when a fact arrives. Registering only the five the
+            // controllers use would leave the other ten bindings throwing
+            // InvalidOperationException at delivery time, which the substrate records as a
+            // failed delivery and nothing surfaces. Bind a subscription, register its service.
+            services.AddScoped<IContentItemService, ContentItemService>();
+            services.AddScoped<ILinkService, LinkService>();
+            services.AddScoped<IReactionService, ReactionService>();
+            services.AddScoped<ICommentService, CommentService>();
+            services.AddScoped<IBibleReferenceService, BibleReferenceService>();
+            services.AddScoped<IAssociationService, AssociationService>();
+            services.AddScoped<IApprovalSettingService, ApprovalSettingService>();
+            services.AddScoped<IContentItemSettingService, ContentItemSettingService>();
+            services.AddScoped<IContentItemProcessingService, ContentItemProcessingService>();
+            services.AddScoped<ILinkProcessingService, LinkProcessingService>();
+
+            // This host DOES wire the substrate, and the scoped lifetimes above are what makes
+            // that safe. EventSubscriptionRegistration no longer holds services; it opens a
+            // scope per delivery and resolves from it, so a handler gets its own DbContext for
+            // the life of one fact — the same lifetime it would have serving one request.
+            //
+            // That matters because delivery is serialised WITHIN a publish but parallel ACROSS
+            // publishes: eight concurrent publishes were measured running eight handlers at
+            // once, on eight threads. Services captured once at registration would have handed
+            // all eight the same DbContext.
+            services.AddSingleton<IEventSubscriptionRegistration, EventSubscriptionRegistration>();
+
             return services;
+        }
+
+        /// <summary>
+        /// Brings the event substrate up: registers the participant, every event address, and
+        /// all 109 subscriptions. Idempotent, and safe to call once at startup.
+        /// </summary>
+        /// <remarks>
+        /// Until this call existed the substrate was dormant — every handler on every service
+        /// was unreachable, and the reactive half of the approval workflow did not run at all.
+        /// Calling it is what makes a published fact reach the handler subscribed to it.
+        /// </remarks>
+        public static async Task UseCoreEventSubstrateAsync(this IServiceProvider services)
+        {
+            IEventSubscriptionRegistration registration =
+                services.GetRequiredService<IEventSubscriptionRegistration>();
+
+            await registration.RegisterAsync();
         }
     }
 }
