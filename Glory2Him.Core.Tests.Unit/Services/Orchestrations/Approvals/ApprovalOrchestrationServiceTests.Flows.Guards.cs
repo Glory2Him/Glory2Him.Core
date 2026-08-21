@@ -1890,12 +1890,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     isDeleted: true));
         }
 
-        // The listing answers with EVERY review in the store, as the real one does — handing back
-        // only this approval's rows would move the filter into the fixture.
-        // Supplies the round's reviews through the seam the flow actually reads — the
-        // unfiltered gather. The caller-facing read is identity-filtered and cannot answer
-        // "what does this round hold", so a test that arranged only that view would be
-        // describing one caller's slice as if it were the round.
+        // Supplies the round's reviews through the seam the flow actually reads — the unfiltered
+        // gather. The caller-facing read is identity-filtered and cannot answer "what does this
+        // round hold", so a test that arranged only that view would be describing one caller's
+        // slice as if it were the round.
+        //
+        // The derivation below MIRRORS the broker's dismissability predicate rather than calling
+        // it, so nothing here catches that predicate drifting. It is pinned where it lives:
+        // AccessBrokerTests.FindDismissableApprovalReviewIds.Logic.cs.
         private void SetupFlowsGuardsReviewListing(List<ApprovalReview> approvalReviews)
         {
             this.approvalReviewServiceMock.Setup(service =>

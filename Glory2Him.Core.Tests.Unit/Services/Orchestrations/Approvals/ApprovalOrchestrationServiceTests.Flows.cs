@@ -868,9 +868,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             return savedApprovals;
         }
 
-        // The listing answers with EVERY review in the store, as the real one does. Handing back
-        // only this approval's rows would move the filter into the fixture and prove nothing about
-        // the one under test.
+        // The listing answers with EVERY review in the store, as the real one does, and the
+        // fixture then MIRRORS the broker's dismissability predicate to derive what the flow
+        // would be told.
+        //
+        // That mirror is a copy, so nothing here can catch the predicate drifting — these tests
+        // prove the flow ASKS the right seam and acts on the answer, not that the answer is
+        // right. The predicate itself is pinned where it lives, against a real AccessBroker over
+        // a seeded storage broker: AccessBrokerTests.FindDismissableApprovalReviewIds.Logic.cs.
         [Fact]
         public async Task ShouldDismissStaleReviewsTheEditorCannotSeeOnEntityModifiedAsync()
         {
