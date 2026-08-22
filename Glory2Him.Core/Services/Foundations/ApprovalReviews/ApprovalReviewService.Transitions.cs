@@ -104,11 +104,18 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnDismissApprovalReview(approvalReviewId);
 
-            // The system identity is a claim about PROVENANCE, and provenance is not carried by
-            // the payload. It is honoured only where this service minted the context itself; an
-            // envelope that arrived over a public event address carries a deserialized,
-            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
-            // would dismiss any review in the system by declaring themselves the workflow.
+            // The system identity is honoured only where this service minted the context itself.
+            //
+            // NOT on the old reasoning that the wire carries an unverified context — §16.7.1
+            // retires that: every inbound envelope is signature-verified, the claim sits inside
+            // the signed payload, and only this system holds the key, so a verified envelope is
+            // one this system minted whichever path it arrived by.
+            //
+            // The event path is refused because no workflow command travels on that address. The
+            // workflow dismisses through its own seam (IApprovalReviewWorkflowService), never by
+            // publishing, so a system claim arriving at a request address is by construction not
+            // one this flow made — and admitting it would let anyone who can reach that address
+            // withdraw the very verdicts blocking an approval.
             bool isSystemIdentity =
                 isSystemIdentityAdmissible
                     && inboundEnvelope.SecurityContext.IsSystemIdentity;

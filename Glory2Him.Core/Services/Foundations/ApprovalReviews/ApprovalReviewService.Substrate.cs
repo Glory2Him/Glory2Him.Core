@@ -191,11 +191,16 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                         approvalReviewId: envelope.Content.Id,
                         inboundEnvelope: envelope,
 
-                        // This envelope arrived over a PUBLIC event address and its security
-                        // context was deserialized, not authenticated (§14.6 rule 4). A caller
-                        // who could assert the system identity here would dismiss any review in
-                        // the system by setting a JSON property. The claim is discarded and the
-                        // caller is treated as the ordinary unprivileged one they are.
+                        // No workflow command travels on this address — the workflow dismisses
+                        // through IApprovalReviewWorkflowService, never by publishing — so a
+                        // system claim arriving here is by construction not one the workflow
+                        // made. The claim is discarded and the caller is treated as the ordinary
+                        // one they are.
+                        //
+                        // Deliberately NOT the "deserialized, unverified context" argument that
+                        // §16.7.1 retires: this envelope IS signature-verified above. The seven
+                        // sibling services pass true on those same facts, and they are right to.
+                        // What differs here is the destination, not the trust in the envelope.
                         isSystemIdentityAdmissible: false,
                         cancellationToken: cancellationToken);
 
