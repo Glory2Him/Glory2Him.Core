@@ -140,6 +140,14 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 
                         return null;
                     }
+                    // An aliased registration resolves one interface and CASTS to the
+                    // implementation, so a bad alias throws InvalidCastException rather than
+                    // anything the markers would match. Caught by type, or the one defect this
+                    // test exists to find could slip through it.
+                    catch (InvalidCastException invalidCastException)
+                    {
+                        return $"{serviceType.Name}: {invalidCastException.Message}";
+                    }
                     catch (Exception exception)
                     {
                         return containerFailureMarkers.Any(marker =>
