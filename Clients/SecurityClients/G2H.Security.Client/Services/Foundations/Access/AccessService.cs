@@ -176,7 +176,6 @@ namespace G2H.Security.Client.Services.Foundations.Access
             return Permit("Actor holds the review tier for the entity behind this approval.");
         }
 
-
         // Editing the text and withdrawing the row ask the same question, so they share one
         // decision. No role widens it: a comment belongs to whoever wrote it.
         private static AccessVerdict DecideMayAmendApprovalComment(AmendApprovalCommentRequest request)

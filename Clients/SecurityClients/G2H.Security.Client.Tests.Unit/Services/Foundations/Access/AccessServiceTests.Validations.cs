@@ -514,12 +514,6 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             actualVerdict.DenialReason.Should().Be(AccessDenialReason.NotInReviewTier);
         }
 
-        /// <summary>
-        /// A null subject list is the one that would crash rather than refuse: HasPublisherTier
-        /// reaches straight for .Any() on it. An EMPTY list is deliberately legal and refuses on
-        /// its own merits — that distinction is what this guard exists to keep.
-        /// </summary>
-
         [Fact]
         public async Task ShouldThrowValidationExceptionOnMayRecordApprovalCommentIfRequestIsNullAsync()
         {
