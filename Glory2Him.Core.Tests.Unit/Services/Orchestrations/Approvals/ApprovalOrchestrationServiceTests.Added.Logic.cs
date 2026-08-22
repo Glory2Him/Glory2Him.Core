@@ -240,11 +240,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            // and the filtered caller-facing listing is never how the key was tested.
-            this.approvalServiceMock.Verify(service =>
-                service.RetrieveAllApprovalsAsync(
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
+            // A Times.Never on RetrieveAllApprovalsAsync stood here, pinning that the filtered
+            // caller-facing listing is never how the key was tested. The orchestration now holds
+            // IApprovalWorkflowService, which has no such member, so the type system says it —
+            // verified: substituting the call fails to compile with CS1061 (#287).
         }
 
         [Fact]

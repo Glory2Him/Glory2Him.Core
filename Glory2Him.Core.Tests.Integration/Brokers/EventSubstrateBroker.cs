@@ -125,7 +125,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             // asked. The integrity broker is the same instance the publisher signs with, which
             // is the point: same key, same algorithm, so only the NAME can differ.
             ApprovalOrchestrationService = new ApprovalOrchestrationService(
-                approvalService: BuildApprovalServiceMock().Object,
+                approvalService: BuildApprovalWorkflowServiceMock().Object,
                 approvalReviewWorkflowService: new Mock<IApprovalReviewWorkflowService>().Object,
                 approvalCommentService: new Mock<IApprovalCommentService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
@@ -269,6 +269,53 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                     });
 
             return approvalServiceMock;
+        }
+
+        // The same four answers behind the workflow's narrower door (#287). Both mocks exist
+        // because the two interfaces are now used by different callers: the substrate registers
+        // the foundation's own handlers against IApprovalService, while the orchestration reaches
+        // Approval only through IApprovalWorkflowService and cannot see the public one.
+        //
+        // ApprovalIdsRead is written HERE rather than in the twin above, because the read this
+        // fixture's tests assert on is the workflow's re-test.
+        private Mock<IApprovalWorkflowService> BuildApprovalWorkflowServiceMock()
+        {
+            var approvalWorkflowServiceMock = new Mock<IApprovalWorkflowService>();
+
+            approvalWorkflowServiceMock
+                .Setup(service => service.RetrieveApprovalByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid approvalId, CancellationToken _) =>
+                {
+                    ApprovalIdsRead.Add(approvalId);
+
+                    return new Approval
+                    {
+                        Id = approvalId,
+                        EntityType = EntityType.Tag,
+                        EntityId = Guid.NewGuid(),
+                        ApprovalStatus = ApprovalStatus.Submitted
+                    };
+                });
+
+            approvalWorkflowServiceMock
+                .Setup(service => service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((ApprovalEntityMatch)null);
+
+            approvalWorkflowServiceMock
+                .Setup(service => service.AddApprovalAsync(
+                    It.IsAny<Approval>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Approval approval, CancellationToken _) =>
+                    new Approval
+                    {
+                        Id = Guid.NewGuid(),
+                        EntityType = approval.EntityType,
+                        EntityId = approval.EntityId,
+                        ApprovalStatus = approval.ApprovalStatus
+                    });
+
+            return approvalWorkflowServiceMock;
         }
 
         // A verdict that resolves and settles nothing: conditions unmet, no stale-review reset,

@@ -701,18 +701,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // Nothing compensating: no second write reverting the status, and no removal of the
             // row. A rollback here is what would make the repair pass wrong.
-            this.approvalServiceMock.Verify(service =>
-                service.RemoveApprovalByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.approvalServiceMock.Verify(service =>
-                service.HardRemoveApprovalByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
+            //
+            // The two removal Times.Never assertions that stood here are gone, and the guarantee
+            // is stronger for it: IApprovalWorkflowService carries neither RemoveApprovalByIdAsync
+            // nor HardRemoveApprovalByIdAsync, so the orchestration cannot roll back in ANY test
+            // rather than merely not doing so in this one. Verified — substituting either call
+            // fails to compile with CS1061 (#287).
+            //
+            // The no-second-write half is still asserted, by the Times.Once above.
 
             // And no command went out on any route — the whole point of refusing rather than
             // guessing which entity should be told.

@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 {
     internal partial class ApprovalOrchestrationService : IApprovalOrchestrationService
     {
-        private readonly IApprovalService approvalService;
+        private readonly IApprovalWorkflowService approvalService;
         private readonly IApprovalReviewWorkflowService approvalReviewWorkflowService;
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IAccessBroker accessBroker;
@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // resolving §8.4 here would put most-specific-wins in a second place beside the
         // decision function (§8.6.1 rule 4).
         public ApprovalOrchestrationService(
-            IApprovalService approvalService,
+            IApprovalWorkflowService approvalService,
             IApprovalReviewWorkflowService approvalReviewWorkflowService,
             IApprovalCommentService approvalCommentService,
             IAccessBroker accessBroker,

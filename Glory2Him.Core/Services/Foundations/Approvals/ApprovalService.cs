@@ -132,6 +132,10 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 return await DoRetrieveApprovalByIdAsync(
                     approvalId: approvalId,
                     inboundEnvelope: envelope,
+
+                    // The ambient caller, so the visibility posture applies in full. Only
+                    // IApprovalWorkflowService mints a context that skips it.
+                    isSystemIdentity: false,
                     cancellationToken: cancellationToken);
             });
 
@@ -147,6 +151,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     await this.eventEnvelopeBroker.CreateAsync(content: approval);
 
                 return await DoModifyApprovalAsync(
+                    isSystemIdentity: false,
                     approval: approval,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
@@ -204,6 +209,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         private async ValueTask<Approval> DoRetrieveApprovalByIdAsync(
             Guid approvalId,
             EventEnvelope<Approval> inboundEnvelope,
+            bool isSystemIdentity,
             CancellationToken cancellationToken)
         {
             ValidateOnRetrieveApprovalById(approvalId);
@@ -235,6 +241,20 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
                 throw new NotFoundApprovalException(
                     message: $"Approval not found with id: {approvalId}.");
+            }
+
+            // The workflow reads UNFILTERED, and this is the whole of #287. What a round IS is a
+            // fact about storage, not about who is asking — the filter below is a visibility
+            // posture for people. Applied to the workflow's own §8.5 re-test it makes the
+            // evaluation depend on which actor happened to trigger it: commenting carries no
+            // tier, so a contributor acting on their own comment fires a reaction that throws,
+            // silently, because the comment service discards the publish result.
+            //
+            // Honoured only where THIS service minted the context (IApprovalWorkflowService);
+            // an envelope arriving over an event address gets false.
+            if (isSystemIdentity)
+            {
+                return maybeApproval;
             }
 
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
@@ -331,6 +351,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         }
 
         private async ValueTask<Approval> DoModifyApprovalAsync(
+            bool isSystemIdentity,
             Approval approval,
             EventEnvelope<Approval> inboundEnvelope,
             CancellationToken cancellationToken)
@@ -350,18 +371,31 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
             ValidateStorageApproval(maybeApproval, approvalId: approval.Id);
 
-            await ValidateUserCanModifyStorageApprovalAsync(
-                storageApproval: maybeApproval,
-                securityContext: inboundEnvelope.SecurityContext);
+            // All three caller tiers are skipped together for the workflow's own write (#287),
+            // for the same reason the dismissal skips its two (#295): they ask whether a PERSON
+            // may decide, and the workflow is not a person. An automatic approval fired by the
+            // last reviewer's own review has nobody deciding it — and that reviewer is precisely
+            // the party §8.6 regardless-rule 1 forbids from applying the outcome, so leaving the
+            // gates in place would refuse the operation exactly when it is correct.
+            //
+            // Skipped TOGETHER rather than one at a time: the second is the first narrowed to
+            // the entity, and the third is the decision. Admitting the workflow past one and not
+            // the others would refuse it for holding no roles either way.
+            if (isSystemIdentity is false)
+            {
+                await ValidateUserCanModifyStorageApprovalAsync(
+                    storageApproval: maybeApproval,
+                    securityContext: inboundEnvelope.SecurityContext);
 
-            // and that tier narrowed to the entity actually under approval, which the row-local
-            // check above cannot see — a Tag-Reviewer clears it for any approval at all. Asked
-            // about the STORED row, so a payload naming a different entity cannot move the
-            // question onto something the caller does hold a role for.
-            await ValidateUserMayAmendStorageApprovalAsync(
-                storageApproval: maybeApproval,
-                securityContext: inboundEnvelope.SecurityContext,
-                cancellationToken: cancellationToken);
+                // and that tier narrowed to the entity actually under approval, which the
+                // row-local check above cannot see — a Tag-Reviewer clears it for any approval
+                // at all. Asked about the STORED row, so a payload naming a different entity
+                // cannot move the question onto something the caller does hold a role for.
+                await ValidateUserMayAmendStorageApprovalAsync(
+                    storageApproval: maybeApproval,
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
+            }
 
             // A retracted approval is not a workflow record any more, so nothing may be written
             // to it — least of all an outcome. Without this the decision gate below would happily
@@ -375,11 +409,20 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
             // Null unless the payload moves the status into Approved or Rejected; the §8.6.1
             // verdict otherwise, which the derivation below records.
-            AccessVerdict outcomeVerdict = await ValidateUserMayDecideStorageApprovalAsync(
-                inputApproval: approval,
-                storageApproval: maybeApproval,
-                securityContext: inboundEnvelope.SecurityContext,
-                cancellationToken: cancellationToken);
+            //
+            // Null for the workflow too, and the bypass pair is NOT left to the payload as a
+            // result: ApprovalOrchestrationService derives it from its OWN §8.6.1 verdict before
+            // calling here (Decisions.cs:127). Asking again under the system identity would ask
+            // the decision function about a roleless actor and be refused — which is consequence
+            // 3 of #287 — and would replace a derivation made with the deciding context by one
+            // made without it.
+            AccessVerdict outcomeVerdict = isSystemIdentity
+                ? null
+                : await ValidateUserMayDecideStorageApprovalAsync(
+                    inputApproval: approval,
+                    storageApproval: maybeApproval,
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
 
             approval = await this.securityAuditBroker
                 .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(

@@ -131,6 +131,13 @@ namespace Glory2Him.WebApp.Infrastructure
                 (ApprovalReviewService)provider.GetRequiredService<IApprovalReviewService>());
             services.AddScoped<IApprovalService, ApprovalService>();
 
+            // The workflow's own Approval surface, separate from the public service the
+            // controllers bind to. Same implementation, resolved through the public door so
+            // there is one object; a narrower type so the orchestration cannot reach a
+            // caller-gated twin by accident (#287).
+            services.AddScoped<IApprovalWorkflowService>(provider =>
+                (ApprovalService)provider.GetRequiredService<IApprovalService>());
+
             // Scoped for the same reason the foundations are: it reaches them, and through
             // them the DbContext.
             services.AddScoped<IApprovalOrchestrationService, ApprovalOrchestrationService>();
