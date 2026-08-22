@@ -94,9 +94,14 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
         public async Task ShouldStillReTestADifferentRoundWhileDismissingAsync()
         {
             // given: the guard is keyed on the approval being dismissed, so an unrelated round's
-            // dismissal — a publisher driving someone else's verdict to Dismissed by hand — must
-            // still be heard while our loop runs. A guard that stood down for everything would
-            // drop those on the floor.
+            // dismissal must still be heard while our loop runs. A guard that stood down for
+            // everything would drop those on the floor.
+            //
+            // This publishes from OUTSIDE any suppression window, which no production caller
+            // does any more (#295 removed the human route, and the reset loop always sets the
+            // window before publishing). That is deliberate rather than stale: the property
+            // under test is that the guard is SCOPED, not global, and the only way to observe
+            // scoping is to arrive the way a second publisher one day would.
             Guid dismissingApprovalId = Guid.NewGuid();
             Guid unrelatedApprovalId = Guid.NewGuid();
             var reTestedApprovalIds = new List<Guid>();

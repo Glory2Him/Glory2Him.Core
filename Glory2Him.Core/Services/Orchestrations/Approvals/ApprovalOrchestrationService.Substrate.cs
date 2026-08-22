@@ -266,16 +266,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // suppressing the re-test, never the signature check. The dismissing flow re-evaluates
         // once, at the end, which is the correct single evaluation for the whole act.
         //
-        // WHY THE SUBSCRIPTION REMAINS, since its original reason is gone. It used to earn its
-        // place because a dismissal could also arrive from a HUMAN — a publisher driving a
-        // verdict to Dismissed by hand — and nothing else re-evaluated that. #295 removed every
-        // human route, so every dismissal this address carries is now the workflow's own.
+        // WHY THE SUBSCRIPTION REMAINS, and the honest answer: it is currently UNREACHABLE.
         //
-        // What is left is narrower: the suppression is scoped to ONE approval, so a dismissal
-        // belonging to a different round — two authors editing two entities concurrently — is
-        // still heard and still needs re-evaluating. Whether that residual case is better served
-        // here or by the dismissing flow's own end-of-loop evaluation is an open question
-        // (§10.17 b3); it was deliberately not settled alongside the route removal.
+        // It used to earn its place because a dismissal could also arrive from a HUMAN — a
+        // publisher driving a verdict to Dismissed by hand — and nothing else re-evaluated that.
+        // #295 removed every human route.
+        //
+        // A concurrent DIFFERENT round does not save it either, which was the first replacement
+        // argument and is also wrong. ApprovalReview-Dismissed has exactly one publisher
+        // (SaveDismissTransitionAsync), reached by exactly one caller (the reset loop), and that
+        // loop sets the suppression before it publishes. Delivery is synchronous on the
+        // publisher's execution context and the guard is an AsyncLocal, so EVERY production
+        // publish of this fact lands inside its own suppression window. Measured: two
+        // overlapping resets produced four deliveries and zero re-tests.
+        //
+        // Kept anyway, for two reasons that are true. §10.17 (a) requires a subscriber on every
+        // fact address, and that universal is enforced by a test derived from the operation enum
+        // so it cannot be hand-carved — removing this would mean carving an exception into the
+        // invariant. And the guard's SCOPING (one approval, not all) is a real property, pinned
+        // by ShouldStillReTestADifferentRoundWhileDismissingAsync, which publishes from outside
+        // any window the way a second publisher one day would.
+        //
+        // Remove-or-keep is #300, with the measured cost attached.
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewDismissedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>
