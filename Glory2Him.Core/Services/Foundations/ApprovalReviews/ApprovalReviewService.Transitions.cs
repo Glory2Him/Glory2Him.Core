@@ -147,12 +147,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             //
             // The dual record exists so that a do-work shared between a public verb and an event
             // handler cannot process one delivery twice: the verb pre-records the id against the
-            // handler's receiver name, and the handler then skips it. Dismissal has no handler
-            // and no request address any more, so there is no receiver to dedupe against and
-            // nothing would ever read the rows.
+            // handler's receiver name, and the handler then skips it. Both rows were keyed on
+            // ApprovalReviewOnDismissingApprovalReviewSubscriptionName, and their only reader
+            // was that handler's AlreadyProcessedAsync — deleted in this same commit. Nothing
+            // reads them, so writing them is work done to be discarded.
             //
-            // The outbound fact is still deduped where it matters — by the ORCHESTRATION, under
-            // its own receiver name, when ApprovalReview-Dismissed is delivered to it.
+            // NOT because a downstream subscriber dedupes instead. ApprovalOrchestrationService
+            // takes no IStorageBroker and performs no ProcessedEvents check of any kind, so a
+            // redelivered ApprovalReview-Dismissed IS re-processed there. That is tolerable
+            // because its handler re-evaluates the round rather than applying a delta — the
+            // second pass reaches the same verdict — but it is idempotence by construction, not
+            // deduplication, and the distinction matters to anyone reasoning about redelivery.
             EventEnvelope<ApprovalReview> outboundEnvelope =
                 await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,

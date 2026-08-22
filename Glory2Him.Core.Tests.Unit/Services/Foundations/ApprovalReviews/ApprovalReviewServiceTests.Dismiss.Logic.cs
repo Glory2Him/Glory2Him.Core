@@ -85,6 +85,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             savedApprovalReview.Should().BeEquivalentTo(
                 expectedStorageApprovalReview,
                 options => options.Excluding(approvalReview => approvalReview.StatusId));
+
+            // NO ProcessedEvents row, in either direction (#295). The dual record every other
+            // transition writes existed to stop a do-work shared with an event handler
+            // processing one delivery twice; this path has no handler, so both rows would be
+            // written for a reader that no longer exists.
+            //
+            // Asserted rather than narrated. The absence is argued at length in the service
+            // comment and was, until this assertion, pinned by nothing — re-adding either call
+            // left all 4096 tests green.
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertProcessedEventAsync(
+                        It.IsAny<ProcessedEvent>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // The call inventory this suite lost with the publisher-tier theory. Every sibling
+            // *.Logic.cs in this folder carries one; without it a new broker call on the
+            // dismissal path lands unnoticed.
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectApprovalReviewByIdAsync(
+                        storageApprovalReview.Id,
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalReviewAsync(
+                        It.IsAny<ApprovalReview>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyModifyAuditValuesAsync(
+                        It.IsAny<ApprovalReview>(),
+                        It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                    broker.CreateSystemAsync(It.IsAny<ApprovalReview>()),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                    broker.CreateNextAsync(
+                        It.IsAny<EventEnvelope<ApprovalReview>>(),
+                        It.IsAny<ApprovalReview>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                    broker.PublishApprovalReviewAsync(
+                        It.IsAny<EventEnvelope<ApprovalReview>>(),
+                        ApprovalReviewEventOperation.Dismissed),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]

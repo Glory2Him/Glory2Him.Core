@@ -10,15 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
-using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
 {
@@ -29,19 +24,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 message: "Approval review is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalReviewId), Parameter: nameof(ApprovalReview.Id)));
 
-        // Dismissal is the PUBLISHER-tier act, not the reviewer's. §8.8 dismisses a review as a
-        // consequence of an entity-scoped change, and §9.5 makes dismissal something that
-        // happens TO a review rather than a verdict its author declares — so a Reviewer, whose
-        // instrument is the verdict on their own row, may never drive one to Dismissed by hand
-        // (the same HR-3 shape the approve operations use). The check is deliberately the
-        // publisher SUBSET of HasReviewRole: the global Publisher, an Admin, or any
-        // entity-scoped "%EntityType%-Publisher"; the review roles are excluded.
-        private static bool HasPublisherRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
-                || securityContext.Roles.Any(role =>
-                    role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
-
         // Dismissal belongs to the approval workflow alone (§7.7 rule 7, #295). A reviewer
         // records Approved or Rejected; Dismissed is what happens TO a verdict when the content
         // it judged has changed, and that is not a decision any person makes.
@@ -51,10 +33,12 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         // gone, so the question is no longer "which people may dismiss" but "is this the
         // workflow at all".
         //
-        // Unreachable in practice, and deliberately kept. The single caller mints the context
-        // itself through CreateSystemAsync, so no live path can fail this — it exists to fail
-        // the day a second caller appears that does not, which is precisely when a silent
-        // success would be worst.
+        // Unreachable in practice, and deliberately kept — but narrower than it looks. The one
+        // public seam, DismissStaleApprovalReviewAsync, calls CreateSystemAsync itself before
+        // delegating, so anything entering THERE mints a passing context by construction and
+        // can never fail this. What it actually guards is a future second caller of the private
+        // DoDismissApprovalReviewAsync that supplies its own envelope — which is exactly how
+        // both of the routes this commit removed used to arrive.
         private static void ValidateDismissalIsTheWorkflowsOwnAct(SecurityContext securityContext)
         {
             if (securityContext.IsSystemIdentity is false)

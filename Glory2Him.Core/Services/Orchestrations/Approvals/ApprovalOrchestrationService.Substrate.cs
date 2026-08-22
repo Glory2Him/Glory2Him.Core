@@ -258,17 +258,24 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         //
         // This is the one address that can be published by this service's OWN work: the
         // §9.7.4 stale-review reset loops over the round's reviews calling
-        // DismissApprovalReviewAsync, and each of those publishes here. Delivery is synchronous,
-        // so an unguarded re-test would run mid-loop against a HALF-dismissed set and could
-        // auto-approve off a review population that is still being torn down.
+        // DismissStaleApprovalReviewAsync, and each of those publishes here. Delivery is
+        // synchronous, so an unguarded re-test would run mid-loop against a HALF-dismissed set
+        // and could auto-approve off a review population that is still being torn down.
         //
         // The loop announces itself and this handler stands down for that approval only —
         // suppressing the re-test, never the signature check. The dismissing flow re-evaluates
         // once, at the end, which is the correct single evaluation for the whole act.
         //
-        // The subscription still earns its place: a dismissal also arrives from a HUMAN — a
-        // publisher driving a verdict to Dismissed by hand (§7.7) — and nothing re-evaluates
-        // that. Suppressing our own loop is what lets us hear theirs.
+        // WHY THE SUBSCRIPTION REMAINS, since its original reason is gone. It used to earn its
+        // place because a dismissal could also arrive from a HUMAN — a publisher driving a
+        // verdict to Dismissed by hand — and nothing else re-evaluated that. #295 removed every
+        // human route, so every dismissal this address carries is now the workflow's own.
+        //
+        // What is left is narrower: the suppression is scoped to ONE approval, so a dismissal
+        // belonging to a different round — two authors editing two entities concurrently — is
+        // still heard and still needs re-evaluating. Whether that residual case is better served
+        // here or by the dismissing flow's own end-of-loop evaluation is an open question
+        // (§10.17 b3); it was deliberately not settled alongside the route removal.
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewDismissedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>

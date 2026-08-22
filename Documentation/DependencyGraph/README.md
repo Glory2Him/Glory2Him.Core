@@ -7,7 +7,7 @@ Data and renderer are separate files, all in this folder:
 
 - [graph.yml](./graph.yml) — the manifest: solution name, project list (which
   also names each project's data file), root order, and the event registry
-  (all 171 `<Entity>.<Operation>` events with their publish/subscribe row
+  (all 170 `<Entity>.<Operation>` events with their publish/subscribe row
   labels).
 - `projects/*.yml` — one file per project / package boundary, each declaring
   that project's components with their methods, outbound calls, publishes and
@@ -159,10 +159,10 @@ view you were on, and switching carries your current selection across.
   added 2026-08-12) is not modelled. It has no events, so it does not affect
   the subscription count.
 - **The four WebApp controllers** above are not modelled.
-- **7 of 178 event addresses are absent from the manifest** — the whole
+- **7 of 177 event addresses are absent from the manifest** — the whole
   `Attachment` family. They are declared on `IEventBroker` but no service
   publishes or subscribes them, so nothing would be drawn. The manifest
-  otherwise carries 171 of 178, exactly the set with a producer or consumer.
+  otherwise carries 170 of 177, exactly the set with a producer or consumer.
 - The `Attachment` storage family (`IStorageBroker.Attachment.cs`, 11
   operations) is likewise unmodelled; only `SelectAttachmentByIdAsync` has a
   caller today, and it is drawn.

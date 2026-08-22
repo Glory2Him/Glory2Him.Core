@@ -39,8 +39,6 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
     ///
     /// <para>Only hard removal carries a role list. The rest, for the same reason:</para>
     ///
-    /// <para>The rest, for the same reason:</para>
-    ///
     /// <list type="bullet">
     /// <item>Add and both reads admit any review-role holder — global <c>Reviewer</c>,
     /// <c>Publisher</c>, <c>Admin</c>, or any <c>%EntityType%-Reviewer</c> /

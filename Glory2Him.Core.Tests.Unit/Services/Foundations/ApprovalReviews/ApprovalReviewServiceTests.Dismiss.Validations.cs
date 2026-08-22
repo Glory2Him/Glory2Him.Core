@@ -26,17 +26,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 {
     public partial class ApprovalReviewServiceTests
     {
-        // the review roles must NOT be able to dismiss — dismissal is the workflow's act, not a
-        // reviewer's verdict (§8.8, the HR-3 shape). A plain Reviewer and an entity-scoped
-        // "-Reviewer" both hold the review tier but not the publisher tier.
-        public static TheoryData<string[]> NonPublisherRoleSets() =>
-            new TheoryData<string[]>
-            {
-                new string[0],
-                new[] { Roles.Reviewer },
-                new[] { Roles.ContentItemReviewer },
-            };
-
         [Fact]
         public async Task ShouldThrowValidationExceptionOnDismissIfIdIsInvalidAsync()
         {
