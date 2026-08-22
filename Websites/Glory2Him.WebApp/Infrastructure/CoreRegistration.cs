@@ -97,11 +97,27 @@ namespace Glory2Him.WebApp.Infrastructure
             // service through an ordinary public constructor and the default activator builds it.
             services.AddScoped<ITagService, TagService>();
             services.AddScoped<IApprovalCommentService, ApprovalCommentService>();
-            services.AddScoped<IApprovalReviewService, ApprovalReviewService>();
+            // ONE object behind two doors. Registering the same implementation against two
+            // service types would make two of them, because the container keys on the service
+            // type rather than the implementation — harmless while this class holds nothing but
+            // readonly brokers, and a silent divergence the day it holds anything else.
+            services.AddScoped<ApprovalReviewService>();
+
+            services.AddScoped<IApprovalReviewService>(provider =>
+                provider.GetRequiredService<ApprovalReviewService>());
 
             // The workflow's own write seam, separate from the public service the controllers
-            // bind to. Same implementation; a narrower door, reachable only from inside Core.
-            services.AddScoped<IApprovalReviewWorkflowService, ApprovalReviewService>();
+            // bind to. Same implementation, a narrower door: it carries only the dismissal the
+            // workflow makes on its own behalf, so a controller holding the public service does
+            // not acquire that capability along with it.
+            //
+            // `internal` states the intent rather than enforcing it against this assembly —
+            // Core names Glory2Him.WebApp in InternalsVisibleTo. What it does enforce is the
+            // idiomatic route: a public controller cannot take an internal type through its
+            // constructor (CS0051), so reaching this from the portal takes a deliberate,
+            // conspicuous service-locator call rather than ordinary injection.
+            services.AddScoped<IApprovalReviewWorkflowService>(provider =>
+                provider.GetRequiredService<ApprovalReviewService>());
             services.AddScoped<IApprovalService, ApprovalService>();
 
             // Scoped for the same reason the foundations are: it reaches them, and through
