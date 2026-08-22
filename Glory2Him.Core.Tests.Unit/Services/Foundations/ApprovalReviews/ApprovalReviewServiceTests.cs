@@ -70,12 +70,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             this.envelopeIntegrityBrokerMock = new Mock<IEnvelopeIntegrityBroker>();
             this.loggingBrokerMock = new Mock<ILoggingBroker>();
 
-            // BOTH cross-entity decisions default to permitted — the record-review one and the
-            // dismissal one — so a test about something else exercises its own subject rather
-            // than failing on an unstubbed verdict. They are reversed SEPARATELY, and reaching
-            // for the wrong one leaves the decision permitted and the test passing for the wrong
-            // reason: SetupAccessBrokerToRefuse covers MayRecordApprovalReviewAsync (add, modify
-            // and remove), SetupAccessBrokerToRefuseDismissal covers MayDismissApprovalReviewAsync.
+            // The cross-entity decision defaults to permitted, so a test about something else
+            // exercises its own subject rather than failing on an unstubbed verdict. Reverse it
+            // with SetupAccessBrokerToRefuse, which covers MayRecordApprovalReviewAsync — add,
+            // modify and remove.
+            //
+            // There was a second one, for dismissal, and it is gone with the routes it guarded
+            // (#295): no caller decides who may dismiss, because nobody may.
             SetupAccessBrokerToPermit();
 
             // the ambient caller the envelope broker captures on the direct path — tests
@@ -162,13 +163,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(CreatePermittedVerdict());
-
-            this.accessBrokerMock.Setup(broker =>
-                broker.MayDismissApprovalReviewAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<SecurityContext>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(CreatePermittedVerdict());
         }
 
         private static AccessVerdict CreatePermittedVerdict() =>
@@ -181,20 +175,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 Explanation = "permitted",
             };
 
-        private void SetupAccessBrokerToRefuseDismissal(AccessDenialReason denialReason) =>
-            this.accessBrokerMock.Setup(broker =>
-                broker.MayDismissApprovalReviewAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<SecurityContext>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new AccessVerdict
-                        {
-                            IsPermitted = false,
-                            DenialReason = denialReason,
-                            IsBypassUsed = false,
-                            BypassedBlockReason = AccessDenialReason.None,
-                            Explanation = "the actor is not in the publisher tier for this entity",
-                        });
 
         // A permit reached by WAIVING the conditions rather than by meeting them. Recording a
         // review never takes this route today — HR-1 has no bypass — but the verdict type is

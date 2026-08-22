@@ -23,9 +23,11 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// write path §14.7 posture D rule 3 has reviewers move an approval's status through, and it
     /// has no business reading any of that.</para>
     ///
-    /// <para><b>No <c>ApprovalState</c></b>, for a different reason than the dismissal decision's:
-    /// there, the round is being re-opened underneath the operation; here, the round state is the
-    /// very thing being moved. A window guard would refuse the operation's whole purpose.</para>
+    /// <para><b>No <c>ApprovalState</c></b>, and for its own reason: the round state is the very
+    /// thing being moved here, so a window guard would refuse the operation's whole purpose. The
+    /// dismissal decision used to make the same omission for the opposite reason — the round
+    /// being re-opened underneath it — but that decision is gone, because dismissal is no longer
+    /// anyone's to be permitted (#295).</para>
     ///
     /// <para><b>The owner branch is IN here, not left to the caller.</b> §14.7 posture D rule 3
     /// admits the approval's own submitter as well as the review tier — resubmission is theirs to

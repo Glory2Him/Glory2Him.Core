@@ -10,15 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
-using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
 {
@@ -29,61 +24,28 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 message: "Approval review is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(approvalReviewId), Parameter: nameof(ApprovalReview.Id)));
 
-        // Dismissal is the PUBLISHER-tier act, not the reviewer's. §8.8 dismisses a review as a
-        // consequence of an entity-scoped change, and §9.5 makes dismissal something that
-        // happens TO a review rather than a verdict its author declares — so a Reviewer, whose
-        // instrument is the verdict on their own row, may never drive one to Dismissed by hand
-        // (the same HR-3 shape the approve operations use). The check is deliberately the
-        // publisher SUBSET of HasReviewRole: the global Publisher, an Admin, or any
-        // entity-scoped "%EntityType%-Publisher"; the review roles are excluded.
-        private static bool HasPublisherRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
-                || securityContext.Roles.Any(role =>
-                    role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
-
-        // Tier 1, row-local. Kept alongside the broker decision below rather than replaced by
-        // it: §14.6 rule 2 and §8.6.1 make the coarse duplicate intentional — one role comparison
-        // instead of a table read, and a defect in the gathering can only ever make the pair
-        // stricter, never looser.
-        private static void ValidateUserCanDismissApprovalReview(SecurityContext securityContext)
-        {
-            if (HasPublisherRole(securityContext) is false)
-            {
-                throw new UnauthorizedApprovalReviewException(
-                    message: "The current user is not allowed to dismiss this approval review.");
-            }
-        }
-
-        // Tier 2, cross-entity — and the half that makes the gate mean what §8.9 rule 2 says.
-        // HasPublisherRole above matches ANY "-Publisher" suffix, because a review row names no
-        // entity type: a bare Tag-Publisher passes it for a ContentItem↔BibleReference
-        // association's approval. The broker resolves the entity behind the approval — for an
-        // association, both of its endpoints (§14.7 posture A′ rule 2) — so the tier is finally
-        // checked against the thing actually under review.
+        // Dismissal belongs to the approval workflow alone (§7.7 rule 7, #295). A reviewer
+        // records Approved or Rejected; Dismissed is what happens TO a verdict when the content
+        // it judged has changed, and that is not a decision any person makes.
         //
-        // Asked about the STORED approval id, never a payload value: dismissal is decided against
-        // the row as it is, and the request carries nothing but the review's own id anyway.
-        private async ValueTask ValidateUserMayDismissApprovalReviewAsync(
-            Guid approvalId,
-            SecurityContext securityContext,
-            CancellationToken cancellationToken)
+        // This replaced a two-tier publisher check. The tiers existed because a person could
+        // once reach this verb through a public API route and a public event address; both are
+        // gone, so the question is no longer "which people may dismiss" but "is this the
+        // workflow at all".
+        //
+        // Unreachable in practice, and deliberately kept — but narrower than it looks. The one
+        // public seam, DismissStaleApprovalReviewAsync, calls CreateSystemAsync itself before
+        // delegating, so anything entering THERE mints a passing context by construction and
+        // can never fail this. What it actually guards is a future second caller of the private
+        // DoDismissApprovalReviewAsync that supplies its own envelope — which is exactly how
+        // both of the routes this commit removed used to arrive.
+        private static void ValidateDismissalIsTheWorkflowsOwnAct(SecurityContext securityContext)
         {
-            AccessVerdict verdict = await this.accessBroker.MayDismissApprovalReviewAsync(
-                approvalId: approvalId,
-                securityContext: securityContext,
-                cancellationToken: cancellationToken);
-
-            if (verdict.IsPermitted is false)
+            if (securityContext.IsSystemIdentity is false)
             {
-                // §14.5: the true reason server-side, nothing about the policy to the caller.
-                await this.loggingBroker.LogWarningAsync(
-                    $"Approval review dismissal denied for approval {approvalId}. "
-                        + $"{verdict.DenialReason}: {verdict.Explanation} "
-                        + "Reported to the caller as unauthorized.");
-
                 throw new UnauthorizedApprovalReviewException(
-                    message: "The current user is not allowed to dismiss this approval review.");
+                    message: "Dismissal is the approval workflow's own act; "
+                        + "no user may perform it.");
             }
         }
 

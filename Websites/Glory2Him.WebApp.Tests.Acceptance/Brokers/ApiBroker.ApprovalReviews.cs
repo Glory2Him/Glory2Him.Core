@@ -60,11 +60,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 $"{approvalReviewsRelativeUrl}/{approvalReviewId}/hard");
 
         /// <summary>
-        /// Dismissal takes the id and nothing else — there is no flag and no un-dismiss, which is
-        /// why this needs no counterpart to the comment exposer's missing-flag helper.
-        /// </summary>
-
-        /// <summary>
         /// Posts a review as RAW JSON, so a test can send members the typed acceptance model does
         /// not carry — specifically the <c>Approval</c> navigation the Core entity exposes. Returns
         /// the status code rather than a deserialised entity, because the interesting outcomes are
@@ -82,10 +77,5 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 
             return response.StatusCode;
         }
-
-        public async ValueTask<ApprovalReview> DismissApprovalReviewAsync(Guid approvalReviewId) =>
-            await this.apiFactoryClient.PostContentAsync<object, ApprovalReview>(
-                $"{approvalReviewsRelativeUrl}/{approvalReviewId}/dismiss",
-                content: new object());
     }
 }

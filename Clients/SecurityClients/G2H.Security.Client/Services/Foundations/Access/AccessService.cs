@@ -99,18 +99,6 @@ namespace G2H.Security.Client.Services.Foundations.Access
                     DecideMayAmendApproval(amendApprovalRequest));
             });
 
-        // ── §7.7 rule 7 route 3 / §8.8 / §14.7 posture A′ rule 2 ────────────────────────────
-        //
-        public ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
-            DismissReviewRequest dismissReviewRequest) =>
-            TryCatch(() =>
-            {
-                ValidateOnDismissReview(dismissReviewRequest);
-
-                return new ValueTask<AccessVerdict>(
-                    DecideMayDismissApprovalReview(dismissReviewRequest));
-            });
-
         public ValueTask<AccessVerdict> MayResolveApprovalCommentAsync(
             ResolveApprovalCommentRequest resolveApprovalCommentRequest) =>
             TryCatch(() =>
@@ -186,30 +174,6 @@ namespace G2H.Security.Client.Services.Foundations.Access
             }
 
             return Permit("Actor holds the review tier for the entity behind this approval.");
-        }
-
-        // Dismissal carries the publisher tier and nothing else. It asks no question about the
-        // round, because §8.8 fires it precisely as the round re-opens, and none about who wrote
-        // the verdict, because dismissal happens TO a review rather than being retracted by its
-        // author (§7.7 rule 2). What it does narrow — and what the foundation could not narrow
-        // for itself — is the tier to the approval's own subject.
-        private static AccessVerdict DecideMayDismissApprovalReview(DismissReviewRequest request)
-        {
-            if (IsActorUsable(request.Actor) is false)
-            {
-                return Refuse(
-                    AccessDenialReason.NotAuthenticated,
-                    "Actor is not authenticated or carries no resolvable user id.");
-            }
-
-            if (HasPublisherTier(request.Actor, request.RoleSubjects) is false)
-            {
-                return Refuse(
-                    AccessDenialReason.NotInPublisherTier,
-                    "Actor does not hold the publisher tier for the entity behind this approval.");
-            }
-
-            return Permit("Actor holds the publisher tier for the entity behind this approval.");
         }
 
         // Editing the text and withdrawing the row ask the same question, so they share one

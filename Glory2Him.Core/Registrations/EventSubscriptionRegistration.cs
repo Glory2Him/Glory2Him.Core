@@ -1326,23 +1326,6 @@ namespace Glory2Him.Core.Registrations
                         service => service.OnRetrievingApprovalReviewByIdAsync),
                 cancellationToken: cancellationToken);
 
-            await this.eventBroker.SubscribeToApprovalReviewEventAsync(
-                subscription: new EventSubscription
-                {
-                    Id = EventBrokerIdentifiers.ApprovalReviewOnDismissingApprovalReviewSubscriptionId,
-
-                    Name = EventBrokerIdentifiers
-                        .ApprovalReviewOnDismissingApprovalReviewSubscriptionName,
-
-                    Description = "Handles dismiss requests: drives a review's StatusId to " +
-                        "Dismissed, publishes ApprovalReview-Dismissed, and replies with the " +
-                        "updated entity."
-                },
-                operation: ApprovalReviewEventOperation.Dismissing,
-                approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
-                        service => service.OnDismissingApprovalReviewAsync),
-                cancellationToken: cancellationToken);
-
             // ── ApprovalSetting request handlers ─────────────────────────────────
             await this.eventBroker.SubscribeToApprovalSettingEventAsync(
                 subscription: new EventSubscription

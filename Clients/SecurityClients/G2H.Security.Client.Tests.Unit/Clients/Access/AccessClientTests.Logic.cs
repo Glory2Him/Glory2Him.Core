@@ -110,35 +110,6 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
         }
 
         [Fact]
-        public async Task ShouldDecideIfActorMayDismissApprovalReviewAsync()
-        {
-            // given
-            DismissReviewRequest randomDismissReviewRequest =
-                CreateRandomDismissReviewRequest();
-
-            AccessVerdict randomAccessVerdict = CreateRandomAccessVerdict();
-            AccessVerdict expectedAccessVerdict = randomAccessVerdict;
-
-            this.accessServiceMock.Setup(service =>
-                service.MayDismissApprovalReviewAsync(randomDismissReviewRequest))
-                    .ReturnsAsync(randomAccessVerdict);
-
-            // when
-            AccessVerdict actualAccessVerdict =
-                await this.accessClient.MayDismissApprovalReviewAsync(
-                    randomDismissReviewRequest);
-
-            // then
-            actualAccessVerdict.Should().BeEquivalentTo(expectedAccessVerdict);
-
-            this.accessServiceMock.Verify(service =>
-                service.MayDismissApprovalReviewAsync(randomDismissReviewRequest),
-                    Times.Once);
-
-            this.accessServiceMock.VerifyNoOtherCalls();
-        }
-
-        [Fact]
         public async Task ShouldDecideIfActorMayDecideApprovalAsync()
         {
             // given

@@ -1006,14 +1006,6 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ApprovalReviewEventOperation.RetrievingById,
                 expectedHandler: this.approvalReviewServiceMock.Object.OnRetrievingApprovalReviewByIdAsync);
 
-            VerifyApprovalReviewSubscription(
-                expectedSubscriptionId:
-                    EventBrokerIdentifiers.ApprovalReviewOnDismissingApprovalReviewSubscriptionId,
-                expectedSubscriptionName:
-                    EventBrokerIdentifiers.ApprovalReviewOnDismissingApprovalReviewSubscriptionName,
-                expectedOperation: ApprovalReviewEventOperation.Dismissing,
-                expectedHandler: this.approvalReviewServiceMock.Object.OnDismissingApprovalReviewAsync);
-
             VerifyApprovalSettingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionId,

@@ -2347,7 +2347,6 @@ components:
       - OnRemovingApprovalReviewByIdAsync
       - OnHardRemovingApprovalReviewByIdAsync
       - OnRetrievingApprovalReviewByIdAsync
-      - DismissApprovalReviewAsync
       - DismissStaleApprovalReviewAsync
     calls:
       - from: DismissStaleApprovalReviewAsync
@@ -2506,8 +2505,6 @@ components:
         handler: OnRemovingApprovalReviewByIdAsync
       - event: ApprovalReview.HardRemovingById
         handler: OnHardRemovingApprovalReviewByIdAsync
-      - event: ApprovalReview.Dismissing
-        handler: OnDismissingApprovalReviewAsync
       - event: ApprovalReview.RetrievingById
         handler: OnRetrievingApprovalReviewByIdAsync
   - id: FS.ApprovalSetting

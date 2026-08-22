@@ -7,7 +7,7 @@ Data and renderer are separate files, all in this folder:
 
 - [graph.yml](./graph.yml) — the manifest: solution name, project list (which
   also names each project's data file), root order, and the event registry
-  (all 171 `<Entity>.<Operation>` events with their publish/subscribe row
+  (all 170 `<Entity>.<Operation>` events with their publish/subscribe row
   labels).
 - `projects/*.yml` — one file per project / package boundary, each declaring
   that project's components with their methods, outbound calls, publishes and
@@ -77,8 +77,8 @@ view you were on, and switching carries your current selection across.
 
 ## Current truths captured in the data (full re-scan 2026-08-21)
 
-- **All 109 subscriptions are now drawn.** `EventSubscriptionRegistration`
-  wires 109 and the data files carry 109 — the first time these have matched
+- **All 108 subscriptions are now drawn.** `EventSubscriptionRegistration`
+  wires 108 and the data files carry 108 — the first time these have matched
   since the 2026-08-11 scan, which drew 71 against 85. The gap closed in two
   halves: the six approvable entities gained their `Submitting` / `Approving`
   subscriptions and their submit and approval-transition verbs, and
@@ -94,7 +94,7 @@ view you were on, and switching carries your current selection across.
   ProcessedEvents dedupe — its substrate guard is `IEnvelopeIntegrityBroker`
   instead. `IApprovalCommentService` is injected but currently unused.
 - **Circular event flows now exist, and the red edges are correct.** 14 of the
-  109 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
+  108 subscriptions are on fact addresses, all handled by `AO`. `AO` publishes
   `<Entity>-Approving`, each entity publishes `<Entity>-Added` / `-Modified`
   back, and Tarjan finds one cyclic component: `AO`, `CIP`, `LP`,
   `FS.Tag`, `FS.Comment`, `FS.Reaction`, `FS.BibleReference`,
@@ -131,7 +131,7 @@ view you were on, and switching carries your current selection across.
   the next scan's job.
 - **The substrate is live, and `RegisterAsync` is no longer test-only.**
   `Program.Configurations.cs` calls it at startup (`RegisterCoreEventSubstrateAsync`),
-  so the 109 listeners and 167 addresses are registered in the running host
+  so the 108 listeners and 166 addresses are registered in the running host
   rather than only under test. Handlers resolve **per delivery** through an
   `IServiceScopeFactory` — not as method groups captured by the singleton
   broker, which is how they were bound before. Any service the substrate
@@ -159,10 +159,10 @@ view you were on, and switching carries your current selection across.
   added 2026-08-12) is not modelled. It has no events, so it does not affect
   the subscription count.
 - **The four WebApp controllers** above are not modelled.
-- **7 of 178 event addresses are absent from the manifest** — the whole
+- **7 of 177 event addresses are absent from the manifest** — the whole
   `Attachment` family. They are declared on `IEventBroker` but no service
   publishes or subscribes them, so nothing would be drawn. The manifest
-  otherwise carries 171 of 178, exactly the set with a producer or consumer.
+  otherwise carries 170 of 177, exactly the set with a producer or consumer.
 - The `Attachment` storage family (`IStorageBroker.Attachment.cs`, 11
   operations) is likewise unmodelled; only `SelectAttachmentByIdAsync` has a
   caller today, and it is drawn.

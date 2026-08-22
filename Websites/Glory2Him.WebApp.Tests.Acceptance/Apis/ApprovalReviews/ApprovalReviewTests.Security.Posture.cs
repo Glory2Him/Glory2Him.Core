@@ -101,37 +101,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 await RemoveApprovalReviewAndApprovalAsync(randomReview.Id, approval.Id);
             }
         }
-
-        /// <summary>
-        /// The blocked caller cannot dismiss either, even holding the publisher tier the gate
-        /// otherwise requires.
-        /// </summary>
-        [Fact]
-        public async Task ShouldReturnUnauthorizedOnDismissIfBlockedCallerAlsoHoldsPublisherAsync()
-        {
-            // given
-            (Approval approval, ApprovalReview review) =
-                await PostRandomApprovalReviewOnOpenApprovalAsync();
-
-            try
-            {
-                // when
-                this.apiBroker.ActAs(
-                    Guid.NewGuid().ToString(),
-                    Roles.Publisher,
-                    Roles.ReadOnly);
-
-                var dismissTask = this.apiBroker.DismissApprovalReviewAsync(review.Id).AsTask();
-
-                // then
-                await Assert.ThrowsAsync<HttpResponseUnauthorizedException>(() => dismissTask);
-            }
-            finally
-            {
-                await RemoveApprovalReviewAndApprovalAsync(review.Id, approval.Id);
-            }
-        }
-
         /// <summary>
         /// Posture D on the single read: a caller holding no review role is told not-found rather
         /// than refused, so the endpoint cannot be used to probe which verdicts exist (§14.5

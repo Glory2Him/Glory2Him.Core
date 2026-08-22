@@ -27,123 +27,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 {
     public partial class ApprovalReviewServiceTests
     {
-        [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Admin)]
-        [InlineData(Roles.ContentItemPublisher)]
-        public async Task ShouldDismissApprovalReviewAsync(string publisherRole)
-        {
-            // given: the whole publisher tier may dismiss — the global Publisher, an Admin, and
-            // any entity-scoped "-Publisher" role, PROVIDED the broker also admits them for the
-            // entity behind the approval. The row-local role test cannot see that entity, so the
-            // two run together (§14.6 rule 2). The actor id is still never resolved: the gate is
-            // role-based, not ownership-based.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(publisherRole);
-
-            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
-
-            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
-            storageApprovalReview.StatusId = ApprovalStatus.Approved;
-
-            ApprovalReview dismissedApprovalReview = storageApprovalReview.DeepClone();
-            dismissedApprovalReview.StatusId = ApprovalStatus.Dismissed;
-
-            ApprovalReview auditAppliedApprovalReview = dismissedApprovalReview.DeepClone();
-            ApprovalReview updatedApprovalReview = auditAppliedApprovalReview.DeepClone();
-            ApprovalReview expectedApprovalReview = updatedApprovalReview.DeepClone();
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(randomDateTimeOffset);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectApprovalReviewByIdAsync(
-                    storageApprovalReview.Id,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(storageApprovalReview);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(
-                    It.IsAny<ApprovalReview>(),
-                    It.IsAny<SecurityContext>()))
-                        .ReturnsAsync(auditAppliedApprovalReview);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.UpdateApprovalReviewAsync(
-                    auditAppliedApprovalReview,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(updatedApprovalReview);
-
-            this.eventBrokerMock.Setup(broker =>
-                broker.PublishApprovalReviewAsync(
-                    It.IsAny<EventEnvelope<ApprovalReview>>(),
-                    ApprovalReviewEventOperation.Dismissed))
-                        .Returns(new ValueTask<EventPublishResult<ApprovalReview>>(
-                            new EventPublishResult<ApprovalReview>()));
-
-            // when
-            ApprovalReview actualApprovalReview =
-                await this.approvalReviewService.DismissApprovalReviewAsync(
-                    storageApprovalReview.Id,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualApprovalReview.Should().BeEquivalentTo(expectedApprovalReview);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.SelectApprovalReviewByIdAsync(
-                        storageApprovalReview.Id,
-                        It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.securityAuditBrokerMock.Verify(broker =>
-                    broker.ApplyModifyAuditValuesAsync(
-                        It.IsAny<ApprovalReview>(),
-                        It.IsAny<SecurityContext>()),
-                Times.Once);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateApprovalReviewAsync(
-                        auditAppliedApprovalReview,
-                        It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            // the operation's OWN fact — never Modified
-            this.eventBrokerMock.Verify(broker =>
-                    broker.PublishApprovalReviewAsync(
-                        It.IsAny<EventEnvelope<ApprovalReview>>(),
-                        ApprovalReviewEventOperation.Dismissed),
-                Times.Once);
-
-            this.storageBrokerMock.Verify(broker =>
-                broker.InsertProcessedEventAsync(
-                    It.Is<ProcessedEvent>(processedEvent =>
-                        processedEvent.ReceiverName ==
-                            EventBrokerIdentifiers
-                                .ApprovalReviewOnDismissingApprovalReviewSubscriptionName),
-                    It.IsAny<CancellationToken>()),
-                Times.Exactly(2));
-
-            this.dateTimeBrokerMock.Verify(broker =>
-                    broker.GetCurrentDateTimeOffsetAsync(),
-                Times.AtLeastOnce);
-
-            // exactly one access decision — the dismissal gate — and no actor id resolved
-            this.accessBrokerMock.Verify(broker =>
-                broker.MayDismissApprovalReviewAsync(
-                    storageApprovalReview.ApprovalId,
-                    It.IsAny<SecurityContext>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Once);
-
-            this.accessBrokerMock.VerifyNoOtherCalls();
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
-            this.storageBrokerMock.VerifyNoOtherCalls();
-            this.eventBrokerMock.VerifyNoOtherCalls();
-            this.loggingBrokerMock.VerifyNoOtherCalls();
-        }
-
         [Fact]
         public async Task ShouldSaveOnlyTheStatusFieldOnDismissAsync()
         {
@@ -191,7 +74,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                             new EventPublishResult<ApprovalReview>()));
 
             // when
-            await this.approvalReviewService.DismissApprovalReviewAsync(
+            await this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                 storageApprovalReview.Id,
                 TestContext.Current.CancellationToken);
 
@@ -202,6 +85,64 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             savedApprovalReview.Should().BeEquivalentTo(
                 expectedStorageApprovalReview,
                 options => options.Excluding(approvalReview => approvalReview.StatusId));
+
+            // NO ProcessedEvents row, in either direction (#295). The dual record every other
+            // transition writes existed to stop a do-work shared with an event handler
+            // processing one delivery twice; this path has no handler, so both rows would be
+            // written for a reader that no longer exists.
+            //
+            // Asserted rather than narrated. The absence is argued at length in the service
+            // comment and was, until this assertion, pinned by nothing — re-adding either call
+            // left all 4096 tests green.
+            this.storageBrokerMock.Verify(broker =>
+                    broker.InsertProcessedEventAsync(
+                        It.IsAny<ProcessedEvent>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // The call inventory this suite lost with the publisher-tier theory. Every sibling
+            // *.Logic.cs in this folder carries one; without it a new broker call on the
+            // dismissal path lands unnoticed.
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectApprovalReviewByIdAsync(
+                        storageApprovalReview.Id,
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalReviewAsync(
+                        It.IsAny<ApprovalReview>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyModifyAuditValuesAsync(
+                        It.IsAny<ApprovalReview>(),
+                        It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                    broker.CreateSystemAsync(It.IsAny<ApprovalReview>()),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                    broker.CreateNextAsync(
+                        It.IsAny<EventEnvelope<ApprovalReview>>(),
+                        It.IsAny<ApprovalReview>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                    broker.PublishApprovalReviewAsync(
+                        It.IsAny<EventEnvelope<ApprovalReview>>(),
+                        ApprovalReviewEventOperation.Dismissed),
+                Times.Once);
+
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
         [Fact]
@@ -246,7 +187,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                             new EventPublishResult<ApprovalReview>()));
 
             // when
-            await this.approvalReviewService.DismissApprovalReviewAsync(
+            await this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                 storageApprovalReview.Id,
                 TestContext.Current.CancellationToken);
 

@@ -258,17 +258,38 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         //
         // This is the one address that can be published by this service's OWN work: the
         // §9.7.4 stale-review reset loops over the round's reviews calling
-        // DismissApprovalReviewAsync, and each of those publishes here. Delivery is synchronous,
-        // so an unguarded re-test would run mid-loop against a HALF-dismissed set and could
-        // auto-approve off a review population that is still being torn down.
+        // DismissStaleApprovalReviewAsync, and each of those publishes here. Delivery is
+        // synchronous, so an unguarded re-test would run mid-loop against a HALF-dismissed set
+        // and could auto-approve off a review population that is still being torn down.
         //
         // The loop announces itself and this handler stands down for that approval only —
         // suppressing the re-test, never the signature check. The dismissing flow re-evaluates
         // once, at the end, which is the correct single evaluation for the whole act.
         //
-        // The subscription still earns its place: a dismissal also arrives from a HUMAN — a
-        // publisher driving a verdict to Dismissed by hand (§7.7) — and nothing re-evaluates
-        // that. Suppressing our own loop is what lets us hear theirs.
+        // WHY THE SUBSCRIPTION REMAINS, and the honest answer: it is currently UNREACHABLE.
+        //
+        // It used to earn its place because a dismissal could also arrive from a HUMAN — a
+        // publisher driving a verdict to Dismissed by hand — and nothing else re-evaluated that.
+        // #295 removed every human route.
+        //
+        // A concurrent DIFFERENT round does not save it either, which was the first replacement
+        // argument and is also wrong. ApprovalReview-Dismissed has exactly one publisher
+        // (SaveDismissTransitionAsync), reached by exactly one caller (the reset loop), and that
+        // loop sets the suppression before it publishes. Delivery is synchronous on the
+        // publisher's execution context and the guard is an AsyncLocal, so EVERY production
+        // publish of this fact lands inside its own suppression window. Measured: two
+        // overlapping resets produced four deliveries and zero re-tests.
+        //
+        // KEPT, and that is settled rather than pending (#300). §10.17 (a) requires a subscriber
+        // on every fact address, and that universal is enforced by a test derived from the
+        // operation enum so it cannot be hand-carved. Removing this one would carve the first
+        // exception into it — one suppressed delivery per dismissal is a smaller price than a
+        // weaker rule for every address.
+        //
+        // The guard's SCOPING (one approval, not all) is a real property too, pinned by
+        // ShouldStillReTestADifferentRoundWhileDismissingAsync, which publishes from outside any
+        // window the way a repair pass or an administrative tool one day would — and such a
+        // caller would find this handler already correct.
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewDismissedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>

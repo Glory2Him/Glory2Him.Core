@@ -26,89 +26,21 @@ using Moq;
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 {
     /// <summary>
-    /// The system identity as a second admissible actor on dismissal, and the boundary that
-    /// keeps it off the event path.
+    /// The system identity as the ONLY admissible actor on dismissal (#295).
     /// </summary>
+    /// <remarks>
+    /// Two tests stood here and are gone with the routes they covered. One dismissed under an
+    /// AMBIENT system context through the public verb — unreachable now, because that verb no
+    /// longer exists and no ambient context can carry the flag. The other refused a system
+    /// identity asserted on an inbound envelope, which needed a request address to assert it on;
+    /// that address is gone too.
+    ///
+    /// What replaced them is stronger than either: the capability is absent rather than guarded.
+    /// The refusal itself is still proven, in
+    /// <c>ShouldRefuseDismissalWhenTheContextIsNotTheWorkflowsOwnAsync</c>.
+    /// </remarks>
     public partial class ApprovalReviewServiceTests
     {
-        // The context ApprovalOrchestrationService mints for the workflow's own writes. Roleless
-        // on purpose: the flag is the whole of its authority, so a test that passes with roles
-        // attached would not be proving the flag did anything.
-        private static SecurityContext CreateSystemSecurityContext() =>
-            new SecurityContext
-            {
-                IsAuthenticated = true,
-                Roles = [],
-                IsSystemIdentity = true
-            };
-
-        [Fact]
-        public async Task ShouldDismissApprovalReviewForASystemIdentityAsync()
-        {
-            // given: dismissing stale reviews after the OWNER's edit is a write the workflow must
-            // make and no human is permitted to — the owner holds no publisher tier, and the
-            // reviewers whose reviews are being withdrawn are the last parties who should
-            // withdraw them (§8.6 regardless-rule 1).
-            this.ambientSecurityContext = CreateSystemSecurityContext();
-
-            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
-            storageApprovalReview.StatusId = ApprovalStatus.Approved;
-
-            ApprovalReview dismissedApprovalReview = storageApprovalReview.DeepClone();
-            dismissedApprovalReview.StatusId = ApprovalStatus.Dismissed;
-
-            ApprovalReview auditAppliedApprovalReview = dismissedApprovalReview.DeepClone();
-            ApprovalReview updatedApprovalReview = auditAppliedApprovalReview.DeepClone();
-
-            this.dateTimeBrokerMock.Setup(broker =>
-                broker.GetCurrentDateTimeOffsetAsync())
-                    .ReturnsAsync(GetRandomDateTimeOffset());
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectApprovalReviewByIdAsync(
-                    storageApprovalReview.Id,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(storageApprovalReview);
-
-            this.securityAuditBrokerMock.Setup(broker =>
-                broker.ApplyModifyAuditValuesAsync(
-                    It.IsAny<ApprovalReview>(),
-                    It.IsAny<SecurityContext>()))
-                        .ReturnsAsync(auditAppliedApprovalReview);
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.UpdateApprovalReviewAsync(
-                    auditAppliedApprovalReview,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(updatedApprovalReview);
-
-            this.eventBrokerMock.Setup(broker =>
-                broker.PublishApprovalReviewAsync(
-                    It.IsAny<EventEnvelope<ApprovalReview>>(),
-                    ApprovalReviewEventOperation.Dismissed))
-                        .Returns(new ValueTask<EventPublishResult<ApprovalReview>>(
-                            new EventPublishResult<ApprovalReview>()));
-
-            // when
-            ApprovalReview actualApprovalReview =
-                await this.approvalReviewService.DismissApprovalReviewAsync(
-                    storageApprovalReview.Id,
-                    TestContext.Current.CancellationToken);
-
-            // then
-            actualApprovalReview.StatusId.Should().Be(ApprovalStatus.Dismissed);
-
-            // both tiers are skipped together — the second is the same question as the first,
-            // narrowed to the entity under review, so admitting the workflow past one and not
-            // the other would refuse it for having no roles either way
-            this.accessBrokerMock.Verify(broker =>
-                    broker.MayDismissApprovalReviewAsync(
-                        It.IsAny<Guid>(),
-                        It.IsAny<SecurityContext>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
-        }
-
         [Fact]
         public async Task ShouldMintTheSystemIdentityItselfOnWorkflowDismissAsync()
         {
@@ -190,14 +122,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 failMessage: "minting from the ambient caller would put the author's identity " +
                     "on a write they are not permitted to make, and the gate would refuse it");
 
-            // Both tiers skipped together, as on the ambient-system path beside this.
-            this.accessBrokerMock.Verify(broker =>
-                    broker.MayDismissApprovalReviewAsync(
-                        It.IsAny<Guid>(),
-                        It.IsAny<SecurityContext>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
-
             // The MINTED context is what gets stamped, not the ambient one. Without this the
             // service could satisfy the gate with CreateSystemAsync and then hand the audit
             // broker the caller's own context — the authority right and the attribution wrong,
@@ -216,64 +140,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 Times.Once,
                 failMessage: "the row must be stamped from the context this service minted, " +
                     "carrying the deciding human forward and no roles");
-        }
-
-        [Fact]
-        public async Task ShouldRefuseASystemIdentityClaimedOnAnInboundEnvelopeOnDismissAsync()
-        {
-            // given: on the event path the security context is deserialized and unverified
-            // (§14.6 rule 4), so a caller who can reach the public ApprovalReview-Dismissing
-            // address would otherwise dismiss any review in the system by setting one JSON
-            // property — withdrawing the very verdicts that were blocking an approval.
-            //
-            // Roleless, exactly as the genuine system context is, so the ONLY thing that could
-            // authorize this is the claim.
-            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
-            storageApprovalReview.StatusId = ApprovalStatus.Approved;
-
-            var requestEnvelope = new EventEnvelope<ApprovalReview>
-            {
-                SecurityContext = CreateSystemSecurityContext(),
-                Content = new ApprovalReview { Id = storageApprovalReview.Id },
-                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
-            };
-
-            this.storageBrokerMock.Setup(broker =>
-                broker.SelectApprovalReviewByIdAsync(
-                    storageApprovalReview.Id,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(storageApprovalReview);
-
-            var unauthorizedApprovalReviewException =
-                new UnauthorizedApprovalReviewException(
-                    message: "The current user is not allowed to dismiss this approval review.");
-
-            // when
-            ValueTask<EventEnvelope<ApprovalReview>?> dismissTask =
-                this.approvalReviewService.OnDismissingApprovalReviewAsync(
-                    requestEnvelope,
-                    TestContext.Current.CancellationToken);
-
-            ApprovalReviewValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalReviewValidationException>(
-                    dismissTask.AsTask);
-
-            // then: treated as the ordinary unprivileged caller it is, and refused at the
-            // publisher tier it does not hold
-            actualException.InnerException.Should()
-                .BeEquivalentTo(unauthorizedApprovalReviewException);
-
-            this.storageBrokerMock.Verify(broker =>
-                    broker.UpdateApprovalReviewAsync(
-                        It.IsAny<ApprovalReview>(),
-                        It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.eventBrokerMock.Verify(broker =>
-                    broker.PublishApprovalReviewAsync(
-                        It.IsAny<EventEnvelope<ApprovalReview>>(),
-                        It.IsAny<ApprovalReviewEventOperation>()),
-                Times.Never);
         }
     }
 }

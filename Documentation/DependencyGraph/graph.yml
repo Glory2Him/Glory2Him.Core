@@ -593,9 +593,6 @@ events:
   - id: ApprovalComment.Resolved
     publish: PublishApprovalCommentAsync
     subscribe: SubscribeToApprovalCommentEventAsync
-  - id: ApprovalReview.Dismissing
-    publish: PublishApprovalReviewAsync
-    subscribe: SubscribeToApprovalReviewEventAsync
   - id: ApprovalReview.Dismissed
     publish: PublishApprovalReviewAsync
     subscribe: SubscribeToApprovalReviewEventAsync

@@ -57,7 +57,6 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         // is about what crossed that boundary, so it is captured rather than matched inline.
         private DecideApprovalRequest capturedDecideApprovalRequest;
         private RecordReviewRequest capturedRecordReviewRequest;
-        private DismissReviewRequest capturedDismissReviewRequest;
         private AmendApprovalRequest capturedAmendApprovalRequest;
         private RecordApprovalCommentRequest capturedRecordApprovalCommentRequest;
         private AmendApprovalCommentRequest capturedAmendApprovalCommentRequest;
@@ -132,12 +131,6 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 client.MayAmendApprovalAsync(It.IsAny<AmendApprovalRequest>()))
                     .Callback((AmendApprovalRequest amendApprovalRequest) =>
                         this.capturedAmendApprovalRequest = amendApprovalRequest)
-                    .ReturnsAsync(accessVerdict);
-
-            this.accessClientMock.Setup(client =>
-                client.MayDismissApprovalReviewAsync(It.IsAny<DismissReviewRequest>()))
-                    .Callback((DismissReviewRequest dismissReviewRequest) =>
-                        this.capturedDismissReviewRequest = dismissReviewRequest)
                     .ReturnsAsync(accessVerdict);
 
             this.accessClientMock.Setup(client =>

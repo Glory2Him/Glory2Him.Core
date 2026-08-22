@@ -126,7 +126,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.ApprovalReviews
                 nameof(ApprovalReviewsController.PutApprovalReviewAsync),
                 nameof(ApprovalReviewsController.DeleteApprovalReviewByIdAsync),
                 nameof(ApprovalReviewsController.HardDeleteApprovalReviewByIdAsync),
-                nameof(ApprovalReviewsController.DismissApprovalReviewAsync)
+
+                // No dismissal action, deliberately (#295). Dismissal is the approval
+                // workflow's own act and runs on an internal seam; an entry here would mean
+                // the capability had been exposed over HTTP again, and this test is what
+                // would catch that.
             };
 
             // When
