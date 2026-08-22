@@ -95,5 +95,74 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.EventEnvelopes
             actualEnvelope.Should().NotBeNull();
             actualEnvelope.Metadata.Should().NotBeNull();
         }
+
+        // The system identity mint, tested against the REAL broker rather than a stub.
+        //
+        // This is the authorization decision for the workflow's own dismissal: the foundation
+        // admits the system identity in place of the publisher tier precisely where this method
+        // minted the context. Every service test mocks IEventEnvelopeBroker, so they pin that the
+        // service CALLS this — not that this does anything. Measured: with no test here, setting
+        // IsSystemIdentity to false leaves all 4123 unit tests green while the stale-review reset
+        // silently reverts to throwing for every editor.
+        //
+        // Not an exception to "brokers have no logic, so brokers get no unit tests" — this broker
+        // has some, and it is the security property itself.
+        [Fact]
+        public async Task ShouldMintTheSystemIdentityOnCreateSystemAsync()
+        {
+            // given
+            var eventEnvelopeBroker = new EventEnvelopeBroker();
+
+            // when
+            EventEnvelope<string> actualEnvelope =
+                await eventEnvelopeBroker.CreateSystemAsync(content: "content");
+
+            // then
+            actualEnvelope.SecurityContext.IsSystemIdentity.Should().BeTrue(
+                because: "the flag IS the authority — the dismissal gate admits the system " +
+                    "identity in place of the publisher tier only where this method set it");
+
+            actualEnvelope.SecurityContext.IsAuthenticated.Should().BeTrue(
+                because: "a system write is not an anonymous one, and the contribute gate " +
+                    "refuses an unauthenticated context before the tier check runs");
+        }
+
+        // The other half of the mint, and the reason it is not simply "the caller plus a flag":
+        // roles are DROPPED. The flag stands in for the publisher tier by itself, and a context
+        // carrying both would look like it was authorised two different ways.
+        [Fact]
+        public async Task ShouldDropTheCallersRolesOnCreateSystemAsync()
+        {
+            // given
+            var eventEnvelopeBroker = new EventEnvelopeBroker();
+
+            // when
+            EventEnvelope<string> actualEnvelope =
+                await eventEnvelopeBroker.CreateSystemAsync(content: "content");
+
+            // then
+            actualEnvelope.SecurityContext.Roles.Should().BeEmpty(
+                because: "the system identity is a claim about provenance, not a role grant");
+        }
+
+        // The mint is built ON CreateAsync rather than beside it, so everything that is not the
+        // identity is minted exactly as any other envelope's is. A rewrite that hand-rolled the
+        // system envelope would lose the causation chain silently.
+        [Fact]
+        public async Task ShouldCarryTheOrdinaryEnvelopeSectionsOnCreateSystemAsync()
+        {
+            // given
+            var eventEnvelopeBroker = new EventEnvelopeBroker();
+
+            // when
+            EventEnvelope<string> actualEnvelope =
+                await eventEnvelopeBroker.CreateSystemAsync(content: "content");
+
+            // then
+            actualEnvelope.Content.Should().Be("content");
+            actualEnvelope.Metadata.Should().NotBeNull();
+            actualEnvelope.Metadata.EventId.Should().NotBe(Guid.Empty);
+            actualEnvelope.RequestContext.Should().NotBeNull();
+        }
     }
 }

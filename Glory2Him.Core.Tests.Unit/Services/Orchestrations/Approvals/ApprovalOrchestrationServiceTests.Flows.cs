@@ -87,6 +87,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.approvalReviewServiceMock.VerifyNoOtherCalls();
 
+            // Not the LISTING either, which VerifyNoOtherCalls above cannot cover — it now lives
+            // on the access broker, whose other members this flow legitimately calls. With the
+            // reset off there is nothing to dismiss, so reading the whole round unfiltered is
+            // work done to throw away.
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
             actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Submitted);
             actualOutcome.ApprovalStatus.Should().NotBe(ApprovalStatus.Approved);
             actualOutcome.IsEntitySyncRequested.Should().BeFalse();

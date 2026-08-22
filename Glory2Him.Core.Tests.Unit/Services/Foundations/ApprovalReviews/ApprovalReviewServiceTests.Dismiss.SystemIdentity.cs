@@ -197,6 +197,25 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                         It.IsAny<SecurityContext>(),
                         It.IsAny<CancellationToken>()),
                 Times.Never);
+
+            // The MINTED context is what gets stamped, not the ambient one. Without this the
+            // service could satisfy the gate with CreateSystemAsync and then hand the audit
+            // broker the caller's own context — the authority right and the attribution wrong,
+            // with every other assertion here still green.
+            //
+            // SubjectId survives the mint because the audit answer to "who caused this" is a
+            // person; the roles do not, because the flag is the whole of the authority.
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.Is<SecurityContext>(securityContext =>
+                        securityContext.IsSystemIdentity
+                            && securityContext.SubjectId
+                                == this.ambientSecurityContext.SubjectId
+                            && securityContext.Roles.Count == 0)),
+                Times.Once,
+                failMessage: "the row must be stamped from the context this service minted, " +
+                    "carrying the deciding human forward and no roles");
         }
 
         [Fact]
