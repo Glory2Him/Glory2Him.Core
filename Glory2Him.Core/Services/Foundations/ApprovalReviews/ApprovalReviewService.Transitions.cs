@@ -62,6 +62,39 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     cancellationToken: cancellationToken);
             });
 
+        // The workflow's own dismissal (IApprovalReviewWorkflowService). Identical to the public
+        // path except for ONE line: the context is minted by CreateSystemAsync rather than from
+        // the ambient caller.
+        //
+        // That single difference is the whole point. The gate below admits the system identity
+        // in place of the publisher tier precisely for this act — the owner whose edit
+        // invalidated the reviews holds no publisher tier, and the reviewers being withdrawn are
+        // the last parties who should withdraw them. Automatic dismissal is not a user action,
+        // any more than automatic approval is.
+        //
+        // The caller does not hand the context in, and could not: isSystemIdentityAdmissible is
+        // true here only because THIS service minted it, in process. An envelope arriving over a
+        // public event address gets false (see OnDismissingApprovalReviewAsync), so a caller who
+        // asserted the flag on the wire could not use it.
+        public ValueTask<ApprovalReview> DismissStaleApprovalReviewAsync(
+            Guid approvalReviewId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var dismissRequest = new ApprovalReview { Id = approvalReviewId };
+
+                EventEnvelope<ApprovalReview> systemEnvelope =
+                    await this.eventEnvelopeBroker.CreateSystemAsync(content: dismissRequest);
+
+                return await DoDismissApprovalReviewAsync(
+                    approvalReviewId: approvalReviewId,
+                    inboundEnvelope: systemEnvelope,
+                    isSystemIdentityAdmissible: true,
+                    cancellationToken: cancellationToken);
+            });
+
         private async ValueTask<ApprovalReview> DoDismissApprovalReviewAsync(
             Guid approvalReviewId,
             EventEnvelope<ApprovalReview> inboundEnvelope,

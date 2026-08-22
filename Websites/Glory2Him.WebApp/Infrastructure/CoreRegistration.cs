@@ -98,6 +98,10 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddScoped<ITagService, TagService>();
             services.AddScoped<IApprovalCommentService, ApprovalCommentService>();
             services.AddScoped<IApprovalReviewService, ApprovalReviewService>();
+
+            // The workflow's own write seam, separate from the public service the controllers
+            // bind to. Same implementation; a narrower door, reachable only from inside Core.
+            services.AddScoped<IApprovalReviewWorkflowService, ApprovalReviewService>();
             services.AddScoped<IApprovalService, ApprovalService>();
 
             // Scoped for the same reason the foundations are: it reaches them, and through

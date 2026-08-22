@@ -78,15 +78,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
-            // No review is touched at all — not the listing that would find them, and not the
-            // dismissal itself.
-            this.approvalReviewServiceMock.Verify(service =>
-                service.RetrieveAllApprovalReviewsAsync(
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
 
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -277,37 +271,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             dismissedReviewIds.Single().Should().Be(activeReviewId);
 
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     otherApprovalReviewId,
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     alreadyDismissedReviewId,
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     deletedReviewId,
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
-            // Dismissed, never removed. The review is a record that somebody looked, and the
-            // audit trail keeps it (§9.5) — dismissal is only what stops it counting.
-            this.approvalReviewServiceMock.Verify(service =>
-                service.RemoveApprovalReviewByIdAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<string>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
 
-            this.approvalReviewServiceMock.Verify(service =>
-                service.ModifyApprovalReviewAsync(
-                    It.IsAny<ApprovalReview>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
         }
 
         [Theory]
@@ -948,10 +929,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         {
             var dismissedReviewIds = new List<Guid>();
 
-            this.approvalReviewServiceMock.Setup(service =>
-                service.RetrieveAllApprovalReviewsAsync(
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(approvalReviews.AsQueryable());
 
             // The same rows through the seam the flow actually reads. The caller-facing read
             // above is identity-filtered and cannot answer "what does this round hold" — a test
@@ -971,7 +948,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                 .ToList());
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .Returns((Guid approvalReviewId, CancellationToken cancellationToken) =>

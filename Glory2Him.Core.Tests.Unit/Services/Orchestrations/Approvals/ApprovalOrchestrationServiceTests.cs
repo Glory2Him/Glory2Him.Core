@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
     public partial class ApprovalOrchestrationServiceTests
     {
         private readonly Mock<IApprovalService> approvalServiceMock;
-        private readonly Mock<IApprovalReviewService> approvalReviewServiceMock;
+        private readonly Mock<IApprovalReviewWorkflowService> approvalReviewServiceMock;
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
@@ -50,7 +50,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public ApprovalOrchestrationServiceTests()
         {
             this.approvalServiceMock = new Mock<IApprovalService>();
-            this.approvalReviewServiceMock = new Mock<IApprovalReviewService>();
+            this.approvalReviewServiceMock = new Mock<IApprovalReviewWorkflowService>();
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
@@ -85,7 +85,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.approvalOrchestrationService = new ApprovalOrchestrationService(
                 approvalService: this.approvalServiceMock.Object,
-                approvalReviewService: this.approvalReviewServiceMock.Object,
+                approvalReviewWorkflowService: this.approvalReviewServiceMock.Object,
                 approvalCommentService: this.approvalCommentServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,

@@ -44,7 +44,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
     /// public: an approval review answers not-found to everyone but its owner and the review
     /// roles — never assuming an upstream orchestration already gated the caller.
     /// </summary>
-    internal partial class ApprovalReviewService : IApprovalReviewService
+    internal partial class ApprovalReviewService :
+        IApprovalReviewService, IApprovalReviewWorkflowService
     {
         private readonly IStorageBroker storageBroker;
         private readonly IDateTimeBroker dateTimeBroker;

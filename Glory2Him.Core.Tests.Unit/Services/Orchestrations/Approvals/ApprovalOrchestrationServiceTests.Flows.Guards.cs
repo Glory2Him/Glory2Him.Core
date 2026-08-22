@@ -808,7 +808,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // Nothing was dismissed on the strength of a listing that failed, and the conditions
             // were read ONCE — the re-read exists only to follow a dismissal that happened.
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
@@ -863,7 +863,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     innerException: (reviewFoundationException.InnerException as Xeption)!);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(reviewFoundationException);
@@ -884,7 +884,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             actualException.Should().BeEquivalentTo(expectedDependencyException);
 
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     staleReviewId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -1011,7 +1011,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     innerException: failedApprovalOrchestrationServiceException);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(serviceException);
@@ -1547,7 +1547,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 new OperationCanceledException(cancellationTokenSource.Token);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
@@ -1618,7 +1618,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     innerException: timeoutApprovalOrchestrationException);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
@@ -1900,10 +1900,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         // AccessBrokerTests.FindDismissableApprovalReviewIds.Logic.cs.
         private void SetupFlowsGuardsReviewListing(List<ApprovalReview> approvalReviews)
         {
-            this.approvalReviewServiceMock.Setup(service =>
-                service.RetrieveAllApprovalReviewsAsync(
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(approvalReviews.AsQueryable());
 
             this.accessBrokerMock.Setup(broker =>
                 broker.FindDismissableApprovalReviewIdsAsync(

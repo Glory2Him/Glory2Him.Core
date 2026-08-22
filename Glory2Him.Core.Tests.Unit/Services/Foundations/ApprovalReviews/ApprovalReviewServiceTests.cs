@@ -51,6 +51,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         private readonly Mock<IEnvelopeIntegrityBroker> envelopeIntegrityBrokerMock;
         private readonly Mock<ILoggingBroker> loggingBrokerMock;
         private readonly IApprovalReviewService approvalReviewService;
+
+        // The same instance through its workflow seam. Separate interfaces, one
+        // implementation — the split exists to keep "act as the system" off the
+        // public surface the controllers bind to, not to make two objects.
+        private readonly IApprovalReviewWorkflowService approvalReviewWorkflowService;
         private SecurityContext ambientSecurityContext;
 
         public ApprovalReviewServiceTests()
@@ -88,6 +93,31 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
+            // The workflow's own path mints through here instead. Modelled the way the real
+            // broker behaves: the caller's SubjectId is kept — the audit answer to "who caused
+            // this" is a person — and the roles are dropped, so the system flag stands alone as
+            // the authority. A test that left roles on would pass without the flag doing
+            // anything.
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateSystemAsync(It.IsAny<ApprovalReview>()))
+                    .Returns((ApprovalReview content) =>
+                        new ValueTask<EventEnvelope<ApprovalReview>>(
+                            new EventEnvelope<ApprovalReview>
+                            {
+                                Content = content,
+
+                                SecurityContext = new SecurityContext
+                                {
+                                    IsAuthenticated = true,
+                                    SubjectId = this.ambientSecurityContext?.SubjectId,
+                                    Username = this.ambientSecurityContext?.Username,
+                                    Roles = [],
+                                    IsSystemIdentity = true
+                                },
+
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
+
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateNextAsync(
                     It.IsAny<EventEnvelope<ApprovalReview>>(),
@@ -108,7 +138,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     It.IsAny<EnvelopeDirection>()))
                         .ReturnsAsync(true);
 
-            this.approvalReviewService = new ApprovalReviewService(
+            var approvalReviewServiceInstance = new ApprovalReviewService(
                 storageBroker: this.storageBrokerMock.Object,
                 dateTimeBroker: this.dateTimeBrokerMock.Object,
                 identifierBroker: this.identifierBrokerMock.Object,
@@ -118,6 +148,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 accessBroker: this.accessBrokerMock.Object,
                 envelopeIntegrityBroker: this.envelopeIntegrityBrokerMock.Object,
                 loggingBroker: this.loggingBrokerMock.Object);
+
+            this.approvalReviewService = approvalReviewServiceInstance;
+            this.approvalReviewWorkflowService = approvalReviewServiceInstance;
         }
 
         private void SetupAccessBrokerToPermit()

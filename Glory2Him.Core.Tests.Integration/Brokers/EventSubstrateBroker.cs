@@ -126,7 +126,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             // is the point: same key, same algorithm, so only the NAME can differ.
             ApprovalOrchestrationService = new ApprovalOrchestrationService(
                 approvalService: BuildApprovalServiceMock().Object,
-                approvalReviewService: new Mock<IApprovalReviewService>().Object,
+                approvalReviewWorkflowService: new Mock<IApprovalReviewWorkflowService>().Object,
                 approvalCommentService: new Mock<IApprovalCommentService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,

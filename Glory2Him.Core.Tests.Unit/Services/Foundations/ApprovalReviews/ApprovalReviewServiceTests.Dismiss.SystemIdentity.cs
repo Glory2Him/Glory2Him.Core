@@ -110,6 +110,96 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         }
 
         [Fact]
+        public async Task ShouldMintTheSystemIdentityItselfOnWorkflowDismissAsync()
+        {
+            // given: the ORDINARY case — an author revising their own submitted content. They
+            // hold no publisher tier and never will, and HR-1 means they cannot have reviewed
+            // their own work either. Under the caller's identity this dismissal is refused, and
+            // the round then keeps approvals given to text that no longer exists.
+            //
+            // Automatic dismissal is not a user action, any more than automatic approval is
+            // (#196 decision 9). So the workflow seam does not ask the author for authority it
+            // could never have — it mints the system context itself. The caller supplies
+            // nothing; that is what keeps the flag unusable by anyone who merely claims it.
+            this.ambientSecurityContext = new SecurityContext
+            {
+                IsAuthenticated = true,
+                SubjectId = GetRandomString(),
+                Roles = []
+            };
+
+            ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
+            storageApprovalReview.StatusId = ApprovalStatus.Approved;
+
+            ApprovalReview dismissedApprovalReview = storageApprovalReview.DeepClone();
+            dismissedApprovalReview.StatusId = ApprovalStatus.Dismissed;
+
+            ApprovalReview auditAppliedApprovalReview = dismissedApprovalReview.DeepClone();
+            ApprovalReview updatedApprovalReview = auditAppliedApprovalReview.DeepClone();
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(GetRandomDateTimeOffset());
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalReviewByIdAsync(
+                    storageApprovalReview.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApprovalReview);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<ApprovalReview>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedApprovalReview);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalReviewAsync(
+                    auditAppliedApprovalReview,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedApprovalReview);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalReviewAsync(
+                    It.IsAny<EventEnvelope<ApprovalReview>>(),
+                    ApprovalReviewEventOperation.Dismissed))
+                        .Returns(new ValueTask<EventPublishResult<ApprovalReview>>(
+                            new EventPublishResult<ApprovalReview>()));
+
+            // when
+            ApprovalReview actualApprovalReview =
+                await this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
+                    storageApprovalReview.Id,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApprovalReview.StatusId.Should().Be(ApprovalStatus.Dismissed,
+                because: "the workflow's own dismissal must succeed for a caller who holds no " +
+                    "publisher tier — that caller is the author whose edit invalidated the " +
+                    "review, and refusing them leaves the round carrying a stale approval");
+
+            // Minted HERE, not handed in. The flag is honoured only because this service made
+            // the context; an envelope arriving over the public event address gets it refused.
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<ApprovalReview>()),
+                Times.Once);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<ApprovalReview>()),
+                Times.Never,
+                failMessage: "minting from the ambient caller would put the author's identity " +
+                    "on a write they are not permitted to make, and the gate would refuse it");
+
+            // Both tiers skipped together, as on the ambient-system path beside this.
+            this.accessBrokerMock.Verify(broker =>
+                    broker.MayDismissApprovalReviewAsync(
+                        It.IsAny<Guid>(),
+                        It.IsAny<SecurityContext>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task ShouldRefuseASystemIdentityClaimedOnAnInboundEnvelopeOnDismissAsync()
         {
             // given: on the event path the security context is deserialized and unverified

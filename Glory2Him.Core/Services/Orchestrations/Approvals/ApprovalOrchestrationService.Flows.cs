@@ -211,7 +211,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 foreach (Guid staleReviewId in staleReviewIds)
                 {
-                    await this.approvalReviewService.DismissApprovalReviewAsync(
+                    // Under the SYSTEM identity, not the editor's. The owner whose edit
+                    // invalidated these reviews holds no publisher tier, and the reviewers
+                    // being withdrawn are the last parties who should withdraw them — this is
+                    // a write the workflow must make and no human is permitted to (#196
+                    // decision 9). The service mints that context itself; nothing is asserted
+                    // from here.
+                    await this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                         approvalReviewId: staleReviewId,
                         cancellationToken: cancellationToken);
                 }
