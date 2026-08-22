@@ -50,7 +50,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             // when
             ValueTask<ApprovalReview> dismissApprovalReviewTask =
-                this.approvalReviewService.DismissApprovalReviewAsync(
+                this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                     someApprovalReviewId,
                     TestContext.Current.CancellationToken);
 
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             // when
             ValueTask<ApprovalReview> dismissApprovalReviewTask =
-                this.approvalReviewService.DismissApprovalReviewAsync(
+                this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                     someApprovalReviewId,
                     TestContext.Current.CancellationToken);
 
@@ -148,7 +148,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             // when
             ValueTask<ApprovalReview> dismissApprovalReviewTask =
-                this.approvalReviewService.DismissApprovalReviewAsync(
+                this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                     Guid.NewGuid(),
                     cancellationToken);
 
@@ -193,7 +193,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             // when
             ValueTask<ApprovalReview> dismissApprovalReviewTask =
-                this.approvalReviewService.DismissApprovalReviewAsync(
+                this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                     someApprovalReviewId,
                     TestContext.Current.CancellationToken);
 
@@ -245,7 +245,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             // when
             ValueTask<ApprovalReview> dismissApprovalReviewTask =
-                this.approvalReviewService.DismissApprovalReviewAsync(
+                this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                     someApprovalReviewId,
                     TestContext.Current.CancellationToken);
 
@@ -299,7 +299,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             // when
             ValueTask<ApprovalReview> dismissApprovalReviewTask =
-                this.approvalReviewService.DismissApprovalReviewAsync(
+                this.approvalReviewWorkflowService.DismissStaleApprovalReviewAsync(
                     someApprovalReviewId,
                     TestContext.Current.CancellationToken);
 

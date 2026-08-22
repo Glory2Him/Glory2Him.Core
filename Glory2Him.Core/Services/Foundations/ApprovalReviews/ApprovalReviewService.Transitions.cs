@@ -36,7 +36,16 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
     /// </summary>
     internal partial class ApprovalReviewService
     {
-        public ValueTask<ApprovalReview> DismissApprovalReviewAsync(
+        // The workflow's own dismissal, and now the ONLY way a review reaches Dismissed
+        // (§7.7 rule 7, #295). There is no public verb beside this one and no event address
+        // carrying the request: a reviewer submits Approved or Rejected, and dismissal is what
+        // happens TO a verdict when the content it judged has changed.
+        //
+        // The caller does not hand the context in, and could not — it asks for the ACT and this
+        // service mints the identity. That is what makes the system-identity flag unforgeable
+        // by construction rather than by validation: the flag has exactly one writer in the
+        // solution, and no token, claim, role or header can produce it.
+        public ValueTask<ApprovalReview> DismissStaleApprovalReviewAsync(
             Guid approvalReviewId,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
@@ -48,103 +57,36 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                 // and the causation chain, exactly as the read path's does.
                 var dismissRequest = new ApprovalReview { Id = approvalReviewId };
 
-                EventEnvelope<ApprovalReview> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: dismissRequest);
-
-                return await DoDismissApprovalReviewAsync(
-                    approvalReviewId: approvalReviewId,
-                    inboundEnvelope: envelope,
-
-                    // This envelope's context was minted here, in process, from the ambient
-                    // caller — so a system identity on it is one this process asserted about
-                    // itself. The event path passes false; see OnDismissingApprovalReviewAsync.
-                    isSystemIdentityAdmissible: true,
-                    cancellationToken: cancellationToken);
-            });
-
-        // The workflow's own dismissal (IApprovalReviewWorkflowService). Identical to the public
-        // path except for ONE line: the context is minted by CreateSystemAsync rather than from
-        // the ambient caller.
-        //
-        // That single difference is the whole point. The gate below admits the system identity
-        // in place of the publisher tier precisely for this act — the owner whose edit
-        // invalidated the reviews holds no publisher tier, and the reviewers being withdrawn are
-        // the last parties who should withdraw them. Automatic dismissal is not a user action,
-        // any more than automatic approval is.
-        //
-        // The caller does not hand the context in, and could not: isSystemIdentityAdmissible is
-        // true here only because THIS service minted it, in process. An envelope arriving over a
-        // public event address gets false (see OnDismissingApprovalReviewAsync), so a caller who
-        // asserted the flag on the wire could not use it.
-        public ValueTask<ApprovalReview> DismissStaleApprovalReviewAsync(
-            Guid approvalReviewId,
-            CancellationToken cancellationToken = default) =>
-            TryCatch(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var dismissRequest = new ApprovalReview { Id = approvalReviewId };
-
                 EventEnvelope<ApprovalReview> systemEnvelope =
                     await this.eventEnvelopeBroker.CreateSystemAsync(content: dismissRequest);
 
                 return await DoDismissApprovalReviewAsync(
                     approvalReviewId: approvalReviewId,
                     inboundEnvelope: systemEnvelope,
-                    isSystemIdentityAdmissible: true,
                     cancellationToken: cancellationToken);
             });
 
         private async ValueTask<ApprovalReview> DoDismissApprovalReviewAsync(
             Guid approvalReviewId,
             EventEnvelope<ApprovalReview> inboundEnvelope,
-            bool isSystemIdentityAdmissible,
             CancellationToken cancellationToken)
         {
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnDismissApprovalReview(approvalReviewId);
 
-            // The system identity is honoured only where this service minted the context itself.
+            // Dismissal is the workflow's own act and no human's (#196 decision 9, #295). There
+            // is no publisher-tier branch beside this one any more: the tiers used to be checked
+            // when a person could reach this verb, and now nobody can.
             //
-            // NOT on the old reasoning that the wire carries an unverified context — §16.7.1
-            // retires that: every inbound envelope is signature-verified, the claim sits inside
-            // the signed payload, and only this system holds the key, so a verified envelope is
-            // one this system minted whichever path it arrived by.
-            //
-            // The event path is refused because no workflow command travels on that address. The
-            // workflow dismisses through its own seam (IApprovalReviewWorkflowService), never by
-            // publishing, so a system claim arriving at a request address is by construction not
-            // one this flow made — and admitting it would let anyone who can reach that address
-            // withdraw the very verdicts blocking an approval.
-            bool isSystemIdentity =
-                isSystemIdentityAdmissible
-                    && inboundEnvelope.SecurityContext.IsSystemIdentity;
+            // Defence in depth rather than a live gate. The one caller mints the context two
+            // methods up, so this cannot fail today — it fails the day somebody adds a second
+            // caller that does not, which is exactly when it should.
+            ValidateDismissalIsTheWorkflowsOwnAct(inboundEnvelope.SecurityContext);
 
             ApprovalReview storageApprovalReview =
                 await LoadDismissTargetAsync(
                     approvalReviewId: approvalReviewId,
                     cancellationToken: cancellationToken);
-
-            // Dismissing stale reviews after the OWNER's edit is a write the workflow must make
-            // and no human is permitted to: the owner holds no publisher tier, and the reviewers
-            // whose reviews are being withdrawn are the last parties who should withdraw them.
-            // The system identity is admitted in place of the publisher tier for exactly that,
-            // and skips both tiers together — the second is the same question as the first,
-            // narrowed to the entity under review.
-            if (isSystemIdentity is false)
-            {
-                // the publisher tier, not the review role: dismissal is the workflow's act, and a
-                // Reviewer moving a peer's (or their own) review to Dismissed by hand is exactly
-                // what §8.8 reserves to the entity-change machinery
-                ValidateUserCanDismissApprovalReview(inboundEnvelope.SecurityContext);
-
-                // and that tier narrowed to the entity actually under review, which the row-local
-                // check above cannot see — a Tag-Publisher clears it for any approval at all
-                await ValidateUserMayDismissApprovalReviewAsync(
-                    approvalId: storageApprovalReview.ApprovalId,
-                    securityContext: inboundEnvelope.SecurityContext,
-                    cancellationToken: cancellationToken);
-            }
 
             // a dismissed review stays dismissed — refuse a second dismissal rather than
             // re-publishing the fact
@@ -201,12 +143,16 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     approvalReview,
                     cancellationToken);
 
-            await RecordEventProcessedAsync(
-                envelope: inboundEnvelope,
-                receiverName: EventBrokerIdentifiers
-                    .ApprovalReviewOnDismissingApprovalReviewSubscriptionName,
-                cancellationToken: cancellationToken);
-
+            // NO ProcessedEvents bookkeeping on this path, unlike every other transition (#295).
+            //
+            // The dual record exists so that a do-work shared between a public verb and an event
+            // handler cannot process one delivery twice: the verb pre-records the id against the
+            // handler's receiver name, and the handler then skips it. Dismissal has no handler
+            // and no request address any more, so there is no receiver to dedupe against and
+            // nothing would ever read the rows.
+            //
+            // The outbound fact is still deduped where it matters — by the ORCHESTRATION, under
+            // its own receiver name, when ApprovalReview-Dismissed is delivered to it.
             EventEnvelope<ApprovalReview> outboundEnvelope =
                 await this.eventEnvelopeBroker.CreateNextAsync(
                     sourceEnvelope: inboundEnvelope,
@@ -215,12 +161,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             await this.eventBroker.PublishApprovalReviewAsync(
                 envelope: outboundEnvelope,
                 operation: ApprovalReviewEventOperation.Dismissed);
-
-            await RecordEventProcessedAsync(
-                envelope: outboundEnvelope,
-                receiverName: EventBrokerIdentifiers
-                    .ApprovalReviewOnDismissingApprovalReviewSubscriptionName,
-                cancellationToken: cancellationToken);
 
             return updatedApprovalReview;
         }

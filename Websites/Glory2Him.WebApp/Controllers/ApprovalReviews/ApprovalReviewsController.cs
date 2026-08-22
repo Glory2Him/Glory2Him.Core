@@ -31,16 +31,13 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
     /// no <c>SecurityContext</c>, <c>RequestContext</c> or <c>EventEnvelope&lt;T&gt;</c> — those are
     /// created only inside the service (design §10.12).
     ///
-    /// <para><b>Only hard removal carries a role list, dismissal included — and dismissal is the
-    /// one place this diverges from the Tags exposer.</b> <c>POST api/Tags/Approve</c> can name
-    /// <c>Roles = Admin,Publisher,Tag-Publisher</c> because the design fixes that tier and it is
-    /// enumerable for a single entity type. Dismissal looks like the same case and is not:
-    /// <c>ValidateUserCanDismissApprovalReview</c> admits the publisher subset by <b>suffix</b> —
-    /// global <c>Publisher</c>, global <c>Admin</c>, or any role ending <c>-Publisher</c> — because
-    /// an <c>ApprovalReview</c> row names no entity type. A fixed list would have to enumerate
-    /// every current entity type and would silently lock out every future one, so the coarse
-    /// attribute is a bare <c>[Authorize]</c> and the foundation takes the whole decision
-    /// (design §14.6).</para>
+    /// <para><b>There is no dismissal endpoint, and there must not be one</b> (#295). Dismissal
+    /// is the approval workflow's own act: a reviewer records <c>Approved</c> or <c>Rejected</c>,
+    /// and <c>Dismissed</c> is what happens <i>to</i> a verdict when the content it judged
+    /// changes. It runs in process on an internal seam that mints the system identity itself, so
+    /// no route — and no event address — can ask for it.</para>
+    ///
+    /// <para>Only hard removal carries a role list. The rest, for the same reason:</para>
     ///
     /// <para>The rest, for the same reason:</para>
     ///
@@ -345,81 +342,6 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
                         cancellationToken);
 
                 return Ok(hardDeletedApprovalReview);
-            }
-            catch (ApprovalReviewValidationException approvalReviewValidationException)
-                when (approvalReviewValidationException.InnerException
-                    is NotFoundApprovalReviewException)
-            {
-                return NotFound(approvalReviewValidationException.InnerException);
-            }
-            catch (ApprovalReviewValidationException approvalReviewValidationException)
-                when (approvalReviewValidationException.InnerException
-                    is UnauthorizedApprovalReviewException)
-            {
-                return Unauthorized(approvalReviewValidationException.InnerException);
-            }
-            catch (ApprovalReviewValidationException approvalReviewValidationException)
-            {
-                return BadRequest(approvalReviewValidationException.InnerException);
-            }
-            catch (ApprovalReviewDependencyValidationException approvalReviewDependencyValidationException)
-                when (approvalReviewDependencyValidationException.InnerException
-                    is AlreadyExistsApprovalReviewException)
-            {
-                return Conflict(approvalReviewDependencyValidationException.InnerException);
-            }
-            catch (ApprovalReviewDependencyValidationException approvalReviewDependencyValidationException)
-                when (approvalReviewDependencyValidationException.InnerException
-                    is LockedApprovalReviewException)
-            {
-                return Locked(approvalReviewDependencyValidationException.InnerException);
-            }
-            catch (ApprovalReviewDependencyValidationException approvalReviewDependencyValidationException)
-            {
-                return BadRequest(approvalReviewDependencyValidationException.InnerException);
-            }
-            catch (ApprovalReviewDependencyException approvalReviewDependencyException)
-            {
-                return FailedDependency(approvalReviewDependencyException.InnerException);
-            }
-            catch (ApprovalReviewServiceException approvalReviewServiceException)
-            {
-                return InternalServerError(approvalReviewServiceException);
-            }
-        }
-
-        /// <summary>
-        /// Drives <c>StatusId</c> to <c>Dismissed</c> and owns nothing else. The outcome a review
-        /// reaches when an entity-scoped change invalidates it, never a verdict its author
-        /// declares — which is why add and modify both refuse <c>Dismissed</c>, and why this is
-        /// gated on the publisher tier rather than the review role (§7.7 rule 2, §8.8).
-        ///
-        /// <para>No parameter beyond the id, so nothing here needs <c>[BindRequired]</c> the way
-        /// the comment exposer's resolve flag does: dismissal is not symmetric — there is no
-        /// un-dismiss — so an absent value cannot silently reverse the operation.</para>
-        ///
-        /// <para>The route is registered and the verb is public, so a suffix-matched publisher can
-        /// drive a standing verdict to <c>Dismissed</c> by hand. That is design route 3 (§7.7),
-        /// recorded rather than endorsed, and it is no longer the only way a review reaches
-        /// <c>Dismissed</c>: the automatic §8.8 path is wired, and the orchestration dismisses
-        /// stale reviews on a content change under the system identity. That path does not come
-        /// through here — it runs on an internal seam this controller cannot reach by ordinary
-        /// injection, precisely so that no endpoint acquires the workflow's authority.</para>
-        /// </summary>
-        [HttpPost("{approvalReviewId}/Dismiss")]
-        [Authorize]
-        public async ValueTask<ActionResult<ApprovalReview>> DismissApprovalReviewAsync(
-            Guid approvalReviewId,
-            CancellationToken cancellationToken)
-        {
-            try
-            {
-                ApprovalReview dismissedApprovalReview =
-                    await this.approvalReviewService.DismissApprovalReviewAsync(
-                        approvalReviewId,
-                        cancellationToken);
-
-                return Ok(dismissedApprovalReview);
             }
             catch (ApprovalReviewValidationException approvalReviewValidationException)
                 when (approvalReviewValidationException.InnerException

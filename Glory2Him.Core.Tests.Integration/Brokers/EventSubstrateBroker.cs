@@ -54,7 +54,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     /// <para>Fourteen of the fifteen services are mocked, and that is deliberate rather than a
     /// compromise: for the wiring question — which address a fact goes to, and which
     /// subscription is bound to it — what a handler DOES once reached is irrelevant, and mocking
-    /// leaves all 109 real address-map lookups and listener registrations executing exactly as
+    /// leaves all 108 real address-map lookups and listener registrations executing exactly as
     /// they do in a host.</para>
     ///
     /// <para>The fifteenth, <c>ApprovalOrchestrationService</c>, is REAL. It has to be, because

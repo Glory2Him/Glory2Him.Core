@@ -140,47 +140,5 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                     approval.Id);
             }
         }
-
-        /// <summary>
-        /// The re-file route of §7.7 rule 7, and the one case that IS reachable — both the access
-        /// predicate and the index filter exclude <c>Dismissed</c>, so a dismissed verdict
-        /// releases the slot. This is the live half of the gap recorded in #226: dismissal itself
-        /// has to be driven by hand here, because nothing automates it yet.
-        /// </summary>
-        [Fact]
-        public async Task ShouldAllowReFilingAfterTheEarlierReviewIsDismissedAsync()
-        {
-            // given
-            (Approval approval, ApprovalReview firstReview) =
-                await PostRandomApprovalReviewOnOpenApprovalAsync();
-
-            ApprovalReview refiledReview = CreateRandomApprovalReview(approval.Id);
-
-            try
-            {
-                // a publisher dismisses the standing verdict (design route 3)
-                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Publisher);
-                await this.apiBroker.DismissApprovalReviewAsync(firstReview.Id);
-
-                // when: the original reviewer files again
-                this.apiBroker.ActAs(this.reviewerUserId, Roles.Reviewer);
-                await this.apiBroker.PostApprovalReviewAsync(refiledReview);
-
-                // then
-                ApprovalReview actualRefiledReview =
-                    await this.apiBroker.GetApprovalReviewByIdAsync(refiledReview.Id);
-
-                actualRefiledReview.Should().NotBeNull();
-                actualRefiledReview.CreatedBy.Should().Be(this.reviewerUserId);
-            }
-            finally
-            {
-                await this.apiBroker.RemoveCoreApprovalReviewByIdAsync(refiledReview.Id);
-
-                await RemoveApprovalReviewAndApprovalAsync(
-                    firstReview.Id,
-                    approval.Id);
-            }
-        }
     }
 }

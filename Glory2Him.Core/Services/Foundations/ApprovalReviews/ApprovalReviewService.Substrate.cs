@@ -166,49 +166,6 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     content: retrievedApprovalReview);
             });
 
-        public ValueTask<EventEnvelope<ApprovalReview>?> OnDismissingApprovalReviewAsync(
-            EventEnvelope<ApprovalReview> envelope,
-            CancellationToken cancellationToken = default) =>
-            TryCatchSubstrate(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await ValidateApprovalReviewEventEnvelopeAsync(
-                    envelope, ApprovalReviewEventOperation.Dismissing);
-
-                bool alreadyProcessed = await AlreadyProcessedAsync(
-                    envelope: envelope,
-                    receiverName: EventBrokerIdentifiers
-                        .ApprovalReviewOnDismissingApprovalReviewSubscriptionName,
-                    cancellationToken: cancellationToken);
-
-                if (alreadyProcessed)
-                    return null;
-
-                // Dismiss owns only the status, so the id is the whole request; the envelope's
-                // other fields are the caller's copy and never trusted by the do-work.
-                ApprovalReview dismissedApprovalReview =
-                    await DoDismissApprovalReviewAsync(
-                        approvalReviewId: envelope.Content.Id,
-                        inboundEnvelope: envelope,
-
-                        // No workflow command travels on this address — the workflow dismisses
-                        // through IApprovalReviewWorkflowService, never by publishing — so a
-                        // system claim arriving here is by construction not one the workflow
-                        // made. The claim is discarded and the caller is treated as the ordinary
-                        // one they are.
-                        //
-                        // Deliberately NOT the "deserialized, unverified context" argument that
-                        // §16.7.1 retires: this envelope IS signature-verified above. The seven
-                        // sibling services pass true on those same facts, and they are right to.
-                        // What differs here is the destination, not the trust in the envelope.
-                        isSystemIdentityAdmissible: false,
-                        cancellationToken: cancellationToken);
-
-                return await this.eventEnvelopeBroker.CreateNextAsync(
-                    sourceEnvelope: envelope,
-                    content: dismissedApprovalReview);
-            });
-
         private async ValueTask<bool> AlreadyProcessedAsync(
             EventEnvelope<ApprovalReview> envelope,
             string receiverName,

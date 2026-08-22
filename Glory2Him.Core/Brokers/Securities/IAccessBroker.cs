@@ -93,21 +93,6 @@ namespace Glory2Him.Core.Brokers.Securities
             Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// The cross-entity half of the dismissal gate: is this actor in the publisher tier for
-        /// the entity behind the approval. For an association that is either endpoint, which a
-        /// single-entity service cannot see for itself.
-        ///
-        /// <para>Deliberately asks nothing about the review being dismissed. Whether it is
-        /// already dismissed or soft-deleted is row-local and stays in the service (§7.7 rule
-        /// 2b), and authorship is not consulted at all — dismissal happens <i>to</i> a verdict
-        /// and is never its author's retraction (§7.7 rule 2).</para>
-        /// </summary>
-        ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
-            Guid approvalId,
-            Models.Events.SecurityContext securityContext,
-            CancellationToken cancellationToken = default);
-
         ValueTask<AccessVerdict> MayRecordApprovalCommentAsync(
             Guid approvalId,
             Models.Events.SecurityContext securityContext,
@@ -169,8 +154,9 @@ namespace Glory2Him.Core.Brokers.Securities
         /// and then lets the unfiltered evaluation approve the edit on the strength of a review
         /// of the text it just replaced. Both halves of one decision have to read one view.</para>
         ///
-        /// <para>This answers what to dismiss. Whether the caller may dismiss it is the separate
-        /// question <see cref="MayDismissApprovalReviewAsync"/> answers.</para>
+        /// <para>This answers WHAT to dismiss, and nothing answers "who may" any more: dismissal
+        /// is the approval workflow's own act and no human's (#295), so there is no caller whose
+        /// authority to weigh.</para>
         /// </remarks>
         ValueTask<List<Guid>> FindDismissableApprovalReviewIdsAsync(
             Guid approvalId,

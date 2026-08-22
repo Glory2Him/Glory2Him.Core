@@ -328,39 +328,6 @@ namespace Glory2Him.Core.Brokers.Securities
                 });
         }
 
-        public async ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
-            Guid approvalId,
-            SecurityContext securityContext,
-            CancellationToken cancellationToken = default)
-        {
-            AccessActor actor = await BuildActorAsync(securityContext);
-
-            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
-                approvalId,
-                cancellationToken);
-
-            if (maybeApproval is null)
-            {
-                return RefuseMissingApproval(approvalId);
-            }
-
-            // Only the subjects are gathered. No snapshot: the dismissal decision consults
-            // neither the round window nor the existing reviews, so reading them would be work
-            // whose result is discarded — and would tempt a later change to start using them,
-            // which is exactly what §8.8 needs this gate not to do.
-            (_, IReadOnlyList<RoleSubject> roleSubjects, _) = await ResolveEntityAsync(
-                maybeApproval.EntityType,
-                maybeApproval.EntityId,
-                cancellationToken);
-
-            return await this.securityClient.Access.MayDismissApprovalReviewAsync(
-                new DismissReviewRequest
-                {
-                    Actor = actor,
-                    RoleSubjects = roleSubjects,
-                });
-        }
-
         private async ValueTask<AccessActor> BuildActorAsync(SecurityContext securityContext)
         {
             // The actor id comes from the same function that stamped CreatedBy, NOT from

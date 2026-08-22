@@ -162,13 +162,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                     It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(CreatePermittedVerdict());
-
-            this.accessBrokerMock.Setup(broker =>
-                broker.MayDismissApprovalReviewAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<SecurityContext>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(CreatePermittedVerdict());
         }
 
         private static AccessVerdict CreatePermittedVerdict() =>
@@ -181,20 +174,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
                 Explanation = "permitted",
             };
 
-        private void SetupAccessBrokerToRefuseDismissal(AccessDenialReason denialReason) =>
-            this.accessBrokerMock.Setup(broker =>
-                broker.MayDismissApprovalReviewAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<SecurityContext>(),
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new AccessVerdict
-                        {
-                            IsPermitted = false,
-                            DenialReason = denialReason,
-                            IsBypassUsed = false,
-                            BypassedBlockReason = AccessDenialReason.None,
-                            Explanation = "the actor is not in the publisher tier for this entity",
-                        });
 
         // A permit reached by WAIVING the conditions rather than by meeting them. Recording a
         // review never takes this route today — HR-1 has no bypass — but the verdict type is
