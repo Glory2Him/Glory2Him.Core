@@ -13,6 +13,7 @@ using G2H.Security.Client.Models.Clients;
 using Glory2Him.Core.Brokers.DateTimes;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Brokers.Events;
+using Glory2Him.Core.Brokers.Hashes;
 using Glory2Him.Core.Brokers.Identifiers;
 using Glory2Him.Core.Brokers.Integrities;
 using Glory2Him.Core.Brokers.Loggings;
@@ -77,6 +78,14 @@ namespace Glory2Him.WebApp.Infrastructure
 
             services.AddSingleton<IDateTimeBroker, DateTimeBroker>();
             services.AddSingleton<IIdentifierBroker, IdentifierBroker>();
+
+            // Stateless, like the two above. Missing entirely until the substrate went live,
+            // which is exactly when it started to matter: ContentItemProcessingService takes it
+            // and carries five subscriptions, so every ContentItem approval routed through a
+            // handler that could not be built. Nothing caught it, because a handler is resolved
+            // per delivery rather than at boot, and a handler that throws is recorded against
+            // its listener instead of failing the publisher.
+            services.AddSingleton<IHashBroker, HashBroker>();
             services.AddSingleton<IEnvelopeIntegrityBroker, EnvelopeIntegrityBroker>();
             services.AddSingleton<IEventBroker, EventBroker>();
             services.AddTransient<ILoggingBroker, LoggingBroker>();
