@@ -32,18 +32,18 @@ namespace Glory2Him.Core.Registrations
         {
             // ONE object behind two doors. Registering the same implementation against two
             // service types would make two of them, because the container keys on the service
-            // type rather than the implementation.
-            services.AddSingleton<ApprovalReviewService>();
-
-            services.AddSingleton<IApprovalReviewService>(provider =>
-                provider.GetRequiredService<ApprovalReviewService>());
+            // type rather than the implementation. The second door resolves THROUGH the first,
+            // so the implementation type never enters the container as a service in its own
+            // right — a host that also called a differently-lifetimed registration for it would
+            // otherwise get whichever descriptor happened to land last.
+            services.AddSingleton<IApprovalReviewService, ApprovalReviewService>();
 
             // Registered HERE rather than left to the host, because ApprovalOrchestrationService
             // takes this seam and the interface is internal — a host outside Core's friend set
             // could not supply it itself, so AddApprovalOrchestrationService would throw at
             // resolution with no route to a fix.
             services.AddSingleton<IApprovalReviewWorkflowService>(provider =>
-                provider.GetRequiredService<ApprovalReviewService>());
+                (ApprovalReviewService)provider.GetRequiredService<IApprovalReviewService>());
 
             return services;
         }

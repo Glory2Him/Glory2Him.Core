@@ -110,10 +110,12 @@ namespace Glory2Him.WebApp.Infrastructure
             // service types would make two of them, because the container keys on the service
             // type rather than the implementation — harmless while this class holds nothing but
             // readonly brokers, and a silent divergence the day it holds anything else.
-            services.AddScoped<ApprovalReviewService>();
-
-            services.AddScoped<IApprovalReviewService>(provider =>
-                provider.GetRequiredService<ApprovalReviewService>());
+            //
+            // The second door resolves THROUGH the first rather than both resolving a concrete
+            // registration, so the implementation type never enters the container. A concrete
+            // registration would be a second way to obtain the service, and one that a host
+            // registering Core's own AddApprovalReviewService could give a different lifetime.
+            services.AddScoped<IApprovalReviewService, ApprovalReviewService>();
 
             // The workflow's own write seam, separate from the public service the controllers
             // bind to. Same implementation, a narrower door: it carries only the dismissal the
@@ -126,7 +128,7 @@ namespace Glory2Him.WebApp.Infrastructure
             // constructor (CS0051), so reaching this from the portal takes a deliberate,
             // conspicuous service-locator call rather than ordinary injection.
             services.AddScoped<IApprovalReviewWorkflowService>(provider =>
-                provider.GetRequiredService<ApprovalReviewService>());
+                (ApprovalReviewService)provider.GetRequiredService<IApprovalReviewService>());
             services.AddScoped<IApprovalService, ApprovalService>();
 
             // Scoped for the same reason the foundations are: it reaches them, and through
