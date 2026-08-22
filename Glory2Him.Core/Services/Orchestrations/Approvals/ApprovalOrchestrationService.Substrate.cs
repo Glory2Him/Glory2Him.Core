@@ -280,14 +280,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // publish of this fact lands inside its own suppression window. Measured: two
         // overlapping resets produced four deliveries and zero re-tests.
         //
-        // Kept anyway, for two reasons that are true. §10.17 (a) requires a subscriber on every
-        // fact address, and that universal is enforced by a test derived from the operation enum
-        // so it cannot be hand-carved — removing this would mean carving an exception into the
-        // invariant. And the guard's SCOPING (one approval, not all) is a real property, pinned
-        // by ShouldStillReTestADifferentRoundWhileDismissingAsync, which publishes from outside
-        // any window the way a second publisher one day would.
+        // KEPT, and that is settled rather than pending (#300). §10.17 (a) requires a subscriber
+        // on every fact address, and that universal is enforced by a test derived from the
+        // operation enum so it cannot be hand-carved. Removing this one would carve the first
+        // exception into it — one suppressed delivery per dismissal is a smaller price than a
+        // weaker rule for every address.
         //
-        // Remove-or-keep is #300, with the measured cost attached.
+        // The guard's SCOPING (one approval, not all) is a real property too, pinned by
+        // ShouldStillReTestADifferentRoundWhileDismissingAsync, which publishes from outside any
+        // window the way a repair pass or an administrative tool one day would — and such a
+        // caller would find this handler already correct.
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewDismissedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>
