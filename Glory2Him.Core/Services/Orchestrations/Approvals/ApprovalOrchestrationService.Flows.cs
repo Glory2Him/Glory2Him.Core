@@ -200,8 +200,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             //
             // Announced for THIS approval only, so a dismissal arriving for any other round is
             // still heard while this loop runs. try/finally rather than a plain restore because
-            // DismissApprovalReviewAsync can throw — today it usually does, since the loop runs
-            // under the editor's identity and the dismissal wants the publisher tier (#287) —
+            // the dismissal can throw — storage can fail, and a review dismissed by a concurrent
+            // flow between the read above and its turn in the loop is refused a second time —
             // and a suppression that leaked would silently disable the handler for the rest of
             // the request.
             Guid previouslySuppressedApprovalId = suppressedDismissalApprovalId.Value;
