@@ -98,13 +98,6 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
                 ApprovalCreatedBy = GetRandomString(),
             };
 
-        private static DismissReviewRequest CreateRandomDismissReviewRequest() =>
-            new DismissReviewRequest
-            {
-                Actor = CreateRandomAccessActor(),
-                RoleSubjects = new List<RoleSubject>(),
-            };
-
         private static DecideApprovalRequest CreateRandomDecideApprovalRequest() =>
             new DecideApprovalRequest
             {

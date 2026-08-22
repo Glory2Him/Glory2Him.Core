@@ -109,22 +109,6 @@ namespace G2H.Security.Client.Clients.Access
             AmendApprovalRequest amendApprovalRequest);
 
         /// <summary>
-        /// Decides whether an actor may dismiss a review — the publisher tier for the entity
-        /// behind the approval, and nothing else.
-        ///
-        /// <para>Dismissal is the workflow's instrument rather than anyone's button: §8.8 has an
-        /// amendment to the reviewed content dismiss every active verdict on it. So this consults
-        /// no round window (the round is being re-opened exactly when it fires) and no authorship
-        /// (a verdict belongs to whoever filed it and is never self-retracted, §7.7 rule 2).</para>
-        ///
-        /// <para>What it does narrow is the tier to the approval's own subject, which is what
-        /// stops a publisher scoped to one entity type clearing a verdict on another — for an
-        /// association, either endpoint (§14.7 posture A′ rule 2).</para>
-        /// </summary>
-        ValueTask<AccessVerdict> MayDismissApprovalReviewAsync(
-            DismissReviewRequest dismissReviewRequest);
-
-        /// <summary>
         /// Decides whether an actor may apply an approval decision — the publisher tier, the bar
         /// on deciding a round you reviewed, self-approval, the approval conditions, and whether
         /// a bypass is available and explained.
