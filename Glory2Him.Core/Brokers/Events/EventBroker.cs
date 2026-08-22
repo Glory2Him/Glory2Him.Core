@@ -129,6 +129,19 @@ namespace Glory2Him.Core.Brokers.Events
                 UpdatedDate = now
             };
 
+            // CancellationToken.None DELIBERATELY, and not a dropped token: no Publish*Async on
+            // IEventBroker takes one, so there is nothing here to forward. The event path is
+            // un-cancellable by design — the direct in-process paths carry tokens, the event
+            // path does not.
+            //
+            // The reason is that a publish has no safe halfway point. Delivery is synchronous,
+            // so abandoning one mid-flight leaves some handlers run and others not, and the fact
+            // itself has already happened — the write that caused it is committed. A half-
+            // published fact is worse than an uncancellable one.
+            //
+            // Stated here because a cancellation audit reads this line, sees the only
+            // CancellationToken.None in the broker tree, and reasonably asks. The answer is that
+            // it is the design, not an omission (#296).
             EventV2 submittedEventV2 = await this.eventHighwayClient.V2.EventV2Client
                 .SubmitEventV2Async(eventV2, CancellationToken.None);
 
