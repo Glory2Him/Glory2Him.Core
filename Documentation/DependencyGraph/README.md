@@ -121,13 +121,23 @@ view you were on, and switching carries your current selection across.
   foundation calls hang off the handler row rather than a public method.
 - **`Glory2Him.WebApp` is no longer standalone.** It gained a project
   reference to `Glory2Him.Core` on 2026-08-13 (`1780e2bc`) and
-  `Infrastructure/CoreRegistration.cs` registers nine Core brokers plus
-  `ITagService`, `IApprovalCommentService`, `IApprovalReviewService`,
-  `IApprovalService` and `IApprovalOrchestrationService`. Four OData
-  controllers (`Tags`, `ApprovalComments`, `ApprovalReviews`, `Approvals`)
-  call them directly. **None of those four is modelled yet** — they would be
-  the first webapp→core edges in the graph, and adding them is the next
-  scan's job. `RegisterAsync` is still called only by the unit tests.
+  `Infrastructure/CoreRegistration.cs` registers ten Core brokers (the tenth,
+  `IHashBroker`, was missing until `7a0d559a` — see below) plus all fifteen
+  foundation, processing and orchestration services, the internal
+  `IApprovalReviewWorkflowService` seam, and `IEventSubscriptionRegistration`.
+  Four OData controllers (`Tags`, `ApprovalComments`, `ApprovalReviews`,
+  `Approvals`) call them directly. **None of those four is modelled yet** —
+  they would be the first webapp→core edges in the graph, and adding them is
+  the next scan's job.
+- **The substrate is live, and `RegisterAsync` is no longer test-only.**
+  `Program.Configurations.cs` calls it at startup (`RegisterCoreEventSubstrateAsync`),
+  so the 109 listeners and 167 addresses are registered in the running host
+  rather than only under test. Handlers resolve **per delivery** through an
+  `IServiceScopeFactory` — not as method groups captured by the singleton
+  broker, which is how they were bound before. Any service the substrate
+  reaches must therefore be resolvable from a scope, and a service that is not
+  fails mid-delivery rather than at boot: `IHashBroker` was unregistered while
+  `ContentItemProcessingService` carried five subscriptions.
 - Core's `StorageBroker` derives from `EFxceptionsContext` (EF Core
   DbContext) and passes **itself** into G2H.StorageClient's `EFCoreClient`.
 - `EventBroker` wraps EventHighway (SQL Server): one

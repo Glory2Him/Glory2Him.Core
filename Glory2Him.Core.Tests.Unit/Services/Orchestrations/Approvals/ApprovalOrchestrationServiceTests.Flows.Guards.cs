@@ -775,8 +775,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     message: ExpectedDependencyMessage,
                     innerException: (reviewFoundationException.InnerException as Xeption)!);
 
-            this.approvalReviewServiceMock.Setup(service =>
-                service.RetrieveAllApprovalReviewsAsync(
+            // The listing now comes from the gathering seam rather than the caller-facing read:
+            // what a round holds is a fact about storage, not about who is asking.
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(reviewFoundationException);
 
@@ -805,13 +808,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // Nothing was dismissed on the strength of a listing that failed, and the conditions
             // were read ONCE — the re-read exists only to follow a dismissal that happened.
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
             this.accessBrokerMock.Verify(broker =>
                 broker.EvaluateApprovalConditionsByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
                     approvalId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -854,7 +863,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     innerException: (reviewFoundationException.InnerException as Xeption)!);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(reviewFoundationException);
@@ -875,7 +884,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             actualException.Should().BeEquivalentTo(expectedDependencyException);
 
             this.approvalReviewServiceMock.Verify(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     staleReviewId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -892,6 +901,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // on, and no evaluation may follow a half-finished reset.
             this.accessBrokerMock.Verify(broker =>
                 broker.EvaluateApprovalConditionsByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.accessBrokerMock.Verify(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
                     approvalId,
                     It.IsAny<CancellationToken>()),
                 Times.Once);
@@ -996,7 +1011,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     innerException: failedApprovalOrchestrationServiceException);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(serviceException);
@@ -1532,7 +1547,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 new OperationCanceledException(cancellationTokenSource.Token);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
@@ -1603,7 +1618,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     innerException: timeoutApprovalOrchestrationException);
 
             this.approvalReviewServiceMock.Setup(service =>
-                service.DismissApprovalReviewAsync(
+                service.DismissStaleApprovalReviewAsync(
                     It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
@@ -1875,13 +1890,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     isDeleted: true));
         }
 
-        // The listing answers with EVERY review in the store, as the real one does — handing back
-        // only this approval's rows would move the filter into the fixture.
-        private void SetupFlowsGuardsReviewListing(List<ApprovalReview> approvalReviews) =>
-            this.approvalReviewServiceMock.Setup(service =>
-                service.RetrieveAllApprovalReviewsAsync(
+        // Supplies the round's reviews through the seam the flow actually reads — the unfiltered
+        // gather. The caller-facing read is identity-filtered and cannot answer "what does this
+        // round hold", so a test that arranged only that view would be describing one caller's
+        // slice as if it were the round.
+        //
+        // The derivation below MIRRORS the broker's dismissability predicate rather than calling
+        // it, so nothing here catches that predicate drifting. It is pinned where it lives:
+        // AccessBrokerTests.FindDismissableApprovalReviewIds.Logic.cs.
+        private void SetupFlowsGuardsReviewListing(List<ApprovalReview> approvalReviews)
+        {
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.FindDismissableApprovalReviewIdsAsync(
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(approvalReviews.AsQueryable());
+                        .ReturnsAsync((Guid approvalId, CancellationToken _) =>
+                            approvalReviews
+                                .Where(approvalReview =>
+                                    approvalReview.ApprovalId == approvalId
+                                        && approvalReview.IsDeleted == false
+                                        && approvalReview.StatusId != ApprovalStatus.Dismissed)
+                                .Select(approvalReview => approvalReview.Id)
+                                .ToList());
+        }
 
         // The review flow as far as the rejection write, and no further: an open round whose
         // conditions report a standing rejection (§9.7.5 rule 2). What follows is whatever the

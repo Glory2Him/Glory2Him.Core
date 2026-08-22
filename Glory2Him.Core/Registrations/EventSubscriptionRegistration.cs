@@ -9,13 +9,27 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Brokers.Events;
+using Microsoft.Extensions.DependencyInjection;
 using Glory2Him.Core.Models.Configurations;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Events.Processings;
+using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviews;
+using Glory2Him.Core.Models.Foundations.ApprovalSettings;
+using Glory2Him.Core.Models.Foundations.Associations;
+using Glory2Him.Core.Models.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.Comments;
+using Glory2Him.Core.Models.Foundations.ContentItems;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Glory2Him.Core.Models.Foundations.Links;
+using Glory2Him.Core.Models.Foundations.Reactions;
+using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Approvals;
@@ -65,57 +79,43 @@ namespace Glory2Him.Core.Registrations
     internal class EventSubscriptionRegistration : IEventSubscriptionRegistration
     {
         private readonly IEventBroker eventBroker;
-        private readonly IContentItemService contentItemService;
-        private readonly IApprovalService approvalService;
-        private readonly IBibleReferenceService bibleReferenceService;
-        private readonly ITagService tagService;
-        private readonly ILinkService linkService;
-        private readonly IReactionService reactionService;
-        private readonly ICommentService commentService;
-        private readonly IApprovalCommentService approvalCommentService;
-        private readonly IApprovalReviewService approvalReviewService;
-        private readonly IApprovalSettingService approvalSettingService;
-        private readonly IAssociationService associationService;
-        private readonly IContentItemSettingService contentItemSettingService;
-        private readonly IContentItemProcessingService contentItemProcessingService;
-        private readonly ILinkProcessingService linkProcessingService;
-        private readonly IApprovalOrchestrationService approvalOrchestrationService;
+        private readonly IServiceScopeFactory serviceScopeFactory;
 
         public EventSubscriptionRegistration(
             IEventBroker eventBroker,
-            IContentItemService contentItemService,
-            IApprovalService approvalService,
-            IBibleReferenceService bibleReferenceService,
-            ITagService tagService,
-            ILinkService linkService,
-            IReactionService reactionService,
-            ICommentService commentService,
-            IApprovalCommentService approvalCommentService,
-            IApprovalReviewService approvalReviewService,
-            IApprovalSettingService approvalSettingService,
-            IAssociationService associationService,
-            IContentItemSettingService contentItemSettingService,
-            IContentItemProcessingService contentItemProcessingService,
-            ILinkProcessingService linkProcessingService,
-            IApprovalOrchestrationService approvalOrchestrationService)
+            IServiceScopeFactory serviceScopeFactory)
         {
             this.eventBroker = eventBroker;
-            this.contentItemService = contentItemService;
-            this.approvalService = approvalService;
-            this.bibleReferenceService = bibleReferenceService;
-            this.tagService = tagService;
-            this.linkService = linkService;
-            this.reactionService = reactionService;
-            this.commentService = commentService;
-            this.approvalCommentService = approvalCommentService;
-            this.approvalReviewService = approvalReviewService;
-            this.approvalSettingService = approvalSettingService;
-            this.associationService = associationService;
-            this.contentItemSettingService = contentItemSettingService;
-            this.contentItemProcessingService = contentItemProcessingService;
-            this.linkProcessingService = linkProcessingService;
-            this.approvalOrchestrationService = approvalOrchestrationService;
+            this.serviceScopeFactory = serviceScopeFactory;
         }
+
+        // Every handler below is bound through here rather than as a method group on a held
+        // service, and the reason is measured rather than defensive.
+        //
+        // Substrate delivery is serialised WITHIN one publish but fully parallel ACROSS
+        // concurrent publishes — eight simultaneous publishes were observed running eight
+        // handlers at once on eight threads. A service captured once at registration would
+        // therefore hand the same StorageBroker — a DbContext, which is not thread-safe — to
+        // all eight. The race is invisible in a single-threaded test and certain under load.
+        //
+        // So the scope is opened per DELIVERY: the service, its DbContext and its request-bound
+        // brokers live exactly as long as the one fact being handled, which is the same lifetime
+        // they would have serving one HTTP request. This is what lets the host register them
+        // scoped and still bind them here, the arrangement this class's remarks called for.
+        private Func<EventEnvelope<TEntity>, CancellationToken, ValueTask<EventEnvelope<TEntity>?>>
+            Scoped<TService, TEntity>(
+                Func<TService, Func<EventEnvelope<TEntity>, CancellationToken,
+                    ValueTask<EventEnvelope<TEntity>?>>> handler)
+                where TService : notnull =>
+                async (envelope, cancellationToken) =>
+                {
+                    await using AsyncServiceScope scope =
+                        this.serviceScopeFactory.CreateAsyncScope();
+
+                    TService service = scope.ServiceProvider.GetRequiredService<TService>();
+
+                    return await handler(service)(envelope, cancellationToken);
+                };
 
         public async ValueTask RegisterAsync(CancellationToken cancellationToken = default)
         {
@@ -149,7 +149,8 @@ namespace Glory2Him.Core.Registrations
                         "ContentItem-Added, and replies with the added entity."
                 },
                 operation: ContentItemEventOperation.Adding,
-                contentItemEventHandler: this.contentItemService.OnAddingContentItemAsync,
+                contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+                        service => service.OnAddingContentItemAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
@@ -162,7 +163,8 @@ namespace Glory2Him.Core.Registrations
                         "ContentItem-Modified, and replies with the updated entity."
                 },
                 operation: ContentItemEventOperation.Modifying,
-                contentItemEventHandler: this.contentItemService.OnModifyingContentItemAsync,
+                contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+                        service => service.OnModifyingContentItemAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
@@ -175,7 +177,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes ContentItem-Removed, and replies with the removed entity."
                 },
                 operation: ContentItemEventOperation.RemovingById,
-                contentItemEventHandler: this.contentItemService.OnRemovingContentItemByIdAsync,
+                contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+                        service => service.OnRemovingContentItemByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
@@ -189,7 +192,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: ContentItemEventOperation.HardRemovingById,
-                contentItemEventHandler: this.contentItemService.OnHardRemovingContentItemByIdAsync,
+                contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+                        service => service.OnHardRemovingContentItemByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
@@ -202,7 +206,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: ContentItemEventOperation.RetrievingById,
-                contentItemEventHandler: this.contentItemService.OnRetrievingContentItemByIdAsync,
+                contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+                        service => service.OnRetrievingContentItemByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
@@ -216,7 +221,8 @@ namespace Glory2Him.Core.Registrations
                         "updated entity."
                 },
                 operation: ContentItemEventOperation.Submitting,
-                contentItemEventHandler: this.contentItemService.OnSubmittingContentItemAsync,
+                contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+                        service => service.OnSubmittingContentItemAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemEventAsync(
@@ -230,7 +236,8 @@ namespace Glory2Him.Core.Registrations
                         "decision, and replies with the updated entity."
                 },
                 operation: ContentItemEventOperation.Approving,
-                contentItemEventHandler: this.contentItemService.OnApprovingContentItemAsync,
+                contentItemEventHandler: Scoped<IContentItemService, ContentItem>(
+                        service => service.OnApprovingContentItemAsync),
                 cancellationToken: cancellationToken);
 
             // ── ContentItem processing request handlers ───────────────────────
@@ -250,7 +257,8 @@ namespace Glory2Him.Core.Registrations
                         + "ContentItem-Rejected."
                 },
                 operation: ContentItemProcessingEventOperation.Approving,
-                contentItemProcessingEventHandler: this.contentItemProcessingService.OnApprovingContentItemAsync,
+                contentItemProcessingEventHandler: Scoped<IContentItemProcessingService, ContentItem>(
+                        service => service.OnApprovingContentItemAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
@@ -265,7 +273,8 @@ namespace Glory2Him.Core.Registrations
                         "created entity; duplicate adds fail as already existing."
                 },
                 operation: ContentItemProcessingEventOperation.Adding,
-                contentItemProcessingEventHandler: this.contentItemProcessingService.OnAddingContentItemAsync,
+                contentItemProcessingEventHandler: Scoped<IContentItemProcessingService, ContentItem>(
+                        service => service.OnAddingContentItemAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
@@ -281,7 +290,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes ContentItem-Added), and replies with the resulting entity."
                 },
                 operation: ContentItemProcessingEventOperation.Modifying,
-                contentItemProcessingEventHandler: this.contentItemProcessingService.OnModifyingContentItemAsync,
+                contentItemProcessingEventHandler: Scoped<IContentItemProcessingService, ContentItem>(
+                        service => service.OnModifyingContentItemAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
@@ -296,7 +306,8 @@ namespace Glory2Him.Core.Registrations
                         "replies with the removed entity; ApprovalStatus is left untouched."
                 },
                 operation: ContentItemProcessingEventOperation.RemovingById,
-                contentItemProcessingEventHandler: this.contentItemProcessingService.OnRemovingContentItemByIdAsync,
+                contentItemProcessingEventHandler: Scoped<IContentItemProcessingService, ContentItem>(
+                        service => service.OnRemovingContentItemByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
@@ -313,7 +324,8 @@ namespace Glory2Him.Core.Registrations
                 operation: ContentItemProcessingEventOperation.RetrievingById,
 
                 contentItemProcessingEventHandler:
-                    this.contentItemProcessingService.OnRetrievingContentItemByIdAsync,
+                    Scoped<IContentItemProcessingService, ContentItem>(
+                        service => service.OnRetrievingContentItemByIdAsync),
 
                 cancellationToken: cancellationToken);
 
@@ -328,7 +340,8 @@ namespace Glory2Him.Core.Registrations
                         "Approval-Added, and replies with the added entity."
                 },
                 operation: ApprovalEventOperation.Adding,
-                approvalEventHandler: this.approvalService.OnAddingApprovalAsync,
+                approvalEventHandler: Scoped<IApprovalService, Approval>(
+                        service => service.OnAddingApprovalAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalEventAsync(
@@ -341,7 +354,8 @@ namespace Glory2Him.Core.Registrations
                         "Approval-Modified, and replies with the updated entity."
                 },
                 operation: ApprovalEventOperation.Modifying,
-                approvalEventHandler: this.approvalService.OnModifyingApprovalAsync,
+                approvalEventHandler: Scoped<IApprovalService, Approval>(
+                        service => service.OnModifyingApprovalAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalEventAsync(
@@ -354,7 +368,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Approval-Removed, and replies with the removed entity."
                 },
                 operation: ApprovalEventOperation.RemovingById,
-                approvalEventHandler: this.approvalService.OnRemovingApprovalByIdAsync,
+                approvalEventHandler: Scoped<IApprovalService, Approval>(
+                        service => service.OnRemovingApprovalByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalEventAsync(
@@ -368,7 +383,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: ApprovalEventOperation.HardRemovingById,
-                approvalEventHandler: this.approvalService.OnHardRemovingApprovalByIdAsync,
+                approvalEventHandler: Scoped<IApprovalService, Approval>(
+                        service => service.OnHardRemovingApprovalByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalEventAsync(
@@ -381,7 +397,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: ApprovalEventOperation.RetrievingById,
-                approvalEventHandler: this.approvalService.OnRetrievingApprovalByIdAsync,
+                approvalEventHandler: Scoped<IApprovalService, Approval>(
+                        service => service.OnRetrievingApprovalByIdAsync),
                 cancellationToken: cancellationToken);
 
             // ── BibleReference request handlers ──────────────────────────────────
@@ -395,7 +412,8 @@ namespace Glory2Him.Core.Registrations
                         "BibleReference-Added, and replies with the added entity."
                 },
                 operation: BibleReferenceEventOperation.Adding,
-                bibleReferenceEventHandler: this.bibleReferenceService.OnAddingBibleReferenceAsync,
+                bibleReferenceEventHandler: Scoped<IBibleReferenceService, BibleReference>(
+                        service => service.OnAddingBibleReferenceAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -408,7 +426,8 @@ namespace Glory2Him.Core.Registrations
                         "BibleReference-Modified, and replies with the updated entity."
                 },
                 operation: BibleReferenceEventOperation.Modifying,
-                bibleReferenceEventHandler: this.bibleReferenceService.OnModifyingBibleReferenceAsync,
+                bibleReferenceEventHandler: Scoped<IBibleReferenceService, BibleReference>(
+                        service => service.OnModifyingBibleReferenceAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -421,7 +440,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes BibleReference-Removed, and replies with the removed entity."
                 },
                 operation: BibleReferenceEventOperation.RemovingById,
-                bibleReferenceEventHandler: this.bibleReferenceService.OnRemovingBibleReferenceByIdAsync,
+                bibleReferenceEventHandler: Scoped<IBibleReferenceService, BibleReference>(
+                        service => service.OnRemovingBibleReferenceByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -437,7 +457,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: BibleReferenceEventOperation.HardRemovingById,
-                bibleReferenceEventHandler: this.bibleReferenceService.OnHardRemovingBibleReferenceByIdAsync,
+                bibleReferenceEventHandler: Scoped<IBibleReferenceService, BibleReference>(
+                        service => service.OnHardRemovingBibleReferenceByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -452,7 +473,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: BibleReferenceEventOperation.RetrievingById,
-                bibleReferenceEventHandler: this.bibleReferenceService.OnRetrievingBibleReferenceByIdAsync,
+                bibleReferenceEventHandler: Scoped<IBibleReferenceService, BibleReference>(
+                        service => service.OnRetrievingBibleReferenceByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -465,7 +487,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes BibleReference-Submitted, and replies with the updated entity."
                 },
                 operation: BibleReferenceEventOperation.Submitting,
-                bibleReferenceEventHandler: this.bibleReferenceService.OnSubmittingBibleReferenceAsync,
+                bibleReferenceEventHandler: Scoped<IBibleReferenceService, BibleReference>(
+                        service => service.OnSubmittingBibleReferenceAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -479,7 +502,8 @@ namespace Glory2Him.Core.Registrations
                         "with the updated entity."
                 },
                 operation: BibleReferenceEventOperation.Approving,
-                bibleReferenceEventHandler: this.bibleReferenceService.OnApprovingBibleReferenceAsync,
+                bibleReferenceEventHandler: Scoped<IBibleReferenceService, BibleReference>(
+                        service => service.OnApprovingBibleReferenceAsync),
                 cancellationToken: cancellationToken);
 
             // ── Tag request handlers ─────────────────────────────────────────────
@@ -493,7 +517,8 @@ namespace Glory2Him.Core.Registrations
                         "Tag-Added, and replies with the added entity."
                 },
                 operation: TagEventOperation.Adding,
-                tagEventHandler: this.tagService.OnAddingTagAsync,
+                tagEventHandler: Scoped<ITagService, Tag>(
+                        service => service.OnAddingTagAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -506,7 +531,8 @@ namespace Glory2Him.Core.Registrations
                         "Tag-Modified, and replies with the updated entity."
                 },
                 operation: TagEventOperation.Modifying,
-                tagEventHandler: this.tagService.OnModifyingTagAsync,
+                tagEventHandler: Scoped<ITagService, Tag>(
+                        service => service.OnModifyingTagAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -519,7 +545,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Tag-Removed, and replies with the removed entity."
                 },
                 operation: TagEventOperation.RemovingById,
-                tagEventHandler: this.tagService.OnRemovingTagByIdAsync,
+                tagEventHandler: Scoped<ITagService, Tag>(
+                        service => service.OnRemovingTagByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -533,7 +560,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: TagEventOperation.HardRemovingById,
-                tagEventHandler: this.tagService.OnHardRemovingTagByIdAsync,
+                tagEventHandler: Scoped<ITagService, Tag>(
+                        service => service.OnHardRemovingTagByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -546,7 +574,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: TagEventOperation.RetrievingById,
-                tagEventHandler: this.tagService.OnRetrievingTagByIdAsync,
+                tagEventHandler: Scoped<ITagService, Tag>(
+                        service => service.OnRetrievingTagByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -559,7 +588,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Tag-Submitted, and replies with the updated entity."
                 },
                 operation: TagEventOperation.Submitting,
-                tagEventHandler: this.tagService.OnSubmittingTagAsync,
+                tagEventHandler: Scoped<ITagService, Tag>(
+                        service => service.OnSubmittingTagAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -573,7 +603,8 @@ namespace Glory2Him.Core.Registrations
                         "with the updated entity."
                 },
                 operation: TagEventOperation.Approving,
-                tagEventHandler: this.tagService.OnApprovingTagAsync,
+                tagEventHandler: Scoped<ITagService, Tag>(
+                        service => service.OnApprovingTagAsync),
                 cancellationToken: cancellationToken);
 
             // ── Link request handlers ─────────────────────────────────────
@@ -587,7 +618,8 @@ namespace Glory2Him.Core.Registrations
                         "Link-Added, and replies with the added entity."
                 },
                 operation: LinkEventOperation.Adding,
-                linkEventHandler: this.linkService.OnAddingLinkAsync,
+                linkEventHandler: Scoped<ILinkService, Link>(
+                        service => service.OnAddingLinkAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkEventAsync(
@@ -600,7 +632,8 @@ namespace Glory2Him.Core.Registrations
                         "Link-Modified, and replies with the updated entity."
                 },
                 operation: LinkEventOperation.Modifying,
-                linkEventHandler: this.linkService.OnModifyingLinkAsync,
+                linkEventHandler: Scoped<ILinkService, Link>(
+                        service => service.OnModifyingLinkAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkEventAsync(
@@ -613,7 +646,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Link-Removed, and replies with the removed entity."
                 },
                 operation: LinkEventOperation.RemovingById,
-                linkEventHandler: this.linkService.OnRemovingLinkByIdAsync,
+                linkEventHandler: Scoped<ILinkService, Link>(
+                        service => service.OnRemovingLinkByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkEventAsync(
@@ -627,7 +661,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: LinkEventOperation.HardRemovingById,
-                linkEventHandler: this.linkService.OnHardRemovingLinkByIdAsync,
+                linkEventHandler: Scoped<ILinkService, Link>(
+                        service => service.OnHardRemovingLinkByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkEventAsync(
@@ -640,7 +675,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: LinkEventOperation.RetrievingById,
-                linkEventHandler: this.linkService.OnRetrievingLinkByIdAsync,
+                linkEventHandler: Scoped<ILinkService, Link>(
+                        service => service.OnRetrievingLinkByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkEventAsync(
@@ -653,7 +689,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Link-Submitted, and replies with the updated entity."
                 },
                 operation: LinkEventOperation.Submitting,
-                linkEventHandler: this.linkService.OnSubmittingLinkAsync,
+                linkEventHandler: Scoped<ILinkService, Link>(
+                        service => service.OnSubmittingLinkAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkEventAsync(
@@ -667,7 +704,8 @@ namespace Glory2Him.Core.Registrations
                         "with the updated entity."
                 },
                 operation: LinkEventOperation.Approving,
-                linkEventHandler: this.linkService.OnApprovingLinkAsync,
+                linkEventHandler: Scoped<ILinkService, Link>(
+                        service => service.OnApprovingLinkAsync),
                 cancellationToken: cancellationToken);
 
             // ── Link processing request handlers ──────────────────────────
@@ -687,7 +725,8 @@ namespace Glory2Him.Core.Registrations
                         + "Link-Rejected."
                 },
                 operation: LinkProcessingEventOperation.Approving,
-                linkProcessingEventHandler: this.linkProcessingService.OnApprovingLinkAsync,
+                linkProcessingEventHandler: Scoped<ILinkProcessingService, Link>(
+                        service => service.OnApprovingLinkAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
@@ -701,7 +740,8 @@ namespace Glory2Him.Core.Registrations
                         "(which publishes Link-Added), and replies with the created entity."
                 },
                 operation: LinkProcessingEventOperation.Adding,
-                linkProcessingEventHandler: this.linkProcessingService.OnAddingLinkAsync,
+                linkProcessingEventHandler: Scoped<ILinkProcessingService, Link>(
+                        service => service.OnAddingLinkAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
@@ -717,7 +757,8 @@ namespace Glory2Him.Core.Registrations
                         "with the resulting entity."
                 },
                 operation: LinkProcessingEventOperation.Modifying,
-                linkProcessingEventHandler: this.linkProcessingService.OnModifyingLinkAsync,
+                linkProcessingEventHandler: Scoped<ILinkProcessingService, Link>(
+                        service => service.OnModifyingLinkAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
@@ -732,7 +773,8 @@ namespace Glory2Him.Core.Registrations
                         "the removed entity; ApprovalStatus is left untouched."
                 },
                 operation: LinkProcessingEventOperation.RemovingById,
-                linkProcessingEventHandler: this.linkProcessingService.OnRemovingLinkByIdAsync,
+                linkProcessingEventHandler: Scoped<ILinkProcessingService, Link>(
+                        service => service.OnRemovingLinkByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
@@ -747,7 +789,8 @@ namespace Glory2Him.Core.Registrations
                         "retrieved entity on the delivery; no completion fact is published."
                 },
                 operation: LinkProcessingEventOperation.RetrievingById,
-                linkProcessingEventHandler: this.linkProcessingService.OnRetrievingLinkByIdAsync,
+                linkProcessingEventHandler: Scoped<ILinkProcessingService, Link>(
+                        service => service.OnRetrievingLinkByIdAsync),
                 cancellationToken: cancellationToken);
 
             // ── Reaction request handlers ───────────────────────────────────────
@@ -761,7 +804,8 @@ namespace Glory2Him.Core.Registrations
                         "Reaction-Added, and replies with the added entity."
                 },
                 operation: ReactionEventOperation.Adding,
-                reactionEventHandler: this.reactionService.OnAddingReactionAsync,
+                reactionEventHandler: Scoped<IReactionService, Reaction>(
+                        service => service.OnAddingReactionAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -774,7 +818,8 @@ namespace Glory2Him.Core.Registrations
                         "Reaction-Modified, and replies with the updated entity."
                 },
                 operation: ReactionEventOperation.Modifying,
-                reactionEventHandler: this.reactionService.OnModifyingReactionAsync,
+                reactionEventHandler: Scoped<IReactionService, Reaction>(
+                        service => service.OnModifyingReactionAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -787,7 +832,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Reaction-Removed, and replies with the removed entity."
                 },
                 operation: ReactionEventOperation.RemovingById,
-                reactionEventHandler: this.reactionService.OnRemovingReactionByIdAsync,
+                reactionEventHandler: Scoped<IReactionService, Reaction>(
+                        service => service.OnRemovingReactionByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -801,7 +847,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: ReactionEventOperation.HardRemovingById,
-                reactionEventHandler: this.reactionService.OnHardRemovingReactionByIdAsync,
+                reactionEventHandler: Scoped<IReactionService, Reaction>(
+                        service => service.OnHardRemovingReactionByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -814,7 +861,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: ReactionEventOperation.RetrievingById,
-                reactionEventHandler: this.reactionService.OnRetrievingReactionByIdAsync,
+                reactionEventHandler: Scoped<IReactionService, Reaction>(
+                        service => service.OnRetrievingReactionByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -827,7 +875,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Reaction-Submitted, and replies with the updated entity."
                 },
                 operation: ReactionEventOperation.Submitting,
-                reactionEventHandler: this.reactionService.OnSubmittingReactionAsync,
+                reactionEventHandler: Scoped<IReactionService, Reaction>(
+                        service => service.OnSubmittingReactionAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -841,7 +890,8 @@ namespace Glory2Him.Core.Registrations
                         "with the updated entity."
                 },
                 operation: ReactionEventOperation.Approving,
-                reactionEventHandler: this.reactionService.OnApprovingReactionAsync,
+                reactionEventHandler: Scoped<IReactionService, Reaction>(
+                        service => service.OnApprovingReactionAsync),
                 cancellationToken: cancellationToken);
 
             // ── Comment request handlers ─────────────────────────────────────────
@@ -855,7 +905,8 @@ namespace Glory2Him.Core.Registrations
                         "Comment-Added, and replies with the added entity."
                 },
                 operation: CommentEventOperation.Adding,
-                commentEventHandler: this.commentService.OnAddingCommentAsync,
+                commentEventHandler: Scoped<ICommentService, Comment>(
+                        service => service.OnAddingCommentAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -868,7 +919,8 @@ namespace Glory2Him.Core.Registrations
                         "Comment-Modified, and replies with the updated entity."
                 },
                 operation: CommentEventOperation.Modifying,
-                commentEventHandler: this.commentService.OnModifyingCommentAsync,
+                commentEventHandler: Scoped<ICommentService, Comment>(
+                        service => service.OnModifyingCommentAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -881,7 +933,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Comment-Removed, and replies with the removed entity."
                 },
                 operation: CommentEventOperation.RemovingById,
-                commentEventHandler: this.commentService.OnRemovingCommentByIdAsync,
+                commentEventHandler: Scoped<ICommentService, Comment>(
+                        service => service.OnRemovingCommentByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -895,7 +948,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: CommentEventOperation.HardRemovingById,
-                commentEventHandler: this.commentService.OnHardRemovingCommentByIdAsync,
+                commentEventHandler: Scoped<ICommentService, Comment>(
+                        service => service.OnHardRemovingCommentByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -908,7 +962,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: CommentEventOperation.RetrievingById,
-                commentEventHandler: this.commentService.OnRetrievingCommentByIdAsync,
+                commentEventHandler: Scoped<ICommentService, Comment>(
+                        service => service.OnRetrievingCommentByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -921,7 +976,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes Comment-Submitted, and replies with the updated entity."
                 },
                 operation: CommentEventOperation.Submitting,
-                commentEventHandler: this.commentService.OnSubmittingCommentAsync,
+                commentEventHandler: Scoped<ICommentService, Comment>(
+                        service => service.OnSubmittingCommentAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -935,7 +991,8 @@ namespace Glory2Him.Core.Registrations
                         "with the updated entity."
                 },
                 operation: CommentEventOperation.Approving,
-                commentEventHandler: this.commentService.OnApprovingCommentAsync,
+                commentEventHandler: Scoped<ICommentService, Comment>(
+                        service => service.OnApprovingCommentAsync),
                 cancellationToken: cancellationToken);
 
             // ── ApprovalComment request handlers ──────────────────────────────────
@@ -949,7 +1006,8 @@ namespace Glory2Him.Core.Registrations
                         "ApprovalComment-Added, and replies with the added entity."
                 },
                 operation: ApprovalCommentEventOperation.Adding,
-                approvalCommentEventHandler: this.approvalCommentService.OnAddingApprovalCommentAsync,
+                approvalCommentEventHandler: Scoped<IApprovalCommentService, ApprovalComment>(
+                        service => service.OnAddingApprovalCommentAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalCommentEventAsync(
@@ -962,7 +1020,8 @@ namespace Glory2Him.Core.Registrations
                         "ApprovalComment-Modified, and replies with the updated entity."
                 },
                 operation: ApprovalCommentEventOperation.Modifying,
-                approvalCommentEventHandler: this.approvalCommentService.OnModifyingApprovalCommentAsync,
+                approvalCommentEventHandler: Scoped<IApprovalCommentService, ApprovalComment>(
+                        service => service.OnModifyingApprovalCommentAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalCommentEventAsync(
@@ -975,7 +1034,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes ApprovalComment-Removed, and replies with the removed entity."
                 },
                 operation: ApprovalCommentEventOperation.RemovingById,
-                approvalCommentEventHandler: this.approvalCommentService.OnRemovingApprovalCommentByIdAsync,
+                approvalCommentEventHandler: Scoped<IApprovalCommentService, ApprovalComment>(
+                        service => service.OnRemovingApprovalCommentByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalCommentEventAsync(
@@ -993,7 +1053,8 @@ namespace Glory2Him.Core.Registrations
                 operation: ApprovalCommentEventOperation.HardRemovingById,
 
                 approvalCommentEventHandler:
-                    this.approvalCommentService.OnHardRemovingApprovalCommentByIdAsync,
+                    Scoped<IApprovalCommentService, ApprovalComment>(
+                        service => service.OnHardRemovingApprovalCommentByIdAsync),
 
                 cancellationToken: cancellationToken);
 
@@ -1011,7 +1072,8 @@ namespace Glory2Him.Core.Registrations
                 operation: ApprovalCommentEventOperation.RetrievingById,
 
                 approvalCommentEventHandler:
-                    this.approvalCommentService.OnRetrievingApprovalCommentByIdAsync,
+                    Scoped<IApprovalCommentService, ApprovalComment>(
+                        service => service.OnRetrievingApprovalCommentByIdAsync),
 
                 cancellationToken: cancellationToken);
 
@@ -1028,7 +1090,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with the updated entity."
                 },
                 operation: ApprovalCommentEventOperation.Resolving,
-                approvalCommentEventHandler: this.approvalCommentService.OnResolvingApprovalCommentAsync,
+                approvalCommentEventHandler: Scoped<IApprovalCommentService, ApprovalComment>(
+                        service => service.OnResolvingApprovalCommentAsync),
                 cancellationToken: cancellationToken);
 
             // The review flow's trigger (§9.7.5). A recorded review may complete the round,
@@ -1049,7 +1112,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalReviewEventOperation.Added,
                 approvalReviewEventHandler:
-                    this.approvalOrchestrationService.OnApprovalReviewAddedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalReview>(
+                        service => service.OnApprovalReviewAddedAsync),
                 cancellationToken: cancellationToken);
 
             // The other seven workflow-record fact addresses (§10.17(a)). Every one of them can
@@ -1070,7 +1134,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalReviewEventOperation.Modified,
                 approvalReviewEventHandler:
-                    this.approvalOrchestrationService.OnApprovalReviewModifiedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalReview>(
+                        service => service.OnApprovalReviewModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
@@ -1088,7 +1153,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalReviewEventOperation.Removed,
                 approvalReviewEventHandler:
-                    this.approvalOrchestrationService.OnApprovalReviewRemovedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalReview>(
+                        service => service.OnApprovalReviewRemovedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
@@ -1106,7 +1172,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalReviewEventOperation.Dismissed,
                 approvalReviewEventHandler:
-                    this.approvalOrchestrationService.OnApprovalReviewDismissedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalReview>(
+                        service => service.OnApprovalReviewDismissedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalCommentEventAsync(
@@ -1124,7 +1191,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalCommentEventOperation.Added,
                 approvalCommentEventHandler:
-                    this.approvalOrchestrationService.OnApprovalCommentAddedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalComment>(
+                        service => service.OnApprovalCommentAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalCommentEventAsync(
@@ -1141,7 +1209,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalCommentEventOperation.Modified,
                 approvalCommentEventHandler:
-                    this.approvalOrchestrationService.OnApprovalCommentModifiedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalComment>(
+                        service => service.OnApprovalCommentModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalCommentEventAsync(
@@ -1158,7 +1227,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalCommentEventOperation.Resolved,
                 approvalCommentEventHandler:
-                    this.approvalOrchestrationService.OnApprovalCommentResolvedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalComment>(
+                        service => service.OnApprovalCommentResolvedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalCommentEventAsync(
@@ -1176,7 +1246,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ApprovalCommentEventOperation.Removed,
                 approvalCommentEventHandler:
-                    this.approvalOrchestrationService.OnApprovalCommentRemovedAsync,
+                    Scoped<IApprovalOrchestrationService, ApprovalComment>(
+                        service => service.OnApprovalCommentRemovedAsync),
                 cancellationToken: cancellationToken);
 
             // ── ApprovalReview request handlers ──────────────────────────────────
@@ -1190,7 +1261,8 @@ namespace Glory2Him.Core.Registrations
                         "ApprovalReview-Added, and replies with the added entity."
                 },
                 operation: ApprovalReviewEventOperation.Adding,
-                approvalReviewEventHandler: this.approvalReviewService.OnAddingApprovalReviewAsync,
+                approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
+                        service => service.OnAddingApprovalReviewAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
@@ -1203,7 +1275,8 @@ namespace Glory2Him.Core.Registrations
                         "ApprovalReview-Modified, and replies with the updated entity."
                 },
                 operation: ApprovalReviewEventOperation.Modifying,
-                approvalReviewEventHandler: this.approvalReviewService.OnModifyingApprovalReviewAsync,
+                approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
+                        service => service.OnModifyingApprovalReviewAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
@@ -1216,7 +1289,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes ApprovalReview-Removed, and replies with the removed entity."
                 },
                 operation: ApprovalReviewEventOperation.RemovingById,
-                approvalReviewEventHandler: this.approvalReviewService.OnRemovingApprovalReviewByIdAsync,
+                approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
+                        service => service.OnRemovingApprovalReviewByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
@@ -1232,7 +1306,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: ApprovalReviewEventOperation.HardRemovingById,
-                approvalReviewEventHandler: this.approvalReviewService.OnHardRemovingApprovalReviewByIdAsync,
+                approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
+                        service => service.OnHardRemovingApprovalReviewByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
@@ -1247,7 +1322,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: ApprovalReviewEventOperation.RetrievingById,
-                approvalReviewEventHandler: this.approvalReviewService.OnRetrievingApprovalReviewByIdAsync,
+                approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
+                        service => service.OnRetrievingApprovalReviewByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalReviewEventAsync(
@@ -1263,7 +1339,8 @@ namespace Glory2Him.Core.Registrations
                         "updated entity."
                 },
                 operation: ApprovalReviewEventOperation.Dismissing,
-                approvalReviewEventHandler: this.approvalReviewService.OnDismissingApprovalReviewAsync,
+                approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
+                        service => service.OnDismissingApprovalReviewAsync),
                 cancellationToken: cancellationToken);
 
             // ── ApprovalSetting request handlers ─────────────────────────────────
@@ -1277,7 +1354,8 @@ namespace Glory2Him.Core.Registrations
                         "ApprovalSetting-Added, and replies with the added entity."
                 },
                 operation: ApprovalSettingEventOperation.Adding,
-                approvalSettingEventHandler: this.approvalSettingService.OnAddingApprovalSettingAsync,
+                approvalSettingEventHandler: Scoped<IApprovalSettingService, ApprovalSetting>(
+                        service => service.OnAddingApprovalSettingAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalSettingEventAsync(
@@ -1290,7 +1368,8 @@ namespace Glory2Him.Core.Registrations
                         "ApprovalSetting-Modified, and replies with the updated entity."
                 },
                 operation: ApprovalSettingEventOperation.Modifying,
-                approvalSettingEventHandler: this.approvalSettingService.OnModifyingApprovalSettingAsync,
+                approvalSettingEventHandler: Scoped<IApprovalSettingService, ApprovalSetting>(
+                        service => service.OnModifyingApprovalSettingAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalSettingEventAsync(
@@ -1303,7 +1382,8 @@ namespace Glory2Him.Core.Registrations
                         "publishes ApprovalSetting-Removed, and replies with the removed entity."
                 },
                 operation: ApprovalSettingEventOperation.RemovingById,
-                approvalSettingEventHandler: this.approvalSettingService.OnRemovingApprovalSettingByIdAsync,
+                approvalSettingEventHandler: Scoped<IApprovalSettingService, ApprovalSetting>(
+                        service => service.OnRemovingApprovalSettingByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalSettingEventAsync(
@@ -1319,7 +1399,8 @@ namespace Glory2Him.Core.Registrations
                         "address, and replies with the deleted entity."
                 },
                 operation: ApprovalSettingEventOperation.HardRemovingById,
-                approvalSettingEventHandler: this.approvalSettingService.OnHardRemovingApprovalSettingByIdAsync,
+                approvalSettingEventHandler: Scoped<IApprovalSettingService, ApprovalSetting>(
+                        service => service.OnHardRemovingApprovalSettingByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToApprovalSettingEventAsync(
@@ -1334,7 +1415,8 @@ namespace Glory2Him.Core.Registrations
                         "and replies with it on the delivery."
                 },
                 operation: ApprovalSettingEventOperation.RetrievingById,
-                approvalSettingEventHandler: this.approvalSettingService.OnRetrievingApprovalSettingByIdAsync,
+                approvalSettingEventHandler: Scoped<IApprovalSettingService, ApprovalSetting>(
+                        service => service.OnRetrievingApprovalSettingByIdAsync),
                 cancellationToken: cancellationToken);
 
             // ── Association request handlers ──────────────────────────
@@ -1352,7 +1434,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.Adding,
                 associationEventHandler:
-                    this.associationService.OnAddingAssociationAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnAddingAssociationAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1369,7 +1452,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.Modifying,
                 associationEventHandler:
-                    this.associationService.OnModifyingAssociationAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnModifyingAssociationAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1387,7 +1471,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.RemovingById,
                 associationEventHandler:
-                    this.associationService.OnRemovingAssociationByIdAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnRemovingAssociationByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1405,7 +1490,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.HardRemovingById,
                 associationEventHandler:
-                    this.associationService.OnHardRemovingAssociationByIdAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnHardRemovingAssociationByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1422,7 +1508,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.RetrievingById,
                 associationEventHandler:
-                    this.associationService.OnRetrievingAssociationByIdAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnRetrievingAssociationByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1438,7 +1525,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.Approving,
                 associationEventHandler:
-                    this.associationService.OnApprovingAssociationAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnApprovingAssociationAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1454,7 +1542,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.SettingConfidence,
                 associationEventHandler:
-                    this.associationService.OnSettingAssociationConfidenceAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnSettingAssociationConfidenceAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1470,7 +1559,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.SettingScope,
                 associationEventHandler:
-                    this.associationService.OnSettingAssociationScopeAsync,
+                    Scoped<IAssociationService, Association>(
+                        service => service.OnSettingAssociationScopeAsync),
                 cancellationToken: cancellationToken);
 
             // ── ContentItemSetting request handlers ──────────────────────────────
@@ -1488,7 +1578,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemSettingEventOperation.Adding,
                 contentItemSettingEventHandler:
-                    this.contentItemSettingService.OnAddingContentItemSettingAsync,
+                    Scoped<IContentItemSettingService, ContentItemSetting>(
+                        service => service.OnAddingContentItemSettingAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
@@ -1505,7 +1596,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemSettingEventOperation.Modifying,
                 contentItemSettingEventHandler:
-                    this.contentItemSettingService.OnModifyingContentItemSettingAsync,
+                    Scoped<IContentItemSettingService, ContentItemSetting>(
+                        service => service.OnModifyingContentItemSettingAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
@@ -1523,7 +1615,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemSettingEventOperation.RemovingById,
                 contentItemSettingEventHandler:
-                    this.contentItemSettingService.OnRemovingContentItemSettingByIdAsync,
+                    Scoped<IContentItemSettingService, ContentItemSetting>(
+                        service => service.OnRemovingContentItemSettingByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
@@ -1541,7 +1634,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemSettingEventOperation.HardRemovingById,
                 contentItemSettingEventHandler:
-                    this.contentItemSettingService.OnHardRemovingContentItemSettingByIdAsync,
+                    Scoped<IContentItemSettingService, ContentItemSetting>(
+                        service => service.OnHardRemovingContentItemSettingByIdAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemSettingEventAsync(
@@ -1558,7 +1652,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemSettingEventOperation.RetrievingById,
                 contentItemSettingEventHandler:
-                    this.contentItemSettingService.OnRetrievingContentItemSettingByIdAsync,
+                    Scoped<IContentItemSettingService, ContentItemSetting>(
+                        service => service.OnRetrievingContentItemSettingByIdAsync),
                 cancellationToken: cancellationToken);
 
             // ── Approval workflow fact subscriptions ─────────────────────────────
@@ -1587,7 +1682,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemProcessingEventOperation.Added,
                 contentItemProcessingEventHandler:
-                    this.approvalOrchestrationService.OnContentItemAddedAsync,
+                    Scoped<IApprovalOrchestrationService, ContentItem>(
+                        service => service.OnContentItemAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToContentItemProcessingEventAsync(
@@ -1601,7 +1697,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: ContentItemProcessingEventOperation.Modified,
                 contentItemProcessingEventHandler:
-                    this.approvalOrchestrationService.OnContentItemModifiedAsync,
+                    Scoped<IApprovalOrchestrationService, ContentItem>(
+                        service => service.OnContentItemModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
@@ -1616,7 +1713,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: LinkProcessingEventOperation.Added,
                 linkProcessingEventHandler:
-                    this.approvalOrchestrationService.OnLinkAddedAsync,
+                    Scoped<IApprovalOrchestrationService, Link>(
+                        service => service.OnLinkAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToLinkProcessingEventAsync(
@@ -1630,7 +1728,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: LinkProcessingEventOperation.Modified,
                 linkProcessingEventHandler:
-                    this.approvalOrchestrationService.OnLinkModifiedAsync,
+                    Scoped<IApprovalOrchestrationService, Link>(
+                        service => service.OnLinkModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -1643,7 +1742,8 @@ namespace Glory2Him.Core.Registrations
                         "and evaluates it if it is already submitted."
                 },
                 operation: TagEventOperation.Added,
-                tagEventHandler: this.approvalOrchestrationService.OnTagAddedAsync,
+                tagEventHandler: Scoped<IApprovalOrchestrationService, Tag>(
+                        service => service.OnTagAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToTagEventAsync(
@@ -1656,7 +1756,8 @@ namespace Glory2Him.Core.Registrations
                         "policy requires re-approval on change, then re-evaluates."
                 },
                 operation: TagEventOperation.Modified,
-                tagEventHandler: this.approvalOrchestrationService.OnTagModifiedAsync,
+                tagEventHandler: Scoped<IApprovalOrchestrationService, Tag>(
+                        service => service.OnTagModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -1669,7 +1770,8 @@ namespace Glory2Him.Core.Registrations
                         "added, and evaluates it if it is already submitted."
                 },
                 operation: CommentEventOperation.Added,
-                commentEventHandler: this.approvalOrchestrationService.OnCommentAddedAsync,
+                commentEventHandler: Scoped<IApprovalOrchestrationService, Comment>(
+                        service => service.OnCommentAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToCommentEventAsync(
@@ -1682,7 +1784,8 @@ namespace Glory2Him.Core.Registrations
                         "policy requires re-approval on change, then re-evaluates."
                 },
                 operation: CommentEventOperation.Modified,
-                commentEventHandler: this.approvalOrchestrationService.OnCommentModifiedAsync,
+                commentEventHandler: Scoped<IApprovalOrchestrationService, Comment>(
+                        service => service.OnCommentModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -1695,7 +1798,8 @@ namespace Glory2Him.Core.Registrations
                         "added, and evaluates it if it is already submitted."
                 },
                 operation: ReactionEventOperation.Added,
-                reactionEventHandler: this.approvalOrchestrationService.OnReactionAddedAsync,
+                reactionEventHandler: Scoped<IApprovalOrchestrationService, Reaction>(
+                        service => service.OnReactionAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToReactionEventAsync(
@@ -1708,7 +1812,8 @@ namespace Glory2Him.Core.Registrations
                         "policy requires re-approval on change, then re-evaluates."
                 },
                 operation: ReactionEventOperation.Modified,
-                reactionEventHandler: this.approvalOrchestrationService.OnReactionModifiedAsync,
+                reactionEventHandler: Scoped<IApprovalOrchestrationService, Reaction>(
+                        service => service.OnReactionModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -1724,7 +1829,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: BibleReferenceEventOperation.Added,
                 bibleReferenceEventHandler:
-                    this.approvalOrchestrationService.OnBibleReferenceAddedAsync,
+                    Scoped<IApprovalOrchestrationService, BibleReference>(
+                        service => service.OnBibleReferenceAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToBibleReferenceEventAsync(
@@ -1741,7 +1847,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: BibleReferenceEventOperation.Modified,
                 bibleReferenceEventHandler:
-                    this.approvalOrchestrationService.OnBibleReferenceModifiedAsync,
+                    Scoped<IApprovalOrchestrationService, BibleReference>(
+                        service => service.OnBibleReferenceModifiedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1757,7 +1864,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.Added,
                 associationEventHandler:
-                    this.approvalOrchestrationService.OnAssociationAddedAsync,
+                    Scoped<IApprovalOrchestrationService, Association>(
+                        service => service.OnAssociationAddedAsync),
                 cancellationToken: cancellationToken);
 
             await this.eventBroker.SubscribeToAssociationEventAsync(
@@ -1774,7 +1882,8 @@ namespace Glory2Him.Core.Registrations
                 },
                 operation: AssociationEventOperation.Modified,
                 associationEventHandler:
-                    this.approvalOrchestrationService.OnAssociationModifiedAsync,
+                    Scoped<IApprovalOrchestrationService, Association>(
+                        service => service.OnAssociationModifiedAsync),
                 cancellationToken: cancellationToken);
         }
     }

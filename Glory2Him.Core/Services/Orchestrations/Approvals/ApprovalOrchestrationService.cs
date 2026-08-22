@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     internal partial class ApprovalOrchestrationService : IApprovalOrchestrationService
     {
         private readonly IApprovalService approvalService;
-        private readonly IApprovalReviewService approvalReviewService;
+        private readonly IApprovalReviewWorkflowService approvalReviewWorkflowService;
         private readonly IApprovalCommentService approvalCommentService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
@@ -48,7 +48,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // decision function (§8.6.1 rule 4).
         public ApprovalOrchestrationService(
             IApprovalService approvalService,
-            IApprovalReviewService approvalReviewService,
+            IApprovalReviewWorkflowService approvalReviewWorkflowService,
             IApprovalCommentService approvalCommentService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
@@ -57,7 +57,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             ILoggingBroker loggingBroker)
         {
             this.approvalService = approvalService;
-            this.approvalReviewService = approvalReviewService;
+            this.approvalReviewWorkflowService = approvalReviewWorkflowService;
             this.approvalCommentService = approvalCommentService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;

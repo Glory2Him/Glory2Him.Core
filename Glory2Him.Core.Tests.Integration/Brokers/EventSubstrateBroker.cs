@@ -42,6 +42,7 @@ using Glory2Him.Core.Services.Processings.ContentItems;
 using Glory2Him.Core.Services.Processings.Links;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Integration.Brokers
@@ -125,7 +126,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             // is the point: same key, same algorithm, so only the NAME can differ.
             ApprovalOrchestrationService = new ApprovalOrchestrationService(
                 approvalService: BuildApprovalServiceMock().Object,
-                approvalReviewService: new Mock<IApprovalReviewService>().Object,
+                approvalReviewWorkflowService: new Mock<IApprovalReviewWorkflowService>().Object,
                 approvalCommentService: new Mock<IApprovalCommentService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
@@ -133,23 +134,42 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 envelopeIntegrityBroker: envelopeIntegrityBroker,
                 loggingBroker: new Mock<ILoggingBroker>().Object);
 
+            // The registration opens a scope per delivery now, so the fixture supplies a
+            // provider that hands back these instances. The orchestration is the real one; the
+            // other fourteen are mocks, which is what keeps this suite about the WIRING.
+            var serviceProviderMock = new Mock<IServiceProvider>();
+
+            void Provide<TService>(TService instance) where TService : class =>
+                serviceProviderMock.Setup(provider => provider.GetService(typeof(TService)))
+                    .Returns(instance);
+
+            Provide<IContentItemService>(new Mock<IContentItemService>().Object);
+            Provide<IApprovalService>(BuildApprovalServiceMock().Object);
+            Provide<IBibleReferenceService>(new Mock<IBibleReferenceService>().Object);
+            Provide<ITagService>(new Mock<ITagService>().Object);
+            Provide<ILinkService>(new Mock<ILinkService>().Object);
+            Provide<IReactionService>(new Mock<IReactionService>().Object);
+            Provide<ICommentService>(new Mock<ICommentService>().Object);
+            Provide<IApprovalCommentService>(new Mock<IApprovalCommentService>().Object);
+            Provide<IApprovalReviewService>(new Mock<IApprovalReviewService>().Object);
+            Provide<IApprovalSettingService>(new Mock<IApprovalSettingService>().Object);
+            Provide<IAssociationService>(new Mock<IAssociationService>().Object);
+            Provide<IContentItemSettingService>(new Mock<IContentItemSettingService>().Object);
+            Provide<IContentItemProcessingService>(new Mock<IContentItemProcessingService>().Object);
+            Provide<ILinkProcessingService>(new Mock<ILinkProcessingService>().Object);
+            Provide<IApprovalOrchestrationService>(ApprovalOrchestrationService);
+
+            var serviceScopeMock = new Mock<IServiceScope>();
+            serviceScopeMock.Setup(scope => scope.ServiceProvider)
+                .Returns(serviceProviderMock.Object);
+
+            var serviceScopeFactoryMock = new Mock<IServiceScopeFactory>();
+            serviceScopeFactoryMock.Setup(factory => factory.CreateScope())
+                .Returns(serviceScopeMock.Object);
+
             Registration = new EventSubscriptionRegistration(
                 eventBroker: EventBroker,
-                contentItemService: new Mock<IContentItemService>().Object,
-                approvalService: new Mock<IApprovalService>().Object,
-                bibleReferenceService: new Mock<IBibleReferenceService>().Object,
-                tagService: new Mock<ITagService>().Object,
-                linkService: new Mock<ILinkService>().Object,
-                reactionService: new Mock<IReactionService>().Object,
-                commentService: new Mock<ICommentService>().Object,
-                approvalCommentService: new Mock<IApprovalCommentService>().Object,
-                approvalReviewService: new Mock<IApprovalReviewService>().Object,
-                approvalSettingService: new Mock<IApprovalSettingService>().Object,
-                associationService: new Mock<IAssociationService>().Object,
-                contentItemSettingService: new Mock<IContentItemSettingService>().Object,
-                contentItemProcessingService: new Mock<IContentItemProcessingService>().Object,
-                linkProcessingService: new Mock<ILinkProcessingService>().Object,
-                approvalOrchestrationService: ApprovalOrchestrationService);
+                serviceScopeFactory: serviceScopeFactoryMock.Object);
 
             // Captured rather than thrown, so the failure lands on the test that asserts it
             // with a readable message instead of on a collection-fixture constructor.

@@ -400,9 +400,11 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
         ///
         /// <para>The route is registered and the verb is public, so a suffix-matched publisher can
         /// drive a standing verdict to <c>Dismissed</c> by hand. That is design route 3 (§7.7),
-        /// recorded rather than endorsed, and it is currently the ONLY way a review reaches
-        /// <c>Dismissed</c> — the automatic §8.8 path belongs to an orchestration that does not
-        /// exist yet (#226, blocked on #200).</para>
+        /// recorded rather than endorsed, and it is no longer the only way a review reaches
+        /// <c>Dismissed</c>: the automatic §8.8 path is wired, and the orchestration dismisses
+        /// stale reviews on a content change under the system identity. That path does not come
+        /// through here — it runs on an internal seam this controller cannot reach by ordinary
+        /// injection, precisely so that no endpoint acquires the workflow's authority.</para>
         /// </summary>
         [HttpPost("{approvalReviewId}/Dismiss")]
         [Authorize]

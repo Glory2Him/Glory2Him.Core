@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
@@ -149,6 +150,29 @@ namespace Glory2Him.Core.Brokers.Securities
         /// not-found rather than inferring it from an empty verdict.</para>
         /// </summary>
         ValueTask<ApprovalConditionsVerdict?> EvaluateApprovalConditionsByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The ids of the reviews on an approval that still count toward it — not deleted, not
+        /// already dismissed — read from storage without regard to who is asking.
+        /// </summary>
+        /// <remarks>
+        /// <para>Actor-independent, for the same reason
+        /// <see cref="EvaluateApprovalConditionsByIdAsync"/> is: what a round's reviews ARE is a
+        /// property of the approval, not of the caller.</para>
+        ///
+        /// <para>It exists because the caller-facing read is not. An actor holding no review
+        /// role sees only reviews they wrote themselves, and HR-1 forbids reviewing your own
+        /// content — so an author revising their own submission sees NONE of the round's real
+        /// approvals. Deciding what to dismiss from that view dismisses nothing, throws nothing,
+        /// and then lets the unfiltered evaluation approve the edit on the strength of a review
+        /// of the text it just replaced. Both halves of one decision have to read one view.</para>
+        ///
+        /// <para>This answers what to dismiss. Whether the caller may dismiss it is the separate
+        /// question <see cref="MayDismissApprovalReviewAsync"/> answers.</para>
+        /// </remarks>
+        ValueTask<List<Guid>> FindDismissableApprovalReviewIdsAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default);
     }

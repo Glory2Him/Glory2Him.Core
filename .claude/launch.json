@@ -15,6 +15,20 @@
       "url": "https://localhost:7059"
     },
     {
+      "name": "DependencyGraph",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--yes",
+        "http-server",
+        "Documentation/DependencyGraph",
+        "-p",
+        "8099",
+        "-c-1"
+      ],
+      "port": 8099,
+      "url": "http://localhost:8099"
+    },
+    {
       "name": "Glory2Him.WebApp.React",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

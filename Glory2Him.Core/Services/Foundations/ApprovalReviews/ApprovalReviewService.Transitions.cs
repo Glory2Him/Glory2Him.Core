@@ -62,6 +62,39 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     cancellationToken: cancellationToken);
             });
 
+        // The workflow's own dismissal (IApprovalReviewWorkflowService). Identical to the public
+        // path except for ONE line: the context is minted by CreateSystemAsync rather than from
+        // the ambient caller.
+        //
+        // That single difference is the whole point. The gate below admits the system identity
+        // in place of the publisher tier precisely for this act — the owner whose edit
+        // invalidated the reviews holds no publisher tier, and the reviewers being withdrawn are
+        // the last parties who should withdraw them. Automatic dismissal is not a user action,
+        // any more than automatic approval is.
+        //
+        // The caller does not hand the context in, and could not: isSystemIdentityAdmissible is
+        // true here only because THIS service minted it, in process. An envelope arriving over a
+        // public event address gets false (see OnDismissingApprovalReviewAsync), so a caller who
+        // asserted the flag on the wire could not use it.
+        public ValueTask<ApprovalReview> DismissStaleApprovalReviewAsync(
+            Guid approvalReviewId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var dismissRequest = new ApprovalReview { Id = approvalReviewId };
+
+                EventEnvelope<ApprovalReview> systemEnvelope =
+                    await this.eventEnvelopeBroker.CreateSystemAsync(content: dismissRequest);
+
+                return await DoDismissApprovalReviewAsync(
+                    approvalReviewId: approvalReviewId,
+                    inboundEnvelope: systemEnvelope,
+                    isSystemIdentityAdmissible: true,
+                    cancellationToken: cancellationToken);
+            });
+
         private async ValueTask<ApprovalReview> DoDismissApprovalReviewAsync(
             Guid approvalReviewId,
             EventEnvelope<ApprovalReview> inboundEnvelope,
@@ -71,11 +104,18 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
             ValidateOnDismissApprovalReview(approvalReviewId);
 
-            // The system identity is a claim about PROVENANCE, and provenance is not carried by
-            // the payload. It is honoured only where this service minted the context itself; an
-            // envelope that arrived over a public event address carries a deserialized,
-            // unverified context (§14.6 rule 4), and a caller able to assert the flag there
-            // would dismiss any review in the system by declaring themselves the workflow.
+            // The system identity is honoured only where this service minted the context itself.
+            //
+            // NOT on the old reasoning that the wire carries an unverified context — §16.7.1
+            // retires that: every inbound envelope is signature-verified, the claim sits inside
+            // the signed payload, and only this system holds the key, so a verified envelope is
+            // one this system minted whichever path it arrived by.
+            //
+            // The event path is refused because no workflow command travels on that address. The
+            // workflow dismisses through its own seam (IApprovalReviewWorkflowService), never by
+            // publishing, so a system claim arriving at a request address is by construction not
+            // one this flow made — and admitting it would let anyone who can reach that address
+            // withdraw the very verdicts blocking an approval.
             bool isSystemIdentity =
                 isSystemIdentityAdmissible
                     && inboundEnvelope.SecurityContext.IsSystemIdentity;

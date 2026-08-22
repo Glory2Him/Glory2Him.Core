@@ -236,7 +236,11 @@ components:
       - MayRecordApprovalCommentAsync
       - MayAmendApprovalCommentAsync
       - MayResolveApprovalCommentAsync
+      - FindDismissableApprovalReviewIdsAsync
     calls:
+      - from: FindDismissableApprovalReviewIdsAsync
+        to: StorageBroker
+        method: SelectAllApprovalReviewsAsync
       - from: MayDecideApprovalAsync
         to: SC.AccessClient
         method: MayDecideApprovalAsync
@@ -2344,7 +2348,11 @@ components:
       - OnHardRemovingApprovalReviewByIdAsync
       - OnRetrievingApprovalReviewByIdAsync
       - DismissApprovalReviewAsync
+      - DismissStaleApprovalReviewAsync
     calls:
+      - from: DismissStaleApprovalReviewAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
       - from: AddApprovalReviewAsync
         to: EventEnvelopeBroker
         method: CreateAsync
@@ -3276,14 +3284,11 @@ components:
         to: AccessBroker
         method: EvaluateApprovalConditionsByIdAsync
       - from: ProcessEntityModifiedAsync
-        to: FS.ApprovalReview
-        method: RetrieveAllApprovalReviewsAsync
+        to: AccessBroker
+        method: FindDismissableApprovalReviewIdsAsync
       - from: ProcessEntityModifiedAsync
         to: FS.ApprovalReview
-        method: DismissApprovalReviewAsync
-      - from: ProcessEntityModifiedAsync
-        to: EventEnvelopeBroker
-        method: CreateSystemAsync
+        method: DismissStaleApprovalReviewAsync
       - from: ProcessApprovalInputsChangedAsync
         to: FS.Approval
         method: RetrieveApprovalByIdAsync

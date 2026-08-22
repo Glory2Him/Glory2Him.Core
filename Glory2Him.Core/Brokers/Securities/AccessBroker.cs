@@ -396,6 +396,25 @@ namespace Glory2Him.Core.Brokers.Securities
                 approval.EntityType == entityType && approval.EntityId == entityId);
         }
 
+        // Unfiltered, deliberately — see IAccessBroker for why the caller-facing read cannot
+        // answer this. Same storage source GatherAsync uses, so the half that decides WHAT to
+        // dismiss and the half that decides whether to APPROVE read one view of one table.
+        public async ValueTask<List<Guid>> FindDismissableApprovalReviewIdsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            IQueryable<ApprovalReview> allApprovalReviews =
+                await this.storageBroker.SelectAllApprovalReviewsAsync(cancellationToken);
+
+            return allApprovalReviews
+                .Where(approvalReview =>
+                    approvalReview.ApprovalId == approvalId
+                        && approvalReview.IsDeleted == false
+                        && approvalReview.StatusId != ApprovalStatus.Dismissed)
+                .Select(approvalReview => approvalReview.Id)
+                .ToList();
+        }
+
         private async ValueTask<ApprovalReviewSnapshot> GatherAsync(
             Approval approval,
             CancellationToken cancellationToken)
