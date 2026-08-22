@@ -20,13 +20,24 @@ namespace Glory2Him.Core.Registrations
         /// Registers the ApprovalReview foundation service and its event handlers with the container.
         /// </summary>
         /// <remarks>
-        /// The service is registered as a singleton because
-        /// <see cref="EventSubscriptionRegistration"/> binds its substrate handlers into the
-        /// singleton <c>IEventBroker</c> as method groups. A scoped or transient registration
-        /// would be captured by that singleton and outlive the scope it was resolved from; if
-        /// the host needs a shorter lifetime, wire the subscription through an
-        /// <c>IServiceScopeFactory</c> lambda instead of a method group.
-        /// The caller is responsible for registering the brokers the service depends on.
+        /// <para>The singleton lifetime here is a HOLDOVER, and its original reason is gone.
+        /// <see cref="EventSubscriptionRegistration"/> used to bind substrate handlers into the
+        /// singleton <c>IEventBroker</c> as method groups, which captured whatever instance it
+        /// resolved; it now resolves the service per delivery through an
+        /// <c>IServiceScopeFactory</c>, so the substrate no longer forces any lifetime.</para>
+        ///
+        /// <para><b>A singleton here is a captive-dependency hazard.</b> This service takes
+        /// <c>IStorageBroker</c>, and a host that registers that scoped — as any host with a
+        /// per-request <c>DbContext</c> will — gets one DbContext captured for the life of the
+        /// process. <c>Glory2Him.WebApp</c> does not use this registration for that reason: it
+        /// wires the service scoped in its own <c>CoreRegistration</c>.</para>
+        ///
+        /// <para>Left as-is rather than changed silently, because the lifetime is part of this
+        /// method's contract and no caller exercises it today. A host wanting per-request
+        /// semantics should register the service itself.</para>
+        ///
+        /// <para>The caller is responsible for registering the brokers the service depends
+        /// on.</para>
         /// </remarks>
         public static IServiceCollection AddApprovalReviewService(this IServiceCollection services)
         {
