@@ -324,6 +324,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             Guid approvalId,
             CancellationToken cancellationToken)
         {
+            // FIRST, and deliberately ahead of the signature check — unlike the suppression
+            // test below, which sits after it on purpose. Cancellation abandons the delivery
+            // outright, so there is nothing left to verify; suppression only decides whether to
+            // ACT, which is a decision no envelope gets to reach unverified.
+            //
+            // Without this the suppressed branch checks the token NOWHERE: it returns below
+            // without ever reaching ProcessApprovalInputsChangedAsync, which holds the only
+            // other guard on this path.
+            cancellationToken.ThrowIfCancellationRequested();
+
             await ValidateEntityFactEnvelopeAsync(envelope, acceptedEventNames);
 
             // Deliberately AFTER the signature check. An unverifiable envelope is refused
@@ -351,6 +361,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             CancellationToken cancellationToken)
             where TEntity : IKey
         {
+            // Ahead of the verify, for the same reason as above. The token IS observed further
+            // down inside react, so this is not an unguarded path — but a caller who has already
+            // cancelled should not pay for an HMAC verification first.
+            cancellationToken.ThrowIfCancellationRequested();
+
             await ValidateEntityFactEnvelopeAsync(envelope, eventName);
 
             await react(entityType, envelope.Content.Id, cancellationToken);

@@ -613,6 +613,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             }
         }
 
+        // The twenty-two substrate handlers share two bodies — ReactToEntityFactAsync and
+        // ReactToWorkflowRecordFactAsync — so the guard is proven once per body rather than
+        // twenty-two times.
+        //
+        // Both assert the guard beats the SIGNATURE CHECK, which is the part a Times.Never on the
+        // downstream services would not catch: before this, a delivery whose caller had already
+        // given up still paid for a full HMAC verification, and on the workflow-record body the
+        // suppressed branch returned without observing the token at all.
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnAnEntityFactIfCancellationRequestedAsync()
+        {
+            // given: a token already cancelled when the delivery arrives
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            // when
+            ValueTask<EventEnvelope<Tag>?> reactionTask =
+                this.approvalOrchestrationService.OnTagAddedAsync(
+                    envelope: CreateSubstrateEnvelope(new Tag { Id = Guid.NewGuid() }),
+                    cancellationToken: cancellationTokenSource.Token);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(reactionTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldThrowOperationCanceledExceptionOnAWorkflowRecordFactIfCancellationRequestedAsync()
+        {
+            // given: the body that also carries the dismissal-suppression branch. That branch
+            // returns null without calling on any collaborator, so nothing downstream could ever
+            // have observed the token — the guard is the only thing standing there.
+            using var cancellationTokenSource = new CancellationTokenSource();
+            await cancellationTokenSource.CancelAsync();
+
+            var inputApprovalReview = new ApprovalReview
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = Guid.NewGuid(),
+            };
+
+            // when
+            ValueTask<EventEnvelope<ApprovalReview>?> reactionTask =
+                this.approvalOrchestrationService.OnApprovalReviewAddedAsync(
+                    envelope: CreateSubstrateEnvelope(inputApprovalReview),
+                    cancellationToken: cancellationTokenSource.Token);
+
+            // then
+            await Assert.ThrowsAsync<OperationCanceledException>(reactionTask.AsTask);
+
+            this.envelopeIntegrityBrokerMock.VerifyNoOtherCalls();
+            this.approvalServiceMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
+            this.eventEnvelopeBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         private static EventEnvelope<TEntity> CreateSubstrateFactEnvelope<TEntity>(
             TEntity content,
             bool isEnvelopeNull,
