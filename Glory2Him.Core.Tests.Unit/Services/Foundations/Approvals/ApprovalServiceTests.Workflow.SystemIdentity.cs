@@ -216,6 +216,180 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         }
 
         /// <summary>
+        /// The round-open guard must NOT catch the Draft → Submitted move.
+        /// </summary>
+        /// <remarks>
+        /// <para>That move is how a round becomes decidable at all: the approval process does
+        /// nothing with a draft submission beyond creating the record, and the owner offers it
+        /// for review through the modify path — which is why <c>ApprovalStatus</c> is
+        /// deliberately not pinned there (§14.7 posture D rule 3).</para>
+        ///
+        /// <para>The guard only fires on a move INTO <c>Approved</c> or <c>Rejected</c>, so it
+        /// steps aside here. Pinned because the guard is new and this is the transition it would
+        /// be easiest to break — and breaking it would strand every round in Draft, which no
+        /// other test would notice.</para>
+        /// </remarks>
+        [Fact]
+        public async Task ShouldAllowTheOwnerToOfferADraftRoundForReviewAsync()
+        {
+            // given
+            string ownerUserId = GetRandomString();
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Approval inputApproval =
+                CreateRandomModifyApproval(randomDateTimeOffset, ownerUserId);
+
+            // the offer: Draft -> Submitted, which is NOT an outcome
+            inputApproval.ApprovalStatus = ApprovalStatus.Submitted;
+
+            Approval auditAppliedApproval = inputApproval.DeepClone();
+
+            Approval storageApproval = auditAppliedApproval.DeepClone();
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            storageApproval.IsDeleted = false;
+            storageApproval.ApprovalStatus = ApprovalStatus.Draft;
+
+            Approval updatedApproval = auditAppliedApproval.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(ownerUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(auditAppliedApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    inputApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedApproval);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalAsync(
+                    It.IsAny<EventEnvelope<Approval>>(),
+                    It.IsAny<ApprovalEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Approval>>(
+                            new EventPublishResult<Approval>()));
+
+            // when
+            Approval actualApproval =
+                await this.approvalService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualApproval.Should().NotBeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.Is<Approval>(approval =>
+                            approval.ApprovalStatus == ApprovalStatus.Submitted),
+                        It.IsAny<CancellationToken>()),
+                Times.Once,
+                failMessage: "offering a draft round for review is how it becomes decidable — "
+                    + "the round-open guard applies to OUTCOMES, not to this");
+        }
+
+        /// <summary>
+        /// The round-open guard is UNCONDITIONAL — it holds on the public path too.
+        /// </summary>
+        /// <remarks>
+        /// Its four theory cases above all drive the workflow seam, so every one of them would
+        /// still pass if the guard were wrapped in <c>if (isSystemIdentity)</c> — which is
+        /// precisely the shape the fix argues against. This drives the PUBLIC path with the same
+        /// stored state, so the unconditional half is pinned rather than assumed.
+        /// </remarks>
+        [Fact]
+        public async Task ShouldRefuseAnOutcomeOnAClosedRoundOnThePublicModifyToAsync()
+        {
+            // given
+            string publisherUserId = GetRandomString();
+            this.ambientSecurityContext =
+                CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Approval inputApproval =
+                CreateRandomModifyApproval(randomDateTimeOffset, publisherUserId);
+
+            inputApproval.ApprovalStatus = ApprovalStatus.Approved;
+            inputApproval.IsApprovedByBypass = false;
+            inputApproval.ApprovedByBypassReason = null;
+
+            Approval storageApproval = inputApproval.DeepClone();
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            storageApproval.IsDeleted = false;
+
+            // Draft — no open round to decide, for a human as much as for the workflow
+            storageApproval.ApprovalStatus = ApprovalStatus.Draft;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(publisherUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(inputApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(inputApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    inputApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
+
+            // when
+            ValueTask<Approval> modifyTask =
+                this.approvalService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<ApprovalValidationException>(modifyTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
         /// A bypass survives the seam. The seam is not only the AUTOMATIC path.
         /// </summary>
         /// <remarks>
