@@ -215,6 +215,106 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     + "the system identity replaces the caller TIERS, not the state invariants");
         }
 
+        /// <summary>
+        /// A bypass survives the seam. The seam is not only the AUTOMATIC path.
+        /// </summary>
+        /// <remarks>
+        /// <para><c>RecordApprovalDecisionAsync</c> relays a deliberate human decision through
+        /// this same interface and sets <c>IsApprovedByBypass</c> from that decision's own
+        /// verdict — true whenever an <c>Admin</c> legitimately bypass-approves. A guard keyed on
+        /// the system identity would refuse exactly the case a bypass exists for.</para>
+        ///
+        /// <para>One was written and removed. This test exists so the next person who reasons
+        /// "the workflow takes no verdict, so it may not claim a waiver" finds out here rather
+        /// than in production — the orchestration tests mock this seam, so nothing above the
+        /// foundation would catch it.</para>
+        /// </remarks>
+        [Fact]
+        public async Task ShouldCarryABypassThroughTheSeamOnWorkflowModifyAsync()
+        {
+            // given: the shape RecordApprovalDecisionAsync produces for an Admin bypass —
+            // an outcome applied to an open round, carrying a verdict-derived waiver
+            string adminUserId = GetRandomString();
+            this.ambientSecurityContext = CreateContributorSecurityContext(adminUserId);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Approval inputApproval =
+                CreateRandomModifyApproval(randomDateTimeOffset, adminUserId);
+
+            inputApproval.ApprovalStatus = ApprovalStatus.Approved;
+            inputApproval.IsApprovedByBypass = true;
+            inputApproval.ApprovedByBypassReason = GetRandomString();
+
+            Approval auditAppliedApproval = inputApproval.DeepClone();
+
+            Approval storageApproval = auditAppliedApproval.DeepClone();
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            storageApproval.IsDeleted = false;
+            storageApproval.ApprovalStatus = ApprovalStatus.Submitted;
+            storageApproval.IsApprovedByBypass = false;
+            storageApproval.ApprovedByBypassReason = null;
+
+            Approval updatedApproval = auditAppliedApproval.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(adminUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(auditAppliedApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(auditAppliedApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    inputApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateApprovalAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(updatedApproval);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishApprovalAsync(
+                    It.IsAny<EventEnvelope<Approval>>(),
+                    It.IsAny<ApprovalEventOperation>()))
+                        .Returns(new ValueTask<EventPublishResult<Approval>>(
+                            new EventPublishResult<Approval>()));
+
+            // when
+            Approval actualApproval =
+                await this.approvalWorkflowService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            // then: the waiver reaches storage rather than being refused
+            actualApproval.Should().NotBeNull();
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.Is<Approval>(approval => approval.IsApprovedByBypass),
+                        It.IsAny<CancellationToken>()),
+                Times.Once,
+                failMessage: "an Admin bypass-approval is relayed through this seam, so the "
+                    + "system identity must not be treated as proof that no waiver applies");
+        }
+
         [Fact]
         public async Task ShouldWriteTheDecisionWithoutTheCallerTiersOnWorkflowModifyAsync()
         {

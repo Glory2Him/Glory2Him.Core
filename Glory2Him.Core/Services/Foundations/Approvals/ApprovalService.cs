@@ -425,13 +425,18 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 inputApproval: approval,
                 storageApproval: maybeApproval);
 
-            if (isSystemIdentity)
-            {
-                ValidateWorkflowClaimsNoBypass(
-                    inputApproval: approval,
-                    storageApproval: maybeApproval);
-            }
-
+            // NO "the workflow may not claim a bypass" guard here, and that was tried and
+            // removed rather than never considered.
+            //
+            // The seam is not only the automatic path. RecordApprovalDecisionAsync relays a
+            // DELIBERATE human decision through it (Decisions.cs:108) and sets
+            // IsApprovedByBypass from that decision's own verdict — which is true whenever an
+            // Admin legitimately bypass-approves. A guard keyed on isSystemIdentity therefore
+            // refuses the one case a bypass is FOR.
+            //
+            // What actually protects the pair is that every call site derives it from a verdict
+            // or sets it false, and that the seam is internal. The foundation cannot check it
+            // without the verdict, and threading that across the seam is a design change.
             AccessVerdict outcomeVerdict = isSystemIdentity
                 ? null
                 : await ValidateUserMayDecideStorageApprovalAsync(
