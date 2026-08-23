@@ -226,8 +226,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         ///
         /// <para>The guard only fires on a move INTO <c>Approved</c> or <c>Rejected</c>, so it
         /// steps aside here. Pinned because the guard is new and this is the transition it would
-        /// be easiest to break — and breaking it would strand every round in Draft, which no
-        /// other test would notice.</para>
+        /// be easiest to break — widening it to all status moves would strand every round in
+        /// Draft.</para>
+        ///
+        /// <para>This REINFORCES rather than closes a gap, which is worth saying plainly:
+        /// widening the guard also fails <c>ShouldNotConsultTheOutcomeDecisionWhenMovingAmong-
+        /// WorkflowStatusesAsync</c> and <c>ShouldRefuseTouchingTheBypassPairOnAWorkflow-
+        /// StatusMoveAsync</c>, both of which predate it. What this adds is the transition named
+        /// as itself, so the next reader sees WHY the guard must step aside rather than only
+        /// that something breaks when it does not.</para>
         /// </remarks>
         [Fact]
         public async Task ShouldAllowTheOwnerToOfferADraftRoundForReviewAsync()
@@ -322,7 +329,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// stored state, so the unconditional half is pinned rather than assumed.
         /// </remarks>
         [Fact]
-        public async Task ShouldRefuseAnOutcomeOnAClosedRoundOnThePublicModifyToAsync()
+        public async Task ShouldRefuseAnOutcomeOnARoundThatIsNotOpenOnThePublicModifyAsync()
         {
             // given
             string publisherUserId = GetRandomString();

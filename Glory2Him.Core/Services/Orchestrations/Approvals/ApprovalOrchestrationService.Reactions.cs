@@ -153,8 +153,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // Placed HERE rather than at the top of that flow, which was tried and reverted: an
             // early return there skips the stale-review dismissal and the re-read the round
             // legitimately needs. This runs after both, so nothing is lost — and it is a no-op
-            // for the two callers that already gate (Reactions.cs OnApprovalReviewChanged,
-            // Flows.cs ProcessApprovalInputsChangedAsync).
+            // for the two callers that already gate: ProcessEntityAddedAsync in this file, and
+            // ProcessApprovalInputsChangedAsync in Flows.cs.
             //
             // The foundation still refuses the write regardless. §14.6 rule 2 makes the
             // duplicate intentional: this stops the flow composing a write it can predict will
