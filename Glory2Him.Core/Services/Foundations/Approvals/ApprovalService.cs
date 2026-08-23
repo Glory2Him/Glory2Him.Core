@@ -416,6 +416,22 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             // the decision function about a roleless actor and be refused — which is consequence
             // 3 of #287 — and would replace a derivation made with the deciding context by one
             // made without it.
+            // UNCONDITIONAL, and deliberately outside the isSystemIdentity branch. The decision
+            // function below refuses a round that is not Submitted, and skipping it for the
+            // workflow skipped that too — so this re-asserts the half that is a fact about
+            // storage rather than about the caller. Without it ProcessEntityModifiedAsync can
+            // drive a Draft round to Approved, which no human may do.
+            ValidateStorageApprovalRoundIsOpenForOutcome(
+                inputApproval: approval,
+                storageApproval: maybeApproval);
+
+            if (isSystemIdentity)
+            {
+                ValidateWorkflowClaimsNoBypass(
+                    inputApproval: approval,
+                    storageApproval: maybeApproval);
+            }
+
             AccessVerdict outcomeVerdict = isSystemIdentity
                 ? null
                 : await ValidateUserMayDecideStorageApprovalAsync(

@@ -13,6 +13,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using G2H.Security.Client.Models.Foundations.Access;
 using Force.DeepCloner;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -123,6 +124,97 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             await Assert.ThrowsAsync<ApprovalValidationException>(retrieveTask.AsTask);
         }
 
+        /// <summary>
+        /// The round-open precondition is NOT one of the tiers the workflow skips.
+        /// </summary>
+        /// <remarks>
+        /// <para>It lived inside the §8.6.1 decision function, which answers
+        /// <c>ApprovalNotOpenForReview</c> for any state but <c>Submitted</c>. Skipping that
+        /// function for the system identity skipped this with it, and
+        /// <c>ProcessEntityModifiedAsync</c> — the one flow of three with no round-open check of
+        /// its own — could then drive a <c>Draft</c> round to <c>Approved</c> through
+        /// <c>EvaluateApprovalAsync</c>, whose only condition is that the approval conditions are
+        /// met. A Draft's conditions can be met.</para>
+        ///
+        /// <para>That is a transition NO human can make, <c>Admin</c> included, on the row §9.8
+        /// calls the source of truth. The guard is therefore unconditional: "is this round open"
+        /// is a fact about STORAGE, which is the same argument that justifies the workflow's
+        /// unfiltered read.</para>
+        /// </remarks>
+        [Theory]
+        [InlineData(ApprovalStatus.Draft, ApprovalStatus.Approved)]
+        [InlineData(ApprovalStatus.Draft, ApprovalStatus.Rejected)]
+        [InlineData(ApprovalStatus.Approved, ApprovalStatus.Rejected)]
+        [InlineData(ApprovalStatus.Rejected, ApprovalStatus.Approved)]
+        public async Task ShouldRefuseAnOutcomeOnARoundThatIsNotOpenOnWorkflowModifyAsync(
+            ApprovalStatus storedStatus,
+            ApprovalStatus attemptedOutcome)
+        {
+            // given
+            string contributorUserId = GetRandomString();
+            this.ambientSecurityContext = CreateContributorSecurityContext(contributorUserId);
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+
+            Approval inputApproval =
+                CreateRandomModifyApproval(randomDateTimeOffset, contributorUserId);
+
+            inputApproval.ApprovalStatus = attemptedOutcome;
+            inputApproval.IsApprovedByBypass = false;
+            inputApproval.ApprovedByBypassReason = null;
+
+            Approval storageApproval = inputApproval.DeepClone();
+            storageApproval.UpdatedWhen =
+                storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+
+            storageApproval.IsDeleted = false;
+
+            // NOT Submitted — there is no open round to decide
+            storageApproval.ApprovalStatus = storedStatus;
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(contributorUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<SecurityContext>()))
+                        .ReturnsAsync(inputApproval);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    It.IsAny<Approval>(),
+                    It.IsAny<Approval>()))
+                        .ReturnsAsync(inputApproval);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectApprovalByIdAsync(
+                    inputApproval.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageApproval);
+
+            // when
+            ValueTask<Approval> modifyTask =
+                this.approvalWorkflowService.ModifyApprovalAsync(
+                    inputApproval,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<ApprovalValidationException>(modifyTask.AsTask);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateApprovalAsync(
+                        It.IsAny<Approval>(),
+                        It.IsAny<CancellationToken>()),
+                Times.Never,
+                failMessage: "the workflow must not be able to decide a round nobody opened — "
+                    + "the system identity replaces the caller TIERS, not the state invariants");
+        }
+
         [Fact]
         public async Task ShouldWriteTheDecisionWithoutTheCallerTiersOnWorkflowModifyAsync()
         {
@@ -202,9 +294,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // The decision function is NOT consulted. Asking it under a roleless system context
             // would refuse deterministically — consequence 3 of #287 — and would replace the
             // orchestration's derivation, made with the deciding context, by one made without it.
+            // MayDecideApprovalByIdAsync, which is the member ApprovalService actually calls.
+            // An earlier version of this asserted Times.Never on MayDecideApprovalAsync — a
+            // member this service never calls on ANY path, so it held identically on the public
+            // path where the gate IS consulted, and proved nothing.
             this.accessBrokerMock.Verify(broker =>
-                broker.MayDecideApprovalAsync(
-                    It.IsAny<ApprovalDecisionQuery>(),
+                broker.MayDecideApprovalByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<ApprovalDecision>(),
+                    It.IsAny<bool>(),
+                    It.IsAny<string>(),
+                    It.IsAny<SecurityContext>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 

@@ -425,6 +425,63 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 && (inputApproval.ApprovalStatus == ApprovalStatus.Approved
                     || inputApproval.ApprovalStatus == ApprovalStatus.Rejected);
 
+        // An outcome may only be applied to an OPEN round, and that is true of the workflow as
+        // much as of a person — so unlike the three tiers beside it, this one is not skipped for
+        // the system identity.
+        //
+        // The distinction is the same one that justifies the workflow's unfiltered read: "is
+        // this round open" is a fact about STORAGE, not about who is asking. The three caller
+        // tiers ask the second question and are rightly skipped; this asks the first.
+        //
+        // It lived inside the §8.6.1 decision function, which returns ApprovalNotOpenForReview
+        // for any state but Submitted — so skipping that function for the workflow also skipped
+        // this, and a Draft round reaching EvaluateApprovalAsync could be driven straight to
+        // Approved. No human can do that, Admin included.
+        private static void ValidateStorageApprovalRoundIsOpenForOutcome(
+            Approval inputApproval,
+            Approval storageApproval)
+        {
+            if (IsApplyingOutcome(inputApproval, storageApproval) is false)
+            {
+                return;
+            }
+
+            if (storageApproval.ApprovalStatus != ApprovalStatus.Submitted)
+            {
+                throw new InvalidApprovalException(
+                    message: $"Approval is {storageApproval.ApprovalStatus}, not Submitted, "
+                        + "so there is no open round to decide.");
+            }
+        }
+
+        // A waiver is DERIVED from a verdict or it does not exist (§9.7.5, §9.7.1 rule 3).
+        //
+        // On the workflow path there is no verdict to derive from — the decision function is
+        // skipped — and the pin that would otherwise catch a payload-asserted pair steps aside
+        // for an outcome write (ValidateBypassPairAgainstStorageOnModify returns early when
+        // IsApplyingOutcome). Both halves off on the same condition would let a caller record a
+        // bypass nothing granted.
+        //
+        // No caller can express it today: all four orchestration call sites either derive the
+        // pair from their own verdict or set it to false first. This refuses the shape anyway,
+        // because "nobody currently does" is not a property the type system holds.
+        private static void ValidateWorkflowClaimsNoBypass(
+            Approval inputApproval,
+            Approval storageApproval)
+        {
+            if (IsApplyingOutcome(inputApproval, storageApproval) is false)
+            {
+                return;
+            }
+
+            if (inputApproval.IsApprovedByBypass)
+            {
+                throw new InvalidApprovalException(
+                    message: "A bypass cannot be recorded on a workflow outcome: it is derived "
+                        + "from a decision verdict, and the workflow takes none.");
+            }
+        }
+
         /// <summary>
         /// The §8.6.1 gate for the two outcome statuses, asked of the STORED approval and
         /// answered by the same decision function the entity transitions consult. Null when the

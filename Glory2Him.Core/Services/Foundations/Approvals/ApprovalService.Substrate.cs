@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
                 Approval modifiedApproval = await DoModifyApprovalAsync(
                     // No workflow command travels on this address — the workflow modifies
-                    // through IApprovalWorkflowService, never by publishing (�16.7.1).
+                    // through IApprovalWorkflowService, never by publishing (§16.7.1).
                     isSystemIdentity: false,
 
                     approval: envelope.Content,
