@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -29,27 +28,43 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             // Configure configuration *before* the app's builder is used
             Program.TestConfigurationOverrides = builder =>
             {
-                var testProjectPath =
-                    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", ".."));
-
                 // This runs inside Program.cs right after CreateBuilder(...)
                 // This lets us override any configuration values for testing
                 builder.Configuration
                     .AddJsonFile(
-                        Path.Combine(testProjectPath, "appsettings.json"),
+                        Path.Combine(TestProjectPaths.ProjectDirectory, "appsettings.json"),
                         optional: true)
-                    .AddInMemoryCollection(new Dictionary<string, string>
-                    {
-                        // Put your strong overrides here
-
-                        // Paging is a production posture, not something these assertions should
-                        // have to walk: raised so a collection read returns everything the suite
-                        // seeded. This replaces the #if DEBUG [EnableQuery(PageSize = 5000)] that
-                        // used to sit on each exposer — the number now travels with the tests that
-                        // need it instead of with the build configuration.
-                        { ODataPageSizeConvention.ConfigurationKey, "5000" },
-                    });
+                    .AddInMemoryCollection(BuildStrongOverrides());
             };
+        }
+
+        private static Dictionary<string, string> BuildStrongOverrides()
+        {
+            var overrides = new Dictionary<string, string>
+            {
+                // Put your strong overrides here
+
+                // Paging is a production posture, not something these assertions should
+                // have to walk: raised so a collection read returns everything the suite
+                // seeded. This replaces the #if DEBUG [EnableQuery(PageSize = 5000)] that
+                // used to sit on each exposer — the number now travels with the tests that
+                // need it instead of with the build configuration.
+                { ODataPageSizeConvention.ConfigurationKey, "5000" },
+            };
+
+            // The three stores this host opens — Core, the EventHighway substrate and Identity —
+            // are redirected onto per-run catalogues so the suite stops writing to the developer's
+            // own databases (#302). They arrive here, on the LAST configuration source, rather
+            // than through the environment: the resolved values are keyed by the PRODUCTION keys,
+            // and an ambient variable carrying one of those is exactly what
+            // AcceptanceDatabaseBroker's test-only key exists to stay clear of.
+            foreach (KeyValuePair<string, string> connectionString
+                in AcceptanceDatabaseBroker.ConnectionStringOverrides)
+            {
+                overrides[connectionString.Key] = connectionString.Value;
+            }
+
+            return overrides;
         }
 
         protected override void ConfigureWebHost(IWebHostBuilder builder)
