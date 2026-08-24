@@ -14,42 +14,37 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
-using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     /// <summary>
-    /// Arrangement for the approve endpoint. The approve decision reads the APPROVAL row's
-    /// status, not the tag's, and no endpoint in this host creates that row — submitting a tag
-    /// writes only <c>Tag.ApprovalStatus</c>, and the approval round would normally be opened by
-    /// an approval orchestration reacting to the published fact. So the round has to be arranged
-    /// beneath HTTP. These are real rows written through the host's own storage broker, read
-    /// back by the production <c>AccessBroker</c> through the production <c>StorageBroker</c>.
+    /// Arrangement for the approve endpoints, shared by every approvable entity.
+    ///
+    /// <para>The approve decision reads the APPROVAL row's status, not the entity's, and no
+    /// endpoint in this host creates that row — submitting an entity writes only its own
+    /// <c>ApprovalStatus</c>, and the round would normally be opened by the approval
+    /// orchestration reacting to the published fact. So the round has to be arranged beneath
+    /// HTTP. These are real rows written through the host's own storage broker, read back by the
+    /// production <c>AccessBroker</c> through the production <c>StorageBroker</c>.</para>
+    ///
+    /// <para>Entity ROWS are arranged per entity, in <c>ApiBroker.&lt;Entity&gt;Arrangements.cs</c>.
+    /// What lives here is only what every approvable entity shares.</para>
     /// </summary>
     public partial class ApiBroker
     {
-        public async ValueTask<CoreTag> InsertSubmittedTagAsync(string authorUserId)
-        {
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-
-            var tag = new CoreTag
-            {
-                Id = Guid.NewGuid(),
-                Name = Guid.NewGuid().ToString("N").Substring(0, 30),
-                ApprovalStatus = ApprovalStatus.Submitted,
-                IsPublished = false,
-                IsDeleted = false,
-                CreatedBy = authorUserId,
-                CreatedWhen = now,
-                UpdatedBy = authorUserId,
-                UpdatedWhen = now
-            };
-
-            return await this.storageBroker.InsertTagAsync(tag);
-        }
-
+        /// <summary>
+        /// Opens a submitted approval round against any entity.
+        ///
+        /// <para>The <paramref name="entityType"/> is a PARAMETER rather than a constant, and
+        /// that is load-bearing: the approve decision resolves the entity behind the approval
+        /// and composes the reviewer's expected role from its type, so a round arranged under
+        /// the wrong type is decided against the wrong role and the test passes or fails for a
+        /// reason it never meant to express. This arrangement was written for Tag and hard-coded
+        /// it; the second exposer to need it is what turned the constant into an argument.</para>
+        /// </summary>
         public async ValueTask<Approval> InsertSubmittedApprovalAsync(
-            Guid tagId,
+            EntityType entityType,
+            Guid entityId,
             string authorUserId)
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -57,8 +52,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             var approval = new Approval
             {
                 Id = Guid.NewGuid(),
-                EntityType = EntityType.Tag,
-                EntityId = tagId,
+                EntityType = entityType,
+                EntityId = entityId,
                 ApprovalStatus = ApprovalStatus.Submitted,
                 CreatedBy = authorUserId,
                 CreatedWhen = now,
@@ -101,26 +96,5 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         public async ValueTask RemoveApprovalAsync(Approval approval) =>
             await this.storageBroker.DeleteApprovalAsync(approval);
 
-        public async ValueTask<CoreTag> GetCoreTagByIdAsync(Guid tagId) =>
-            await this.storageBroker.SelectTagByIdAsync(tagId);
-
-        public async ValueTask RemoveCoreTagAsync(CoreTag tag) =>
-            await this.storageBroker.DeleteTagAsync(tag);
-
-        /// <summary>
-        /// Physically removes a tag if it is still there, whatever state it is in. Every
-        /// acceptance test finishes with this so the database is left as it was found: the API's
-        /// own delete is a SOFT delete, so a test that tore down through the endpoint still left
-        /// its row behind, and a test whose assertion threw left a live one.
-        /// </summary>
-        public async ValueTask RemoveCoreTagByIdAsync(Guid tagId)
-        {
-            CoreTag storedTag = await this.storageBroker.SelectTagByIdAsync(tagId);
-
-            if (storedTag is not null)
-            {
-                await this.storageBroker.DeleteTagAsync(storedTag);
-            }
-        }
     }
 }

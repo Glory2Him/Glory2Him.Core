@@ -18,6 +18,7 @@ using Glory2Him.WebApp.Tests.Acceptance.Models.ApprovalReviews;
 using RESTFulSense.Exceptions;
 using CoreApprovalReview = Glory2Him.Core.Models.Foundations.ApprovalReviews.ApprovalReview;
 using CoreApprovalStatus = Glory2Him.Core.Models.Enums.ApprovalStatus;
+using EntityType = Glory2Him.Core.Models.Enums.EntityType;
 using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
 using Tag = Glory2Him.WebApp.Tests.Acceptance.Models.Tags.Tag;
 
@@ -174,7 +175,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 await this.apiBroker.InsertSubmittedTagAsync(authorUserId);
 
             Approval approval =
-                await this.apiBroker.InsertSubmittedApprovalAsync(submittedTag.Id, authorUserId);
+                await this.apiBroker.InsertSubmittedApprovalAsync(
+                    EntityType.Tag, submittedTag.Id, authorUserId);
 
             CoreApprovalReview firstReview =
                 await this.apiBroker.InsertApprovedReviewAsync(approval.Id, reviewerUserId);

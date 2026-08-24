@@ -15,48 +15,48 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
-using Glory2Him.WebApp.Tests.Acceptance.Models.Tags;
+using Glory2Him.WebApp.Tests.Acceptance.Models.Reactions;
 using CoreApprovalStatus = Glory2Him.Core.Models.Enums.ApprovalStatus;
-using CoreTag = Glory2Him.Core.Models.Foundations.Tags.Tag;
+using CoreReaction = Glory2Him.Core.Models.Foundations.Reactions.Reaction;
 
-namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
+namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
 {
-    public partial class TagApiTests
+    public partial class ReactionApiTests
     {
         [Fact]
-        public async Task ShouldTransitionTagApprovalAsync()
+        public async Task ShouldTransitionReactionApprovalAsync()
         {
             // given
             string authorUserId = Guid.NewGuid().ToString();
             string reviewerUserId = Guid.NewGuid().ToString();
 
-            CoreTag submittedTag =
-                await this.apiBroker.InsertSubmittedTagAsync(authorUserId);
+            CoreReaction submittedReaction =
+                await this.apiBroker.InsertSubmittedReactionAsync(authorUserId);
 
             Approval approval =
                 await this.apiBroker.InsertSubmittedApprovalAsync(
-                    EntityType.Tag, submittedTag.Id, authorUserId);
+                    EntityType.Reaction, submittedReaction.Id, authorUserId);
 
             ApprovalReview approvalReview =
                 await this.apiBroker.InsertApprovedReviewAsync(approval.Id, reviewerUserId);
 
-            Tag inputTag = await this.apiBroker.GetTagByIdAsync(submittedTag.Id);
-            inputTag.ApprovalStatus = ApprovalStatus.Approved;
-            inputTag.IsPublished = true;
+            Reaction inputReaction = await this.apiBroker.GetReactionByIdAsync(submittedReaction.Id);
+            inputReaction.ApprovalStatus = ApprovalStatus.Approved;
+            inputReaction.IsPublished = true;
 
             try
             {
                 // when
-                Tag actualTag = await this.apiBroker.TransitionTagApprovalAsync(inputTag);
+                Reaction actualReaction = await this.apiBroker.TransitionReactionApprovalAsync(inputReaction);
 
                 // then
-                actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
-                actualTag.IsPublished.Should().BeTrue();
-                actualTag.IsApprovedByBypass.Should().BeFalse();
+                actualReaction.ApprovalStatus.Should().Be(ApprovalStatus.Approved);
+                actualReaction.IsPublished.Should().BeTrue();
+                actualReaction.IsApprovedByBypass.Should().BeFalse();
 
-                CoreTag storedTag = await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id);
-                storedTag.ApprovalStatus.Should().Be(CoreApprovalStatus.Approved);
-                storedTag.IsPublished.Should().BeTrue();
+                CoreReaction storedReaction = await this.apiBroker.GetCoreReactionByIdAsync(submittedReaction.Id);
+                storedReaction.ApprovalStatus.Should().Be(CoreApprovalStatus.Approved);
+                storedReaction.IsPublished.Should().BeTrue();
             }
             finally
             {
@@ -65,44 +65,44 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
                 // a database nothing else resets.
                 await this.apiBroker.RemoveApprovalReviewAsync(approvalReview);
                 await this.apiBroker.RemoveApprovalAsync(approval);
-                await this.apiBroker.RemoveCoreTagAsync(
-                    await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id));
+                await this.apiBroker.RemoveCoreReactionAsync(
+                    await this.apiBroker.GetCoreReactionByIdAsync(submittedReaction.Id));
             }
         }
 
         [Fact]
-        public async Task ShouldRejectTagAsync()
+        public async Task ShouldRejectReactionAsync()
         {
             // given
             string authorUserId = Guid.NewGuid().ToString();
 
-            CoreTag submittedTag =
-                await this.apiBroker.InsertSubmittedTagAsync(authorUserId);
+            CoreReaction submittedReaction =
+                await this.apiBroker.InsertSubmittedReactionAsync(authorUserId);
 
             Approval approval =
                 await this.apiBroker.InsertSubmittedApprovalAsync(
-                    EntityType.Tag, submittedTag.Id, authorUserId);
+                    EntityType.Reaction, submittedReaction.Id, authorUserId);
 
-            Tag inputTag = await this.apiBroker.GetTagByIdAsync(submittedTag.Id);
-            inputTag.ApprovalStatus = ApprovalStatus.Rejected;
+            Reaction inputReaction = await this.apiBroker.GetReactionByIdAsync(submittedReaction.Id);
+            inputReaction.ApprovalStatus = ApprovalStatus.Rejected;
 
             try
             {
                 // when
-                Tag actualTag = await this.apiBroker.TransitionTagApprovalAsync(inputTag);
+                Reaction actualReaction = await this.apiBroker.TransitionReactionApprovalAsync(inputReaction);
 
                 // then
-                actualTag.ApprovalStatus.Should().Be(ApprovalStatus.Rejected);
-                actualTag.IsPublished.Should().BeFalse();
+                actualReaction.ApprovalStatus.Should().Be(ApprovalStatus.Rejected);
+                actualReaction.IsPublished.Should().BeFalse();
 
-                CoreTag storedTag = await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id);
-                storedTag.ApprovalStatus.Should().Be(CoreApprovalStatus.Rejected);
+                CoreReaction storedReaction = await this.apiBroker.GetCoreReactionByIdAsync(submittedReaction.Id);
+                storedReaction.ApprovalStatus.Should().Be(CoreApprovalStatus.Rejected);
             }
             finally
             {
                 await this.apiBroker.RemoveApprovalAsync(approval);
-                await this.apiBroker.RemoveCoreTagAsync(
-                    await this.apiBroker.GetCoreTagByIdAsync(submittedTag.Id));
+                await this.apiBroker.RemoveCoreReactionAsync(
+                    await this.apiBroker.GetCoreReactionByIdAsync(submittedReaction.Id));
             }
         }
     }
