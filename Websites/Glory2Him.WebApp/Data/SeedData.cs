@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System.Data.Common;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Models.Foundations.Roles;
 using Glory2Him.WebApp.Models.Foundations.Users;
@@ -38,22 +39,68 @@ namespace Glory2Him.WebApp.Data
         // what makes a reviewer's write and read reach past their own rows (§14.7 posture A).
         // Both tiers are provisioned: HasReviewRole tests the global Reviewer as well as the
         // entity-scoped one, so seeding only the scoped role would leave half the rule dead.
-        private static readonly string[] CoreRoles = new[]
-        {
-            Roles.Admin,
-            Roles.Reviewer,
-            Roles.Publisher,
-            Roles.TagPublisher,
-            Roles.TagReviewer,
+        //
+        // DERIVED FROM THE ENUM RATHER THAN LISTED. Until the exposers arrived this was a hand
+        // written array, and it had drifted to cover Tag alone — every other entity type's
+        // review, publish and block roles were missing, so their moderation tiers were
+        // unreachable in exactly the way the paragraph above describes, and each new controller
+        // would have had to remember to append three more names to one shared array.
+        //
+        // Deriving is correct here rather than the kind of inference §7.5.1 rule 1 forbids.
+        // That rule bans discovering a row's PUBLICATION MODEL from its runtime shape, where
+        // the shape is not the source of truth. Here the enum IS the source: Roles.ReviewerFor
+        // composes the name from entityType.ToString(), so the set of entity types and the set
+        // of scoped role names are the same fact, and writing them out twice is what lets them
+        // disagree.
+        private static readonly string[] CoreRoles = BuildCoreRoleNames();
 
-            // The block tier (design §18.6): "assigned to users who misbehave, takes precedence
-            // over every other role". The foundation tests for these on every write and on hard
-            // delete, but SeedData is the only place a role can be minted — IIdentityBroker
-            // assigns and never creates — so without these rows the sanction path is code that
-            // can never be reached and an administrator has no way to restrain a contributor.
-            Roles.ReadOnly,
-            Roles.TagReadOnly
-        };
+        // Association is excluded, and its absence is a rule rather than an oversight: it "has
+        // no scoped roles of its own (design §14.7, §18.6) — authorization is derived from its
+        // two endpoint entity types instead", which Roles.cs states at the point where the
+        // Association-* constants would otherwise sit. Seeding Association-Reviewer would mint a
+        // role no gate in the codebase ever asks for, and hand an administrator a grant that
+        // silently does nothing.
+        //
+        // A METHOD, not a static field. As a field it would have to be declared above CoreRoles
+        // to be assigned before the initializer that reads it — static field initializers run in
+        // textual order — and getting that wrong throws inside the type initializer, which
+        // SeedAsync's caller retries and then swallows by design. The seed would simply not
+        // happen, and the portal would come up serving with no roles at all.
+        private static EntityType[] ScopedRoleEntityTypes() =>
+            Enum.GetValues<EntityType>()
+                .Where(entityType => entityType != EntityType.Association)
+                .ToArray();
+
+        private static string[] BuildCoreRoleNames()
+        {
+            var coreRoleNames = new List<string>
+            {
+                Roles.Admin,
+                Roles.Reviewer,
+                Roles.Publisher,
+
+                // The block tier (design §18.6): "assigned to users who misbehave, takes
+                // precedence over every other role". The foundation tests for these on every
+                // write and on hard delete, but SeedData is the only place a role can be minted
+                // — IIdentityBroker assigns and never creates — so without these rows the
+                // sanction path is code that can never be reached and an administrator has no
+                // way to restrain a contributor.
+                Roles.ReadOnly
+            };
+
+            foreach (EntityType entityType in ScopedRoleEntityTypes())
+            {
+                coreRoleNames.Add(Roles.ReadOnlyFor(entityType));
+                coreRoleNames.Add(Roles.ReviewerFor(entityType));
+                coreRoleNames.Add(Roles.PublisherFor(entityType));
+            }
+
+            // Attachment is included even though it has no service yet (§12.4 entry 3). The
+            // vocabulary is the enum's, not the service layer's, and a role that exists before
+            // the entity does grants nothing — whereas one that arrives late leaves the entity
+            // unmoderatable on the day it ships.
+            return coreRoleNames.ToArray();
+        }
 
         public static async Task SeedAsync(IServiceProvider serviceProvider)
         {
