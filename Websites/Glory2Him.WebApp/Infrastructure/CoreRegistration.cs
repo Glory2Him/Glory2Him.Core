@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -171,23 +171,6 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddSingleton<IEventSubscriptionRegistration, EventSubscriptionRegistration>();
 
             return services;
-        }
-
-        /// <summary>
-        /// Brings the event substrate up: registers the participant, every event address, and
-        /// all 109 subscriptions. Idempotent, and safe to call once at startup.
-        /// </summary>
-        /// <remarks>
-        /// Until this call existed the substrate was dormant — every handler on every service
-        /// was unreachable, and the reactive half of the approval workflow did not run at all.
-        /// Calling it is what makes a published fact reach the handler subscribed to it.
-        /// </remarks>
-        public static async Task UseCoreEventSubstrateAsync(this IServiceProvider services)
-        {
-            IEventSubscriptionRegistration registration =
-                services.GetRequiredService<IEventSubscriptionRegistration>();
-
-            await registration.RegisterAsync();
         }
     }
 }

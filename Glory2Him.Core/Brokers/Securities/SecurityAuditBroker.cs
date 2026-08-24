@@ -87,40 +87,6 @@ namespace Glory2Him.Core.Brokers.Securities
         }
 
         /// <summary>
-        /// Applies auditing metadata for an add operation to the specified entity.
-        /// Sets created and updated audit fields based on the current user.
-        /// </summary>
-        /// <typeparam name="T">The type of the entity.</typeparam>
-        /// <param name="entity">The entity to audit.</param>
-        /// <returns>The audited entity with add metadata applied.</returns>
-        public ValueTask<T> ApplyAddAuditValuesAsync<T>(T entity) =>
-            this.securityClient.Audits.ApplyAddAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
-
-        /// <summary>
-        /// Applies auditing metadata for a modify operation to the specified entity.
-        /// Sets updated audit fields based on the current user.
-        /// </summary>
-        /// <typeparam name="T">The type of the entity.</typeparam>
-        /// <param name="entity">The entity to audit.</param>
-        /// <returns>The audited entity with modify metadata applied.</returns>
-        public ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity) =>
-                this.securityClient.Audits.ApplyModifyAuditValuesAsync(entity, claimsPrincipal, securityConfigurations);
-
-        /// <summary>
-        /// Applies auditing metadata for a remove (soft delete) operation to the specified entity.
-        /// </summary>
-        /// <typeparam name="T">The type of the entity.</typeparam>
-        /// <param name="entity">The entity to audit for removal.</param>
-        /// <param name="deletionReason">The reason for the removal, or null to leave it unchanged.</param>
-        /// <returns>The audited entity with remove metadata applied.</returns>
-        public ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity, string? deletionReason = null) =>
-                this.securityClient.Audits.ApplyRemoveAuditValuesAsync(
-                    entity,
-                    claimsPrincipal,
-                    securityConfigurations,
-                    deletionReason);
-
-        /// <summary>
         /// Ensures that add audit values (e.g., created by/date) remain unchanged during modify operations.
         /// </summary>
         /// <typeparam name="T">The type of the entity.</typeparam>
@@ -132,23 +98,6 @@ namespace Glory2Him.Core.Brokers.Securities
             T storageEntity) =>
                 this.securityClient.Audits
                     .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(entity, storageEntity, securityConfigurations);
-
-        /// <summary>
-        /// Retrieves the user identifier from the given claims principal.
-        /// </summary>
-        /// <param name="claimsPrincipal">The user context containing claims.</param>
-        /// <returns>The user identifier string.</returns>
-        /// <remarks>
-        /// If no valid user identifier is found, a fallback (such as <c>"Anonymous"</c>) may be returned.
-        /// </remarks>
-        /// <example>
-        /// <code>
-        /// string userId = await auditClient.GetUserIdAsync(User);
-        /// // e.g. "Alice" or "Anonymous"
-        /// </code>
-        /// </example>
-        public async ValueTask<string> GetUserIdAsync() =>
-            await securityClient.Audits.GetUserIdAsync(claimsPrincipal);
 
         /// <summary>
         /// Applies add audit values as the actor carried on an event envelope's

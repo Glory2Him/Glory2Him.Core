@@ -21,37 +21,6 @@ namespace Glory2Him.Core.Brokers.Securities
     internal interface ISecurityAuditBroker
     {
         /// <summary>
-        /// Applies audit values related to entity creation, such as CreatedBy and CreatedDate,
-        /// using the provided claims principal and security configuration.
-        /// </summary>
-        /// <typeparam name="T">The type of the entity being audited.</typeparam>
-        /// <param name="entity">The entity to which audit values should be applied.</param>
-        /// <returns>A task containing the audited entity.</returns>
-        ValueTask<T> ApplyAddAuditValuesAsync<T>(T entity);
-
-        /// <summary>
-        /// Applies audit values related to entity modification, such as UpdatedBy and UpdatedDate,
-        /// using the provided claims principal and security configuration.
-        /// </summary>
-        /// <typeparam name="T">The type of the entity being audited.</typeparam>
-        /// <param name="entity">The entity to which audit values should be applied.</param>
-        /// <returns>A task containing the audited entity.</returns>
-        ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity);
-
-        /// <summary>
-        /// Applies audit values related to logical deletion, such as UpdatedBy and UpdatedDate,
-        /// using the provided claims principal and security configuration.
-        /// </summary>
-        /// <typeparam name="T">The type of the entity being audited.</typeparam>
-        /// <param name="entity">The entity to which deletion audit values should be applied.</param>
-        /// <param name="deletionReason">
-        /// The reason the entity is being removed, stamped alongside the other deletion audit
-        /// values. When null, any reason already on the entity is left untouched.
-        /// </param>
-        /// <returns>A task containing the entity with deletion audit values.</returns>
-        ValueTask<T> ApplyRemoveAuditValuesAsync<T>(T entity, string? deletionReason = null);
-
-        /// <summary>
         /// Ensures that audit values related to entity creation remain unchanged during modification,
         /// copying them from the stored version of the entity to the current one.
         /// </summary>
@@ -62,22 +31,6 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity);
-
-        /// <summary>
-        /// Retrieves the user identifier from the given claims principal.
-        /// </summary>
-        /// <param name="claimsPrincipal">The user context containing claims.</param>
-        /// <returns>The user identifier string.</returns>
-        /// <remarks>
-        /// If no valid user identifier is found, a fallback (such as <c>"Anonymous"</c>) may be returned.
-        /// </remarks>
-        /// <example>
-        /// <code>
-        /// string userId = await auditClient.GetUserIdAsync(User);
-        /// // e.g. "Alice" or "Anonymous"
-        /// </code>
-        /// </example>
-        ValueTask<string> GetUserIdAsync();
 
         /// <summary>
         /// Applies add audit values as the actor carried on an event envelope's
