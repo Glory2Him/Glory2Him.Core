@@ -150,12 +150,10 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         /// caller-supplied payload instead would let one group's approval unpublish another
         /// group's live row.</para>
         ///
-        /// <para>A gated probe rather than a filtered read, following the §14.6 pattern
-        /// <see cref="FindPublishedContentItemIdByGroupAsync(System.Guid, System.Guid,
-        /// System.Threading.CancellationToken)"/> already follows: filtered reads for entities,
-        /// gated probes for the single cross-row facts a write flow needs. Only an id crosses
-        /// back, to a caller already admitted to contribute — revealing nothing they could not
-        /// infer from the group having a published version.</para>
+        /// <para>A gated probe rather than a filtered read, following the §14.6 pattern:
+        /// filtered reads for entities, gated probes for the single cross-row facts a write
+        /// flow needs. Only an id crosses back, to a caller already admitted to contribute —
+        /// revealing nothing they could not infer from the group having a published version.</para>
         ///
         /// <para>Deliberately does not drop soft-deleted incumbents: a tombstone that kept
         /// <c>IsPublished</c> still occupies the slot (§9.7.7 rule 7). A missing or
@@ -164,43 +162,6 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         /// </summary>
         internal ValueTask<Guid?> FindPublishedSiblingContentItemIdAsync(
             Guid contentItemId,
-            EventEnvelope<ContentItem> inboundEnvelope,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// The id of the row currently holding this group's published slot, if any, over the
-        /// UNFILTERED store — or <c>null</c> when the slot is free.
-        ///
-        /// <para>The publication swap cannot use the caller-facing collection read: that applies
-        /// the visibility filter, which drops soft-deleted rows. A soft delete never clears
-        /// <c>IsPublished</c> and the slot index names that column alone, so a tombstone still
-        /// occupies the slot while being invisible to every ordinary read. A filtered probe would
-        /// report no incumbent, the demote would be skipped, and the promote would be refused by
-        /// the unique index — permanently, for every future approval in the group
-        /// (design §9.7.7 rule 7).</para>
-        ///
-        /// <para>Only an id crosses back, following the §14.6 pattern of filtered reads for
-        /// entities and gated probes for cross-row facts.</para>
-        /// </summary>
-        ValueTask<Guid?> FindPublishedContentItemIdByGroupAsync(
-            Guid groupId,
-            Guid excludedContentItemId,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// The publication swap's route into <see cref="FindPublishedContentItemIdByGroupAsync(
-        /// System.Guid, System.Guid, System.Threading.CancellationToken)"/>, taking the envelope
-        /// the swap is acting under so the contribution gate runs against the SAME actor the
-        /// swap's writes are authorised against.
-        ///
-        /// <para>The parameterless form anchors its gate on a freshly minted context, which
-        /// reads the ambient caller. On the substrate path that is whoever published the
-        /// triggering fact, not the actor the signature verified — so the probe could refuse
-        /// a swap whose writes are permitted, or admit one whose writes are not.</para>
-        /// </summary>
-        internal ValueTask<Guid?> FindPublishedContentItemIdByGroupAsync(
-            Guid groupId,
-            Guid excludedContentItemId,
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken = default);
 

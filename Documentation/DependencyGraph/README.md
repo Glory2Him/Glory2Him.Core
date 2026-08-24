@@ -114,7 +114,7 @@ view you were on, and switching carries your current selection across.
   each processing service now points at `FindHighestVersionInGroupAsync`.
 - **The publication swap lives in the processing tier.** `CIP` and `LP` each
   gained `OnApproving<Entity>Async`, which clears the group's published slot
-  through `FindPublished<Entity>IdByGroupAsync` + `Unpublish<Entity>ByIdAsync`
+  through `FindPublishedSibling<Entity>IdAsync` + `Unpublish<Entity>ByIdAsync`
   before forwarding the promote to `Transition<Entity>ApprovalAsync`, then
   publishes its own `<Entity>Processing-Approved` fact. That handler has no
   public counterpart on the interface, so — uniquely — its publish and its

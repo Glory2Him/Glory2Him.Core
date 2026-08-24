@@ -583,7 +583,7 @@ components:
       - SubmitContentItemByIdAsync
       - TransitionContentItemApprovalAsync
       - UnpublishContentItemByIdAsync
-      - FindPublishedContentItemIdByGroupAsync
+      - FindPublishedSiblingContentItemIdAsync
       - FindHighestVersionInGroupAsync
     calls:
       - from: AddContentItemAsync
@@ -1435,7 +1435,7 @@ components:
       - SubmitLinkByIdAsync
       - TransitionLinkApprovalAsync
       - UnpublishLinkByIdAsync
-      - FindPublishedLinkIdByGroupAsync
+      - FindPublishedSiblingLinkIdAsync
       - FindHighestVersionInGroupAsync
     calls:
       - from: AddLinkAsync

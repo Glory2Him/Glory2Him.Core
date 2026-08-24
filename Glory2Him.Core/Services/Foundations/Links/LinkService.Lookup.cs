@@ -21,88 +21,6 @@ namespace Glory2Him.Core.Services.Foundations.Links
 {
     internal partial class LinkService
     {
-        public ValueTask<Guid?> FindPublishedLinkIdByGroupAsync(
-            Guid groupId,
-            Guid excludedLinkId,
-            CancellationToken cancellationToken = default) =>
-            TryCatchIdentifier(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // The probe carries no entity, so the request exists only to anchor the ambient
-                // security context the contribution gate runs against — a write-flow primitive,
-                // not a public read. Same shape the approval probe uses.
-                var findRequest = new Link { GroupId = groupId };
-
-                EventEnvelope<Link> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: findRequest);
-
-                return await DoFindPublishedLinkIdByGroupAsync(
-                    groupId: groupId,
-                    excludedLinkId: excludedLinkId,
-                    inboundEnvelope: envelope,
-                    cancellationToken: cancellationToken);
-            });
-
-        public ValueTask<Guid?> FindPublishedLinkIdByGroupAsync(
-            Guid groupId,
-            Guid excludedLinkId,
-            EventEnvelope<Link> inboundEnvelope,
-            CancellationToken cancellationToken = default) =>
-            TryCatchIdentifier(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // Chained off the swap's envelope rather than minted, so the contribution gate
-                // below runs against the actor the signature verified — the same one the swap's
-                // demote and promote are authorised against.
-                EventEnvelope<Link> findEnvelope =
-                    await this.eventEnvelopeBroker.CreateNextAsync(
-                        sourceEnvelope: inboundEnvelope,
-                        content: new Link { GroupId = groupId });
-
-                return await DoFindPublishedLinkIdByGroupAsync(
-                    groupId: groupId,
-                    excludedLinkId: excludedLinkId,
-                    inboundEnvelope: findEnvelope,
-                    cancellationToken: cancellationToken);
-            });
-
-        // Both entry paths converge here, so the gate and the unfiltered probe cannot diverge
-        // between the ambient caller's route and the publication swap's.
-        private async ValueTask<Guid?> DoFindPublishedLinkIdByGroupAsync(
-            Guid groupId,
-            Guid excludedLinkId,
-            EventEnvelope<Link> inboundEnvelope,
-            CancellationToken cancellationToken)
-        {
-            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
-            ValidateOnFindPublishedLinkByGroup(groupId);
-
-            // Deliberately UNFILTERED, and this is the whole reason the probe exists rather
-            // than the publication swap reusing RetrieveAllLinksAsync. That read applies the
-            // visibility filter, whose first clause drops IsDeleted rows — but a soft delete
-            // never clears IsPublished, and the slot index names that column ALONE. So a
-            // tombstone still occupies the group's published slot while being invisible to
-            // every caller-facing read.
-            //
-            // A filtered probe therefore reports "no incumbent", the swap skips the demote,
-            // and the promote is refused by the unique index — permanently, for every future
-            // approval in that group (§9.7.7 rule 7).
-            //
-            // Only an id crosses back. That reveals nothing a caller could not already infer
-            // from the group having a published version.
-            IQueryable<Link> allLinks =
-                await this.storageBroker.SelectAllLinksAsync(cancellationToken);
-
-            Link? publishedLink = allLinks.FirstOrDefault(link =>
-                link.GroupId == groupId
-                    && link.IsPublished
-                    && link.Id != excludedLinkId);
-
-            return publishedLink?.Id;
-        }
-
         public ValueTask<int> FindHighestVersionInGroupAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
@@ -157,6 +75,13 @@ namespace Glory2Him.Core.Services.Foundations.Links
             TryCatchIdentifier(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+
+                // The envelope is READ, not chained. Every other envelope-taking entry point
+                // on this service calls CreateNextAsync first, because each of them writes and
+                // publishes a fact that has to hang off the caller's causation link. This one
+                // publishes nothing and records no ProcessedEvents row, so there is no link to
+                // extend — minting a successor here would only produce an envelope used for the
+                // SecurityContext already in hand.
                 ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
                 ValidateOnFindPublishedSiblingLink(linkId);
 

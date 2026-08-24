@@ -1309,14 +1309,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             return contentItem;
         }
 
-        // The two reads the probe makes: the target row, whose GroupId is read from STORAGE
-        // rather than from the caller's copy, and the collection it is matched against.
+        // Stubs the swap's single gated probe. The incumbent is resolved here the way the
+        // real probe resolves it — published, same group as the STORED target, not the
+        // target itself — and DELIBERATELY without dropping soft-deleted rows, because a
+        // tombstone that kept IsPublished still holds the slot. The probe's own predicate
+        // is pinned in the foundation Lookup tests; this helper only feeds the swap.
         private void SetupPublicationSwapProbe(
             Guid targetContentItemId,
             ContentItem storageTargetContentItem,
             List<ContentItem> groupRows)
         {
-
             // The swap probes through the UNFILTERED lookup, so the stub resolves the
             // incumbent the way that probe does — published, same group, not the
             // target — and DELIBERATELY does not drop soft-deleted rows. Stubbing

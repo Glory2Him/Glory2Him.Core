@@ -52,9 +52,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             SetupProbeStore(tombstone, target);
 
             // when
-            Guid? actualId = await this.contentItemService.FindPublishedContentItemIdByGroupAsync(
-                groupId: groupId,
-                excludedContentItemId: targetId,
+            Guid? actualId = await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
                 cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -76,9 +76,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     id: targetId, groupId: groupId, isPublished: false, isDeleted: false));
 
             // when
-            Guid? actualId = await this.contentItemService.FindPublishedContentItemIdByGroupAsync(
-                groupId: groupId,
-                excludedContentItemId: targetId,
+            Guid? actualId = await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
                 cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -114,9 +114,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                     id: incumbentId, groupId: groupId, isPublished: true, isDeleted: false));
 
             // when
-            Guid? actualId = await this.contentItemService.FindPublishedContentItemIdByGroupAsync(
-                groupId: groupId,
-                excludedContentItemId: targetId,
+            Guid? actualId = await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
                 cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -131,9 +131,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
             // when
             ValueTask<Guid?> probeTask =
-                this.contentItemService.FindPublishedContentItemIdByGroupAsync(
-                    groupId: invalidGroupId,
-                    excludedContentItemId: Guid.NewGuid(),
+                this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                    contentItemId: invalidGroupId,
+                    inboundEnvelope: CreateProbeEnvelope(invalidGroupId),
                     cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -202,10 +202,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             actualHighestVersion.Should().Be(0);
         }
 
-        private void SetupProbeStore(params ContentItem[] rows) =>
+        // The probe resolves its target by id and then reads the whole store, so the stub
+        // answers both. Every row goes into SelectXByIdAsync as well, which is what lets a
+        // ported test name any of them as the target.
+        private void SetupProbeStore(params ContentItem[] rows)
+        {
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(rows.AsQueryable());
+
+            foreach (ContentItem row in rows)
+            {
+                ContentItem captured = row;
+
+                this.storageBrokerMock.Setup(broker =>
+                    broker.SelectContentItemByIdAsync(captured.Id, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(captured);
+            }
+        }
+
+        // The workflow's own envelope: authenticated, system identity, and NO roles — exactly
+        // what CreateSystemAsync hands the swap.
+        private static EventEnvelope<ContentItem> CreateProbeEnvelope(Guid contentItemId) =>
+            new EventEnvelope<ContentItem>
+            {
+                Content = new ContentItem { Id = contentItemId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    Roles = []
+                }
+            };
 
         private static ContentItem CreateProbeRow(
             Guid id,
@@ -221,6 +251,75 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 IsDeleted = isDeleted,
                 ApprovalStatus = ApprovalStatus.Approved,
             };
+
+        [Fact]
+        public async Task ShouldRefuseTheSiblingProbeForABlockedCallerAsync()
+        {
+            // given: the contribution gate is the probe's ONLY authorization check, and the
+            // probe reads over the UNFILTERED store — so if the gate goes, a blocked caller
+            // learns which row holds a group's published slot, tombstones included. Deleting
+            // the gate left the whole suite green before this test existed.
+            var targetId = Guid.Parse("ab000000-3333-3333-3333-333333333333");
+
+            var blockedEnvelope = new EventEnvelope<ContentItem>
+            {
+                Content = new ContentItem { Id = targetId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    Roles = [Roles.ReadOnly]
+                }
+            };
+
+            // when
+            ValueTask<Guid?> probeTask = this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: blockedEnvelope,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<ContentItemValidationException>(probeTask.AsTask);
+
+            // refused BEFORE any read — the gate is not a filter applied to results
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnSiblingProbeIfTargetIsMissingAsync()
+        {
+            // given: the case the NotFound clause was added to TryCatchIdentifier for. Without
+            // that clause this surfaces as a service exception — "our code is broken" — rather
+            // than the validation failure it is.
+            var targetId = Guid.Parse("ab111111-3333-3333-3333-333333333333");
+            ContentItem missingContentItem = null;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(targetId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(missingContentItem);
+
+            // when
+            ValueTask<Guid?> probeTask = this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<ContentItemValidationException>(probeTask.AsTask);
+
+            // and it never went on to read the store for an incumbent
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllContentItemsAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
 
         // ── the publication swap's probe (#291) ─────────────────────────────────────
         // The swap arrives on the workflow's system identity: CreateSystemAsync keeps the
