@@ -437,6 +437,13 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidLinkException);
             }
+            // The publication swap's probe resolves its target from the stored row, so a
+            // missing or tombstoned target reaches here. Without this clause it falls to the
+            // general handler and a legitimate not-found is reported as "our code is broken".
+            catch (NotFoundLinkException notFoundLinkException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(notFoundLinkException);
+            }
             catch (SqlException sqlException)
             {
                 var failedStorageLinkException =

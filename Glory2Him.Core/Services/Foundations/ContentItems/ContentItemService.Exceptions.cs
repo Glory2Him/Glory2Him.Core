@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -492,6 +492,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 throw await CreateAndLogValidationExceptionAsync(
                     exception: invalidContentItemException);
+            }
+            // The publication swap's probe resolves its target from the stored row, so a
+            // missing or tombstoned target reaches here. Without this clause it falls to the
+            // general handler and a legitimate not-found is reported as "our code is broken".
+            catch (NotFoundContentItemException notFoundContentItemException)
+            {
+                throw await CreateAndLogValidationExceptionAsync(notFoundContentItemException);
             }
             catch (SqlException sqlException)
             {

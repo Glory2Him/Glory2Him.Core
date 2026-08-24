@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -111,6 +111,99 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             capturedOnPromote.SecurityContext.IsSystemIdentity.Should().BeTrue();
 
             // and nothing minted a fresh context on this path
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<ContentItem>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<ContentItem>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldDecideEverySwapCallAgainstTheSameActorOnApprovingContentItemAsync()
+        {
+            // given: every call the swap makes is an identity decision, and they must all be
+            // decided against ONE actor. The two writes carried the verified envelope from the
+            // start; resolving the group used to go through the caller-FILTERED read, which
+            // mints from the ambient caller — so half the operation was decided against whoever
+            // happened to be on the thread (#291).
+            //
+            // Forwarding the envelope into that filtered read does NOT fix it: the swap runs on
+            // the workflow's system identity, which has no roles and is not the row's owner, so
+            // the filtered read answers not-found. The gated probe is what accepts it, and the
+            // foundation Lookup tests pin that half.
+            Guid targetContentItemId = Guid.Parse("dddddddd-1111-1111-1111-111111111111");
+            Guid incumbentContentItemId = Guid.Parse("dddddddd-2222-2222-2222-222222222222");
+            Guid groupId = Guid.Parse("dddddddd-3333-3333-3333-333333333333");
+
+            ContentItem promoteCommand = CreatePublicationSwapPromoteCommand(targetContentItemId);
+
+            EventEnvelope<ContentItem> inboundEnvelope =
+                CreatePublicationSwapEnvelope(promoteCommand);
+
+            ContentItem storageTargetContentItem = CreatePublicationSwapRow(
+                contentItemId: targetContentItemId, groupId: groupId, isPublished: false);
+
+            ContentItem incumbentContentItem = CreatePublicationSwapRow(
+                contentItemId: incumbentContentItemId, groupId: groupId, isPublished: true);
+
+            ContentItem promotedContentItem = storageTargetContentItem.DeepClone();
+            promotedContentItem.IsPublished = true;
+            promotedContentItem.ApprovalStatus = ApprovalStatus.Approved;
+
+            EventEnvelope<ContentItem> capturedOnProbe = null;
+            EventEnvelope<ContentItem> capturedOnUnpublish = null;
+            EventEnvelope<ContentItem> capturedOnPromote = null;
+
+            this.contentItemServiceMock.Setup(service =>
+                service.FindPublishedSiblingContentItemIdAsync(
+                    targetContentItemId,
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Guid, EventEnvelope<ContentItem>, CancellationToken>(
+                            (_, envelope, _) => capturedOnProbe = envelope)
+                        .ReturnsAsync(incumbentContentItemId);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.UnpublishContentItemByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Guid, EventEnvelope<ContentItem>, CancellationToken>(
+                            (_, envelope, _) => capturedOnUnpublish = envelope)
+                        .ReturnsAsync(incumbentContentItem);
+
+            this.contentItemServiceMock.Setup(service =>
+                service.TransitionContentItemApprovalAsync(
+                    It.IsAny<ContentItem>(),
+                    It.IsAny<EventEnvelope<ContentItem>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<ContentItem, EventEnvelope<ContentItem>, CancellationToken>(
+                            (_, envelope, _) => capturedOnPromote = envelope)
+                        .ReturnsAsync(promotedContentItem);
+
+            SetupPublicationSwapReply(inboundEnvelope, promotedContentItem);
+
+            // when
+            await this.contentItemProcessingService.OnApprovingContentItemAsync(
+                inboundEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then: the SAME instance reaches all three, the probe included
+            capturedOnProbe.Should().BeSameAs(inboundEnvelope);
+            capturedOnUnpublish.Should().BeSameAs(inboundEnvelope);
+            capturedOnPromote.Should().BeSameAs(inboundEnvelope);
+
+            // and the caller-FILTERED read is not on this path at all. Without this the test
+            // passes on a service that resolves the group through the ambient caller again.
+            this.contentItemServiceMock.Verify(service =>
+                service.RetrieveContentItemByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // nothing minted a fresh context anywhere on this path
             this.eventEnvelopeBrokerMock.Verify(broker =>
                 broker.CreateAsync(It.IsAny<ContentItem>()),
                 Times.Never);
@@ -592,15 +685,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             actualEnvelope.Should().BeSameAs(replyEnvelope);
 
             this.contentItemServiceMock.Verify(service =>
-                service.FindPublishedContentItemIdByGroupAsync(
+                service.FindPublishedSiblingContentItemIdAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.contentItemServiceMock.Verify(service =>
-                service.RetrieveContentItemByIdAsync(
-                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<ContentItem>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -922,8 +1009,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     innerException: (dependencyValidationException.InnerException as Xeption)!);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(
+                service.FindPublishedSiblingContentItemIdAsync(
                     It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<ContentItem>>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(dependencyValidationException);
 
@@ -1037,8 +1125,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     innerException: timeoutContentItemProcessingException);
 
             this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(
+                service.FindPublishedSiblingContentItemIdAsync(
                     targetContentItemId,
+                    It.IsAny<EventEnvelope<ContentItem>>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
 
@@ -1127,20 +1216,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     innerException: failedContentItemProcessingServiceException);
 
             this.contentItemServiceMock.Setup(service =>
-                service.FindPublishedContentItemIdByGroupAsync(
+                service.FindPublishedSiblingContentItemIdAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<ContentItem>>(),
                     It.IsAny<CancellationToken>()))
                     .ThrowsAsync(serviceException);
-
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(
-                    targetContentItemId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(CreatePublicationSwapRow(
-                            contentItemId: targetContentItemId,
-                            groupId: Guid.Parse("f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0"),
-                            isPublished: false));
 
             // when
             ValueTask<EventEnvelope<ContentItem>?> onApprovingContentItemTask =
@@ -1236,11 +1316,6 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             ContentItem storageTargetContentItem,
             List<ContentItem> groupRows)
         {
-            this.contentItemServiceMock.Setup(service =>
-                service.RetrieveContentItemByIdAsync(
-                    targetContentItemId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(storageTargetContentItem);
 
             // The swap probes through the UNFILTERED lookup, so the stub resolves the
             // incumbent the way that probe does — published, same group, not the
@@ -1253,9 +1328,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                     && contentItem.Id != storageTargetContentItem.Id);
 
             this.contentItemServiceMock.Setup(service =>
-                service.FindPublishedContentItemIdByGroupAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
+                service.FindPublishedSiblingContentItemIdAsync(
+                    targetContentItemId,
+                    It.IsAny<EventEnvelope<ContentItem>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(incumbent?.Id);
         }

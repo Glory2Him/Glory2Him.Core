@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,6 +14,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 using Glory2Him.Core.Models.Foundations.Links;
 
 namespace Glory2Him.Core.Services.Foundations.Links
@@ -36,32 +37,71 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 EventEnvelope<Link> envelope =
                     await this.eventEnvelopeBroker.CreateAsync(content: findRequest);
 
-                ValidateUserIsAllowedToContribute(envelope.SecurityContext);
-                ValidateOnFindPublishedLinkByGroup(groupId);
-
-                // Deliberately UNFILTERED, and this is the whole reason the probe exists rather
-                // than the publication swap reusing RetrieveAllLinksAsync. That read applies the
-                // visibility filter, whose first clause drops IsDeleted rows — but a soft delete
-                // never clears IsPublished, and the slot index names that column ALONE. So a
-                // tombstone still occupies the group's published slot while being invisible to
-                // every caller-facing read.
-                //
-                // A filtered probe therefore reports "no incumbent", the swap skips the demote,
-                // and the promote is refused by the unique index — permanently, for every future
-                // approval in that group (§9.7.7 rule 7).
-                //
-                // Only an id crosses back. That reveals nothing a caller could not already infer
-                // from the group having a published version.
-                IQueryable<Link> allLinks =
-                    await this.storageBroker.SelectAllLinksAsync(cancellationToken);
-
-                Link? publishedLink = allLinks.FirstOrDefault(link =>
-                    link.GroupId == groupId
-                        && link.IsPublished
-                        && link.Id != excludedLinkId);
-
-                return publishedLink?.Id;
+                return await DoFindPublishedLinkIdByGroupAsync(
+                    groupId: groupId,
+                    excludedLinkId: excludedLinkId,
+                    inboundEnvelope: envelope,
+                    cancellationToken: cancellationToken);
             });
+
+        public ValueTask<Guid?> FindPublishedLinkIdByGroupAsync(
+            Guid groupId,
+            Guid excludedLinkId,
+            EventEnvelope<Link> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchIdentifier(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Chained off the swap's envelope rather than minted, so the contribution gate
+                // below runs against the actor the signature verified — the same one the swap's
+                // demote and promote are authorised against.
+                EventEnvelope<Link> findEnvelope =
+                    await this.eventEnvelopeBroker.CreateNextAsync(
+                        sourceEnvelope: inboundEnvelope,
+                        content: new Link { GroupId = groupId });
+
+                return await DoFindPublishedLinkIdByGroupAsync(
+                    groupId: groupId,
+                    excludedLinkId: excludedLinkId,
+                    inboundEnvelope: findEnvelope,
+                    cancellationToken: cancellationToken);
+            });
+
+        // Both entry paths converge here, so the gate and the unfiltered probe cannot diverge
+        // between the ambient caller's route and the publication swap's.
+        private async ValueTask<Guid?> DoFindPublishedLinkIdByGroupAsync(
+            Guid groupId,
+            Guid excludedLinkId,
+            EventEnvelope<Link> inboundEnvelope,
+            CancellationToken cancellationToken)
+        {
+            ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+            ValidateOnFindPublishedLinkByGroup(groupId);
+
+            // Deliberately UNFILTERED, and this is the whole reason the probe exists rather
+            // than the publication swap reusing RetrieveAllLinksAsync. That read applies the
+            // visibility filter, whose first clause drops IsDeleted rows — but a soft delete
+            // never clears IsPublished, and the slot index names that column ALONE. So a
+            // tombstone still occupies the group's published slot while being invisible to
+            // every caller-facing read.
+            //
+            // A filtered probe therefore reports "no incumbent", the swap skips the demote,
+            // and the promote is refused by the unique index — permanently, for every future
+            // approval in that group (§9.7.7 rule 7).
+            //
+            // Only an id crosses back. That reveals nothing a caller could not already infer
+            // from the group having a published version.
+            IQueryable<Link> allLinks =
+                await this.storageBroker.SelectAllLinksAsync(cancellationToken);
+
+            Link? publishedLink = allLinks.FirstOrDefault(link =>
+                link.GroupId == groupId
+                    && link.IsPublished
+                    && link.Id != excludedLinkId);
+
+            return publishedLink?.Id;
+        }
 
         public ValueTask<int> FindHighestVersionInGroupAsync(
             Guid groupId,
@@ -103,5 +143,54 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     : groupVersions.Max();
             });
 
+
+
+        // The swap's single probe, replacing a caller-FILTERED read plus a group lookup. Gated
+        // and unfiltered, it resolves the target's group off the stored row and returns the
+        // incumbent holding that group's slot. The gate is the same contribution check its
+        // sibling runs, and it admits the workflow's system identity because that check blocks
+        // roles rather than requiring them (#291).
+        public ValueTask<Guid?> FindPublishedSiblingLinkIdAsync(
+            Guid linkId,
+            EventEnvelope<Link> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchIdentifier(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+                ValidateOnFindPublishedSiblingLink(linkId);
+
+                // The group comes from the STORED row. A caller-supplied GroupId would let one
+                // group's approval unpublish another group's live row.
+                Link maybeLink = await this.storageBroker.SelectLinkByIdAsync(
+                    linkId: linkId,
+                    cancellationToken: cancellationToken);
+
+                ValidateStorageLink(maybeLink, linkId);
+
+                if (maybeLink.IsDeleted)
+                {
+                    throw new NotFoundLinkException(
+                        message: $"Link not found with id: {linkId}.");
+                }
+
+                IQueryable<Link> allLinks =
+                    await this.storageBroker.SelectAllLinksAsync(cancellationToken);
+
+                // UNFILTERED on the incumbent side too: a soft delete never clears
+                // IsPublished and the slot index names that column alone, so a tombstone still
+                // holds the slot. Skipping it would leave the group permanently unpublishable.
+                Link? publishedLink = allLinks.FirstOrDefault(link =>
+                    link.GroupId == maybeLink.GroupId
+                        && link.IsPublished
+                        && link.Id != linkId);
+
+                return publishedLink?.Id;
+            });
+
+        private static void ValidateOnFindPublishedSiblingLink(Guid linkId) =>
+            Validate(
+                message: "Link is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(linkId), Parameter: nameof(Link.Id)));
     }
 }

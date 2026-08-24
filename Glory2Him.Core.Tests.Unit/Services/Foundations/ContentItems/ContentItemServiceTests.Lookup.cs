@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -16,6 +16,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Moq;
@@ -219,5 +221,99 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 IsDeleted = isDeleted,
                 ApprovalStatus = ApprovalStatus.Approved,
             };
+
+        // ── the publication swap's probe (#291) ─────────────────────────────────────
+        // The swap arrives on the workflow's system identity: CreateSystemAsync keeps the
+        // original caller's SubjectId but DROPS their roles. Handed to the caller-facing
+        // RetrieveContentItemByIdAsync that actor is refused — the target is mid-promotion so not
+        // publicly visible, and a role-less non-owner is neither owner nor review-role holder.
+        // These pin that the probe admits it instead, which is the whole reason the swap uses a
+        // gated probe rather than a filtered read.
+        [Fact]
+        public async Task ShouldFindThePublishedSiblingForAnActorWhoIsNeitherOwnerNorReviewerAsync()
+        {
+            // given
+            var groupId = Guid.Parse("cc000000-1111-1111-1111-111111111111");
+            var incumbentId = Guid.Parse("cc000000-2222-2222-2222-222222222222");
+            var targetId = Guid.Parse("cc000000-3333-3333-3333-333333333333");
+
+            ContentItem target = CreateProbeRow(
+                id: targetId, groupId: groupId, isPublished: false, isDeleted: false);
+
+            target.CreatedBy = "someone-else-entirely";
+
+            ContentItem incumbent = CreateProbeRow(
+                id: incumbentId, groupId: groupId, isPublished: true, isDeleted: false);
+
+            // exactly what CreateSystemAsync produces — no roles, and a subject that is the
+            // deciding reviewer rather than the row's owner
+            var systemEnvelope = new EventEnvelope<ContentItem>
+            {
+                Content = new ContentItem { Id = targetId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    SubjectId = "the-deciding-reviewer",
+                    Roles = []
+                }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(targetId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(target);
+
+            SetupProbeStore(target, incumbent);
+
+            // when
+            Guid? actualId = await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: systemEnvelope,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualId.Should().Be(incumbentId);
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnFindPublishedSiblingIfTargetIsSoftDeletedAsync()
+        {
+            // given: a tombstone has no group membership to promote into. Note this is the
+            // TARGET being deleted — an incumbent tombstone still holds the slot and must
+            // still be found, which the sibling test above pins.
+            var groupId = Guid.Parse("cc111111-1111-1111-1111-111111111111");
+            var targetId = Guid.Parse("cc111111-3333-3333-3333-333333333333");
+
+            ContentItem deletedTarget = CreateProbeRow(
+                id: targetId, groupId: groupId, isPublished: false, isDeleted: true);
+
+            var systemEnvelope = new EventEnvelope<ContentItem>
+            {
+                Content = new ContentItem { Id = targetId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    Roles = []
+                }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemByIdAsync(targetId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(deletedTarget);
+
+            // when
+            ValueTask<Guid?> probeTask = this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                contentItemId: targetId,
+                inboundEnvelope: systemEnvelope,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<ContentItemValidationException>(probeTask.AsTask);
+        }
     }
 }

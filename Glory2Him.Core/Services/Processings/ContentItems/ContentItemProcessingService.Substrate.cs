@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -159,22 +159,23 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             EventEnvelope<ContentItem> inboundEnvelope,
             CancellationToken cancellationToken)
         {
-            // The group is read from the STORED row. A caller-supplied GroupId would let one
-            // group's approval unpublish another group's live row.
-            ContentItem targetContentItem =
-                await this.contentItemService.RetrieveContentItemByIdAsync(
-                    contentItemId: contentItemId,
-                    cancellationToken: cancellationToken);
-
-            // Through the UNFILTERED probe, not the collection read. The collection
-            // read applies the visibility filter, which drops soft-deleted rows —
-            // and a tombstone that kept IsPublished still holds the slot. Probing
-            // through a filtered read would skip it and leave the group permanently
-            // unpublishable (§9.7.7 rule 7).
+            // ONE gated probe, not a caller-filtered read plus a group lookup. The swap
+            // acts on the workflow's system identity, which CreateSystemAsync leaves with no
+            // roles and a SubjectId that is the deciding reviewer rather than the row's owner.
+            // Passed to the caller-facing read that identity is refused outright — the row is
+            // mid-promotion, so not publicly visible, and the actor is neither owner nor
+            // review-role holder. Forwarding a correct identity into a filtered read is what
+            // breaks; the write flow needs a gated probe instead (#291, design §14.6).
+            //
+            // The group is still resolved from the STORED row: a caller-supplied GroupId would
+            // let one group's approval unpublish another group's live row. The probe is
+            // UNFILTERED on the incumbent side, because a tombstone that kept IsPublished still
+            // holds the slot and skipping it leaves the group permanently unpublishable
+            // (§9.7.7 rule 7).
             Guid? incumbentId =
-                await this.contentItemService.FindPublishedContentItemIdByGroupAsync(
-                    groupId: targetContentItem.GroupId,
-                    excludedContentItemId: targetContentItem.Id,
+                await this.contentItemService.FindPublishedSiblingContentItemIdAsync(
+                    contentItemId: contentItemId,
+                    inboundEnvelope: inboundEnvelope,
                     cancellationToken: cancellationToken);
 
             if (incumbentId is null)
