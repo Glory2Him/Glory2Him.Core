@@ -85,7 +85,10 @@
       "ILoggingBroker"
     ],
     "can_call_other_services": false,
-    "dual_path_required": true,
+    "dual_path_required_for": ["Adding", "Modifying", "RemovingById", "HardRemovingById", "RetrievingById"],
+    "dual_path_excluded": {
+      "RetrieveAll{Entity}sAsync": "No request address, no handler, no DoXAsync. It mints an envelope only to capture the caller for the visibility filter, and does its work inline. Do not add an OnRetrievingAll handler."
+    },
     "processed_events_dedup_required_on_mutations": true
   }
 }

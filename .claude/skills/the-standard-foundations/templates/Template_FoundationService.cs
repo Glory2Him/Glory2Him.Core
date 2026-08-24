@@ -22,7 +22,10 @@
 // THE ARCHITECTURE THIS TEMPLATE SCAFFOLDS
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Every operation is reachable two ways, and both converge on ONE private method:
+// Every ADDRESSED operation — Adding, Modifying, RemovingById, HardRemovingById,
+// RetrievingById — is reachable two ways, and both converge on ONE private method.
+// RetrieveAll is the deliberate exception: no address, no handler, no DoXAsync (see
+// the note on it in Section 5).
 //
 //   non-event path   {Entity}Service.cs
 //                    public AddXAsync(entity)
@@ -341,10 +344,11 @@ using {Namespace}.Models.Securities;
 namespace {Namespace}.Services.Foundations.{Entity}s
 {
     /// <summary>
-    /// Foundation service for {entity display}s. Every operation is both callable directly (the
-    /// non-event path: object in → request envelope → shared do-work) and reachable through
-    /// the event substrate (the event path in the <c>.Substrate</c> partial: request envelope
-    /// in → shared do-work). The private <c>DoXAsync</c> methods own auditing, validation,
+    /// Foundation service for {entity display}s. Every addressed operation is both callable
+    /// directly (the non-event path: object in → request envelope → shared do-work) and
+    /// reachable through the event substrate (the event path in the <c>.Substrate</c> partial:
+    /// request envelope in → shared do-work); <c>RetrieveAll{Entity}sAsync</c> is the exception,
+    /// having no address and doing its work inline. The private <c>DoXAsync</c> methods own auditing, validation,
     /// storage, and publishing the past-tense fact, so the two paths cannot diverge; the
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — never
