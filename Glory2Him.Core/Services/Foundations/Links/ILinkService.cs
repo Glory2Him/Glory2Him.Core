@@ -105,23 +105,32 @@ namespace Glory2Him.Core.Services.Foundations.Links
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// The id of the row currently holding this group's published slot, if any, over the
-        /// UNFILTERED store — or <c>null</c> when the slot is free.
+        /// The id of the row holding the published slot of <paramref name="linkId"/>'s own
+        /// group, excluding that row itself — or <c>null</c> when the slot is free. The
+        /// publication swap's single probe: it resolves the group and the incumbent in one
+        /// gated call, over the UNFILTERED store.
         ///
-        /// <para>The publication swap cannot use the caller-facing collection read: that applies
-        /// the visibility filter, which drops soft-deleted rows. A soft delete never clears
-        /// <c>IsPublished</c> and the slot index names that column alone, so a tombstone still
-        /// occupies the slot while being invisible to every ordinary read. A filtered probe would
-        /// report no incumbent, the demote would be skipped, and the promote would be refused by
-        /// the unique index — permanently, for every future approval in the group
-        /// (design §9.7.7 rule 7).</para>
+        /// <para>The swap cannot resolve the group through
+        /// <see cref="RetrieveLinkByIdAsync(System.Guid, System.Threading.CancellationToken)"/>.
+        /// That read is caller-FILTERED, and the swap acts on the workflow's system identity,
+        /// which carries no roles and is not the row's owner — so the filtered read answers
+        /// not-found for the one actor entitled to run the swap. Taking the group off a
+        /// caller-supplied payload instead would let one group's approval unpublish another
+        /// group's live row.</para>
         ///
-        /// <para>Only an id crosses back, following the §14.6 pattern of filtered reads for
-        /// entities and gated probes for cross-row facts.</para>
+        /// <para>A gated probe rather than a filtered read, following the §14.6 pattern:
+        /// filtered reads for entities, gated probes for the single cross-row facts a write
+        /// flow needs. Only an id crosses back, to a caller already admitted to contribute —
+        /// revealing nothing they could not infer from the group having a published version.</para>
+        ///
+        /// <para>Deliberately does not drop soft-deleted incumbents: a tombstone that kept
+        /// <c>IsPublished</c> still occupies the slot (§9.7.7 rule 7). A missing or
+        /// soft-deleted TARGET, by contrast, answers not-found — a tombstone has no group
+        /// membership to promote into.</para>
         /// </summary>
-        ValueTask<Guid?> FindPublishedLinkIdByGroupAsync(
-            Guid groupId,
-            Guid excludedLinkId,
+        internal ValueTask<Guid?> FindPublishedSiblingLinkIdAsync(
+            Guid linkId,
+            EventEnvelope<Link> inboundEnvelope,
             CancellationToken cancellationToken = default);
 
         /// <summary>

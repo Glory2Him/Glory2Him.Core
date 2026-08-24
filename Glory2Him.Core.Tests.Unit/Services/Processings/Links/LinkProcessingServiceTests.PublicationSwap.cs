@@ -120,6 +120,99 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Fact]
+        public async Task ShouldDecideEverySwapCallAgainstTheSameActorOnApprovingLinkAsync()
+        {
+            // given: every call the swap makes is an identity decision, and they must all be
+            // decided against ONE actor. The two writes carried the verified envelope from the
+            // start; resolving the group used to go through the caller-FILTERED read, which
+            // mints from the ambient caller — so half the operation was decided against whoever
+            // happened to be on the thread (#291).
+            //
+            // Forwarding the envelope into that filtered read does NOT fix it: the swap runs on
+            // the workflow's system identity, which has no roles and is not the row's owner, so
+            // the filtered read answers not-found. The gated probe is what accepts it, and the
+            // foundation Lookup tests pin that half.
+            Guid targetLinkId = Guid.Parse("dddddddd-1111-1111-1111-111111111111");
+            Guid incumbentLinkId = Guid.Parse("dddddddd-2222-2222-2222-222222222222");
+            Guid groupId = Guid.Parse("dddddddd-3333-3333-3333-333333333333");
+
+            Link promoteCommand = CreatePublicationSwapPromoteCommand(targetLinkId);
+
+            EventEnvelope<Link> inboundEnvelope =
+                CreatePublicationSwapEnvelope(promoteCommand);
+
+            Link storageTargetLink = CreatePublicationSwapRow(
+                linkId: targetLinkId, groupId: groupId, isPublished: false);
+
+            Link incumbentLink = CreatePublicationSwapRow(
+                linkId: incumbentLinkId, groupId: groupId, isPublished: true);
+
+            Link promotedLink = storageTargetLink.DeepClone();
+            promotedLink.IsPublished = true;
+            promotedLink.ApprovalStatus = ApprovalStatus.Approved;
+
+            EventEnvelope<Link> capturedOnProbe = null;
+            EventEnvelope<Link> capturedOnUnpublish = null;
+            EventEnvelope<Link> capturedOnPromote = null;
+
+            this.linkServiceMock.Setup(service =>
+                service.FindPublishedSiblingLinkIdAsync(
+                    targetLinkId,
+                    It.IsAny<EventEnvelope<Link>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Guid, EventEnvelope<Link>, CancellationToken>(
+                            (_, envelope, _) => capturedOnProbe = envelope)
+                        .ReturnsAsync(incumbentLinkId);
+
+            this.linkServiceMock.Setup(service =>
+                service.UnpublishLinkByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<Link>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Guid, EventEnvelope<Link>, CancellationToken>(
+                            (_, envelope, _) => capturedOnUnpublish = envelope)
+                        .ReturnsAsync(incumbentLink);
+
+            this.linkServiceMock.Setup(service =>
+                service.TransitionLinkApprovalAsync(
+                    It.IsAny<Link>(),
+                    It.IsAny<EventEnvelope<Link>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<Link, EventEnvelope<Link>, CancellationToken>(
+                            (_, envelope, _) => capturedOnPromote = envelope)
+                        .ReturnsAsync(promotedLink);
+
+            SetupPublicationSwapReply(inboundEnvelope, promotedLink);
+
+            // when
+            await this.linkProcessingService.OnApprovingLinkAsync(
+                inboundEnvelope,
+                TestContext.Current.CancellationToken);
+
+            // then: the SAME instance reaches all three, the probe included
+            capturedOnProbe.Should().BeSameAs(inboundEnvelope);
+            capturedOnUnpublish.Should().BeSameAs(inboundEnvelope);
+            capturedOnPromote.Should().BeSameAs(inboundEnvelope);
+
+            // and the caller-FILTERED read is not on this path at all. Without this the test
+            // passes on a service that resolves the group through the ambient caller again.
+            this.linkServiceMock.Verify(service =>
+                service.RetrieveLinkByIdAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            // nothing minted a fresh context anywhere on this path
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateAsync(It.IsAny<Link>()),
+                Times.Never);
+
+            this.eventEnvelopeBrokerMock.Verify(broker =>
+                broker.CreateSystemAsync(It.IsAny<Link>()),
+                Times.Never);
+        }
+
+        [Fact]
         public async Task ShouldPublishItsOwnCompletionFactOnApprovingLinkAsync()
         {
             // given: distinct from the foundation's Link-Approved. That one says a row was
@@ -578,15 +671,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             actualEnvelope.Should().BeSameAs(replyEnvelope);
 
             this.linkServiceMock.Verify(service =>
-                service.FindPublishedLinkIdByGroupAsync(
+                service.FindPublishedSiblingLinkIdAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
-                    It.IsAny<CancellationToken>()),
-                Times.Never);
-
-            this.linkServiceMock.Verify(service =>
-                service.RetrieveLinkByIdAsync(
-                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -902,8 +989,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     innerException: (dependencyValidationException.InnerException as Xeption)!);
 
             this.linkServiceMock.Setup(service =>
-                service.RetrieveLinkByIdAsync(
+                service.FindPublishedSiblingLinkIdAsync(
                     It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(dependencyValidationException);
 
@@ -1015,8 +1103,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     innerException: timeoutLinkProcessingException);
 
             this.linkServiceMock.Setup(service =>
-                service.RetrieveLinkByIdAsync(
+                service.FindPublishedSiblingLinkIdAsync(
                     targetLinkId,
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
 
@@ -1101,20 +1190,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     innerException: failedLinkProcessingServiceException);
 
             this.linkServiceMock.Setup(service =>
-                service.FindPublishedLinkIdByGroupAsync(
+                service.FindPublishedSiblingLinkIdAsync(
                     It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                     .ThrowsAsync(serviceException);
-
-            this.linkServiceMock.Setup(service =>
-                service.RetrieveLinkByIdAsync(
-                    targetLinkId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(CreatePublicationSwapRow(
-                            linkId: targetLinkId,
-                            groupId: Guid.Parse("f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0"),
-                            isPublished: false));
 
             // when
             ValueTask<EventEnvelope<Link>?> onApprovingLinkTask =
@@ -1207,19 +1287,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             return link;
         }
 
-        // The two reads the probe makes: the target row, whose GroupId is read from STORAGE
-        // rather than from the caller's copy, and the collection it is matched against.
+        // Stubs the swap's single gated probe. The incumbent is resolved here the way the
+        // real probe resolves it — published, same group as the STORED target, not the
+        // target itself — and DELIBERATELY without dropping soft-deleted rows, because a
+        // tombstone that kept IsPublished still holds the slot. The probe's own predicate
+        // is pinned in the foundation Lookup tests; this helper only feeds the swap.
         private void SetupPublicationSwapProbe(
             Guid targetLinkId,
             Link storageTargetLink,
             List<Link> groupRows)
         {
-            this.linkServiceMock.Setup(service =>
-                service.RetrieveLinkByIdAsync(
-                    targetLinkId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(storageTargetLink);
-
             // The swap probes through the UNFILTERED lookup, so the stub resolves the
             // incumbent the way that probe does — published, same group, not the
             // target — and DELIBERATELY does not drop soft-deleted rows. Stubbing
@@ -1231,9 +1308,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
                     && link.Id != storageTargetLink.Id);
 
             this.linkServiceMock.Setup(service =>
-                service.FindPublishedLinkIdByGroupAsync(
-                    It.IsAny<Guid>(),
-                    It.IsAny<Guid>(),
+                service.FindPublishedSiblingLinkIdAsync(
+                    targetLinkId,
+                    It.IsAny<EventEnvelope<Link>>(),
                     It.IsAny<CancellationToken>()))
                         .ReturnsAsync(incumbent?.Id);
         }

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -16,6 +16,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Securities;
+using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Links.Exceptions;
 using Moq;
@@ -50,9 +52,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             SetupProbeStore(tombstone, target);
 
             // when
-            Guid? actualId = await this.linkService.FindPublishedLinkIdByGroupAsync(
-                groupId: groupId,
-                excludedLinkId: targetId,
+            Guid? actualId = await this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
                 cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -74,9 +76,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                     id: targetId, groupId: groupId, isPublished: false, isDeleted: false));
 
             // when
-            Guid? actualId = await this.linkService.FindPublishedLinkIdByGroupAsync(
-                groupId: groupId,
-                excludedLinkId: targetId,
+            Guid? actualId = await this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
                 cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -112,9 +114,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                     id: incumbentId, groupId: groupId, isPublished: true, isDeleted: false));
 
             // when
-            Guid? actualId = await this.linkService.FindPublishedLinkIdByGroupAsync(
-                groupId: groupId,
-                excludedLinkId: targetId,
+            Guid? actualId = await this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
                 cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -129,9 +131,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             // when
             ValueTask<Guid?> probeTask =
-                this.linkService.FindPublishedLinkIdByGroupAsync(
-                    groupId: invalidGroupId,
-                    excludedLinkId: Guid.NewGuid(),
+                this.linkService.FindPublishedSiblingLinkIdAsync(
+                    linkId: invalidGroupId,
+                    inboundEnvelope: CreateProbeEnvelope(invalidGroupId),
                     cancellationToken: TestContext.Current.CancellationToken);
 
             // then
@@ -142,10 +144,40 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 Times.Never);
         }
 
-        private void SetupProbeStore(params Link[] rows) =>
+        // The probe resolves its target by id and then reads the whole store, so the stub
+        // answers both. Every row goes into SelectXByIdAsync as well, which is what lets a
+        // ported test name any of them as the target.
+        private void SetupProbeStore(params Link[] rows)
+        {
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()))
                     .ReturnsAsync(rows.AsQueryable());
+
+            foreach (Link row in rows)
+            {
+                Link captured = row;
+
+                this.storageBrokerMock.Setup(broker =>
+                    broker.SelectLinkByIdAsync(captured.Id, It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(captured);
+            }
+        }
+
+        // The workflow's own envelope: authenticated, system identity, and NO roles — exactly
+        // what CreateSystemAsync hands the swap.
+        private static EventEnvelope<Link> CreateProbeEnvelope(Guid linkId) =>
+            new EventEnvelope<Link>
+            {
+                Content = new Link { Id = linkId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    Roles = []
+                }
+            };
 
         private static Link CreateProbeRow(
             Guid id,
@@ -161,5 +193,168 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 IsDeleted = isDeleted,
                 ApprovalStatus = ApprovalStatus.Approved,
             };
+
+        [Fact]
+        public async Task ShouldRefuseTheSiblingProbeForABlockedCallerAsync()
+        {
+            // given: the contribution gate is the probe's ONLY authorization check, and the
+            // probe reads over the UNFILTERED store — so if the gate goes, a blocked caller
+            // learns which row holds a group's published slot, tombstones included. Deleting
+            // the gate left the whole suite green before this test existed.
+            var targetId = Guid.Parse("ba000000-3333-3333-3333-333333333333");
+
+            var blockedEnvelope = new EventEnvelope<Link>
+            {
+                Content = new Link { Id = targetId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    Roles = [Roles.ReadOnly]
+                }
+            };
+
+            // when
+            ValueTask<Guid?> probeTask = this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: blockedEnvelope,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<LinkValidationException>(probeTask.AsTask);
+
+            // refused BEFORE any read — the gate is not a filter applied to results
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectLinkByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnSiblingProbeIfTargetIsMissingAsync()
+        {
+            // given: the case the NotFound clause was added to TryCatchIdentifier for. Without
+            // that clause this surfaces as a service exception — "our code is broken" — rather
+            // than the validation failure it is.
+            var targetId = Guid.Parse("ba111111-3333-3333-3333-333333333333");
+            Link missingLink = null;
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(targetId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(missingLink);
+
+            // when
+            ValueTask<Guid?> probeTask = this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: CreateProbeEnvelope(targetId),
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<LinkValidationException>(probeTask.AsTask);
+
+            // and it never went on to read the store for an incumbent
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectAllLinksAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        // ── the publication swap's probe (#291) ─────────────────────────────────────
+        // The swap arrives on the workflow's system identity: CreateSystemAsync keeps the
+        // original caller's SubjectId but DROPS their roles. Handed to the caller-facing
+        // RetrieveLinkByIdAsync that actor is refused — the target is mid-promotion so not
+        // publicly visible, and a role-less non-owner is neither owner nor review-role holder.
+        // These pin that the probe admits it instead, which is the whole reason the swap uses a
+        // gated probe rather than a filtered read.
+        [Fact]
+        public async Task ShouldFindThePublishedSiblingForAnActorWhoIsNeitherOwnerNorReviewerAsync()
+        {
+            // given
+            var groupId = Guid.Parse("ee000000-1111-1111-1111-111111111111");
+            var incumbentId = Guid.Parse("ee000000-2222-2222-2222-222222222222");
+            var targetId = Guid.Parse("ee000000-3333-3333-3333-333333333333");
+
+            Link target = CreateProbeRow(
+                id: targetId, groupId: groupId, isPublished: false, isDeleted: false);
+
+            target.CreatedBy = "someone-else-entirely";
+
+            Link incumbent = CreateProbeRow(
+                id: incumbentId, groupId: groupId, isPublished: true, isDeleted: false);
+
+            // exactly what CreateSystemAsync produces — no roles, and a subject that is the
+            // deciding reviewer rather than the row's owner
+            var systemEnvelope = new EventEnvelope<Link>
+            {
+                Content = new Link { Id = targetId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    SubjectId = "the-deciding-reviewer",
+                    Roles = []
+                }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(targetId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(target);
+
+            SetupProbeStore(target, incumbent);
+
+            // when
+            Guid? actualId = await this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: systemEnvelope,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            actualId.Should().Be(incumbentId);
+        }
+
+        [Fact]
+        public async Task ShouldThrowNotFoundOnFindPublishedSiblingIfTargetIsSoftDeletedAsync()
+        {
+            // given: a tombstone has no group membership to promote into. Note this is the
+            // TARGET being deleted — an incumbent tombstone still holds the slot and must
+            // still be found, which the sibling test above pins.
+            var groupId = Guid.Parse("ee111111-1111-1111-1111-111111111111");
+            var targetId = Guid.Parse("ee111111-3333-3333-3333-333333333333");
+
+            Link deletedTarget = CreateProbeRow(
+                id: targetId, groupId: groupId, isPublished: false, isDeleted: true);
+
+            var systemEnvelope = new EventEnvelope<Link>
+            {
+                Content = new Link { Id = targetId },
+                Metadata = new EventMetadata { EventId = Guid.NewGuid() },
+
+                SecurityContext = new SecurityContext
+                {
+                    IsAuthenticated = true,
+                    IsSystemIdentity = true,
+                    Roles = []
+                }
+            };
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectLinkByIdAsync(targetId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(deletedTarget);
+
+            // when
+            ValueTask<Guid?> probeTask = this.linkService.FindPublishedSiblingLinkIdAsync(
+                linkId: targetId,
+                inboundEnvelope: systemEnvelope,
+                cancellationToken: TestContext.Current.CancellationToken);
+
+            // then
+            await Assert.ThrowsAsync<LinkValidationException>(probeTask.AsTask);
+        }
     }
 }

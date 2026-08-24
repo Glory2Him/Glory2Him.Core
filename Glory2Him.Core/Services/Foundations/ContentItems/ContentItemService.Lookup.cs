@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -14,55 +14,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ContentItems.Exceptions;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItems
 {
     internal partial class ContentItemService
     {
-        public ValueTask<Guid?> FindPublishedContentItemIdByGroupAsync(
-            Guid groupId,
-            Guid excludedContentItemId,
-            CancellationToken cancellationToken = default) =>
-            TryCatchIdentifier(async () =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                // The probe carries no entity, so the request exists only to anchor the ambient
-                // security context the contribution gate runs against — a write-flow primitive,
-                // not a public read. Same shape the approval probe uses.
-                var findRequest = new ContentItem { GroupId = groupId };
-
-                EventEnvelope<ContentItem> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: findRequest);
-
-                ValidateUserIsAllowedToContribute(envelope.SecurityContext);
-                ValidateOnFindPublishedContentItemByGroup(groupId);
-
-                // Deliberately UNFILTERED, and this is the whole reason the probe exists rather
-                // than the publication swap reusing RetrieveAllContentItemsAsync. That read applies the
-                // visibility filter, whose first clause drops IsDeleted rows — but a soft delete
-                // never clears IsPublished, and the slot index names that column ALONE. So a
-                // tombstone still occupies the group's published slot while being invisible to
-                // every caller-facing read.
-                //
-                // A filtered probe therefore reports "no incumbent", the swap skips the demote,
-                // and the promote is refused by the unique index — permanently, for every future
-                // approval in that group (§9.7.7 rule 7).
-                //
-                // Only an id crosses back. That reveals nothing a caller could not already infer
-                // from the group having a published version.
-                IQueryable<ContentItem> allContentItems =
-                    await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
-
-                ContentItem? publishedContentItem = allContentItems.FirstOrDefault(contentItem =>
-                    contentItem.GroupId == groupId
-                        && contentItem.IsPublished
-                        && contentItem.Id != excludedContentItemId);
-
-                return publishedContentItem?.Id;
-            });
-
         public ValueTask<int> FindHighestVersionInGroupAsync(
             Guid groupId,
             CancellationToken cancellationToken = default) =>
@@ -103,5 +61,60 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     : groupVersions.Max();
             });
 
+
+        // The swap's single probe, replacing a caller-FILTERED read plus a group lookup. Gated
+        // and unfiltered, it resolves the target's group off the stored row and returns the
+        // incumbent holding that group's slot. The gate is the same contribution check its
+        // sibling runs, and it admits the workflow's system identity because that check blocks
+        // roles rather than requiring them (#291).
+        public ValueTask<Guid?> FindPublishedSiblingContentItemIdAsync(
+            Guid contentItemId,
+            EventEnvelope<ContentItem> inboundEnvelope,
+            CancellationToken cancellationToken = default) =>
+            TryCatchIdentifier(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // The envelope is READ, not chained. Every other envelope-taking entry point
+                // on this service calls CreateNextAsync first, because each of them writes and
+                // publishes a fact that has to hang off the caller's causation link. This one
+                // publishes nothing and records no ProcessedEvents row, so there is no link to
+                // extend — minting a successor here would only produce an envelope used for the
+                // SecurityContext already in hand.
+                ValidateUserIsAllowedToContribute(inboundEnvelope.SecurityContext);
+                ValidateOnFindPublishedSiblingContentItem(contentItemId);
+
+                // The group comes from the STORED row. A caller-supplied GroupId would let one
+                // group's approval unpublish another group's live row.
+                ContentItem maybeContentItem = await this.storageBroker.SelectContentItemByIdAsync(
+                    contentItemId: contentItemId,
+                    cancellationToken: cancellationToken);
+
+                ValidateStorageContentItem(maybeContentItem, contentItemId);
+
+                if (maybeContentItem.IsDeleted)
+                {
+                    throw new NotFoundContentItemException(
+                        message: $"Content item not found with id: {contentItemId}.");
+                }
+
+                IQueryable<ContentItem> allContentItems =
+                    await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
+
+                // UNFILTERED on the incumbent side too: a soft delete never clears
+                // IsPublished and the slot index names that column alone, so a tombstone still
+                // holds the slot. Skipping it would leave the group permanently unpublishable.
+                ContentItem? publishedContentItem = allContentItems.FirstOrDefault(contentItem =>
+                    contentItem.GroupId == maybeContentItem.GroupId
+                        && contentItem.IsPublished
+                        && contentItem.Id != contentItemId);
+
+                return publishedContentItem?.Id;
+            });
+
+        private static void ValidateOnFindPublishedSiblingContentItem(Guid contentItemId) =>
+            Validate(
+                message: "Content item is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(contentItemId), Parameter: nameof(ContentItem.Id)));
     }
 }
