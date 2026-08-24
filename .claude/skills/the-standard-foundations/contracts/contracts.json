@@ -1,9 +1,16 @@
 {
   "skill": "the-standard-foundations",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "naming": {
     "interface_pattern": "I{Entity}Service",
-    "concrete_pattern": "{Entity}Service"
+    "interface_substrate_pattern": "I{Entity}Service.Substrate.cs",
+    "concrete_pattern": "{Entity}Service",
+    "do_work_pattern": "Do{Operation}{Entity}Async",
+    "event_handler_pattern": "On{PresentTenseOperation}{Entity}Async",
+    "event_operation_enum": "{Entity}EventOperation",
+    "request_address_pattern": "{Entity}-{PresentTenseOperation}",
+    "fact_address_pattern": "{Entity}-{PastTenseOperation}",
+    "subscription_name_pattern": "{Entity}Service.On{PresentTenseOperation}{Entity}"
   },
   "structural_validation_checks": [
     "null model",
@@ -11,18 +18,74 @@
     "empty required string properties",
     "whitespace-only required string properties",
     "default Guid (Guid.Empty)",
-    "default DateTime (DateTime.MinValue)"
+    "default DateTimeOffset",
+    "string length caps enforced in the service, not left to the column",
+    "CreatedBy matches the acting user id resolved from the envelope's SecurityContext",
+    "audit dates are recent",
+    "CreatedBy / CreatedWhen unchanged against storage on modify"
   ],
   "exception_mapping": {
+    "note": "Inner exceptions are public and carry no 'Service' in the name; only the four outer wrappers and Failed{Entity}ServiceException do.",
+    "DuplicateKeyException": "AlreadyExists{Entity}Exception",
+    "DuplicateKeyWithUniqueIndexException": "AlreadyExists{Entity}Exception",
+    "ForeignKeyConstraintConflictException": "Invalid{Entity}ReferenceException",
     "DbUpdateConcurrencyException": "Locked{Entity}Exception",
-    "SqlException": "Failed{Entity}StorageException",
-    "general_storage": "Failed{Entity}StorageException",
-    "invalid_model": "{Entity}ValidationException"
+    "DbUpdateException": "FailedStorage{Entity}Exception",
+    "SqlException": "FailedStorage{Entity}Exception",
+    "OperationCanceledException (not requested)": "Timeout{Entity}Exception",
+    "unhandled": "Failed{Entity}ServiceException",
+    "null_model": "Null{Entity}Exception",
+    "invalid_model": "Invalid{Entity}Exception",
+    "missing_row": "NotFound{Entity}Exception",
+    "denied_caller": "Unauthorized{Entity}Exception",
+    "malformed_or_unsigned_envelope": "Invalid{Entity}EventException"
+  },
+  "outer_wrappers": {
+    "validation": "{Entity}ValidationException",
+    "dependency_validation": "{Entity}DependencyValidationException",
+    "dependency": "{Entity}DependencyException",
+    "service": "{Entity}ServiceException"
+  },
+  "audit_broker_contract": {
+    "note": "The ambient overloads were removed. Only the SecurityContext-carrying ones exist, so passing identity is a compile-time requirement rather than a convention.",
+    "required": [
+      "ApplyAddAuditValuesAsync<T>(T entity, SecurityContext securityContext)",
+      "ApplyModifyAuditValuesAsync<T>(T entity, SecurityContext securityContext)",
+      "ApplyRemoveAuditValuesAsync<T>(T entity, SecurityContext securityContext, string? deletionReason = null)",
+      "GetUserIdAsync(SecurityContext securityContext)"
+    ],
+    "removed": [
+      "ApplyAddAuditValuesAsync<T>(T entity)",
+      "ApplyModifyAuditValuesAsync<T>(T entity)",
+      "ApplyRemoveAuditValuesAsync<T>(T entity, string? deletionReason = null)",
+      "GetUserIdAsync()"
+    ]
   },
   "structure": {
     "partial_class_required": true,
-    "files_per_entity": ["Add", "Retrieve", "Modify", "Remove"],
-    "max_brokers_per_operation": 1,
-    "can_call_other_services": false
+    "files_per_entity": [
+      "{Entity}Service.cs",
+      "{Entity}Service.Substrate.cs",
+      "{Entity}Service.Validations.cs",
+      "{Entity}Service.Exceptions.cs"
+    ],
+    "optional_partials": [
+      "{Entity}Service.Transitions.cs",
+      "{Entity}Service.Transitions.Validations.cs",
+      "{Entity}Service.Lookup.cs"
+    ],
+    "brokers": [
+      "IStorageBroker",
+      "IDateTimeBroker",
+      "IIdentifierBroker",
+      "IEventBroker",
+      "IEventEnvelopeBroker",
+      "ISecurityAuditBroker",
+      "IEnvelopeIntegrityBroker",
+      "ILoggingBroker"
+    ],
+    "can_call_other_services": false,
+    "dual_path_required": true,
+    "processed_events_dedup_required_on_mutations": true
   }
 }
