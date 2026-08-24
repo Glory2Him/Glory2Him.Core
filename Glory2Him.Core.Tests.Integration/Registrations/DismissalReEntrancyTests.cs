@@ -222,7 +222,7 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
             List<Guid> reTestedApprovalIds,
             Guid? alsoPublishForApprovalId = null)
         {
-            var approvalServiceMock = new Mock<IApprovalService>();
+            var approvalServiceMock = new Mock<IApprovalWorkflowService>();
 
             approvalServiceMock
                 .Setup(service => service.FindApprovalByEntityAsync(

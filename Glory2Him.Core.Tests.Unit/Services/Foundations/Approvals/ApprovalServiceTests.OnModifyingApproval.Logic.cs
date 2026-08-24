@@ -143,6 +143,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                     It.IsAny<CancellationToken>()),
                 Times.Exactly(2));
 
+            // The event path is NOT the workflow path (§16.7.1). This handler passes
+            // isSystemIdentity: false, and that literal is the whole caller gate on a live
+            // registered address — flipping it would skip the row-local tier, the
+            // entity-narrowed tier and the §8.6.1 decision function as a group.
+            //
+            // Pinned by the amend gate being CONSULTED, because nothing else here would notice:
+            // before this assertion, flipping the literal to true left all 4104 tests green.
+            this.accessBrokerMock.Verify(broker =>
+                broker.MayAmendApprovalAsync(
+                    It.IsAny<Guid>(),
+                    It.IsAny<SecurityContext>(),
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
+
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();

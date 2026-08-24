@@ -30,7 +30,16 @@ namespace Glory2Him.Core.Registrations
         /// </remarks>
         public static IServiceCollection AddApprovalService(this IServiceCollection services)
         {
+            // ONE object behind two doors. The second resolves THROUGH the first so the
+            // implementation type never enters the container as a service in its own right.
             services.AddSingleton<IApprovalService, ApprovalService>();
+
+            // Registered HERE rather than left to the host, because ApprovalOrchestrationService
+            // takes this seam and the interface is internal — a host outside Core's friend set
+            // could not supply it itself, so AddApprovalOrchestrationService would throw at
+            // resolution with no route to a fix.
+            services.AddSingleton<IApprovalWorkflowService>(provider =>
+                (ApprovalService)provider.GetRequiredService<IApprovalService>());
 
             return services;
         }

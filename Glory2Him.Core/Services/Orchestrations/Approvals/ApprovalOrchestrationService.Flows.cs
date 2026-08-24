@@ -60,6 +60,21 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // write Submitted onto one, because submitting is somebody's decision to offer
                 // the content, not a side effect of editing it (§9.2). And a Submitted row stays
                 // Submitted: the edit re-opens the round rather than withdrawing it.
+                //
+                // ENFORCED as of #287's review, in TWO places. Until then this paragraph was the
+                // only thing between a Draft round and EvaluateApprovalAsync, which approves
+                // once the conditions are met — and the conditions verdict carries no approval
+                // status at all, so a Draft's conditions genuinely can be met. "A Draft stays
+                // Draft" was a comment, not a guard.
+                //
+                // ValidateStorageApprovalRoundIsOpenForOutcome refuses the illegal WRITE in the
+                // foundation, unconditionally and for the workflow too. EvaluateApprovalAsync
+                // declines to COMPOSE one, so this flow no longer asks for a write it can
+                // predict will fail. §14.6 rule 2 makes the pair intentional.
+                //
+                // Not short-circuited at the TOP of this flow, which was tried and reverted: an
+                // early return here skips the stale-review dismissal and the re-read the round
+                // legitimately needs. The guard sits after both, inside the evaluation.
                 if (conditions.ShouldResetStaleReviewsOnChange is false)
                 {
                     // Never dismisses when the setting is off. The reviews stand, and the

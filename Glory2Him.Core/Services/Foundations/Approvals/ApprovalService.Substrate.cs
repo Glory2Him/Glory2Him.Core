@@ -80,6 +80,10 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     return null;
 
                 Approval modifiedApproval = await DoModifyApprovalAsync(
+                    // No workflow command travels on this address — the workflow modifies
+                    // through IApprovalWorkflowService, never by publishing (§16.7.1).
+                    isSystemIdentity: false,
+
                     approval: envelope.Content,
                     inboundEnvelope: envelope,
                     cancellationToken: cancellationToken);
@@ -159,6 +163,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 Approval retrievedApproval = await DoRetrieveApprovalByIdAsync(
                     approvalId: envelope.Content.Id,
                     inboundEnvelope: envelope,
+                    isSystemIdentity: false,
                     cancellationToken: cancellationToken);
 
                 return await this.eventEnvelopeBroker.CreateNextAsync(

@@ -766,6 +766,84 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         // Every field of the §8.5 answer is under the test's control, because the two flows here
         // turn on combinations the shared makers cannot express — a met threshold sitting beside
         // a standing rejection, or a reset flag on a verdict that also auto-approves.
+        /// <summary>
+        /// A Draft round is never auto-approved, even with the auto-approve branch ARMED.
+        /// </summary>
+        /// <remarks>
+        /// <para>The sibling theory above proves the flow does not MOVE a status; this proves it
+        /// does not APPROVE one. They are different failures: that one arms a reinstate write,
+        /// this one arms the auto-approve branch, which is the only place this flow writes
+        /// <c>Approved</c>.</para>
+        ///
+        /// <para><c>ProcessEntityModifiedAsync</c> is the one caller of
+        /// <c>EvaluateApprovalAsync</c> with no round-open check of its own, and a Draft round's
+        /// conditions can be met — so before the guard, editing a draft with a permissive policy
+        /// composed an approval the foundation then had to refuse. The foundation still refuses
+        /// it; this stops the flow asking.</para>
+        /// </remarks>
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public async Task ShouldNeverAutoApproveADraftRoundOnTheModifiedFlowAsync(
+            bool shouldResetStaleReviews)
+        {
+            // given: conditions MET and auto-approve ON — the branch is armed, so only the
+            // round-open test stands between this flow and an Approved write
+            var approvalId = Guid.NewGuid();
+            var entityId = Guid.NewGuid();
+            var staleReviewId = Guid.NewGuid();
+
+            Approval storageApproval = CreateFlowApproval(
+                approvalId: approvalId,
+                entityId: entityId,
+                entityType: EntityType.Link,
+                approvalStatus: ApprovalStatus.Draft);
+
+            SetupApprovalProbe(new ApprovalEntityMatch
+            {
+                Id = approvalId,
+                ApprovalStatus = ApprovalStatus.Draft,
+                IsDeleted = false,
+            });
+
+            List<Approval> savedApprovals = SetupFlowApprovalRow(storageApproval);
+
+            SetupFlowApprovalReviews(
+                approvalReviews: new List<ApprovalReview>
+                {
+                    CreateFlowApprovalReview(
+                        approvalReviewId: staleReviewId,
+                        approvalId: approvalId,
+                        statusId: ApprovalStatus.Approved),
+                });
+
+            SetupFlowConditionsReads(
+                firstConditions: CreateFlowConditions(
+                    areConditionsMet: true,
+                    shouldAutoApprove: true,
+                    shouldResetStaleReviewsOnChange: shouldResetStaleReviews),
+                secondConditions: CreateFlowConditions(
+                    areConditionsMet: true,
+                    shouldAutoApprove: true));
+
+            // when
+            ApprovalOutcome actualOutcome =
+                await this.approvalOrchestrationService.ProcessEntityModifiedAsync(
+                    EntityType.Link,
+                    entityId,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualOutcome.ApprovalStatus.Should().Be(ApprovalStatus.Draft);
+            actualOutcome.ApprovalStatus.Should().NotBe(ApprovalStatus.Approved);
+            actualOutcome.IsEntitySyncRequested.Should().BeFalse();
+
+            savedApprovals.Should().NotContain(
+                approval => approval.ApprovalStatus == ApprovalStatus.Approved,
+                because: "a draft round has not been offered for review, so there is no "
+                    + "decision to make on it — however permissive the policy");
+        }
+
         private static ApprovalConditionsVerdict CreateFlowConditions(
             bool areConditionsMet = false,
             bool shouldAutoApprove = false,

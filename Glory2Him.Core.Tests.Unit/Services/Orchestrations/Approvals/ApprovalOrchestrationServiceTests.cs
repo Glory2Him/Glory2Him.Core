@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
     public partial class ApprovalOrchestrationServiceTests
     {
-        private readonly Mock<IApprovalService> approvalServiceMock;
+        private readonly Mock<IApprovalWorkflowService> approvalServiceMock;
         private readonly Mock<IApprovalReviewWorkflowService> approvalReviewServiceMock;
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
@@ -49,7 +49,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
         public ApprovalOrchestrationServiceTests()
         {
-            this.approvalServiceMock = new Mock<IApprovalService>();
+            this.approvalServiceMock = new Mock<IApprovalWorkflowService>();
             this.approvalReviewServiceMock = new Mock<IApprovalReviewWorkflowService>();
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
             this.accessBrokerMock = new Mock<IAccessBroker>();

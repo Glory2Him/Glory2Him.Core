@@ -143,7 +143,27 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // Submitted": conditions unmet, or met but nobody asked for the click to be skipped.
             // The manual approve becomes available in the second case — which is what the
             // verdict read exists to tell a UI.
-            if (conditions.AreConditionsMet is false || conditions.ShouldAutoApprove is false)
+            //
+            // A round that is not OPEN reaches the same place, for a different reason: there is
+            // no decision to make on it. ProcessEntityModifiedAsync is the one caller with no
+            // round-open check of its own, and a Draft round's conditions can be met — so
+            // without this, an edit to a draft would compose an approval the foundation then
+            // refuses (ValidateStorageApprovalRoundIsOpenForOutcome).
+            //
+            // Placed HERE rather than at the top of that flow, which was tried and reverted: an
+            // early return there skips the stale-review dismissal and the re-read the round
+            // legitimately needs. This runs after both, so nothing is lost — and it is a no-op
+            // for the two callers that already gate: ProcessEntityAddedAsync in this file, and
+            // ProcessApprovalInputsChangedAsync in Flows.cs.
+            //
+            // The foundation still refuses the write regardless. §14.6 rule 2 makes the
+            // duplicate intentional: this stops the flow composing a write it can predict will
+            // be refused, and the foundation stops the write whoever composes it.
+            bool isRoundOpen = approval.ApprovalStatus == ApprovalStatus.Submitted;
+
+            if (isRoundOpen is false
+                || conditions.AreConditionsMet is false
+                || conditions.ShouldAutoApprove is false)
             {
                 return DescribeOutcome(approval, isEntitySyncRequested: false);
             }
