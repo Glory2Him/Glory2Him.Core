@@ -221,6 +221,14 @@ namespace {Namespace}.Models.Events.Foundations
 // Address and subscription ids are STABLE GUIDs — generate each one once and never
 // regenerate it. The substrate keys its stored addresses and subscriptions off these
 // values; changing one silently orphans every existing subscription on that address.
+//
+// ⚠ REPLACE EVERY ZERO GUID BELOW BEFORE BUILDING. There are thirteen, and leaving any
+// two of the eight ADDRESS ids equal does NOT fail to compile — it throws
+// ArgumentException while initialising the {Entity}EventAddresses dictionary, which
+// surfaces as a TypeInitializationException on first touch of EventBrokerIdentifiers.
+// That static class is shared by every entity, so one unedited copy takes the whole
+// event layer down at runtime, not just this entity's. Generate them with
+// `[guid]::NewGuid()` (PowerShell) or `uuidgen`, one per line.
 
 using System;
 using System.Collections.Generic;
@@ -339,7 +347,6 @@ using {Namespace}.Models.Events;
 using {Namespace}.Models.Events.Foundations;
 using {Namespace}.Models.Foundations.{Entity}s;
 using {Namespace}.Models.Foundations.{Entity}s.Exceptions;
-using {Namespace}.Models.Securities;
 
 namespace {Namespace}.Services.Foundations.{Entity}s
 {

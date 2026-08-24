@@ -84,6 +84,7 @@
       "IEnvelopeIntegrityBroker",
       "ILoggingBroker"
     ],
+    "brokers_note": "The eight above are the baseline every foundation service takes. An entity that joins the approval workflow additionally injects IAccessBroker and calls it from its .Transitions.Validations partial (MayDecideApprovalAsync and friends) — 10 of the 12 current services do. IAccessBroker is NOT for ordinary role or ownership gating: that is inline SecurityContext checking, as the template shows. Add it only when the entity has approval transitions.",
     "can_call_other_services": false,
     "dual_path_required_for": ["Adding", "Modifying", "RemovingById", "HardRemovingById", "RetrievingById"],
     "dual_path_excluded": {
