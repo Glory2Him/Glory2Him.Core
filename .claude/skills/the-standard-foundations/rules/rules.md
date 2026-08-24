@@ -20,7 +20,7 @@
 
 ## Structure
 
-**ts-foundations-007** [ERROR] Foundation services must be partial classes, one file per operation category (e.g., Add, Retrieve, Modify, Remove).
+**ts-foundations-007** [ERROR] Foundation services must be partial classes split by concern, not by operation: `{Entity}Service.cs` (the direct path and the shared do-work), `.Substrate.cs` (the event path), `.Validations.cs`, `.Exceptions.cs`. Entities needing more add `.Transitions.cs`, `.Transitions.Validations.cs` or `.Lookup.cs` alongside them.
 **ts-foundations-008** [ERROR] Foundation service interfaces must follow the naming pattern `I{Entity}Service`.
 
 ## Identity
@@ -37,7 +37,9 @@ An ambient principal is captured when the broker instance is constructed. That i
 
 ## Dual Path
 
-**ts-foundations-013** [ERROR] Every operation must be reachable both directly and through the event substrate, and both paths must converge on one private `DoXAsync` method that owns the security gate, auditing, validation, storage, and the published fact. Public methods mint the envelope and hand off; they hold no logic of their own.
+**ts-foundations-013** [ERROR] Every operation that has a request address must be reachable both directly and through the event substrate, and both paths must converge on one private `DoXAsync` method that owns the security gate, auditing, validation, storage, and the published fact. For such an operation the public method mints the envelope and hands off; it holds no logic of its own.
+
+The addressed set is `Adding`, `Modifying`, `RemovingById`, `HardRemovingById`, `RetrievingById`. `RetrieveAll{Entity}sAsync` is deliberately **not** among them — it has no request address, no handler and no `DoXAsync`; it mints an envelope only to capture the caller for the visibility filter, and does its work inline. Do not invent an `OnRetrievingAll` handler. Entity-specific operations (a transition, a lookup) follow whichever of the two shapes their own address decision implies.
 
 **ts-foundations-014** [ERROR] Mutating event handlers must check `ProcessedEvents` before acting and record BOTH the inbound request id and the outbound fact id after. A deduplicated delivery replies `null`. Read-only handlers are naturally idempotent and skip this bookkeeping.
 

@@ -27,8 +27,9 @@
 
 ## Dual path
 
-- [ ] Every operation is reachable both directly and via the substrate (ts-foundations-013)
-- [ ] Both paths converge on one private `DoXAsync` — the public method holds no logic (ts-foundations-013)
+- [ ] Every **addressed** operation — Adding, Modifying, RemovingById, HardRemovingById, RetrievingById — is reachable both directly and via the substrate (ts-foundations-013)
+- [ ] For those, both paths converge on one private `DoXAsync` and the public method holds no logic (ts-foundations-013)
+- [ ] `RetrieveAll{Entity}sAsync` has NOT been given a handler or an address — it is deliberately direct-only, and mints an envelope purely to capture the caller for the visibility filter (ts-foundations-013)
 - [ ] Mutating handlers check `ProcessedEvents` before acting and reply `null` on a duplicate (ts-foundations-014)
 - [ ] `DoXAsync` records **both** the inbound request id and the outbound fact id (ts-foundations-014)
 - [ ] Read-only handlers skip the dedup bookkeeping (naturally idempotent) (ts-foundations-014)

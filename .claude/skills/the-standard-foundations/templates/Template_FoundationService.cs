@@ -2285,6 +2285,15 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
                     {Entity}EventOperation.Added),
                 Times.Once);
 
+            // Three: once from IsNotRecentAsync in the add validation, and once inside each
+            // of the two RecordEventProcessedAsync calls. VerifyNoOtherCalls() below counts
+            // an invocation as accounted for only when a Verify() matched it — a Setup()
+            // does not — so dropping this line makes the test fail rather than relax.
+            // Recount it if the entity's validations read the clock a different number of times.
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
             // twice — once for the inbound request id, once for the outbound fact id
             this.storageBrokerMock.Verify(broker =>
                 broker.InsertProcessedEventAsync(
@@ -2304,6 +2313,19 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
 }
 
 // {Entity}ServiceTests.OnAdding{Entity}.Logic.cs — the event path
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Force.DeepCloner;
+using {Namespace}.Models.Configurations;
+using {Namespace}.Models.Events;
+using {Namespace}.Models.Events.Foundations;
+using {Namespace}.Models.Foundations.{Entity}s;
+using {Namespace}.Models.Foundations.ProcessedEvents;
+using {Namespace}.Models.Securities;
+using Moq;
+
 namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
 {
     public partial class {Entity}ServiceTests
@@ -2389,6 +2411,7 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
                     {Entity}EventOperation.Added),
                 Times.Once);
 
+            // the INBOUND record, pinned to the request's own event id
             this.storageBrokerMock.Verify(broker =>
                 broker.InsertProcessedEventAsync(
                     It.Is<ProcessedEvent>(processedEvent =>
@@ -2398,8 +2421,24 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
                     TestContext.Current.CancellationToken),
                 Times.Once);
 
-            this.securityAuditBrokerMock.VerifyNoOtherCalls();
-            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            // Both records, matched on receiver name only. The outbound one carries a
+            // DIFFERENT event id — CreateNextAsync mints a fresh one — so the id-filtered
+            // verify above cannot account for it, and storageBrokerMock.VerifyNoOtherCalls()
+            // would throw without this second, broader verify.
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.{Entity}OnAdding{Entity}SubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            // Only these three. securityAuditBrokerMock and dateTimeBrokerMock are
+            // deliberately NOT asserted here: the shared do-work calls both, and this test
+            // is about the handler's own behaviour — the dedup check, the reply envelope and
+            // the published fact. Their calls are pinned by the direct-path Add test above.
+            // Adding VerifyNoOtherCalls() for them here without matching Verify() calls
+            // makes this test fail.
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
