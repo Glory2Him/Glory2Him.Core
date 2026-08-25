@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -24,7 +24,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
     /// outcome envelope (recorded on the delivery), or <c>null</c> when a duplicated request
     /// was skipped.
     /// </summary>
-    internal partial interface IContentItemSettingService
+    public partial interface IContentItemSettingService
     {
         ValueTask<EventEnvelope<ContentItemSetting>?> OnAddingContentItemSettingAsync(
             EventEnvelope<ContentItemSetting> envelope,

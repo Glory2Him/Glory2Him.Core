@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentItemSettings;
 
 namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 {
-    internal partial interface IContentItemSettingService
+    public partial interface IContentItemSettingService
     {
         ValueTask<ContentItemSetting> AddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,
