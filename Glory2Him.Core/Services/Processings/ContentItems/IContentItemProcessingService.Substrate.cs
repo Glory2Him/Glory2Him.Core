@@ -16,7 +16,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Processings.ContentItems
 {
-    internal partial interface IContentItemProcessingService
+    public partial interface IContentItemProcessingService
     {
         /// <summary>
         /// The event path of the processing service: handles <c>ContentItemProcessing-Adding</c> request
