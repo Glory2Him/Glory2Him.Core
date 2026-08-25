@@ -33,7 +33,7 @@ namespace Glory2Him.WebApp.Controllers.Reactions
     ///
     /// <para>It binds to the foundation rather than an orchestration because <c>Reaction</c> is
     /// approvable but Single-Row, so it needs nothing above its foundation service — the
-    /// withdrawn <c>ReactionOrchestration</c> of the old §12.5 entry 5 is not coming (design
+    /// withdrawn <c>ReactionOrchestration</c> of §12.5's withdrawn entries 4-9 is not coming (design
     /// §12.1 rule 3, §12.3.1, §10.17 rule 3, which requires binding to the entity's
     /// <i>top-layer</i> service).</para>
     ///
