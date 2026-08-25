@@ -1,0 +1,118 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using System;
+using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
+using CoreLink = Glory2Him.Core.Models.Foundations.Links.Link;
+
+namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
+{
+    /// <summary>
+    /// Link rows arranged and torn down beneath HTTP, for state no endpoint can produce —
+    /// the sibling of <c>ApiBroker.TagArrangements.cs</c>, and the same shape for the same
+    /// reasons.
+    /// </summary>
+    public partial class ApiBroker
+    {
+        public async ValueTask<CoreLink> InsertSubmittedLinkAsync(string authorUserId)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            var link = new CoreLink
+            {
+                Id = Guid.NewGuid(),
+
+                // A version group of one. GroupId and Version are control fields the caller
+                // never supplies (§12.4.1 rule 6) — which is exactly why an arrangement that
+                // writes them has to go through the storage broker rather than the endpoint.
+                GroupId = Guid.NewGuid(),
+                Version = 1,
+
+                Name = $"Acceptance link {Guid.NewGuid():N}",
+                Url = $"https://example.org/{Guid.NewGuid():N}",
+                LinkType = "External",
+
+                ApprovalStatus = ApprovalStatus.Submitted,
+                IsPublished = false,
+                IsDeleted = false,
+                CreatedBy = authorUserId,
+                CreatedWhen = now,
+                UpdatedBy = authorUserId,
+                UpdatedWhen = now
+            };
+
+            return await this.storageBroker.InsertLinkAsync(link);
+        }
+
+        public async ValueTask<CoreLink> GetCoreLinkByIdAsync(Guid linkId) =>
+            await this.storageBroker.SelectLinkByIdAsync(linkId);
+
+        public async ValueTask RemoveCoreLinkAsync(CoreLink link) =>
+            await this.storageBroker.DeleteLinkAsync(link);
+
+        /// <summary>
+        /// Physically removes a link if it is still there, whatever state it is in. Every
+        /// acceptance test finishes with this so the database is left as it was found: the API's
+        /// own delete is a SOFT delete, so a test that tore down through the endpoint still left
+        /// its row behind, and a test whose assertion threw left a live one.
+        /// </summary>
+        public async ValueTask RemoveCoreLinkByIdAsync(Guid linkId)
+        {
+            CoreLink storedLink =
+                await this.storageBroker.SelectLinkByIdAsync(linkId);
+
+            if (storedLink is not null)
+            {
+                await this.storageBroker.DeleteLinkAsync(storedLink);
+            }
+        }
+
+        /// <summary>
+        /// Writes one version into a group, at whatever state the caller names.
+        ///
+        /// <para>Arranged beneath HTTP because it has to be: <c>GroupId</c> and <c>Version</c> are
+        /// control fields the add derives (§12.4.1 rule 6), and the approve transition that would
+        /// publish a row arrives as an event rather than an endpoint. A suite that could only use
+        /// the API could never build a group with more than one version, which is the only shape
+        /// the group reads are interesting on.</para>
+        /// </summary>
+        public async ValueTask<CoreLink> InsertLinkVersionAsync(
+            Guid groupId,
+            int version,
+            ApprovalStatus approvalStatus,
+            bool isPublished,
+            string authorUserId)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            var link = new CoreLink
+            {
+                Id = Guid.NewGuid(),
+                GroupId = groupId,
+                Version = version,
+                Name = $"Acceptance link {Guid.NewGuid():N}",
+                Url = $"https://example.org/{Guid.NewGuid():N}",
+                LinkType = "External",
+                ApprovalStatus = approvalStatus,
+                IsPublished = isPublished,
+                PublishDate = isPublished ? now : null,
+                IsDeleted = false,
+                CreatedBy = authorUserId,
+                CreatedWhen = now,
+                UpdatedBy = authorUserId,
+                UpdatedWhen = now
+            };
+
+            return await this.storageBroker.InsertLinkAsync(link);
+        }
+    }
+}
