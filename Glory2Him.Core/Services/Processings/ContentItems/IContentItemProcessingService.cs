@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.ContentItems;
 
 namespace Glory2Him.Core.Services.Processings.ContentItems
 {
-    internal partial interface IContentItemProcessingService
+    public partial interface IContentItemProcessingService
     {
         /// <summary>
         /// Adds a new content item as version 1 of a new group (Flow 1). The caller must be
