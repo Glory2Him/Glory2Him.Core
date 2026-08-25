@@ -17,7 +17,7 @@ using Glory2Him.Core.Models.Foundations.Comments;
 
 namespace Glory2Him.Core.Services.Foundations.Comments
 {
-    internal partial interface ICommentService
+    public partial interface ICommentService
     {
         ValueTask<Comment> AddCommentAsync(
             Comment comment,
