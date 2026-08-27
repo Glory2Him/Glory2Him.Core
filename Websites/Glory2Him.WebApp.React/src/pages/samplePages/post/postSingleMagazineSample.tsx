@@ -166,6 +166,9 @@ export const PostSingleMagazineSample = () => {
                             </div>
 
                             <div className="col-lg-5">
+                                {/* Sample pages showcase the theme's full-strength UI regardless of who
+                                    is viewing, so isAuthenticated is hardcoded true here — the real
+                                    pages wire it from useAuth. */}
                                 <SuggestionPanel
                                     heading="Tags"
                                     suggestHeading="Suggest a tag"
@@ -174,7 +177,9 @@ export const PostSingleMagazineSample = () => {
                                     items={featured.tags}
                                     itemCssClass="btn-success-soft"
                                     prefixHash={true}
-                                    hrefFormat="Tag?name={0}" />
+                                    hrefFormat="Tag?name={0}"
+                                    isAuthenticated={true}
+                                    loginHref="/Account/Login" />
 
                                 <hr className="my-4" />
 
@@ -191,13 +196,17 @@ export const PostSingleMagazineSample = () => {
                                     items={featured.bibleReferences}
                                     itemCssClass="btn-primary-soft"
                                     itemIconCssClass="bi-book"
-                                    hrefFormat="/SamplePages/BibleReferences/BibleReference-Single-verse" />
+                                    hrefFormat="/SamplePages/BibleReferences/BibleReference-Single-verse"
+                                    isAuthenticated={true}
+                                    loginHref="/Account/Login" />
 
                                 {/* No rule either side of this one — the panel's own border already
-                                    separates it. Href points at a route that does not exist yet: the
-                                    contribution page is still to be built, so this link 404s until it
-                                    is. */}
-                                <ContributionPrompt href="Contribute" cssClass="mt-4 mb-4" />
+                                    separates it. */}
+                                <ContributionPrompt
+                                    href="/post/contribute"
+                                    cssClass="mt-4 mb-4"
+                                    isAuthenticated={true}
+                                    loginHref="/Account/Login" />
 
                                 <hr className="my-4" />
 

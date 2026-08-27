@@ -82,6 +82,21 @@
     <!-- Theme CSS (Blogzine) -->
     <link rel="stylesheet" type="text/css" href="/assets/css/style.css" />
 
+    <!-- The theme sets :root { scroll-behavior: smooth }, which fights React Router's
+         ScrollRestoration: its scrollTo(0, 0) on navigation animates instead of jumping, and
+         that animation gets cut short as soon as the new page (often shorter than the one you
+         navigated from) clamps the scroll offset — landing the reset wherever that clamp lands
+         rather than at the top. The back-to-top button still gets smooth motion because it
+         opts in explicitly (behavior: 'smooth' in useBackToTop.ts); this only removes the
+         theme's blanket default. Selector has to be :root, not html — :root's pseudo-class
+         specificity outranks html's type-selector specificity, so html here would silently
+         lose regardless of source order. -->
+    <style>
+        :root {
+            scroll-behavior: auto;
+        }
+    </style>
+
     <title>Glory 2 Him</title>
 </head>
 

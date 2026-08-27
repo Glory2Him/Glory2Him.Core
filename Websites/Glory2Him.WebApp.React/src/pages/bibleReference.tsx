@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BibleCard } from '@youversion/platform-react-ui';
 import { ReactionBar } from '../components/coreUI/reactionBar';
 import { SuggestionPanel } from '../components/coreUI/suggestionPanel';
+import { useAuth } from '../components/securitys/authProvider';
 import { ReactionOption } from '../models/coreUI/reactionOption';
 import * as sampleScripture from '../data/sampleScripture';
 import { reactions } from './sampleContent';
@@ -42,6 +43,9 @@ export function BibleReference({
     const { abbreviationFor } = useVersionAbbreviations();
     const navigate = useNavigate();
     const [reactedTo, setReactedTo] = useState<string | null>(null);
+    const { isAuthenticated } = useAuth();
+    const location = useLocation();
+    const loginHref = `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`;
 
     // John 14:6 is the one curated passage so far. Any other reference gets the same page
     // with empty panels rather than another passage's tags, references and reaction counts.
@@ -122,7 +126,9 @@ export function BibleReference({
                             items={tags}
                             itemCssClass="btn-success-soft"
                             prefixHash={true}
-                            hrefFormat="/Search?q={0}" />
+                            hrefFormat="/Search?q={0}"
+                            isAuthenticated={isAuthenticated}
+                            loginHref={loginHref} />
 
                         <hr className="my-4" />
 
@@ -136,7 +142,9 @@ export function BibleReference({
                             items={relatedReferences}
                             itemCssClass="btn-primary-soft"
                             itemIconCssClass="bi-book"
-                            hrefFor={bibleReferenceHref} />
+                            hrefFor={bibleReferenceHref}
+                            isAuthenticated={isAuthenticated}
+                            loginHref={loginHref} />
                     </div>
                 </div>
             </div>

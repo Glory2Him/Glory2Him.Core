@@ -1,6 +1,7 @@
 import { RouteObject } from 'react-router-dom';
 import { Author } from '../pages/author';
 import { Categories } from '../pages/categories';
+import { Contribute } from '../pages/contribute';
 import { Home } from '../pages/home';
 import { JournalMasonry } from '../pages/journalMasonry';
 import { PostGrid } from '../pages/postGrid';
@@ -20,4 +21,5 @@ export const publicPostRoutes: RouteObject[] = [
     { path: 'Post-Grid-Masonry-Filter', element: <JournalMasonry /> },
     { path: 'Post-Single', element: <PostSingle /> },
     { path: 'Post-Single/:slug', element: <PostSingle /> },
+    { path: 'post/contribute', element: <Contribute /> },
 ];

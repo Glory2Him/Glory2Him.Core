@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { AuthorByline } from '../components/coreUI/authorByline';
 import { CommentThread } from '../components/coreUI/commentThread';
 import { ContributionPrompt } from '../components/coreUI/contributionPrompt';
 import { ReactionBar } from '../components/coreUI/reactionBar';
 import { ShareLinks } from '../components/coreUI/shareLinks';
 import { SuggestionPanel } from '../components/coreUI/suggestionPanel';
+import { useAuth } from '../components/securitys/authProvider';
 import { ReactionOption } from '../models/coreUI/reactionOption';
 import { bibleReferenceHref } from '../services/views/bibleReferences/toUsfmReference';
 import {
@@ -32,6 +33,9 @@ export const PostSingle = () => {
     useDocumentTitle(`${post.title} — Glory 2 Him`);
 
     const [reactedTo, setReactedTo] = useState<string | null>(null);
+    const { isAuthenticated } = useAuth();
+    const location = useLocation();
+    const loginHref = `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`;
 
     const onReact = (reaction: ReactionOption) =>
         setReactedTo(reaction.label);
@@ -179,7 +183,9 @@ export const PostSingle = () => {
                                 items={post.tags}
                                 itemCssClass="btn-success-soft"
                                 prefixHash={true}
-                                hrefFormat="/Search?q={0}" />
+                                hrefFormat="/Search?q={0}"
+                                isAuthenticated={isAuthenticated}
+                                loginHref={loginHref} />
 
                             <hr className="my-4" />
 
@@ -193,13 +199,16 @@ export const PostSingle = () => {
                                 items={post.bibleReferences}
                                 itemCssClass="btn-primary-soft"
                                 itemIconCssClass="bi-book"
-                                hrefFor={bibleReferenceHref} />
+                                hrefFor={bibleReferenceHref}
+                                isAuthenticated={isAuthenticated}
+                                loginHref={loginHref} />
 
                             {/* No rule either side of this one — the panel's own border already
-                                separates it. Href points at a route that does not exist yet: the
-                                contribution page is still to be built, so this link 404s until it
-                                is. */}
-                            <ContributionPrompt href="/Contribute" cssClass="mt-4 mb-4" />
+                                separates it. */}
+                            <ContributionPrompt
+                                cssClass="mt-4 mb-4"
+                                isAuthenticated={isAuthenticated}
+                                loginHref={loginHref} />
 
                             <hr className="my-4" />
 
