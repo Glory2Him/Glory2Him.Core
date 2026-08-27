@@ -27,6 +27,13 @@ export interface SuggestionPanelProps {
     // a bible reference reads "John 3:16" but addresses as /BibleReferences/JHN.3.16.
     hrefFor?: (item: string) => string;
     onSuggested?: (suggestion: string) => void;
+
+    // Suggesting requires an account. The panel itself stays a pure renderer — the page decides
+    // isAuthenticated (via useAuth) and loginHref (via useLocation), the same split SecuredRoute
+    // uses for its own login prompt.
+    isAuthenticated: boolean;
+    loginHref: string;
+    loginPromptText?: string;
 }
 
 export function SuggestionPanel({
@@ -41,6 +48,11 @@ export function SuggestionPanel({
     hrefFormat = 'Tag?name={0}',
     hrefFor,
     onSuggested,
+    isAuthenticated,
+    loginHref,
+    loginPromptText = suggestHeading.length > 0
+        ? `Login to ${suggestHeading.charAt(0).toLowerCase()}${suggestHeading.slice(1)}`
+        : 'Login to suggest',
 }: SuggestionPanelProps) {
     const [pendingItems, setPendingItems] = useState<ReadonlyArray<string>>([]);
     const [draft, setDraft] = useState('');
@@ -122,16 +134,22 @@ export function SuggestionPanel({
             <p className="small text-uppercase fw-bold mb-1">{suggestHeading}</p>
             <p className="small mb-2">{prompt}</p>
 
-            <div className="position-relative mb-2">
-                <input
-                    className="form-control"
-                    type="text"
-                    placeholder={placeholder}
-                    value={draft}
-                    onChange={(event) => setDraft(event.target.value)}
-                    onKeyDown={onKeyDown}
-                    aria-label={suggestHeading} />
-            </div>
+            {isAuthenticated ? (
+                <div className="position-relative mb-2">
+                    <input
+                        className="form-control"
+                        type="text"
+                        placeholder={placeholder}
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={onKeyDown}
+                        aria-label={suggestHeading} />
+                </div>
+            ) : (
+                <Link to={loginHref} className="btn btn-sm btn-outline-primary mb-2">
+                    <i className="bi bi-box-arrow-in-right me-1"></i>{loginPromptText}
+                </Link>
+            )}
         </>
     );
 }

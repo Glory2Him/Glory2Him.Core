@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, ScrollRestoration } from "react-router-dom";
 import OffcanvasMenuComponent from "./layouts/offcanvasMenu";
 import HeaderComponent from "./layouts/header";
 import FooterComponent from "./layouts/footer";
@@ -26,6 +26,11 @@ export default function Root() {
             {/* **************** MAIN CONTENT END **************** */}
 
             <FooterComponent />
+
+            {/* createBrowserRouter's client-side navigations do not reset scroll position on
+                their own — without this, landing on a short page (e.g. Contribute) after
+                navigating from further down a long one leaves the viewport wherever it was. */}
+            <ScrollRestoration />
         </>
     );
 }

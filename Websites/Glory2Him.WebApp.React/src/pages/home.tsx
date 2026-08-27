@@ -1,7 +1,9 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArticleCard } from '../components/coreUI/articleCard';
+import { ContributionPrompt } from '../components/coreUI/contributionPrompt';
 import { PostHeroCard } from '../components/coreUI/postHeroCard';
 import { VerseOfTheDay } from '../components/coreUI/verseOfTheDay';
+import { useAuth } from '../components/securitys/authProvider';
 import {
     categories,
     featured,
@@ -44,6 +46,10 @@ const SmallHero = ({ post }: { post: SamplePost }) => (
 
 export const Home = () => {
     useDocumentTitle('Glory 2 Him — Sharing the Gospel');
+
+    const { isAuthenticated } = useAuth();
+    const location = useLocation();
+    const loginHref = `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`;
 
     return (
         <>
@@ -167,6 +173,11 @@ export const Home = () => {
                                     </Link>
                                 ))}
                             </div>
+
+                            <ContributionPrompt
+                                cssClass="mt-4 mb-0"
+                                isAuthenticated={isAuthenticated}
+                                loginHref={loginHref} />
                         </div>
                     </div>
                 </div>

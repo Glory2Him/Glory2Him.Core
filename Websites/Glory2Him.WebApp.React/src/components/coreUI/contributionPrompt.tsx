@@ -15,6 +15,13 @@ export interface ContributionPromptProps {
     // A little under the 44px author avatar, so it reads as an icon rather than a portrait.
     iconSizePx?: number;
     cssClass?: string;
+
+    // Contributing requires an account. The prompt itself stays a pure renderer — the page decides
+    // isAuthenticated (via useAuth) and loginHref (via useLocation), the same split SecuredRoute
+    // uses for its own login prompt.
+    isAuthenticated: boolean;
+    loginHref: string;
+    loginPromptText?: string;
 }
 
 export function ContributionPrompt({
@@ -22,10 +29,13 @@ export function ContributionPrompt({
     body = 'A story, a testimony, or a verse that carried you through — if it might encourage '
         + 'someone else, we would love to read it.',
     linkText = 'Submit a contribution',
-    href = '/Contribute',
+    href = '/post/contribute',
     iconCssClass = 'bi-pencil-square',
     iconSizePx = 36,
     cssClass = 'mb-4',
+    isAuthenticated,
+    loginHref,
+    loginPromptText = 'Login to share something',
 }: ContributionPromptProps) {
     return (
         <div className={`border rounded-3 p-3 p-lg-4 g2h-contribute ${cssClass}`}>
@@ -41,9 +51,15 @@ export function ContributionPrompt({
                     aria-hidden="true"></i>{body}
             </p>
 
-            <Link to={href} className="btn btn-sm btn-primary-soft mb-0">
-                {linkText}<i className="bi bi-arrow-right ms-1"></i>
-            </Link>
+            {isAuthenticated ? (
+                <Link to={href} className="btn btn-sm btn-primary-soft mb-0">
+                    {linkText}<i className="bi bi-arrow-right ms-1"></i>
+                </Link>
+            ) : (
+                <Link to={loginHref} className="btn btn-sm btn-primary-soft mb-0">
+                    <i className="bi bi-box-arrow-in-right me-1"></i>{loginPromptText}
+                </Link>
+            )}
         </div>
     );
 }
