@@ -18,6 +18,8 @@ const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/comp
 const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
 const DashboardSample = lazyNamed(() => import('../pages/samplePages/dashboardSample'), 'DashboardSample');
+const UnicodeEmojiDoc = lazyNamed(() => import('../pages/samplePages/icons/unicodeEmojiDoc'), 'UnicodeEmojiDoc');
+const IconsDoc = lazyNamed(() => import('../pages/samplePages/icons/iconsDoc'), 'IconsDoc');
 const HomeBlogClassicSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogClassicSample'), 'HomeBlogClassicSample');
 const HomeBlogPodcastSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogPodcastSample'), 'HomeBlogPodcastSample');
 const HomeBlogTechSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogTechSample'), 'HomeBlogTechSample');
@@ -81,6 +83,14 @@ export const samplePagesRoutes: RouteObject[] = [
             {
                 path: 'SamplePages/Components/Bible-Reference-Association-Panel',
                 element: secured(<BibleReferenceAssociationPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Icons/UnicodeEmoji',
+                element: secured(<UnicodeEmojiDoc />),
+            },
+            {
+                path: 'SamplePages/Icons/Icons',
+                element: secured(<IconsDoc />),
             },
         ],
     },
