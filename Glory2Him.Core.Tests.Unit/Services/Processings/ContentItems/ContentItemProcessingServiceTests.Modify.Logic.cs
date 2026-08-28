@@ -55,6 +55,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             expectedMappedContentItem.Title = inputContentItem.Title;
             expectedMappedContentItem.Author = inputContentItem.Author;
             expectedMappedContentItem.Content = inputContentItem.Content;
+            expectedMappedContentItem.ShareabilityBasis = inputContentItem.ShareabilityBasis;
+            expectedMappedContentItem.SharePermission = inputContentItem.SharePermission;
             expectedMappedContentItem.ContentHash = expectedContentHash;
             ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
             ContentItem expectedContentItem = updatedContentItem.DeepClone();
@@ -192,6 +194,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             expectedMappedContentItem.Title = inputContentItem.Title;
             expectedMappedContentItem.Author = inputContentItem.Author;
             expectedMappedContentItem.Content = inputContentItem.Content;
+            expectedMappedContentItem.ShareabilityBasis = inputContentItem.ShareabilityBasis;
+            expectedMappedContentItem.SharePermission = inputContentItem.SharePermission;
             expectedMappedContentItem.ContentHash = expectedContentHash;
             ContentItem updatedContentItem = expectedMappedContentItem.DeepClone();
 
@@ -380,6 +384,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
+                ShareabilityBasis = inputContentItem.ShareabilityBasis,
+                SharePermission = inputContentItem.SharePermission,
 
                 // the fork is still the modify operation, so the caller's publish date does
                 // not ride in on it — a fresh draft has none until approve grants one

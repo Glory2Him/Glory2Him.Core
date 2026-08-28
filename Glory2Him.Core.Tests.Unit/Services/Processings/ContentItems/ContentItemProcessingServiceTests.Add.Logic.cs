@@ -47,6 +47,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
+                ShareabilityBasis = inputContentItem.ShareabilityBasis,
+                SharePermission = inputContentItem.SharePermission,
 
                 // the caller's publish date does not ride in on the add — a fresh row has
                 // none until approve grants one, which is why it lands unpublished in Draft
@@ -227,6 +229,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 Title = inputContentItem.Title,
                 Author = inputContentItem.Author,
                 Content = inputContentItem.Content,
+                ShareabilityBasis = inputContentItem.ShareabilityBasis,
+                SharePermission = inputContentItem.SharePermission,
                 PublishDate = null,
                 ContentHash = expectedContentHash,
                 GroupId = groupId,
