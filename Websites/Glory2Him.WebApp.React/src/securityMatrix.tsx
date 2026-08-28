@@ -5,6 +5,12 @@ const securityPoints = {
         edit: ['Administrators'],
         delete: ['Administrators'],
     },
+    contentItemSettings: {
+        view: ['Administrators'],
+        add: ['Administrators'],
+        edit: ['Administrators'],
+        delete: ['Administrators'],
+    },
     posts: {
         view: ['Administrators'],
         add: ['Administrators'],

@@ -68,6 +68,40 @@ describe('navMenuProvider.getNavMenu', () => {
     });
 });
 
+describe('navMenuProvider Admin section', () => {
+    const getAdminSection = () =>
+        navMenuProvider.getNavMenu().find((item) => item.title === 'Admin');
+
+    it('should list content item settings below users', () => {
+        // when
+        const children = getAdminSection()?.children ?? [];
+
+        // then
+        expect(children.map((child) => child.title))
+            .toEqual(['Users', 'Content Item Settings', 'Posts']);
+    });
+
+    it('should point each admin entry at its route', () => {
+        // when
+        const children = getAdminSection()?.children ?? [];
+
+        // then: these must match adminRoutes, or the sidebar links land on nothing
+        expect(children.map((child) => child.href))
+            .toEqual(['Admin/Users', 'Admin/ContentItemSettings', 'Admin/Posts']);
+    });
+
+    it('should restrict every admin entry to administrators', () => {
+        // when
+        const children = getAdminSection()?.children ?? [];
+
+        // then
+        children.forEach((child) => {
+            expect(child.roles).toEqual(['Administrators']);
+            expect(child.requiresAuth).toBe(true);
+        });
+    });
+});
+
 describe('navMenuProvider.getSamplePagesSection', () => {
     it('should expose the same sample pages section the sidebar uses', () => {
         // when
