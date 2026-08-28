@@ -14,6 +14,7 @@ using G2H.Security.Client.Brokers.DateTimes;
 using G2H.Security.Client.Clients.Access;
 using G2H.Security.Client.Clients.Audits;
 using G2H.Security.Client.Clients.Users;
+using G2H.Security.Client.Models.Clients;
 using G2H.Security.Client.Services.Foundations.Access;
 using G2H.Security.Client.Services.Foundations.Audits;
 using G2H.Security.Client.Services.Foundations.Users;
@@ -24,9 +25,17 @@ namespace G2H.Security.Client.Clients
 {
     public class SecurityClient : ISecurityClient
     {
-        public SecurityClient()
+        /// <summary>
+        /// Creates the client. <paramref name="userIdentityConfigurations"/> is optional and
+        /// names the claim the user id is read from; omitting it uses ASP.NET Core Identity's
+        /// <c>ClaimTypes.NameIdentifier</c>, which is where Identity stores the account's primary
+        /// key. A host on another provider — Entra's <c>oid</c>, say — supplies its own.
+        /// </summary>
+        public SecurityClient(UserIdentityConfigurations? userIdentityConfigurations = null)
         {
-            IServiceProvider serviceProvider = RegisterServices();
+            IServiceProvider serviceProvider = RegisterServices(
+                userIdentityConfigurations ?? new UserIdentityConfigurations());
+
             InitializeClients(serviceProvider);
         }
 
@@ -41,9 +50,11 @@ namespace G2H.Security.Client.Clients
             Access = serviceProvider.GetRequiredService<IAccessClient>();
         }
 
-        private static IServiceProvider RegisterServices()
+        private static IServiceProvider RegisterServices(
+            UserIdentityConfigurations userIdentityConfigurations)
         {
             var serviceCollection = new ServiceCollection()
+                .AddSingleton(userIdentityConfigurations)
                 .AddTransient<IDateTimeBroker, DateTimeBroker>()
                 .AddTransient<IAuditService, AuditService>()
                 .AddTransient<IUserService, UserService>()

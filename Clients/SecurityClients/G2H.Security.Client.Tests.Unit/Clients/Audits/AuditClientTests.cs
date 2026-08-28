@@ -46,7 +46,7 @@ namespace G2H.Security.Client.Tests.Clients.Audits
 
             List<Claim> claims = new List<Claim>
             {
-                new Claim("oid", securityOid.ToString()),
+                new Claim(ClaimTypes.NameIdentifier, securityOid.ToString()),
                 new Claim(ClaimTypes.GivenName, GetRandomString()),
                 new Claim(ClaimTypes.Surname, GetRandomString()),
                 new Claim("displayName", GetRandomString()),
@@ -66,7 +66,7 @@ namespace G2H.Security.Client.Tests.Clients.Audits
         private User GetUser(ClaimsPrincipal claimsPrincipal)
         {
             return new User(
-                userId: claimsPrincipal.FindFirst("oid")?.Value!,
+                userId: claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value!,
                 givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
                 surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
                 displayName: claimsPrincipal.FindFirst("displayName")?.Value!,

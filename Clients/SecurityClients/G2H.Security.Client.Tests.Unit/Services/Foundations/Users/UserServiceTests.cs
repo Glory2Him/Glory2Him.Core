@@ -37,7 +37,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
 
             List<Claim> claims = new List<Claim>
             {
-                new Claim("oid", userId),
+                new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.GivenName, GetRandomString()),
                 new Claim(ClaimTypes.Surname, GetRandomString()),
                 new Claim("displayName", GetRandomString()),

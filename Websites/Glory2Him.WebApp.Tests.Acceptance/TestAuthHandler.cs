@@ -78,7 +78,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance
 
             var claims = new List<Claim>
             {
-                new Claim("oid", userId),
                 new Claim(ClaimTypes.NameIdentifier, userId),
                 new Claim(ClaimTypes.GivenName, givenName),
                 new Claim(ClaimTypes.Surname, surname),

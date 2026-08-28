@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using G2H.Security.Client.Models.Clients;
 using G2H.Security.Client.Models.Foundations.Users;
 using G2H.Security.Client.Models.Foundations.Users.Exceptions;
 
@@ -21,6 +22,20 @@ namespace G2H.Security.Client.Services.Foundations.Users
 {
     internal partial class UserService : IUserService
     {
+        private readonly UserIdentityConfigurations userIdentityConfigurations;
+
+        // An EXPLICIT parameterless constructor, not an optional parameter: Moq subclasses this
+        // service by reflection (new Mock<UserService> { CallBase = true }) and does not treat an
+        // all-optional constructor as parameterless, so the exception suites would not build.
+        // It also keeps ASP.NET Core Identity's claim as the zero-configuration default.
+        public UserService()
+            : this(new UserIdentityConfigurations())
+        { }
+
+        public UserService(UserIdentityConfigurations userIdentityConfigurations) =>
+            this.userIdentityConfigurations =
+                userIdentityConfigurations ?? new UserIdentityConfigurations();
+
         public ValueTask<User> GetUserAsync(ClaimsPrincipal claimsPrincipal) =>
         TryCatch(async () =>
         {
@@ -112,19 +127,25 @@ namespace G2H.Security.Client.Services.Foundations.Users
             return values;
         });
 
-        private static User GetUserFromClaimsPrincipal(ClaimsPrincipal claimsPrincipal)
+        private User GetUserFromClaimsPrincipal(ClaimsPrincipal claimsPrincipal)
         {
-            var userIdString = claimsPrincipal.FindFirst("oid")?.Value
-                ?? claimsPrincipal
-                    .FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+            // The configured claim types in order, first present wins. ClaimTypes.Name is
+            // deliberately NOT a fallback: it is a username, and resolving an audit trail to a
+            // display name would let two accounts share one identity — an ownership check
+            // comparing against it is a privilege escalation waiting to happen. A host whose
+            // provider uses something other than the Identity default configures it explicitly.
+            string? userId = null;
 
-                ?? claimsPrincipal
-                    .FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value
+            foreach (string claimType in this.userIdentityConfigurations.UserIdClaimTypes)
+            {
+                userId = claimsPrincipal.FindFirst(claimType)?.Value;
 
-                ?? claimsPrincipal
-                    .FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name")?.Value;
+                if (string.IsNullOrEmpty(userId) == false)
+                {
+                    break;
+                }
+            }
 
-            var userId = userIdString;
             var givenName = claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value;
             var surname = claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value;
             var displayName = claimsPrincipal.FindFirst("displayName")?.Value;
