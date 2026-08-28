@@ -127,6 +127,39 @@ describe('ContentItemSettingsPage', () => {
         expect(table.getByText('Bible Study')).toBeInTheDocument();
     });
 
+    it('should title each feature glyph with what it says about the setting', () => {
+        // given: shown but closed to new ones, and the reverse
+        settings = [createSetting({
+            showTags: true,
+            tagsAllowed: false,
+            showComments: false,
+            commentsAllowed: true
+        })];
+
+        // when
+        renderPage();
+
+        // then
+        expect(screen.getByTitle('Tags shown')).toBeInTheDocument();
+        expect(screen.getByTitle('Tags can not be added')).toBeInTheDocument();
+        expect(screen.getByTitle('Comments hidden')).toBeInTheDocument();
+        expect(screen.getByTitle('Comments can be added')).toBeInTheDocument();
+    });
+
+    it('should keep every feature on one row rather than a column each', () => {
+        // given
+        settings = [createSetting()];
+
+        // when
+        renderPage();
+
+        // then: six feature columns made the table wider than the content area, which pushed
+        // the row's own Manage button behind a horizontal scrollbar
+        const headers = screen.getAllByRole('columnheader').map((header) => header.textContent);
+        expect(headers).toEqual(['Content type', '', '']);
+        expect(screen.getByRole('button', { name: 'Manage' })).toBeInTheDocument();
+    });
+
     it('should carry the chosen content type into the query', async () => {
         // given
         renderPage();

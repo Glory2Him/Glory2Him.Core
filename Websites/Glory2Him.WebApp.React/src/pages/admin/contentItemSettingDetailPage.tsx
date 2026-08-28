@@ -38,10 +38,10 @@ type ContentItemSettingFlag = {
     ContentItemSetting[TField] extends boolean ? TField : never
 }[keyof ContentItemSetting];
 
-// Each pair is one of design §6.10's resolved features: "allowed" governs whether something new
-// can be created against a content item of this type, "shown" whether it renders at all. They
-// are independent — a closed comment thread that still displays its history sets allowed off
-// and shown on.
+// Each pair is one of design §6.10's resolved features: "shown" governs whether it renders at
+// all, "allowed" whether something new can be created against a content item of this type. They
+// are independent — a closed comment thread that still displays its history sets shown on and
+// allowed off, which is why shown reads first here and in the list's pills.
 type FeatureField = {
     title: string;
     allowedLabel: string;
@@ -284,15 +284,15 @@ export const ContentItemSettingDetailPage = () => {
                                 <div className="col-md-3 fw-semibold">{feature.title}</div>
                                 <div className="col-md-4">
                                     <FormSwitch
-                                        label={feature.allowedLabel}
-                                        value={editModel[feature.allowed]}
-                                        onValueChange={(value) => setField(feature.allowed, value)} />
-                                </div>
-                                <div className="col-md-5">
-                                    <FormSwitch
                                         label={feature.shownLabel}
                                         value={editModel[feature.shown]}
                                         onValueChange={(value) => setField(feature.shown, value)} />
+                                </div>
+                                <div className="col-md-5">
+                                    <FormSwitch
+                                        label={feature.allowedLabel}
+                                        value={editModel[feature.allowed]}
+                                        onValueChange={(value) => setField(feature.allowed, value)} />
                                 </div>
                             </div>
                         ))}

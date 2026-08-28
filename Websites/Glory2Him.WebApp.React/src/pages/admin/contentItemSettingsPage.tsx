@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Breadcrumb } from '../../components/coreUI/breadcrumb';
 import { Button } from '../../components/coreUI/button';
 import { Card } from '../../components/coreUI/card';
-import { formatDate } from '../../components/coreUI/dateFormats';
 import { Spinner } from '../../components/coreUI/spinner';
 import { BreadcrumbItem } from '../../models/coreUI/breadcrumbItem';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
@@ -42,19 +41,26 @@ const scopeOptions: ReadonlyArray<{ value: ContentItemSettingScope; text: string
     { value: 'Override', text: 'Item overrides' },
 ];
 
-// The feature pairs design §6.10 resolves, in the order the detail page edits them. "Allowed"
-// governs whether something new can be created; "shown" governs whether it renders at all.
-const featureColumns: ReadonlyArray<{
+// The feature pairs design §6.10 resolves, in the order the detail page edits them. "Shown"
+// governs whether something renders at all; "allowed" governs whether something new can be
+// created. Six pairs were six columns once, which made the table wider than the content area
+// and put the row's own Manage button behind a horizontal scrollbar — they now share one cell
+// and wrap, so the row action stays where it can be reached.
+const featureFields: ReadonlyArray<{
     title: string;
-    allowed: (setting: ContentItemSetting) => boolean;
     shown: (setting: ContentItemSetting) => boolean;
+    allowed: (setting: ContentItemSetting) => boolean;
 }> = [
-    { title: 'Tags', allowed: (s) => s.tagsAllowed, shown: (s) => s.showTags },
-    { title: 'Reactions', allowed: (s) => s.reactionsAllowed, shown: (s) => s.showReactions },
-    { title: 'Links', allowed: (s) => s.linksAllowed, shown: (s) => s.showLinks },
-    { title: 'Attachments', allowed: (s) => s.attachmentsAllowed, shown: (s) => s.showAttachments },
-    { title: 'Comments', allowed: (s) => s.commentsAllowed, shown: (s) => s.showComments },
-    { title: 'Bible refs', allowed: (s) => s.bibleReferenceAllowed, shown: (s) => s.showBibleReferences },
+    { title: 'Tags', shown: (s) => s.showTags, allowed: (s) => s.tagsAllowed },
+    { title: 'Reactions', shown: (s) => s.showReactions, allowed: (s) => s.reactionsAllowed },
+    { title: 'Links', shown: (s) => s.showLinks, allowed: (s) => s.linksAllowed },
+    { title: 'Attachments', shown: (s) => s.showAttachments, allowed: (s) => s.attachmentsAllowed },
+    { title: 'Comments', shown: (s) => s.showComments, allowed: (s) => s.commentsAllowed },
+    {
+        title: 'Bible references',
+        shown: (s) => s.showBibleReferences,
+        allowed: (s) => s.bibleReferenceAllowed
+    },
 ];
 
 export const ContentItemSettingsPage = () => {
@@ -177,12 +183,7 @@ export const ContentItemSettingsPage = () => {
                                 <thead>
                                     <tr>
                                         <th>Content type</th>
-                                        <th>Scope</th>
-                                        <th>Contributions</th>
-                                        {featureColumns.map((feature) => (
-                                            <th key={feature.title} className="text-center">{feature.title}</th>
-                                        ))}
-                                        <th>Updated</th>
+                                        <th></th>
                                         <th className="text-end"></th>
                                     </tr>
                                 </thead>
@@ -204,43 +205,55 @@ export const ContentItemSettingsPage = () => {
                                                 </div>
                                             </td>
                                             <td>
-                                                {setting.contentItemId == null ? (
-                                                    <span className="badge text-bg-secondary">Type default</span>
-                                                ) : (
-                                                    <>
-                                                        <span className="badge text-bg-info">Item override</span>
-                                                        <div
-                                                            className="small text-body-secondary font-monospace text-truncate"
-                                                            style={{ maxWidth: '12rem' }}
-                                                            title={setting.contentItemId}>
-                                                            {setting.contentItemId}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </td>
-                                            <td>
-                                                <span className={`badge ${setting.isAvailableAsGeneralUserContribution
-                                                    ? 'text-bg-success'
-                                                    : 'text-bg-light text-dark border'}`}>
-                                                    {setting.isAvailableAsGeneralUserContribution ? 'Open' : 'Closed'}
-                                                </span>
-                                            </td>
-                                            {featureColumns.map((feature) => (
-                                                <td key={feature.title} className="text-center text-nowrap">
-                                                    <i
-                                                        className={`bi ${feature.allowed(setting)
-                                                            ? 'bi-plus-circle-fill text-success'
-                                                            : 'bi-plus-circle text-body-tertiary'} me-1`}
-                                                        title={`${feature.title} ${feature.allowed(setting) ? 'allowed' : 'not allowed'}`}></i>
-                                                    <i
-                                                        className={`bi ${feature.shown(setting)
-                                                            ? 'bi-eye-fill text-primary'
-                                                            : 'bi-eye-slash text-body-tertiary'}`}
-                                                        title={`${feature.title} ${feature.shown(setting) ? 'shown' : 'hidden'}`}></i>
-                                                </td>
-                                            ))}
-                                            <td className="text-nowrap">
-                                                {formatDate(new Date(setting.updatedWhen))}
+                                                <div className="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                                    {setting.contentItemId == null ? (
+                                                        <span className="badge text-bg-dark">Type default</span>
+                                                    ) : (
+                                                        <>
+                                                            <span className="badge text-bg-info">Item override</span>
+                                                            <span
+                                                                className="small text-body-secondary font-monospace text-truncate"
+                                                                style={{ maxWidth: '12rem' }}
+                                                                title={setting.contentItemId}>
+                                                                {setting.contentItemId}
+                                                            </span>
+                                                        </>
+                                                    )}
+
+                                                    <span className={`badge ${setting.isAvailableAsGeneralUserContribution
+                                                        ? 'text-bg-success'
+                                                        : 'text-bg-warning'}`}>
+                                                        Public Contributions
+                                                        {setting.isAvailableAsGeneralUserContribution ? ' Open' : ' Closed'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="d-flex flex-wrap gap-2">
+                                                    {featureFields.map((feature) => {
+                                                        const isShown = feature.shown(setting);
+                                                        const isAllowed = feature.allowed(setting);
+
+                                                        return (
+                                                            <span
+                                                                key={feature.title}
+                                                                className={`badge rounded-pill fw-normal ${isShown || isAllowed
+                                                                    ? 'bg-primary-subtle text-primary-emphasis'
+                                                                    : 'bg-body-secondary text-body-tertiary'}`}>
+                                                                {feature.title}
+                                                                <i
+                                                                    className={`bi ms-2 ${isShown
+                                                                        ? 'bi-eye-fill text-primary'
+                                                                        : 'bi-eye-slash text-body-tertiary'}`}
+                                                                    title={`${feature.title} ${isShown ? 'shown' : 'hidden'}`}></i>
+                                                                <i
+                                                                    className={`bi ms-1 ${isAllowed
+                                                                        ? 'bi-plus-circle-fill text-success'
+                                                                        : 'bi-plus-circle text-body-tertiary'}`}
+                                                                    title={`${feature.title} can ${isAllowed ? '' : 'not '}be added`}></i>
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
                                             </td>
                                             <td className="text-end">
                                                 <Button
