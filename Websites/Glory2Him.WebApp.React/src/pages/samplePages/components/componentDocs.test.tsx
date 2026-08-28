@@ -1,0 +1,158 @@
+import { screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AssociationPanelDoc } from './associationPanelDoc';
+import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
+import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
+import {
+    createAuthState,
+    renderWithAuth,
+    signInAs,
+    signOut
+} from '../../../tests/testAuth';
+
+const authState = createAuthState();
+
+vi.mock('../../../services/foundations/accountService', () => ({
+    accountService: {
+        useGetCurrentUser: () => authState
+    }
+}));
+
+// The reference pages are Administrators-only, so the demos are exercised as one — which is
+// also the only way the approve / deny pair appears at all.
+describe('Component reference pages', () => {
+    beforeEach(() => {
+        signOut(authState);
+        signInAs(authState, ['Administrators']);
+    });
+
+    describe('AssociationPanelDoc', () => {
+        it('should document the component and run it live', () => {
+            // when
+            renderWithAuth(<AssociationPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Association Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('src/components/associations/associationPanel.tsx'))
+                .toBeInTheDocument();
+
+            // the live panel, not a screenshot of one
+            expect(screen.getByRole('link', { name: '#creation' })).toBeInTheDocument();
+            expect(screen.getByPlaceholderText('Start typing a tag…')).toBeInTheDocument();
+        });
+
+        it('should offer the moderation pair on a submission the reader does not own', () => {
+            // when
+            renderWithAuth(<AssociationPanelDoc />);
+
+            // then
+            expect(screen.getByRole('button', { name: 'Approve awaiting-someone-elses' }))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: 'Reject awaiting-someone-elses' }))
+                .toBeInTheDocument();
+        });
+
+        it('should give the reader a withdrawal rather than a verdict on their own submission', () => {
+            // when
+            renderWithAuth(<AssociationPanelDoc />);
+
+            // then: an administrator who contributed it still cannot wave it through
+            expect(screen.getByRole('button', { name: 'Remove awaiting-mine' })).toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: /Approve awaiting-mine/ }))
+                .not.toBeInTheDocument();
+        });
+
+        it('should not leave a bare section for the theme to pad', () => {
+            // when
+            const { container } = renderWithAuth(<AssociationPanelDoc />);
+
+            // then: the theme pads every bare <section> by 3.5rem/2.8rem, which stacked into
+            // roughly 100px of dead space between headings. The only section left on the page is
+            // the panel itself, which neutralises that padding with its own class.
+            const sections = Array.from(container.querySelectorAll('section'));
+
+            sections.forEach((section) =>
+                expect(section).toHaveClass('g2h-association-panel'));
+        });
+
+        it('should mark each matrix cell with a tick, a cross or a coloured action', () => {
+            // when
+            const { container } = renderWithAuth(<AssociationPanelDoc />);
+
+            // then: read whole cells — the glyph sits in its own aria-hidden span beside the
+            // word, so the text is split across nodes and getByText cannot see it
+            const cells = Array.from(container.querySelectorAll('td'))
+                .map((cell) => cell.textContent ?? '');
+
+            expect(cells).toContain('✅ Yes');
+            expect(cells).toContain('❌ No');
+            expect(cells).toContain('🔴 Remove');
+            expect(cells).toContain('🟡 Reject + 🟢 Approve');
+            expect(cells).toContain('🔴 Remove + 🟡 Reject + 🟢 Approve');
+        });
+
+        it('should carry the code samples and the props table', () => {
+            // when
+            const { container } = renderWithAuth(<AssociationPanelDoc />);
+
+            // then
+            // getAllByText: the gate props are named in the prose as well as the table
+            expect(container.querySelectorAll('pre code').length).toBeGreaterThan(0);
+            expect(screen.getAllByText('viewAllRoles').length).toBeGreaterThan(0);
+            expect(screen.getAllByText('showModerationActions').length).toBeGreaterThan(0);
+        });
+    });
+
+    describe('TagAssociationPanelDoc', () => {
+        it('should document the component and run it with its own defaults', () => {
+            // when
+            renderWithAuth(<TagAssociationPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Tag Association Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            // the hash prefix and the search href are the component's, not the page's
+            expect(screen.getByRole('link', { name: '#miracles' }))
+                .toHaveAttribute('href', '/Search?q=miracles');
+
+            expect(screen.getByText('Think a tag is missing? Suggest one and help others find this post.'))
+                .toBeInTheDocument();
+        });
+    });
+
+    describe('BibleReferenceAssociationPanelDoc', () => {
+        it('should document the component and run it with its own defaults', () => {
+            // when
+            renderWithAuth(<BibleReferenceAssociationPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Bible Reference Association Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            // A multi-part citation addresses its opening chapter — the label keeps the full
+            // "Joshua 10:8, 12-13" while the href resolves to what the route can parse.
+            expect(screen.getByRole('link', { name: /Joshua 10:8, 12-13/ }))
+                .toHaveAttribute('href', '/BibleReferences/JOS.10');
+        });
+
+        it('should show the book on an approved chip and the hourglass on a waiting one', () => {
+            // when
+            renderWithAuth(<BibleReferenceAssociationPanelDoc />);
+
+            // then
+            const approvedChip = screen.getByRole('link', { name: /Joshua 10:8, 12-13/ })
+                .closest('span.g2h-association-chip');
+
+            const pendingChip = screen.getByRole('link', { name: /Romans 3:23/ })
+                .closest('span.g2h-association-chip');
+
+            expect(approvedChip?.querySelector('i.bi-book')).toBeInTheDocument();
+            expect(pendingChip?.querySelector('i.bi-hourglass-split')).toBeInTheDocument();
+        });
+    });
+});
