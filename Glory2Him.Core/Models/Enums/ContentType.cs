@@ -47,13 +47,13 @@ namespace Glory2Him.Core.Models.Enums
         /// (design §3.8). Numbered apart from the standalone content types above pending
         /// design §3.9, which revisits whether this is distinct from <see cref="Topic"/>.
         /// </summary>
-        Series = 999,
+        Series = 100,
 
         /// <summary>
         /// A grouping content item — excluded from feed projections (design §3.8). Numbered
         /// apart from the standalone content types above pending design §3.9, which revisits
         /// whether this is distinct from <see cref="Series"/>.
         /// </summary>
-        Topic = 1000
+        Topic = 200
     }
 }
