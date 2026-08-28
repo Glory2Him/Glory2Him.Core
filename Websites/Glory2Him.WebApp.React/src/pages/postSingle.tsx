@@ -5,10 +5,16 @@ import { CommentThread } from '../components/coreUI/commentThread';
 import { ContributionPrompt } from '../components/coreUI/contributionPrompt';
 import { ReactionBar } from '../components/coreUI/reactionBar';
 import { ShareLinks } from '../components/coreUI/shareLinks';
-import { SuggestionPanel } from '../components/coreUI/suggestionPanel';
+import { BibleReferenceAssociationPanel } from '../components/associations/bibleReferenceAssociationPanel';
+import { TagAssociationPanel } from '../components/associations/tagAssociationPanel';
 import { useAuth } from '../components/securitys/authProvider';
+import { AssociationItem } from '../models/components/associations/associationItem';
 import { ReactionOption } from '../models/coreUI/reactionOption';
-import { bibleReferenceHref } from '../services/views/bibleReferences/toUsfmReference';
+import {
+    asApprovedAssociations,
+    asSuggestedAssociation,
+    withoutAssociationValue
+} from '../services/views/associations/toAssociationItems';
 import {
     comments,
     detailAuthorName,
@@ -33,12 +39,23 @@ export const PostSingle = () => {
     useDocumentTitle(`${post.title} — Glory 2 Him`);
 
     const [reactedTo, setReactedTo] = useState<string | null>(null);
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const location = useLocation();
     const loginHref = `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`;
 
     const onReact = (reaction: ReactionOption) =>
         setReactedTo(reaction.label);
+
+    // The panels own no state, so anything suggested here lives on this page — and only until it
+    // is navigated away from, exactly as it did under SuggestionPanel. Wiring these to the
+    // Association API is a separate job; when it lands, these two lists become the query result
+    // and the handlers become mutations.
+    const [suggestedTags, setSuggestedTags] = useState<ReadonlyArray<AssociationItem>>([]);
+
+    const [suggestedReferences, setSuggestedReferences] =
+        useState<ReadonlyArray<AssociationItem>>([]);
+
+    const asSuggestion = (value: string) => asSuggestedAssociation(value, user?.userId);
 
     return (
         <>
@@ -175,33 +192,37 @@ export const PostSingle = () => {
                         </div>
 
                         <div className="col-lg-5">
-                            <SuggestionPanel
-                                heading="Tags"
-                                suggestHeading="Suggest a tag"
-                                prompt="Think a tag is missing? Suggest one and help others find this post."
-                                placeholder="Start typing a tag…"
-                                items={post.tags}
-                                itemCssClass="btn-success-soft"
-                                prefixHash={true}
-                                hrefFormat="/Search?q={0}"
-                                isAuthenticated={isAuthenticated}
-                                loginHref={loginHref} />
+                            {/* Headings, prompts, the hash prefix and the search links are all
+                                the component's own defaults. showModerationActions is left off,
+                                which is the point of this page: a reader may suggest and withdraw
+                                their own suggestion, and nothing here decides anything. */}
+                            <TagAssociationPanel
+                                associationCollection={[
+                                    ...asApprovedAssociations(post.tags),
+                                    ...suggestedTags
+                                ]}
+                                onAdd={(value) =>
+                                    setSuggestedTags([...suggestedTags, asSuggestion(value)])}
+                                onRemove={(item) =>
+                                    setSuggestedTags(withoutAssociationValue(suggestedTags, item))} />
 
                             <hr className="my-4" />
 
                             {/* Each pill reads as the post cites it and addresses as the
                                 deep-link route parses it, so the passage is one click away. */}
-                            <SuggestionPanel
-                                heading="Bible references"
-                                suggestHeading="Suggest a bible reference"
-                                prompt="Know a matching verse? Suggest it below."
-                                placeholder="e.g. Romans 3:23…"
-                                items={post.bibleReferences}
-                                itemCssClass="btn-primary-soft"
-                                itemIconCssClass="bi-book"
-                                hrefFor={bibleReferenceHref}
-                                isAuthenticated={isAuthenticated}
-                                loginHref={loginHref} />
+                            <BibleReferenceAssociationPanel
+                                associationCollection={[
+                                    ...asApprovedAssociations(post.bibleReferences),
+                                    ...suggestedReferences
+                                ]}
+                                onAdd={(value) =>
+                                    setSuggestedReferences([
+                                        ...suggestedReferences,
+                                        asSuggestion(value)
+                                    ])}
+                                onRemove={(item) =>
+                                    setSuggestedReferences(
+                                        withoutAssociationValue(suggestedReferences, item))} />
 
                             {/* No rule either side of this one — the panel's own border already
                                 separates it. */}
