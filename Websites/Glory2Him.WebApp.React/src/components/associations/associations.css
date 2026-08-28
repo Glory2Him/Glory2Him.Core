@@ -1,0 +1,72 @@
+/* ── AssociationPanel ─────────────────────────────────────────────────────── */
+
+/* The panel is a <section> so screen readers get a named region, but the Blogzine theme gives
+   every bare section 3.5rem of top and 2.8rem of bottom padding — page-band spacing, wildly wrong
+   for a panel sitting inside a sidebar or a card. Neutralised here rather than by dropping to a
+   <div>, so the accessible name survives. Bootstrap's p-3/p-lg-4 utilities carry !important, so
+   showBorder still gets its padding back. */
+section.g2h-association-panel {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* The chip is a WRAPPER, not the clickable element. Its label may be a link, a button or plain
+   text, and each action sits BESIDE that label rather than inside it — a button nested in a link
+   (or in another button) is invalid HTML and browsers handle it inconsistently. The wrapper
+   carries the look; the children carry the behaviour.
+
+   Colour comes entirely from the theme class the caller passes (btn-success-soft,
+   btn-primary-soft, …) so the chip follows light/dark mode. Nothing here sets a colour.
+
+   Padding is deliberately zeroed and handed to the label, which is what lets an action button sit
+   flush against the chip's edge instead of floating inside its padding. overflow: hidden then
+   clips those square buttons to the pill's own radius. */
+.g2h-association-chip {
+    display: inline-flex;
+    align-items: stretch;
+    padding: 0;
+    overflow: hidden;
+    font-size: 0.875em;
+    line-height: 1.4;
+}
+
+/* The label inherits the wrapper's colour in every form it can take, so a link does not arrive in
+   the theme's link blue on top of a chip that has already set its own foreground. */
+.g2h-association-chip-label,
+.g2h-association-chip-label:hover,
+.g2h-association-chip-label:focus-visible {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.65rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+/* A bare button rather than a .btn, so a clickable label adds no box of its own inside the pill. */
+button.g2h-association-chip-label {
+    border: 0;
+    background: none;
+    font: inherit;
+    cursor: pointer;
+}
+
+/* Delete / deny / approve. Square-cornered and flush, so they read as attached to the chip rather
+   than as separate controls — the radius is the wrapper's to apply. Their colour is the caller's
+   theme class (btn-danger, btn-success, …), so these keep working in dark mode. */
+.g2h-association-chip-action {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.3rem 0.5rem;
+    border: 0;
+    border-radius: 0;
+    font-size: inherit;
+    line-height: inherit;
+}
+
+/* An item that has not been approved yet: same colour so it still reads as part of the set, but
+   outlined rather than filled and slightly faded, so approved and pending are never confused.
+   Carried over from SuggestionPanel, whose look this panel replaces. */
+.g2h-association-chip-pending {
+    border-style: dashed;
+    opacity: 0.75;
+}
