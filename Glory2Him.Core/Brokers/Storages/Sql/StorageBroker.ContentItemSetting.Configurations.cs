@@ -34,6 +34,29 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItemSetting => contentItemSetting.ContentItemId)
                  .IsRequired(false);
 
+            model.Property(contentItemSetting => contentItemSetting.HasTitle)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            model.Property(contentItemSetting => contentItemSetting.HasAuthor)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model.Property(contentItemSetting => contentItemSetting.IsAvailableAsGeneralUserContribution)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            model.Property(contentItemSetting => contentItemSetting.ContentTypeName)
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            model.Property(contentItemSetting => contentItemSetting.ContentTypeDescription)
+                .HasMaxLength(500)
+                .IsRequired(false);
+
+            model.Property(contentItemSetting => contentItemSetting.ContentTypeIconCssClass)
+                .IsRequired(false);
+
             model.Property(contentItemSetting => contentItemSetting.TagsAllowed)
                 .IsRequired()
                 .HasDefaultValue(false);

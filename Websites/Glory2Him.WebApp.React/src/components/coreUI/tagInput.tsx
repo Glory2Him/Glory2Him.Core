@@ -13,6 +13,11 @@ export interface TagInputProps {
     placeholder?: string;
     ariaLabel?: string;
     tagCssClass?: string;
+
+    // Decoration for each pill: a literal prefix ('#' for hashtags) or a leading icon
+    // (bi-book for bible references). Neither is part of the stored value.
+    tagPrefix?: string;
+    tagIconCssClass?: string;
 }
 
 export function TagInput({
@@ -21,6 +26,8 @@ export function TagInput({
     placeholder = 'Type a tag and press Enter',
     ariaLabel = 'Add a tag',
     tagCssClass = 'btn-success-soft',
+    tagPrefix = '',
+    tagIconCssClass,
 }: TagInputProps) {
     const [draft, setDraft] = useState('');
 
@@ -53,7 +60,10 @@ export function TagInput({
                 <div className="d-flex flex-wrap gap-2 mb-2">
                     {tags.map((tag) => (
                         <span key={tag} className={`btn ${tagCssClass} g2h-tag-pill mb-0`}>
-                            {tag}
+                            {tagIconCssClass != null && (
+                                <i className={`bi ${tagIconCssClass} me-1`} aria-hidden="true"></i>
+                            )}
+                            {tagPrefix}{tag}
 
                             <button
                                 type="button"

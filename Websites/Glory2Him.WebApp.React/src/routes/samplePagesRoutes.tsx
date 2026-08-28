@@ -12,6 +12,9 @@ const lazyNamed = <T extends Record<string, ComponentType>, K extends keyof T & 
     exportName: K) =>
     lazy(async () => ({ default: (await loader())[exportName] }));
 
+const AssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/associationPanelDoc'), 'AssociationPanelDoc');
+const BibleReferenceAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/bibleReferenceAssociationPanelDoc'), 'BibleReferenceAssociationPanelDoc');
+const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/tagAssociationPanelDoc'), 'TagAssociationPanelDoc');
 const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
 const DashboardSample = lazyNamed(() => import('../pages/samplePages/dashboardSample'), 'DashboardSample');
@@ -61,9 +64,24 @@ const secured = (element: ReactElement): ReactElement => (
 
 export const samplePagesRoutes: RouteObject[] = [
     {
+        // The component reference pages keep the admin shell rather than rendering full width:
+        // they are documentation you read across, so the tree stays on the left.
         element: <SidebarLayout />,
         children: [
             { path: 'SamplePages', element: secured(<SamplePagesIndex />) },
+
+            {
+                path: 'SamplePages/Components/Association-Panel',
+                element: secured(<AssociationPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Tag-Association-Panel',
+                element: secured(<TagAssociationPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Bible-Reference-Association-Panel',
+                element: secured(<BibleReferenceAssociationPanelDoc />),
+            },
         ],
     },
     {

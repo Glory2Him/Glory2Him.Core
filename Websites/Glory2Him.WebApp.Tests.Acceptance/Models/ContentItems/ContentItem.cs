@@ -29,6 +29,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ContentItems
         public string Author { get; set; }
         public string Content { get; set; }
 
+        // The basis on which the contributor may share this content, and the optional detail
+        // recorded when that basis is PermissionGranted. SharePermission caps at 500 characters,
+        // the same cap DeletionReason and ApprovedByBypassReason carry.
+        public ShareabilityBasis ShareabilityBasis { get; set; }
+        public string SharePermission { get; set; }
+
         // Control fields the caller never supplies (§12.4.1 rule 6). They appear here because the
         // API RETURNS them and the assertions read them — not because a request may carry them.
         // ContentHash is derived from Content, and GroupId plus Version name the row within its

@@ -5,7 +5,14 @@ import { CommentThread } from '../../../components/coreUI/commentThread';
 import { ContributionPrompt } from '../../../components/coreUI/contributionPrompt';
 import { ReactionBar } from '../../../components/coreUI/reactionBar';
 import { ShareLinks } from '../../../components/coreUI/shareLinks';
-import { SuggestionPanel } from '../../../components/coreUI/suggestionPanel';
+import { BibleReferenceAssociationPanel } from '../../../components/associations/bibleReferenceAssociationPanel';
+import { TagAssociationPanel } from '../../../components/associations/tagAssociationPanel';
+import { AssociationItem } from '../../../models/components/associations/associationItem';
+import {
+    asApprovedAssociations,
+    asSuggestedAssociation,
+    withoutAssociationValue
+} from '../../../services/views/associations/toAssociationItems';
 import { ReactionOption } from '../../../models/coreUI/reactionOption';
 import {
     comments,
@@ -27,6 +34,14 @@ export const PostSingleMagazineSample = () => {
     useDocumentTitle(`${featured.title} — Sample — Glory 2 Him`);
 
     const [reactedTo, setReactedTo] = useState<string | null>(null);
+
+    // Suggestions live on the page, as they do on the real post detail. The demo passes no
+    // createdBy, so a suggestion reads as pending but carries no withdraw — this page is a
+    // layout showcase, not a working panel.
+    const [suggestedTags, setSuggestedTags] = useState<ReadonlyArray<AssociationItem>>([]);
+
+    const [suggestedReferences, setSuggestedReferences] =
+        useState<ReadonlyArray<AssociationItem>>([]);
 
     const onReact = (reaction: ReactionOption): void =>
         setReactedTo(reaction.label);
@@ -166,39 +181,44 @@ export const PostSingleMagazineSample = () => {
                             </div>
 
                             <div className="col-lg-5">
-                                {/* Sample pages showcase the theme's full-strength UI regardless of who
-                                    is viewing, so isAuthenticated is hardcoded true here — the real
-                                    pages wire it from useAuth. */}
-                                <SuggestionPanel
-                                    heading="Tags"
-                                    suggestHeading="Suggest a tag"
-                                    prompt="Think a tag is missing? Suggest one and help others find this post."
-                                    placeholder="Start typing a tag…"
-                                    items={featured.tags}
-                                    itemCssClass="btn-success-soft"
-                                    prefixHash={true}
-                                    hrefFormat="Tag?name={0}"
-                                    isAuthenticated={true}
-                                    loginHref="/Account/Login" />
+                                {/* The panel reads the viewer's identity itself, and these demos are
+                                    Administrators-only, so the add box always shows here — the
+                                    hardcoded isAuthenticated the old panel needed is gone. */}
+                                <TagAssociationPanel
+                                    chipHrefFor={(item) => `/Tag?name=${encodeURIComponent(item.value)}`}
+                                    associationCollection={[
+                                        ...asApprovedAssociations(featured.tags),
+                                        ...suggestedTags
+                                    ]}
+                                    onAdd={(value) => setSuggestedTags([
+                                        ...suggestedTags,
+                                        asSuggestedAssociation(value, undefined)
+                                    ])}
+                                    onRemove={(item) =>
+                                        setSuggestedTags(
+                                            withoutAssociationValue(suggestedTags, item))} />
 
                                 <hr className="my-4" />
 
-                                {/* Every pill goes to the single-verse sample rather than a search: that
-                                    page exists and shows what a reference looks like when opened. It
-                                    renders one fixed passage, so the href takes no {0} — the reference
-                                    clicked is not carried through, and would be misleading in the URL if
-                                    it were. */}
-                                <SuggestionPanel
-                                    heading="Bible references"
-                                    suggestHeading="Suggest a bible reference"
-                                    prompt="Know a matching verse? Suggest it below."
-                                    placeholder="e.g. Romans 3:23…"
-                                    items={featured.bibleReferences}
-                                    itemCssClass="btn-primary-soft"
-                                    itemIconCssClass="bi-book"
-                                    hrefFormat="/SamplePages/BibleReferences/BibleReference-Single-verse"
-                                    isAuthenticated={true}
-                                    loginHref="/Account/Login" />
+                                {/* Every pill goes to the single-verse sample rather than the real
+                                    deep link: that page exists and shows what a reference looks like
+                                    when opened. It renders one fixed passage, so the reference clicked
+                                    is deliberately not carried through — it would be misleading in the
+                                    URL if it were. */}
+                                <BibleReferenceAssociationPanel
+                                    chipHrefFor={() =>
+                                        '/SamplePages/BibleReferences/BibleReference-Single-verse'}
+                                    associationCollection={[
+                                        ...asApprovedAssociations(featured.bibleReferences),
+                                        ...suggestedReferences
+                                    ]}
+                                    onAdd={(value) => setSuggestedReferences([
+                                        ...suggestedReferences,
+                                        asSuggestedAssociation(value, undefined)
+                                    ])}
+                                    onRemove={(item) =>
+                                        setSuggestedReferences(
+                                            withoutAssociationValue(suggestedReferences, item))} />
 
                                 {/* No rule either side of this one — the panel's own border already
                                     separates it. */}

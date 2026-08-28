@@ -78,4 +78,34 @@ describe('navMenuProvider.getSamplePagesSection', () => {
         expect(section.title).toBe('Sample Pages');
         expect(menu.map((item) => item.title)).toContain(section.title);
     });
+
+    it('should offer a Components group listing every documented component', () => {
+        // when
+        const section = navMenuProvider.getSamplePagesSection();
+
+        const components = (section.children ?? [])
+            .find((child) => child.title === 'Components');
+
+        // then
+        expect(components).toBeDefined();
+
+        expect((components?.children ?? []).map((child) => child.title)).toEqual([
+            'Association Panel',
+            'Tag Association Panel',
+            'Bible Reference Association Panel'
+        ]);
+    });
+
+    it('should point each component entry at its reference page', () => {
+        // when
+        const components = (navMenuProvider.getSamplePagesSection().children ?? [])
+            .find((child) => child.title === 'Components');
+
+        // then: these must match samplePagesRoutes, or the sidebar links land on nothing
+        expect((components?.children ?? []).map((child) => child.href)).toEqual([
+            'SamplePages/Components/Association-Panel',
+            'SamplePages/Components/Tag-Association-Panel',
+            'SamplePages/Components/Bible-Reference-Association-Panel'
+        ]);
+    });
 });

@@ -87,6 +87,21 @@ const samplePagesSection: NavItem = {
                     "SamplePages/BibleReferences/BibleReference-Full-Chapter"),
             ]
         },
+        // Reference documentation for the reusable components rather than a layout demo: each
+        // page explains a component's props, shows it running, and carries the code to paste.
+        // They render inside the admin shell (SidebarLayout) so the tree stays on the left while
+        // you read across them.
+        {
+            title: "Components", icon: "bi-boxes", href: "SamplePages/Components",
+            children: [
+                sample("Association Panel", "SamplePages/Components/Association-Panel"),
+                sample("Tag Association Panel", "SamplePages/Components/Tag-Association-Panel"),
+
+                sample(
+                    "Bible Reference Association Panel",
+                    "SamplePages/Components/Bible-Reference-Association-Panel"),
+            ]
+        },
         sample("Lifestyle", "SamplePages/Lifestyle", "bi-stars"),
         sample("Dashboard", "SamplePages/Dashboard", "bi-speedometer2"),
     ]

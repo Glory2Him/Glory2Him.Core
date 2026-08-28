@@ -264,12 +264,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         [Fact]
         public async Task ShouldReturnConflictOnPostIfContentTypeAlreadyHasADefaultAsync()
         {
-            // given
-            ContentItemSetting existingContentItemSetting =
-                await PostRandomContentItemSettingAsync();
-
+            // given: the host seeds one default per content type at startup
+            // (ContentItemSettingSeedData), so every type already holds the slot this post wants.
+            // Nothing is arranged here — the incumbent is the real seeded row, which makes this a
+            // truer test of the rule than a default this suite planted for itself.
             ContentItemSetting duplicateContentItemSetting = CreateRandomContentItemSetting();
-            duplicateContentItemSetting.ContentType = existingContentItemSetting.ContentType;
+            duplicateContentItemSetting.ContentType = ContentType.Quote;
             duplicateContentItemSetting.ContentItemId = null;
 
             try
@@ -283,9 +283,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             }
             finally
             {
-                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
-                    existingContentItemSetting.Id);
-
+                // The post was refused, so there is nothing of this suite's to tear down — and
+                // the seeded default must survive, or every later run loses its incumbent.
                 await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
                     duplicateContentItemSetting.Id);
             }

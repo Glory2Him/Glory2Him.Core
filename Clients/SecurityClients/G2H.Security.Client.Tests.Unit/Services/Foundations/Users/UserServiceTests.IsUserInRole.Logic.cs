@@ -30,7 +30,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Users
             bool expectedResult = isInRole;
 
             User expectedUser = new User(
-                userId: claimsPrincipal.FindFirst("oid")?.Value!,
+                userId: claimsPrincipal.FindFirst(ClaimTypes.NameIdentifier)?.Value!,
                 givenName: claimsPrincipal.FindFirst(ClaimTypes.GivenName)?.Value!,
                 surname: claimsPrincipal.FindFirst(ClaimTypes.Surname)?.Value!,
                 displayName: claimsPrincipal.FindFirst("displayName")?.Value!,

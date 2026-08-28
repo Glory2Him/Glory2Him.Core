@@ -1,0 +1,298 @@
+// ────────────────────────────────────────────────────────────────────────────────
+// Copyright (c) Glory 2 Him. All rights reserved.
+// Licensed under the Glory 2 Him Software License (G2HSL).
+// See License.txt in the project root for full license information.
+// FREE TO USE TO HELP SHARE THE GOSPEL
+// John 14:6 (NIV) "Jesus answered, ‘I am the way and the truth and the life.
+//                  No one comes to the Father except through me.’"
+// https://john.bible/john-14-6
+// If Jesus is who He said He is, what does that mean for you, today?
+// ────────────────────────────────────────────────────────────────────────────────
+
+using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ContentItemSettings;
+using Microsoft.EntityFrameworkCore;
+
+namespace Glory2Him.WebApp.Data
+{
+    // Idempotent first-run seed for the per-ContentType default ContentItemSetting rows —
+    // the sibling of SeedData.cs, which does the same for roles and users.
+    //
+    // WRITTEN DIRECTLY THROUGH IStorageBroker, bypassing ContentItemSettingService. The
+    // foundation enforces its own Admin gate (design §14.6) by reading the SecurityContext
+    // an inbound EventEnvelope carries, and that envelope is populated from the ambient
+    // HttpContext at the moment it is created (CoreRegistration.cs). There is no HttpContext
+    // during host startup, so the audited Add path is unreachable here — the same reason
+    // SeedData.cs writes roles through RoleManager directly rather than through a Core
+    // service. These rows are system-authored configuration, not a user action, so bypassing
+    // the audit trail here is correct rather than a workaround.
+    public static class ContentItemSettingSeedData
+    {
+        private const string SeededBy = "system-seed";
+
+        public static async Task SeedAsync(IServiceProvider serviceProvider)
+        {
+            using IServiceScope scope = serviceProvider.CreateScope();
+            IServiceProvider services = scope.ServiceProvider;
+            var storageBroker = services.GetRequiredService<IStorageBroker>();
+
+            IQueryable<ContentItemSetting> existingSettings =
+                await storageBroker.SelectAllContentItemSettingsAsync();
+
+            foreach (ContentItemSetting defaultSetting in BuildDefaultContentItemSettings())
+            {
+                bool alreadySeeded = await existingSettings.AnyAsync(
+                    contentItemSetting =>
+                        contentItemSetting.ContentType == defaultSetting.ContentType
+                        && contentItemSetting.ContentItemId == null);
+
+                if (alreadySeeded is false)
+                {
+                    await storageBroker.InsertContentItemSettingAsync(defaultSetting);
+                }
+            }
+        }
+
+        // One default row per ContentType member, keyed on (ContentType, ContentItemId: null)
+        // — the per-type default scope UX_ContentItemSettings_DefaultPerType enforces (§6.2).
+        // Values below are the reviewed defaults; adjust here rather than by hand-editing rows,
+        // so a fresh environment always comes up matching.
+        private static IEnumerable<ContentItemSetting> BuildDefaultContentItemSettings()
+        {
+            yield return BuildSetting(
+                ContentType.Quote,
+                contentTypeName: "Quote",
+                contentTypeDescription: "Words that stirred you",
+                contentTypeIconCssClass: "bi-quote",
+                hasTitle: false,
+                hasAuthor: true,
+                isAvailableAsGeneralUserContribution: true,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: true,
+                showReactions: true,
+                linksAllowed: false,
+                showLinks: true,
+                attachmentsAllowed: false,
+                showAttachments: true,
+                commentsAllowed: true,
+                showComments: true,
+                bibleReferenceAllowed: true,
+                showBibleReferences: true,
+                limitReactionsToLoveOnly: false);
+
+            yield return BuildSetting(
+                ContentType.Story,
+                contentTypeName: "Story",
+                contentTypeDescription: "Something He did",
+                contentTypeIconCssClass: "bi-journal-text",
+                hasTitle: true,
+                hasAuthor: true,
+                isAvailableAsGeneralUserContribution: true,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: true,
+                showReactions: true,
+                linksAllowed: false,
+                showLinks: true,
+                attachmentsAllowed: true,
+                showAttachments: true,
+                commentsAllowed: true,
+                showComments: true,
+                bibleReferenceAllowed: true,
+                showBibleReferences: true,
+                limitReactionsToLoveOnly: false);
+
+            yield return BuildSetting(
+                ContentType.Testimony,
+                contentTypeName: "Testimony",
+                contentTypeDescription: "Your walk with Him",
+                contentTypeIconCssClass: "bi-chat-heart",
+                hasTitle: true,
+                hasAuthor: false,
+                isAvailableAsGeneralUserContribution: true,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: true,
+                showReactions: true,
+                linksAllowed: false,
+                showLinks: true,
+                attachmentsAllowed: true,
+                showAttachments: true,
+                commentsAllowed: true,
+                showComments: true,
+                bibleReferenceAllowed: true,
+                showBibleReferences: true,
+                limitReactionsToLoveOnly: false);
+
+            yield return BuildSetting(
+                ContentType.Devotional,
+                contentTypeName: "Devotional",
+                contentTypeDescription: "A daily encouragement",
+                contentTypeIconCssClass: "bi-brightness-high",
+                hasTitle: true,
+                hasAuthor: true,
+                isAvailableAsGeneralUserContribution: true,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: true,
+                showReactions: true,
+                linksAllowed: false,
+                showLinks: true,
+                attachmentsAllowed: false,
+                showAttachments: true,
+                commentsAllowed: true,
+                showComments: true,
+                bibleReferenceAllowed: true,
+                showBibleReferences: true,
+                limitReactionsToLoveOnly: false);
+
+            yield return BuildSetting(
+                ContentType.BibleStudy,
+                contentTypeName: "Bible Study",
+                contentTypeDescription: "Digging into the Word",
+                contentTypeIconCssClass: "bi-book",
+                hasTitle: true,
+                hasAuthor: true,
+                isAvailableAsGeneralUserContribution: true,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: true,
+                showReactions: true,
+                linksAllowed: true,
+                showLinks: true,
+                attachmentsAllowed: true,
+                showAttachments: true,
+                commentsAllowed: true,
+                showComments: true,
+                bibleReferenceAllowed: true,
+                showBibleReferences: true,
+                limitReactionsToLoveOnly: false);
+
+            yield return BuildSetting(
+                ContentType.BlogPost,
+                contentTypeName: "Blog Post",
+                contentTypeDescription: "Articles and reflections exploring Christian faith, " +
+                    "biblical teachings, spiritual life.",
+                contentTypeIconCssClass: "bi-pencil-square",
+                hasTitle: true,
+                hasAuthor: true,
+                isAvailableAsGeneralUserContribution: false,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: true,
+                showReactions: true,
+                linksAllowed: true,
+                showLinks: true,
+                attachmentsAllowed: true,
+                showAttachments: true,
+                commentsAllowed: true,
+                showComments: true,
+                bibleReferenceAllowed: true,
+                showBibleReferences: true,
+                limitReactionsToLoveOnly: false);
+
+            yield return BuildSetting(
+                ContentType.Series,
+                contentTypeName: "Series",
+                contentTypeDescription: "A collection of quotes, stories, testimonies, articles, " +
+                    "and reflections exploring a specific topic.",
+                contentTypeIconCssClass: "bi-collection",
+                hasTitle: true,
+                hasAuthor: false,
+                isAvailableAsGeneralUserContribution: false,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: false,
+                showReactions: false,
+                linksAllowed: false,
+                showLinks: false,
+                attachmentsAllowed: false,
+                showAttachments: false,
+                commentsAllowed: false,
+                showComments: false,
+                bibleReferenceAllowed: false,
+                showBibleReferences: false,
+                limitReactionsToLoveOnly: false);
+
+            yield return BuildSetting(
+                ContentType.Topic,
+                contentTypeName: "Topic",
+                contentTypeDescription: "A collection of content related to a specific topic.",
+                contentTypeIconCssClass: "bi-compass",
+                hasTitle: true,
+                hasAuthor: false,
+                isAvailableAsGeneralUserContribution: false,
+                tagsAllowed: true,
+                showTags: true,
+                reactionsAllowed: false,
+                showReactions: false,
+                linksAllowed: false,
+                showLinks: false,
+                attachmentsAllowed: false,
+                showAttachments: false,
+                commentsAllowed: false,
+                showComments: false,
+                bibleReferenceAllowed: false,
+                showBibleReferences: false,
+                limitReactionsToLoveOnly: false);
+        }
+
+        private static ContentItemSetting BuildSetting(
+            ContentType contentType,
+            string contentTypeName,
+            string contentTypeDescription,
+            string contentTypeIconCssClass,
+            bool hasTitle,
+            bool hasAuthor,
+            bool isAvailableAsGeneralUserContribution,
+            bool tagsAllowed,
+            bool showTags,
+            bool reactionsAllowed,
+            bool showReactions,
+            bool linksAllowed,
+            bool showLinks,
+            bool attachmentsAllowed,
+            bool showAttachments,
+            bool commentsAllowed,
+            bool showComments,
+            bool bibleReferenceAllowed,
+            bool showBibleReferences,
+            bool limitReactionsToLoveOnly)
+        {
+            DateTimeOffset seededWhen = DateTimeOffset.UtcNow;
+
+            return new ContentItemSetting
+            {
+                Id = Guid.NewGuid(),
+                ContentType = contentType,
+                ContentItemId = null,
+                ContentTypeName = contentTypeName,
+                ContentTypeDescription = contentTypeDescription,
+                ContentTypeIconCssClass = contentTypeIconCssClass,
+                HasTitle = hasTitle,
+                HasAuthor = hasAuthor,
+                IsAvailableAsGeneralUserContribution = isAvailableAsGeneralUserContribution,
+                TagsAllowed = tagsAllowed,
+                ShowTags = showTags,
+                ReactionsAllowed = reactionsAllowed,
+                ShowReactions = showReactions,
+                LinksAllowed = linksAllowed,
+                ShowLinks = showLinks,
+                AttachmentsAllowed = attachmentsAllowed,
+                ShowAttachments = showAttachments,
+                CommentsAllowed = commentsAllowed,
+                ShowComments = showComments,
+                BibleReferenceAllowed = bibleReferenceAllowed,
+                ShowBibleReferences = showBibleReferences,
+                LimitReactionsToLoveOnly = limitReactionsToLoveOnly,
+                CreatedBy = SeededBy,
+                CreatedWhen = seededWhen,
+                UpdatedBy = SeededBy,
+                UpdatedWhen = seededWhen,
+                IsDeleted = false
+            };
+        }
+    }
+}

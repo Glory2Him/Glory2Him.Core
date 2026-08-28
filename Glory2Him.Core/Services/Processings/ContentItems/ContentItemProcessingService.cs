@@ -266,6 +266,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 Title = contentItem.Title,
                 Author = contentItem.Author,
                 Content = contentItem.Content,
+                ShareabilityBasis = contentItem.ShareabilityBasis,
+                SharePermission = contentItem.SharePermission,
                 ContentHash = contentHash,
                 GroupId = await this.identifierBroker.GetIdentifierAsync(),
                 Version = 1,
@@ -735,6 +737,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
                 Title = contentItem.Title,
                 Author = contentItem.Author,
                 Content = contentItem.Content,
+                ShareabilityBasis = contentItem.ShareabilityBasis,
+                SharePermission = contentItem.SharePermission,
                 ContentHash = contentHash,
                 GroupId = currentContentItem.GroupId,
                 Version = highestVersionInGroup + 1,
@@ -764,6 +768,12 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             targetContentItem.Title = sourceContentItem.Title;
             targetContentItem.Author = sourceContentItem.Author;
             targetContentItem.Content = sourceContentItem.Content;
+
+            // How the contributor is permitted to share this is theirs to state and to correct,
+            // so it travels with the content fields rather than with the approval members.
+            targetContentItem.ShareabilityBasis = sourceContentItem.ShareabilityBasis;
+            targetContentItem.SharePermission = sourceContentItem.SharePermission;
+
             targetContentItem.ContentHash = contentHash;
         }
 

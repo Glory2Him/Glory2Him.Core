@@ -42,6 +42,19 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItem => contentItem.Content)
                 .IsRequired();
 
+            model
+                .Property(contentItem => contentItem.ShareabilityBasis)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .IsUnicode(true)
+                .IsRequired()
+                .HasDefaultValue(ShareabilityBasis.Owned);
+
+            model
+                .Property(contentItem => contentItem.SharePermission)
+                .HasMaxLength(500)
+                .IsRequired(false);
+
             model.Property(contentItem => contentItem.ContentHash)
                 .HasMaxLength(64)
                 .IsRequired();

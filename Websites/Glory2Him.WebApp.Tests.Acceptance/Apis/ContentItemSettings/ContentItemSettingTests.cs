@@ -36,14 +36,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         }
 
         /// <summary>
-        /// Every DEFAULT scope this suite writes to has to be free, and
-        /// <c>UX_ContentItemSettings_DefaultPerType</c> is keyed on <c>ContentType</c> — so two
-        /// tests writing a default for the same type collide even when neither means to exercise
-        /// the conflict.
+        /// Spreads the suite's rows across the content types rather than piling them all on one.
+        /// An interlocked counter rather than a random pick, because a random one repeats.
         ///
-        /// <para>This hands out a distinct content type per call so the suite never competes with
-        /// itself. An interlocked counter rather than a random pick, because a random one
-        /// repeats.</para>
+        /// <para>No longer load-bearing for uniqueness: the rows this suite creates are per-item
+        /// OVERRIDES keyed on <c>ContentItemId</c>, so their content type need not be distinct.
+        /// It stays because a suite that only ever exercised one content type would be a thinner
+        /// test than one that walks them all.</para>
         /// </summary>
         private static int scopeCounter = -1;
 
@@ -116,13 +115,19 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
                 .OnType<DateTimeOffset>().Use(now)
                 .OnType<DateTimeOffset?>().Use(now)
 
-                // A per-type DEFAULT row: a null ContentItemId puts it under
-                // UX_ContentItemSettings_DefaultPerType, and the content type is handed out one
-                // per call so the suite cannot collide with itself.
+                // A per-ITEM OVERRIDE row, not a per-type default. The host seeds one default per
+                // content type at startup (ContentItemSettingSeedData), so every slot under
+                // UX_ContentItemSettings_DefaultPerType is already taken and a suite writing
+                // defaults would 409 on its first post. UX_ContentItemSettings_OverridePerEntity
+                // is keyed on ContentItemId instead, and a fresh Guid per row never collides —
+                // an unlimited supply, unlike the content types.
+                //
+                // ContentItemId carries no foreign key, so these ids name no real content item.
+                // That is the schema's choice rather than this suite's convenience.
                 .OnProperty(contentItemSetting => contentItemSetting.ContentType)
                     .Use(new Func<ContentType>(GetUnusedContentType))
                 .OnProperty(contentItemSetting => contentItemSetting.ContentItemId)
-                    .Use((Guid?)null)
+                    .Use(new Func<Guid?>(() => Guid.NewGuid()))
 
                 .OnProperty(contentItemSetting => contentItemSetting.IsDeleted).Use(false)
                 .OnProperty(contentItemSetting => contentItemSetting.DeletionReason).Use((string)null)

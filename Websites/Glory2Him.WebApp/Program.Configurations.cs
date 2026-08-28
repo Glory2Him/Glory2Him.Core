@@ -12,6 +12,7 @@
 using Glory2Him.Core.Brokers.Events;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Brokers.Storages.Sql;
+using Glory2Him.WebApp.Data;
 using Microsoft.EntityFrameworkCore;
 
 public partial class Program
@@ -37,6 +38,7 @@ public partial class Program
             try
             {
                 MigrateCoreDatabase(app);
+                await ContentItemSettingSeedData.SeedAsync(app.Services);
                 await RegisterCoreEventSubstrateAsync(app);
 
                 return;

@@ -770,6 +770,17 @@ namespace Glory2Him.Core.Migrations
                         .IsUnicode(true)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("ContentTypeDescription")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ContentTypeIconCssClass")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ContentTypeName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<string>("CreatedBy")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -788,6 +799,21 @@ namespace Glory2Him.Core.Migrations
                     b.Property<string>("DeletionReason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("HasAuthor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("HasTitle")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsAvailableAsGeneralUserContribution")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -939,6 +965,18 @@ namespace Glory2Him.Core.Migrations
 
                     b.Property<DateTimeOffset?>("PublishDate")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("SharePermission")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ShareabilityBasis")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .IsUnicode(true)
+                        .HasColumnType("nvarchar(32)")
+                        .HasDefaultValue("Owned");
 
                     b.Property<string>("Title")
                         .HasColumnType("nvarchar(max)");

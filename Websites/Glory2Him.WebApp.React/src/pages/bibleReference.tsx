@@ -1,15 +1,21 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BibleCard } from '@youversion/platform-react-ui';
 import { ReactionBar } from '../components/coreUI/reactionBar';
-import { SuggestionPanel } from '../components/coreUI/suggestionPanel';
+import { BibleReferenceAssociationPanel } from '../components/associations/bibleReferenceAssociationPanel';
+import { TagAssociationPanel } from '../components/associations/tagAssociationPanel';
 import { useAuth } from '../components/securitys/authProvider';
+import { AssociationItem } from '../models/components/associations/associationItem';
 import { ReactionOption } from '../models/coreUI/reactionOption';
+import {
+    asApprovedAssociations,
+    asSuggestedAssociation,
+    withoutAssociationValue
+} from '../services/views/associations/toAssociationItems';
 import * as sampleScripture from '../data/sampleScripture';
 import { reactions } from './sampleContent';
 import { useYouVersionAvailability } from '../hooks/useYouVersionAvailability';
 import { useVersionAbbreviations } from '../hooks/useVersionAbbreviations';
-import { bibleReferenceHref } from '../services/views/bibleReferences/toUsfmReference';
 import { youVersionVersions } from '../models/youVersion/youVersionVersions';
 import { YouVersionUnavailableMessage } from '../components/youVersion/youVersionAppProvider';
 
@@ -43,9 +49,17 @@ export function BibleReference({
     const { abbreviationFor } = useVersionAbbreviations();
     const navigate = useNavigate();
     const [reactedTo, setReactedTo] = useState<string | null>(null);
-    const { isAuthenticated } = useAuth();
-    const location = useLocation();
-    const loginHref = `/Account/Login?returnUrl=${encodeURIComponent(location.pathname)}`;
+    const { user } = useAuth();
+
+    // The panels own no state, so anything suggested here lives on this page and only until it
+    // is navigated away from, exactly as it did under SuggestionPanel. Wiring these to the
+    // Association API is a separate job.
+    const [suggestedTags, setSuggestedTags] = useState<ReadonlyArray<AssociationItem>>([]);
+
+    const [suggestedReferences, setSuggestedReferences] =
+        useState<ReadonlyArray<AssociationItem>>([]);
+
+    const asSuggestion = (value: string) => asSuggestedAssociation(value, user?.userId);
 
     // John 14:6 is the one curated passage so far. Any other reference gets the same page
     // with empty panels rather than another passage's tags, references and reaction counts.
@@ -118,33 +132,37 @@ export function BibleReference({
                     </div>
 
                     <div className="col-lg-5">
-                        <SuggestionPanel
-                            heading="Tags"
-                            suggestHeading="Suggest a tag"
-                            prompt="Think a tag is missing? Suggest one and help others find this passage."
-                            placeholder="Start typing a tag…"
-                            items={tags}
-                            itemCssClass="btn-success-soft"
-                            prefixHash={true}
-                            hrefFormat="/Search?q={0}"
-                            isAuthenticated={isAuthenticated}
-                            loginHref={loginHref} />
+                        {/* A passage rather than a post, so only the prompt is overridden — the
+                            rest is the component's own. */}
+                        <TagAssociationPanel
+                            suggestDescription="Think a tag is missing? Suggest one and help others find this passage."
+                            associationCollection={[
+                                ...asApprovedAssociations(tags),
+                                ...suggestedTags
+                            ]}
+                            onAdd={(value) =>
+                                setSuggestedTags([...suggestedTags, asSuggestion(value)])}
+                            onRemove={(item) =>
+                                setSuggestedTags(withoutAssociationValue(suggestedTags, item))} />
 
                         <hr className="my-4" />
 
                         {/* Each pill reads as a person would say it and addresses as the
                             deep-link route parses it, so a related passage is one click away. */}
-                        <SuggestionPanel
-                            heading="Related Bible References"
-                            suggestHeading="Suggest a bible reference"
-                            prompt="Know a matching verse? Suggest it below."
-                            placeholder="e.g. Romans 3:23…"
-                            items={relatedReferences}
-                            itemCssClass="btn-primary-soft"
-                            itemIconCssClass="bi-book"
-                            hrefFor={bibleReferenceHref}
-                            isAuthenticated={isAuthenticated}
-                            loginHref={loginHref} />
+                        <BibleReferenceAssociationPanel
+                            title="Related Bible References"
+                            associationCollection={[
+                                ...asApprovedAssociations(relatedReferences),
+                                ...suggestedReferences
+                            ]}
+                            onAdd={(value) =>
+                                setSuggestedReferences([
+                                    ...suggestedReferences,
+                                    asSuggestion(value)
+                                ])}
+                            onRemove={(item) =>
+                                setSuggestedReferences(
+                                    withoutAssociationValue(suggestedReferences, item))} />
                     </div>
                 </div>
             </div>
