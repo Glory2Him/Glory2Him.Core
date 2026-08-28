@@ -129,6 +129,11 @@ const getFullNavMenu = (): NavItem[] => [
                 roles: administratorsOnly, requiresAuth: true
             },
             {
+                title: "Content Item Settings", icon: "bi-sliders",
+                href: "Admin/ContentItemSettings",
+                roles: administratorsOnly, requiresAuth: true
+            },
+            {
                 title: "Posts", icon: "bi-file-earmark-text", href: "Admin/Posts",
                 roles: administratorsOnly, requiresAuth: true
             },

@@ -3,6 +3,8 @@ import SidebarLayout from '../components/layouts/sidebarLayout';
 import { SecuredRoute } from '../components/securitys/securedRoutes';
 import securityPoints from '../securityMatrix';
 import { Dashboard } from '../pages/dashboard';
+import { ContentItemSettingDetailPage } from '../pages/admin/contentItemSettingDetailPage';
+import { ContentItemSettingsPage } from '../pages/admin/contentItemSettingsPage';
 import { PostDetailPage } from '../pages/admin/postDetailPage';
 import { PostsPage } from '../pages/admin/postsPage';
 import { UserDetailPage } from '../pages/admin/userDetailPage';
@@ -34,6 +36,20 @@ export const adminRoutes: RouteObject[] = [
                 element:
                     <SecuredRoute allowedRoles={securityPoints.users.view}>
                         <UserDetailPage />
+                    </SecuredRoute>,
+            },
+            {
+                path: 'Admin/ContentItemSettings',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.contentItemSettings.view}>
+                        <ContentItemSettingsPage />
+                    </SecuredRoute>,
+            },
+            {
+                path: 'Admin/ContentItemSettings/:contentItemSettingId',
+                element:
+                    <SecuredRoute allowedRoles={securityPoints.contentItemSettings.edit}>
+                        <ContentItemSettingDetailPage />
                     </SecuredRoute>,
             },
             {
