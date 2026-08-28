@@ -12,12 +12,17 @@ export interface ComponentDocProps {
     filePath: string;
     summary: ReactNode;
     children?: ReactNode;
+    sectionTitle?: string;
+    sectionHref?: string;
 }
 
-export function ComponentDoc({ name, filePath, summary, children }: ComponentDocProps) {
+export function ComponentDoc({
+    name, filePath, summary, children,
+    sectionTitle = 'Components', sectionHref = '/SamplePages'
+}: ComponentDocProps) {
     const crumbs: ReadonlyArray<BreadcrumbItem> = [
         { title: 'Sample Pages', href: '/SamplePages' },
-        { title: 'Components', href: '/SamplePages' },
+        { title: sectionTitle, href: sectionHref },
         { title: name, isActive: true }
     ];
 
