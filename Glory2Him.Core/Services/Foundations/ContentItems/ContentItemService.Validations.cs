@@ -269,6 +269,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 (Rule: IsInvalid(contentItem.CreatedWhen), Parameter: nameof(ContentItem.CreatedWhen)),
                 (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)),
 
+                (Rule: IsInvalid(contentItem.ShareabilityBasis),
+                    Parameter: nameof(ContentItem.ShareabilityBasis)),
+
+                (Rule: IsGreaterThan(contentItem.SharePermission, 500),
+                    Parameter: nameof(ContentItem.SharePermission)),
+
                 (Rule: IsGreaterThan(contentItem.CreatedBy, 255),
                     Parameter: nameof(ContentItem.CreatedBy)),
 
@@ -329,6 +335,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 (Rule: IsInvalid(contentItem.UpdatedBy), Parameter: nameof(ContentItem.UpdatedBy)),
                 (Rule: IsInvalid(contentItem.CreatedWhen), Parameter: nameof(ContentItem.CreatedWhen)),
                 (Rule: IsInvalid(contentItem.UpdatedWhen), Parameter: nameof(ContentItem.UpdatedWhen)),
+
+                (Rule: IsInvalid(contentItem.ShareabilityBasis),
+                    Parameter: nameof(ContentItem.ShareabilityBasis)),
+
+                (Rule: IsGreaterThan(contentItem.SharePermission, 500),
+                    Parameter: nameof(ContentItem.SharePermission)),
 
                 (Rule: IsGreaterThan(contentItem.CreatedBy, 255),
                     Parameter: nameof(ContentItem.CreatedBy)),
@@ -551,6 +563,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         {
             Condition = Enum.IsDefined(contentType) == false,
             Message = "Value is not a supported content type"
+        };
+
+        // same structural check as ContentType above, for the same reason: it cannot detect
+        // "caller forgot to set it", since ShareabilityBasis has no unset sentinel — only an
+        // out-of-range value (e.g. a stale client sending a since-removed member)
+        private static dynamic IsInvalid(ShareabilityBasis shareabilityBasis) => new
+        {
+            Condition = Enum.IsDefined(shareabilityBasis) == false,
+            Message = "Value is not a supported shareability basis"
         };
 
         private static dynamic IsGreaterThan(string? text, int maxLength) => new

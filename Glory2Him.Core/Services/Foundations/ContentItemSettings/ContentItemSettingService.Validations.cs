@@ -85,6 +85,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 (Rule: IsGreaterThan(contentItemSetting.UpdatedBy, 255),
                     Parameter: nameof(ContentItemSetting.UpdatedBy)),
 
+                (Rule: IsGreaterThan(contentItemSetting.ContentTypeName, 50),
+                    Parameter: nameof(ContentItemSetting.ContentTypeName)),
+
+                (Rule: IsGreaterThan(contentItemSetting.ContentTypeDescription, 500),
+                    Parameter: nameof(ContentItemSetting.ContentTypeDescription)),
+
                 (Rule: IsNotSame(
                         firstDate: contentItemSetting.UpdatedWhen,
                         secondDate: contentItemSetting.CreatedWhen,
@@ -128,6 +134,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 
                 (Rule: IsGreaterThan(contentItemSetting.UpdatedBy, 255),
                     Parameter: nameof(ContentItemSetting.UpdatedBy)),
+
+                (Rule: IsGreaterThan(contentItemSetting.ContentTypeName, 50),
+                    Parameter: nameof(ContentItemSetting.ContentTypeName)),
+
+                (Rule: IsGreaterThan(contentItemSetting.ContentTypeDescription, 500),
+                    Parameter: nameof(ContentItemSetting.ContentTypeDescription)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,

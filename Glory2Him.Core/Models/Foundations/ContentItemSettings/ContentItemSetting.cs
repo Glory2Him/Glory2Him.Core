@@ -31,11 +31,43 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         public ContentType ContentType { get; set; }
 
         /// <summary>
+        /// The content type name.
+        /// </summary>
+        public string? ContentTypeName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The content type description.
+        /// </summary>
+        public string? ContentTypeDescription { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The Bootstrap Icons CSS class (e.g. "bi-quote") used to represent this content type
+        /// in the UI.
+        /// </summary>
+        public string? ContentTypeIconCssClass { get; set; } = string.Empty;
+
+        /// <summary>
         /// Optional identifier for a specific content item.
         /// If left blank, this setting applies as the default for the content type.
         /// When provided, it overrides the default.
         /// </summary>
         public Guid? ContentItemId { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether a title field is present.
+        /// </summary>
+        public bool HasTitle { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether an author field is present.
+        /// </summary>
+        public bool HasAuthor { get; set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether a non-admin / non-publisher
+        /// can contribute on this type.
+        /// </summary>
+        public bool IsAvailableAsGeneralUserContribution { get; set; }
 
         // --------------------
         // Tag Settings

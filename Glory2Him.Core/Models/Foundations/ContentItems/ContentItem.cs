@@ -49,6 +49,16 @@ namespace Glory2Him.Core.Models.Foundations.ContentItems
         public string Content { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the basis on which this content is permitted to be shared.
+        /// </summary>
+        public ShareabilityBasis ShareabilityBasis { get; set; }
+
+        /// <summary>
+        /// Share permission for the content item (optional).
+        /// </summary>
+        public string? SharePermission { get; set; } = string.Empty;
+
+        /// <summary>
         /// SHA-256 hash of the normalized <see cref="Content"/> (trimmed, whitespace collapsed,
         /// lowercased). Control field computed on every write; used for duplicate detection
         /// per content type. Never accepted from an external caller.
