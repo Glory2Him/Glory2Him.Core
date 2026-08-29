@@ -19,7 +19,8 @@ const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/sampleP
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
 const DashboardSample = lazyNamed(() => import('../pages/samplePages/dashboardSample'), 'DashboardSample');
 const UnicodeEmojiDoc = lazyNamed(() => import('../pages/samplePages/icons/unicodeEmojiDoc'), 'UnicodeEmojiDoc');
-const IconsDoc = lazyNamed(() => import('../pages/samplePages/icons/iconsDoc'), 'IconsDoc');
+const BootstrapIconsDoc = lazyNamed(() => import('../pages/samplePages/icons/bootstrapIconsDoc'), 'BootstrapIconsDoc');
+const FontAwesomeDoc = lazyNamed(() => import('../pages/samplePages/icons/fontAwesomeDoc'), 'FontAwesomeDoc');
 const HomeBlogClassicSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogClassicSample'), 'HomeBlogClassicSample');
 const HomeBlogPodcastSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogPodcastSample'), 'HomeBlogPodcastSample');
 const HomeBlogTechSample = lazyNamed(() => import('../pages/samplePages/home/homeBlogTechSample'), 'HomeBlogTechSample');
@@ -89,8 +90,12 @@ export const samplePagesRoutes: RouteObject[] = [
                 element: secured(<UnicodeEmojiDoc />),
             },
             {
-                path: 'SamplePages/Icons/Icons',
-                element: secured(<IconsDoc />),
+                path: 'SamplePages/Icons/Bootstrap',
+                element: secured(<BootstrapIconsDoc />),
+            },
+            {
+                path: 'SamplePages/Icons/FontAwesome',
+                element: secured(<FontAwesomeDoc />),
             },
         ],
     },
