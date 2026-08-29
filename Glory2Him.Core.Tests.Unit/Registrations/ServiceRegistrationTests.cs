@@ -17,6 +17,7 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Brokers.EventEnvelopes;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -27,6 +28,11 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private static IServiceCollection CreateServicesWithBrokerStubs()
         {
             var services = new ServiceCollection();
+
+            // A real broker needs configuration, and IdentityCoreStorageBroker is one - it is a
+            // DbContext over the security database (design 12.7.1). Empty is enough: the
+            // connection string is read lazily in OnConfiguring, which no resolution reaches.
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
             services.AddSingleton(new Mock<IStorageBroker>().Object);
             services.AddSingleton(new Mock<IDateTimeBroker>().Object);
             services.AddSingleton(new Mock<IIdentifierBroker>().Object);

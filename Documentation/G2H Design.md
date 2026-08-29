@@ -952,6 +952,42 @@ Three consequences follow, and each is easy to get wrong by reading the flag as 
 
 Distinct from `ApprovalReview.Comment`, which is one reviewer's rationale for their **own** verdict and is never resolvable at all — nothing reads it and nothing waits on it. A reviewer who wants reasoning that others can see and act on writes an `ApprovalComment`; that is exactly the informational case above.
 
+### 7.9 ApprovalReviewRequest
+
+`ApprovalReviewRequest` invites a specific eligible person to review an approval. It is an **invitation, not an assignment**: §8.4 deliberately removed reviewer assignment, and this entity does not reinstate it. A request grants no eligibility (that stays composed from roles, §8.3), gates nothing, and appears in **no** §8.5 condition — the verdict, the counts and the blocks never read it. It exists so a moderation surface can show who has been asked and has not yet answered.
+
+**Why this is not an "empty" `ApprovalReview`.** The reviewer's identity on a review *is* `CreatedBy` (§7.6) — there is no separate reviewer field — so a placeholder review created "for" someone else has only three shapes, and each breaks an invariant that holds elsewhere: written under the requester's identity it occupies the requester's own one-review-per-approval slot (`UX_ApprovalReviews_ApprovalId_CreatedBy`) and the target can never amend it (reviews are owner-only, §8.6.1); written under the target's identity it forges the audit trail, which the signed security context (§10.7) exists to prevent; and widening owner-only review writes so the row could be handed over is refused by §14.7 posture D rule 4. A request is therefore its own row, truthfully created by the requester.
+
+| Property | Purpose |
+| --- | --- |
+| `Id` | Unique request identifier. |
+| `ApprovalId` | Parent approval record. |
+| `RequestedUserId` | The invited user's account id — the identity the answering review's `CreatedBy` is matched against. Never a display name: two accounts can share one. |
+| `RequestedUserDisplayName` | Denormalised at request time for rendering only — the Core database cannot join the identity store's user table. Never compared, never trusted for identity. |
+| `IsDeleted` | Soft-delete flag. A deleted request is withdrawn or answered and renders nowhere. |
+| `CreatedBy` | User who made the request — truthful: the requester, not the target. |
+| `CreatedWhen` | Creation timestamp. |
+| `UpdatedBy` | User who last updated the request. |
+| `UpdatedWhen` | Last update timestamp. |
+| `DeletedBy` | User who withdrew the request, or the system identity when it was answered. |
+| `DeletedWhen` | Deletion timestamp. |
+| `DeletionReason` | Reason for deletion. |
+
+The following rules apply:
+
+1. **One active request per person per approval.** Enforced by the filtered unique index `UX_ApprovalReviewRequests_ApprovalId_RequestedUserId` (`IsDeleted = false`), mirroring the review index it exists beside.
+2. **Requesting is open to the round's participants** — any holder of the review or publisher tier for the entity (the same suffix-matched set the verdict admits, §16.7.2), which is everyone above the read-only view. It is coordination, not decision, so HR-3 does not narrow it.
+3. **The target must be worth inviting.** A request is refused unless the requested user currently satisfies the review tier for the entity and is not the entity's owner — an invitation to someone ineligible is a lie the UI would then render.
+4. **Duplicate requests dissolve quietly.** If the target already holds an active `ApprovalReview` or an active request for this approval, the operation returns the existing state without error — an idempotent dismiss, not a conflict.
+5. **A pending request may be withdrawn by any member of the requesting tier** (rule 2), by soft delete, to undo a wrong invitation — deliberately wider than the owner-only rule on reviews, because a request carries **no verdict**: there is no judgement to protect, and `DeletedBy` records who withdrew it. This widening stops at the request; the answering review is owner-only from its first byte, exactly as §7.7 says.
+
+   **PENDING is the whole of it.** Once the invitation has been ANSWERED it may no longer be withdrawn, and the attempt is refused rather than dissolved — withdrawing says the invitation was a mistake, and a standing verdict's provenance is not anyone's to rewrite. This is the mirror of rule 4: inviting somebody who has answered is harmless and dissolves quietly, while deleting the record that they were asked is not. In practice the gate is reached only where rule 6 has not run, since an answered request is normally already retired; withdrawing one already withdrawn stays the harmless no-op it has always been.
+6. **An answered request retires itself.** When the requested user records their review, the request is soft-deleted under the system identity — leaving it standing would render the person twice, once asked and once answered.
+
+    **Retirement is its own verb, not the withdrawal of rule 5.** The two differ in who acts, in what `DeletionReason` records, and in what a reader should conclude from the row: a withdrawal says the invitation was a mistake and names the person who withdrew it; a retirement says it was answered and names nobody. They also differ in what authorizes them, and that is what forces the split rather than a shared verb with a wider gate. The system identity is minted by `IEventEnvelopeBroker.CreateSystemAsync`, which deliberately carries **no roles** — the system flag stands in for the tier by itself — so it cannot satisfy rule 5's review-tier gate. Retirement therefore lives on `IApprovalReviewRequestWorkflowService.RetireAnsweredApprovalReviewRequestAsync`, an internal seam on the foundation service that mints the system context itself and gates on `IsSystemIdentity` instead of on a role. This is the same shape, and for the same reason, as `IApprovalReviewWorkflowService.DismissStaleApprovalReviewAsync` (§7.7 rule 7): the caller asks for the ACT and the service supplies the identity, which is what makes the flag unforgeable by construction rather than by validation. The orchestration calls the seam; it does not write the row itself.
+7. **Requests live in the round's window.** Creation is refused unless the parent approval is `Submitted` (the §7.7 rule 1 window). A request still pending when the round closes is inert history — it blocks nothing, so nothing needs to clean it up.
+8. **Future enhancement — notification.** The `ApprovalReviewRequest-Added` fact is the natural hook for notifying the invited user. Not built; recorded here so the eventual notification feature subscribes to an existing address instead of inventing a parallel signal.
+
 ## 8. Approval Settings Design
 
 ### 8.1 Purpose
@@ -1741,11 +1777,13 @@ new SecurityContext
 
 **Client credentials / machine-to-machine:**
 
+`SubjectId` is **never blank on a context that will write**. `CreatedBy`, `UpdatedBy` and `DeletedBy` are all resolved from it, and the audit client refuses a null or whitespace user id outright — so a context minted with `SubjectId = null` throws on the first audited write rather than recording a machine act. A machine that only reads may leave it null; one that writes carries `SystemIdentity.UserId`.
+
 ```csharp
 new SecurityContext
 {
-    SubjectId = null,
-    Username = null,
+    SubjectId = SystemIdentity.UserId,
+    Username = SystemIdentity.Username,
     Roles = [],
     Scopes = scopes,
     Permissions = permissions,
@@ -2600,6 +2638,14 @@ Current intended orchestrations:
 
 Content-type-scoped identity roles (§18.6) are seeded once, at startup, for every member of the enum — they are not created or removed reactively in response to a content type lifecycle, because there is no such lifecycle.
 
+**The seed walks the enums, and it must keep walking them.** `SeedData.BuildCoreRoleNames` composes the narrow tier by iterating `ContentType`, so a new member is seeded the moment it is added and no second edit is needed. That is the whole point: a hand-written list is the failure this rule exists to prevent.
+
+**RULE — a change to `ContentType` is a change to the seed.** Adding a member is automatic *only while the loop stays a loop*; replacing it with an explicit list, or filtering members out of it, silently removes an administrator's ability to scope somebody to that content type. Renaming or removing a member is worse and is already forbidden by `ContentType`'s append-only rule (§3.6): role rows carry the old name, association rows carry it denormalised, and a rename reassigns authority that already exists to a role nobody holds.
+
+The failure mode is what makes this worth a rule rather than a convention. A role that is never seeded fails **silently** — the composed name is simply never found among an actor's roles, every gate falls back to the coarser tier, nothing throws and nothing is logged. The only symptom is a tier that never admits anybody, which is exactly how the content-type tier sat unseedable while the code reading it was live on both read paths and the write gates. `ContentTypeRoleSeedTests` pins the composition to the enums for that reason; it fails if the loop is ever replaced by a list that drifts.
+
+**`Series` and `Topic` are seeded like every other member.** They are `ContentType` members on `ContentItem`, and §18.6 rule 5 scopes the narrow tier to the entity type rather than to a chosen subset of its content types. Withholding them would protect nothing — the coarse `ContentItem-Reviewer` still admits somebody to a series either way — and would only remove the ability to scope a person narrowly. A role assigned to nobody grants nothing.
+
 #### 12.5.2 ContentItemSettingsOrchestration
 
 > **Misfiled — this is a processing service, not an orchestration** (§12.1: single entity type). The section is left in place, rules intact, until the service is built and this content moves to §12.4; nothing here changes except which layer owns it. Read "orchestration" below as "processing service".
@@ -2737,6 +2783,23 @@ The EF Core model snapshot currently shows tables and constraints for:
 | 12 | `Comments` | Stores discussion records attached to content through associations. |
 | 13 | `Links` | Stores link records. |
 | 14 | `ProcessedEvents` | Stores processed-event records for event-delivery deduplication per receiver (§14.6 rule 4). |
+| 15 | `ApprovalReviewRequests` | Stores review invitations — who has been asked to review an approval and has not yet answered (§7.9). |
+
+#### 12.7.1 The second DbContext — reading the identity store
+
+`StorageBroker` is no longer the only `DbContext` in Core. `IdentityCoreStorageBroker` (§16.7.4) opens a **read-only** window onto the SECURITY database over the `Glory2HimSecurityConnection` connection string, because role membership — which §7.9 rule 3 and the reviewer-candidates read both depend on — lives there and nowhere else. `ISecurityClient.Users` cannot answer it: that client reads a `ClaimsPrincipal`, so it only ever describes the current caller. Taking the host's word for who is eligible instead would repeat the caller-supplied-identity mistake that `ApprovalReview.ReviewerId` was deleted for, where free text let one reviewer meet a three-approval threshold alone.
+
+Three rules keep the two stores apart:
+
+1. **Read-only, enforced by the interface.** `IIdentityCoreStorageBroker` declares Select members only. No Insert, Update, Delete or Bulk member may be added — the identity store is another component's source of truth, and Core writing to it would put two owners on one schema. The connection string's principal should be granted `SELECT` and nothing more, so the rule survives an edit to the interface.
+2. **Core owns no migrations against it.** The tables belong to `Glory2Him.WebApp`'s `SecurityDbContext`. Only the few columns the tier lookup needs are mapped, so a column added there cannot break a read here; and the context has no design-time factory, so an accidental `--context IdentityCoreStorageBroker` fails loudly rather than generating a migration that would fight the host's own.
+3. **§18.3's separation still holds.** Two databases on two connections means there is no SQL join between a user and an approval — Core reads each independently and combines them in memory. That is also why `ApprovalReviewRequest.RequestedUserDisplayName` stays denormalised (§7.9): a name must be fixed at request time rather than re-read across a boundary that may be unavailable.
+
+**Consequence for the migration workflow.** With two contexts `dotnet ef` can no longer infer which one a command means, and a bare `dotnet ef migrations add` now fails with *"More than one DbContext was found"*. Core migrations must name the context:
+
+```bash
+dotnet ef migrations add <Name> --project Glory2Him.Core --context StorageBroker
+```
 
 ### 12.8 Event System
 
@@ -2938,6 +3001,26 @@ Two brokers sit in that chain:
 
 1. `SecurityAuditBroker` assigns `httpContextAccessor.HttpContext?.User` to a field in its
    constructor. It stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps.
+
+   **RULE — the audit columns name the actor, and the system is an actor.** They are resolved from
+   `SecurityContext.SubjectId`, so whatever that holds is what the row says happened. An act the
+   system performs on its own account — an approval opened because content was submitted, a round
+   re-approved because its conditions came to be met, an invitation retired because the person
+   answered it (§7.9 rule 6), a review dismissed because the content moved under it (§9.5) — is
+   minted through `CreateSystemAsync` and records `SystemIdentity.UserId`. An act the workflow
+   carries out *for* a person, which is the manual approve or reject and nothing else, is minted
+   through `CreateElevatedAsync` and records the person. Both drop roles; the difference is only
+   whose name the row carries. The triggering person is kept on `DelegatedBySubjectId` either way,
+   so the causal trail survives without the audit column claiming somebody acted who did not.
+
+   The caller names the **act**, never an identity, so it can only ever elect to be recorded as
+   itself — the system flag stays unforgeable by construction rather than by validation (§16.7.1).
+
+   `Approval` is the one entity the system owns outright: it opens the row itself, so
+   `Approval.CreatedBy` records the system and never a person. Ownership questions about an
+   approval therefore anchor on the **entity's** author, which is what §14.7 posture D rule 3 means
+   by the submitter — anchoring them on `Approval.CreatedBy` would refuse every author their own
+   resubmission, silently, since a submitter holds no role to fall back on.
 2. `EventEnvelopeBroker` constructs an `EventEnvelopeClient`, which builds its own service
    provider and resolves `IEventEnvelopeService` **once**, and the `SecurityBroker` beneath that
    reads `HttpContext.User` in *its* constructor. This one is easy to miss: the capture is an
@@ -3218,6 +3301,24 @@ The tier is matched by SUFFIX, not by a fixed list — `%EntityType%-Publisher` 
 
 **Bypass cannot rescue an approval that was never submitted.** The decision function refuses a non-`Submitted` approval before the bypass branch is reached, and the foundation refuses `Draft` as a transition source. Both stay. The case this would have served — content whose author has departed — is already served in two steps that leave a full audit trail: a `Publisher` or `Admin` may read a `Draft` (the review roles see non-public rows), amend it as moderation (§9.7.1 rule 2 admits them while the entity is not yet approved), submit it (`Submit<Entity>ByIdAsync` admits the owner *or* the publisher tier), and then approve it normally. Admitting bypass-on-draft instead would cost the invariant that **nothing reaches `Approved` without having passed through a review window**, which is too much to trade for a path that already exists.
 
+#### 16.7.4 Review requests and reviewer candidates
+
+Three operations serve §7.9, all bound to the orchestration because each spans the approval, its reviews and the request rows:
+
+- **`RequestApprovalReviewAsync(entityType, entityId, requestedUserId)`** — validates the §7.9 rules (target eligibility, owner exclusion, the `Submitted` window) and lands the request, or returns the existing state on a duplicate (rule 4). Rule 4 covers both duplicate shapes and neither errors: an active invitation comes back unchanged, and a target who has already answered yields nothing at all — rule 6 retired their invitation when they answered, and a fresh one could be neither retired nor withdrawn.
+- **`WithdrawApprovalReviewRequestAsync(approvalReviewRequestId, deletionReason)`** — soft-deletes a pending request; open to the requesting tier (§7.9 rule 5). Distinct from the retirement of rule 6, which the orchestration reaches through `IApprovalReviewRequestWorkflowService` rather than performing itself — the system identity that retirement runs under holds no roles and so cannot pass this operation's gate.
+- **`RetrieveReviewerCandidatesAsync(entityType, entityId)`** — who is **in scope** for this round: users satisfying the review tier for the entity, minus the entity's owner alone. People who have already answered, and people already invited, are deliberately included — the read answers "who belongs to this round", not "who is not yet dealt with". A moderation surface renders an answered person inert and an invited one under its own heading, so somebody searching for a name finds them and learns their state rather than finding nothing; a surface cannot show a person it was never sent. The owner is the one exclusion because rule 3 refuses an invitation aimed at them outright, so listing them would offer a click that always fails.
+
+**The candidates read is a user-enumeration surface, and that decides its posture.** Nothing else below the Administrators-only admin endpoints lists users, so this read is exposed to exactly the tier that may request (§7.9 rule 2) and returns the minimum a picker needs — account id and display name — and nothing else. Answering the request rows (`ApprovalReviewRequest` reads keyed by `ApprovalId`) follows the same tier: they are moderation coordination, not public state, so §14.7 posture D applies to them as it does to the verdict.
+
+**Where the identity half comes from.** Both the candidates read and rule 3's tier check ask *who holds a role*, and role membership lives in the ASP.NET Identity store, not in Core's database — `ISecurityClient.Users` cannot answer it, because that client reads a `ClaimsPrincipal` and so only ever describes the current caller. Core therefore reads the security database directly through the read-only `IdentityCoreStorageBroker` and its `IdentityUserService` (§12.7.1). Taking the host's word for who is eligible was rejected: that is the caller-supplied-identity mistake `ApprovalReview.ReviewerId` was deleted for, where free text let one reviewer meet a three-approval threshold alone.
+
+**The §18.6 composition stays in the orchestration.** `ApprovalReviewerScope` reports the approval's *role subjects*; the orchestration turns them into tier role NAMES (the global trio, the `%EntityType%-` pair per subject, and the `%EntityType%-%ContentType%-` pair where a subject carries one), and the identity service is handed finished names and only reports membership. One home for the convention, and the association case falls out for free — an association names both endpoints, so a publisher trusted with either end is invitable for the pairing.
+
+**One gather, three rules.** `IAccessBroker.RetrieveApprovalReviewerScopeByIdAsync` returns the round's status (rule 7), the entity's owner (rule 3), the role subjects, the active reviewers and the active requests in a single read. The last two are gathered UNFILTERED, for the reason `FindDismissableApprovalReviewIdsAsync` already is: the caller-facing read applies a visibility filter, and deciding invitability from a filtered view would tell a moderator somebody is invitable and then collide with the uniqueness index.
+
+The request rows change no §8.5 outcome, so nothing here touches the evaluation, the verdict or the decision paths — the whole feature composes beside §16.7.1–§16.7.2 rather than into them.
+
 ## 17. Recommended API Design
 
 ### 17.1 Content Endpoints
@@ -3279,6 +3380,9 @@ Recommended endpoints:
 | `POST` | `/api/approvals/{approvalId}/reject` | Reject immediately (`Publisher`/`Admin`). |
 | `POST` | `/api/approvals/{approvalId}/comments` | Add approval comment. |
 | `GET` | `/api/approvals/entity/{entityType}/{entityId}` | Retrieve approval for entity. |
+| `GET` | `/api/Approvals/{entityType}/{entityId}/ReviewerCandidates` | Who may be asked to review — the §16.7.4 candidates read; requesting tier only. |
+| `POST` | `/api/Approvals/{entityType}/{entityId}/ReviewRequests?requestedUserId=` | Invite an eligible user to review (§7.9). Idempotent on both duplicate shapes; `204` on every success, because "already invited", "created" and "already answered" are outcomes a caller has no use for telling apart. The race dissolves too: two callers inviting the same person can both miss the check, and the loser's index collision is answered by re-reading and returning the winner's row. A `409` survives only where that re-read finds nothing — the winning invitation withdrawn in between. |
+| `DELETE` | `/api/ApprovalReviewRequests/{id}?deletionReason=` | Withdraw a **pending** review request (soft delete, requesting tier); `204`. Refused with `400` once the invitation has been answered (§7.9 rule 5). Withdrawing one already withdrawn is a no-op, not a `404`. |
 
 ### 17.6 Media, Share and Crawler Endpoints
 
@@ -3738,6 +3842,7 @@ Planned reusable components based on the Blogzine template:
 | `ApprovalStatusBadge` | Badge showing current approval status. |
 | `ApprovalReviewForm` | Form for a reviewer to submit an approval or rejection decision. |
 | `ApprovalCommentForm` | Form to add a comment to an approval record. |
+| `ReviewPanel` | The approval round rendered: reviews, the viewer's own vote, block reasons, bypass, the publisher-tier decision, and review requests (§20.6.1). |
 | `ContentForm` | Shared form for creating and editing content items — includes paste-to-upload for inline images (§5.6.6). |
 | `HeaderImagePicker` | Header-image candidates for a content item — upload, list, promote the default (§4.9). |
 | `ShareBar` | Share buttons composing real short-link URLs (§19.7). |
@@ -3747,6 +3852,24 @@ Planned reusable components based on the Blogzine template:
 | `RoleRoute` | Route guard for role-restricted routes. |
 | `LoadingSpinner` | Generic loading indicator. |
 | `ErrorMessage` | Generic error display. |
+
+#### 20.6.1 ReviewPanel — contract and dependencies
+
+`ReviewPanel` is a **pure presentation component**: props in, events out, no fetching, no sockets. Every gate it renders is a courtesy — the orchestration re-decides votes, decisions, bypass and requests against the stored rows (§14.6). Wherever the server has already answered a question per caller (`CanApprove`, `IsBypassAllowedForCurrentUser`), the verdict's answer is used verbatim rather than re-derived from role names; the remaining render gates compose roles per §18.6, capability-last and singular.
+
+**The consumer owns freshness.** The panel shows the world as of the last props it was handed, so its consumer must re-fetch and re-render when the round changes underneath it — another vote cast, a comment added or resolved, a decision or auto-approval, a request made or answered. SignalR, polling, or a refetch after each event callback are all acceptable; without one of them the panel is simply stale. Server side, the EventHighway facts the approval workflow already publishes (§10.17) are the signal a push channel would forward — a future SignalR hub subscribes to those; it does not add new facts.
+
+**Direct API dependencies** (called by the consumer, never the component):
+
+| Concern | Endpoint |
+| --- | --- |
+| The outcome section | `GET api/Approvals/{entityType}/{entityId}/Verdict` (§16.7.2 — moderation tier only, so the read-only view gets the status pill without block reasons) |
+| The decision | `POST api/Approvals/{entityType}/{entityId}/Decision` (bypass reason mandatory when bypassing) |
+| The viewer's vote | `POST` / `PUT api/ApprovalReviews` |
+| The review rows | `GET api/ApprovalReviews` filtered by `ApprovalId` |
+| The request rows and picker | The §16.7.4 candidates and review-request endpoints |
+
+**Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the approval's status for the frozen/live switch — deliberately a prop of its own, because the read-only view has a status to show and no verdict to read it from.
 
 ### 20.7 Navigation
 

@@ -20,6 +20,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
@@ -250,10 +251,11 @@ namespace Glory2Him.Core.Brokers.Securities
             // Subjects only. The amendment decision reads neither the round nor the reviews, so
             // gathering them would be work whose result is discarded — and would invite a later
             // change to start consulting a window that posture D rule 3 exists to let callers move.
-            (_, IReadOnlyList<RoleSubject> roleSubjects, _) = await ResolveEntityAsync(
-                maybeApproval.EntityType,
-                maybeApproval.EntityId,
-                cancellationToken);
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
 
             return await this.securityClient.Access.MayAmendApprovalAsync(
                 new AmendApprovalRequest
@@ -263,7 +265,13 @@ namespace Glory2Him.Core.Brokers.Securities
 
                     // From STORAGE. Taking the submitter from a caller's copy would let anyone
                     // name themselves the owner and clear the gate on someone else's approval.
-                    ApprovalCreatedBy = maybeApproval.CreatedBy,
+                    //
+                    // The ENTITY's creator, not the approval's. The workflow owns Approval rows
+                    // outright — it opens them itself when content is submitted — so
+                    // Approval.CreatedBy records the system and never a person. The submitter
+                    // §14.7 posture D rule 3 admits is whoever wrote the content the round is
+                    // about, which is what the three sibling decisions already anchor on.
+                    EntityCreatedBy = entityCreatedBy,
                 });
         }
 
@@ -567,6 +575,21 @@ namespace Glory2Him.Core.Brokers.Securities
             }
         }
 
+        // Sits beside ResolveEntityAsync because it IS that read, narrowed. The gates that use
+        // it want one string and have no use for the subjects or the confidence score.
+        public async ValueTask<string> RetrieveEntityAuthorAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default)
+        {
+            (string entityCreatedBy, _, _) = await ResolveEntityAsync(
+                entityType,
+                entityId,
+                cancellationToken);
+
+            return entityCreatedBy;
+        }
+
         /// <summary>
         /// The ordinary one-subject case: an entity is authorised from itself. Only
         /// <c>Association</c> departs from this, and it composes its pair inline.
@@ -665,6 +688,71 @@ namespace Glory2Him.Core.Brokers.Securities
                     ApprovalComments = snapshot.ApprovalComments,
                     ConfidenceScore = confidenceScore,
                 });
+        }
+
+        // Gather-only (§16.7.4). Every field is read from the STORED approval and its stored
+        // entity — nothing here trusts a payload, because the owner it reports is what stops
+        // somebody being invited to review their own work (§7.9 rule 3, HR-1).
+        public async ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default)
+        {
+            Approval maybeApproval = await this.storageBroker.SelectApprovalByIdAsync(
+                approvalId,
+                cancellationToken);
+
+            if (maybeApproval is null)
+            {
+                return null;
+            }
+
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
+
+            ApprovalReviewSnapshot snapshot = await GatherAsync(maybeApproval, cancellationToken);
+
+            // Only the reviews that still stand. A withdrawn review frees the person to be asked
+            // again, and a dismissed one means their verdict no longer describes the current
+            // content (§9.5) — in both cases they are invitable, which is the same reasoning
+            // behind the review index's filter.
+            List<string> activeReviewerUserIds = snapshot.Reviews
+                .Where(review =>
+                    review.IsDeleted == false
+                        && review.Verdict != ReviewVerdict.Dismissed)
+                .Select(review => review.CreatedBy)
+                .Where(createdBy => string.IsNullOrWhiteSpace(createdBy) is false)
+                .Distinct()
+                .ToList();
+
+            // Unfiltered on purpose (see ActiveReviewRequest): the caller-facing read applies a
+            // visibility filter, and deciding invitability from a filtered view would tell a
+            // moderator that somebody is invitable and then collide with the uniqueness index.
+            IQueryable<ApprovalReviewRequest> allRequests =
+                await this.storageBroker.SelectAllApprovalReviewRequestsAsync(cancellationToken);
+
+            List<ActiveReviewRequest> activeRequests = allRequests
+                .Where(request =>
+                    request.ApprovalId == maybeApproval.Id
+                        && request.IsDeleted == false)
+                .Select(request => new ActiveReviewRequest
+                {
+                    Id = request.Id,
+                    RequestedUserId = request.RequestedUserId,
+                })
+                .ToList();
+
+            return new ApprovalReviewerScope
+            {
+                ApprovalId = maybeApproval.Id,
+                ApprovalStatus = maybeApproval.ApprovalStatus,
+                EntityCreatedBy = entityCreatedBy,
+                RoleSubjects = roleSubjects,
+                ActiveReviewerUserIds = activeReviewerUserIds,
+                ActiveRequests = activeRequests,
+            };
         }
     }
 }

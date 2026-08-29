@@ -26,7 +26,9 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.Associations;
@@ -128,6 +130,12 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 approvalService: BuildApprovalWorkflowServiceMock().Object,
                 approvalReviewWorkflowService: new Mock<IApprovalReviewWorkflowService>().Object,
                 approvalCommentService: new Mock<IApprovalCommentService>().Object,
+                approvalReviewRequestService: new Mock<IApprovalReviewRequestService>().Object,
+
+                approvalReviewRequestWorkflowService:
+                    new Mock<IApprovalReviewRequestWorkflowService>().Object,
+
+                identityUserService: new Mock<IIdentityUserService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
                 eventBroker: EventBroker,
@@ -136,7 +144,12 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
             // The registration opens a scope per delivery now, so the fixture supplies a
             // provider that hands back these instances. The orchestration is the real one; the
-            // other fourteen are mocks, which is what keeps this suite about the WIRING.
+            // other fifteen are mocks, which is what keeps this suite about the WIRING.
+            //
+            // Every service the subscriptions bind must appear below: Scoped<TService,TEntity>
+            // resolves through GetRequiredService at DELIVERY time, so a missing one throws
+            // mid-delivery rather than at registration — recorded as a failed delivery, with
+            // nothing surfacing.
             var serviceProviderMock = new Mock<IServiceProvider>();
 
             void Provide<TService>(TService instance) where TService : class =>
@@ -152,6 +165,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             Provide<ICommentService>(new Mock<ICommentService>().Object);
             Provide<IApprovalCommentService>(new Mock<IApprovalCommentService>().Object);
             Provide<IApprovalReviewService>(new Mock<IApprovalReviewService>().Object);
+            Provide<IApprovalReviewRequestService>(new Mock<IApprovalReviewRequestService>().Object);
             Provide<IApprovalSettingService>(new Mock<IApprovalSettingService>().Object);
             Provide<IAssociationService>(new Mock<IAssociationService>().Object);
             Provide<IContentItemSettingService>(new Mock<IContentItemSettingService>().Object);
@@ -225,6 +239,13 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         /// </remarks>
         internal List<Guid> ApprovalIdsRead { get; } = new List<Guid>();
 
+        /// <summary>
+        /// When set, the workflow's approval read throws this instead of answering - the
+        /// closest this fixture can get to a handler failing part-way through real work. Null
+        /// by default, so it changes nothing for any test that does not ask for it.
+        /// </summary>
+        internal Exception HandlerException { get; set; }
+
         // Enough for ResolveApprovalAsync to reach a decision: no approval exists for the entity,
         // so one is created at Draft and handed straight back.
         private Mock<IApprovalService> BuildApprovalServiceMock()
@@ -288,6 +309,15 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 .ReturnsAsync((Guid approvalId, CancellationToken _) =>
                 {
                     ApprovalIdsRead.Add(approvalId);
+
+                    // Opt-in, and null on every existing test, so the only behaviour this adds
+                    // is to whoever sets it. It answers the one question nothing else in the
+                    // suite can: does a handler that THROWS take the publisher down with it, or
+                    // does the substrate contain it as a failed delivery (issue #298)?
+                    if (HandlerException is not null)
+                    {
+                        throw HandlerException;
+                    }
 
                     return new Approval
                     {

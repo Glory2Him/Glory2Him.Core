@@ -20,6 +20,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Xeptions;
+using Glory2Him.Core.Models.Enums;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 {
@@ -239,6 +240,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(someApproval.CreatedBy);
+
+            // The gate reads the ENTITY's author now, not the approval's: the workflow
+            // owns approval rows, so Approval.CreatedBy records the system. Same person,
+            // resolved from the row that really has an owner.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(someApproval.CreatedBy);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.ApplyRemoveAuditValuesAsync(someApproval, It.IsAny<SecurityContext>()))

@@ -65,6 +65,7 @@ namespace Glory2Him.Core.Models.Configurations
                 ApprovalEventAddresses,
                 ApprovalCommentEventAddresses,
                 ApprovalReviewEventAddresses,
+                ApprovalReviewRequestEventAddresses,
                 ApprovalSettingEventAddresses,
                 AssociationEventAddresses,
                 AttachmentEventAddresses,

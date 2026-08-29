@@ -81,6 +81,69 @@ namespace Glory2Him.Core.Migrations
                     b.ToTable("ApprovalComments", (string)null);
                 });
 
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.ApprovalReviewRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ApprovalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CreatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("CreatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletedBy")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset?>("DeletedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("DeletionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("RequestedUserDisplayName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("RequestedUserId")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("UpdatedBy")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTimeOffset>("UpdatedWhen")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovalId")
+                        .HasDatabaseName("IX_ApprovalReviewRequests_ApprovalId");
+
+                    b.HasIndex("ApprovalId", "RequestedUserId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ApprovalReviewRequests_ApprovalId_RequestedUserId")
+                        .HasFilter("[IsDeleted] = 0");
+
+                    b.ToTable("ApprovalReviewRequests", (string)null);
+                });
+
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalReviews.ApprovalReview", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1310,6 +1373,17 @@ namespace Glory2Him.Core.Migrations
                     b.Navigation("Approval");
                 });
 
+            modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.ApprovalReviewRequest", b =>
+                {
+                    b.HasOne("Glory2Him.Core.Models.Foundations.Approvals.Approval", "Approval")
+                        .WithMany("ApprovalReviewRequests")
+                        .HasForeignKey("ApprovalId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Approval");
+                });
+
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.ApprovalReviews.ApprovalReview", b =>
                 {
                     b.HasOne("Glory2Him.Core.Models.Foundations.Approvals.Approval", "Approval")
@@ -1324,6 +1398,8 @@ namespace Glory2Him.Core.Migrations
             modelBuilder.Entity("Glory2Him.Core.Models.Foundations.Approvals.Approval", b =>
                 {
                     b.Navigation("ApprovalComments");
+
+                    b.Navigation("ApprovalReviewRequests");
 
                     b.Navigation("ApprovalReviews");
                 });

@@ -161,7 +161,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             // approval so they can resubmit it, and they hold no role by construction. Both
             // halves are decided HERE rather than one here and one in the caller: two throwing
             // gates compose to an AND, which would delete the owner branch outright.
-            if (IsSameUser(request.Actor.UserId, request.ApprovalCreatedBy))
+            if (IsSameUser(request.Actor.UserId, request.EntityCreatedBy))
             {
                 return Permit("Actor is the submitter of this approval.");
             }

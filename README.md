@@ -40,11 +40,15 @@ in line with Christian values.
 
 ## 🗄️ Database migrations
 
-To bring a database up to date **from the application**, EF applies the migrations itself and
-nothing special is needed:
+`--context` is required: Glory2Him.Core carries two DbContexts — `StorageBroker` for its own
+database and the read-only `IdentityCoreStorageBroker` over the security database (design
+§12.7.1) — so EF will not guess which one you mean.
+
+To bring a database up to date, EF applies the migrations itself — name the Core context and
+nothing else is needed:
 
 ```bash
-dotnet ef database update --project Glory2Him.Core
+dotnet ef database update --project Glory2Him.Core --context StorageBroker
 ```
 
 To produce a **SQL script** for a DBA or a deployment pipeline, use the tool rather than

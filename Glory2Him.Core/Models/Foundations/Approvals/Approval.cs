@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 
 namespace Glory2Him.Core.Models.Foundations.Approvals
@@ -99,5 +100,14 @@ namespace Glory2Him.Core.Models.Foundations.Approvals
         /// Navigation to the approval reviews associated with this approval.
         /// </summary>
         public ICollection<ApprovalReview> ApprovalReviews { get; set; } = new List<ApprovalReview>();
+
+        /// <summary>
+        /// Navigation to the review invitations associated with this approval (§7.9).
+        ///
+        /// <para>Coordination only: no §8.5 condition reads this collection, so nothing here
+        /// counts toward the approval threshold or blocks the round.</para>
+        /// </summary>
+        public ICollection<ApprovalReviewRequest> ApprovalReviewRequests { get; set; } =
+            new List<ApprovalReviewRequest>();
     }
 }

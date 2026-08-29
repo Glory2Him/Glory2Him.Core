@@ -42,6 +42,7 @@
     <!-- The acceptance suite boots this host through WebApplicationFactory<Program> and
          reaches the internal static test seams on Program. -->
     <InternalsVisibleTo Include="Glory2Him.WebApp.Tests.Acceptance" />
+    <InternalsVisibleTo Include="Glory2Him.WebApp.Tests.Unit" />
   </ItemGroup>
 
   <ItemGroup>

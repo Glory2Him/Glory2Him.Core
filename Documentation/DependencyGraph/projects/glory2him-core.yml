@@ -2507,6 +2507,174 @@ components:
         handler: OnHardRemovingApprovalReviewByIdAsync
       - event: ApprovalReview.RetrievingById
         handler: OnRetrievingApprovalReviewByIdAsync
+  - id: FS.IdentityUser
+    name: IdentityUserService
+    layer: foundation
+    col: 5
+    description: "Read-only foundation over the SECURITY database (design 12.7.1) - who holds a given set of role names. It exists because 7.9 rule 3 and the reviewer-candidates read both ask about ROLE MEMBERSHIP, which lives in the ASP.NET Identity store and nowhere else; ISecurityClient.Users cannot answer it because that client reads a ClaimsPrincipal and so only ever describes the current caller. Unlike every other foundation it takes NO EventEnvelopeBroker and NO SecurityAuditBroker: it writes nothing, publishes nothing and stamps nothing, and WHO may enumerate users is decided by the orchestration above it before the call is made. It applies the rules around the read - fail closed on an empty tier, normalise and deduplicate the names - while the query itself lives in the broker, where EF belongs."
+    methods:
+      - RetrieveIdentityUsersInRolesAsync
+    calls:
+      - from: RetrieveIdentityUsersInRolesAsync
+        to: IdentityCoreStorageBroker
+        method: SelectIdentityUsersInRolesAsync
+  - id: IdentityCoreStorageBroker
+    name: IdentityCoreStorageBroker
+    layer: broker
+    col: 6
+    description: "Core's READ-ONLY window onto the security database, over the Glory2HimSecurityConnection connection string - a different database from the one StorageBroker serves (design 12.7.1). Read-only is enforced by the interface: it declares Select members only, and no Insert, Update, Delete or Bulk member may be added, because the identity store is another component's source of truth. Core owns no migrations against these tables and the context has no design-time factory, so an accidental --context here fails loudly instead of fighting the host's own migrations. Only the columns the tier lookup needs are mapped."
+    methods:
+      - SelectIdentityUsersInRolesAsync
+    calls:
+      - from: SelectIdentityUsersInRolesAsync
+        to: EXT.EFCore
+        method: ToListAsync
+  - id: FS.ApprovalReviewRequest
+    name: ApprovalReviewRequestService
+    layer: foundation
+    col: 5
+    description: "Foundation CRUD for ApprovalReviewRequest - the review INVITATIONS of design 7.9. An invitation grants no eligibility and enters no 8.5 condition, so this service has no cross-entity invariant to defend and - uniquely among the approval foundations - takes NO IAccessBroker. It has no Modify either: ApprovalId and RequestedUserId are the halves of the uniqueness index and are fixed at creation, so a mistaken invitation is withdrawn and re-issued rather than edited. Reads are gated on the two parties (requester, invited user) plus the review tier, and answer not-found otherwise. Withdrawal is open to the whole review tier rather than to the requester alone (7.9 rule 5) - the one place it diverges from ApprovalReviewService - so its remove path takes no GetUserIdAsync ownership read. RetireAnsweredApprovalReviewRequestAsync is the workflow's own seam (7.9 rule 6, IApprovalReviewRequestWorkflowService): it mints the system identity through CreateSystemAsync and gates on IsSystemIdentity rather than on a role, because the system context carries no roles and so could never pass the withdraw gate. Like the sibling's dismissal it does NO ProcessedEvents bookkeeping - it has no event address and no handler, so both rows would be written with no reader. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    methods:
+      - AddApprovalReviewRequestAsync
+      - RetrieveAllApprovalReviewRequestsAsync
+      - RetrieveApprovalReviewRequestByIdAsync
+      - RemoveApprovalReviewRequestByIdAsync
+      - HardRemoveApprovalReviewRequestByIdAsync
+      - OnAddingApprovalReviewRequestAsync
+      - OnRemovingApprovalReviewRequestByIdAsync
+      - OnHardRemovingApprovalReviewRequestByIdAsync
+      - OnRetrievingApprovalReviewRequestByIdAsync
+      - RetireAnsweredApprovalReviewRequestAsync
+    calls:
+      - from: RetireAnsweredApprovalReviewRequestAsync
+        to: EventEnvelopeBroker
+        method: CreateSystemAsync
+      - from: RetireAnsweredApprovalReviewRequestAsync
+        to: StorageBroker
+        method: SelectApprovalReviewRequestByIdAsync
+      - from: RetireAnsweredApprovalReviewRequestAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RetireAnsweredApprovalReviewRequestAsync
+        to: StorageBroker
+        method: UpdateApprovalReviewRequestAsync
+      - from: RetireAnsweredApprovalReviewRequestAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: AddApprovalReviewRequestAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: AddApprovalReviewRequestAsync
+        to: SecurityAuditBroker
+        method: ApplyAddAuditValuesAsync
+      - from: AddApprovalReviewRequestAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: AddApprovalReviewRequestAsync
+        to: DateTimeBroker
+        method: GetCurrentDateTimeOffsetAsync
+      - from: AddApprovalReviewRequestAsync
+        to: StorageBroker
+        method: InsertApprovalReviewRequestAsync
+      - from: AddApprovalReviewRequestAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: AddApprovalReviewRequestAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: AddApprovalReviewRequestAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: RetrieveAllApprovalReviewRequestsAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveAllApprovalReviewRequestsAsync
+        to: StorageBroker
+        method: SelectAllApprovalReviewRequestsAsync
+      - from: RetrieveAllApprovalReviewRequestsAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalReviewRequestByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: SelectApprovalReviewRequestByIdAsync
+      - from: RetrieveApprovalReviewRequestByIdAsync
+        to: SecurityAuditBroker
+        method: GetUserIdAsync
+      - from: RetrieveApprovalReviewRequestByIdAsync
+        to: LoggingBroker
+        method: LogInformationAsync
+      - from: RetrieveApprovalReviewRequestByIdAsync
+        to: LoggingBroker
+        method: LogWarningAsync
+      - from: RemoveApprovalReviewRequestByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RemoveApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: SelectApprovalReviewRequestByIdAsync
+      - from: RemoveApprovalReviewRequestByIdAsync
+        to: SecurityAuditBroker
+        method: ApplyRemoveAuditValuesAsync
+      - from: RemoveApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: UpdateApprovalReviewRequestAsync
+      - from: RemoveApprovalReviewRequestByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: RemoveApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: RemoveApprovalReviewRequestByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: HardRemoveApprovalReviewRequestByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: HardRemoveApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: SelectApprovalReviewRequestByIdAsync
+      - from: HardRemoveApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: DeleteApprovalReviewRequestAsync
+      - from: HardRemoveApprovalReviewRequestByIdAsync
+        to: IdentifierBroker
+        method: GetIdentifierAsync
+      - from: HardRemoveApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: InsertProcessedEventAsync
+      - from: HardRemoveApprovalReviewRequestByIdAsync
+        to: EventEnvelopeBroker
+        method: CreateNextAsync
+      - from: OnAddingApprovalReviewRequestAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnRemovingApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+      - from: OnHardRemovingApprovalReviewRequestByIdAsync
+        to: StorageBroker
+        method: SelectProcessedEventExistsAsync
+    publishes:
+      - method: AddApprovalReviewRequestAsync
+        event: ApprovalReviewRequest.Added
+      - method: RemoveApprovalReviewRequestByIdAsync
+        event: ApprovalReviewRequest.Removed
+      - method: HardRemoveApprovalReviewRequestByIdAsync
+        event: ApprovalReviewRequest.HardRemoved
+      - method: RetireAnsweredApprovalReviewRequestAsync
+        event: ApprovalReviewRequest.Removed
+    subscribes:
+      - event: ApprovalReviewRequest.Adding
+        handler: OnAddingApprovalReviewRequestAsync
+      - event: ApprovalReviewRequest.RemovingById
+        handler: OnRemovingApprovalReviewRequestByIdAsync
+      - event: ApprovalReviewRequest.HardRemovingById
+        handler: OnHardRemovingApprovalReviewRequestByIdAsync
+      - event: ApprovalReviewRequest.RetrievingById
+        handler: OnRetrievingApprovalReviewRequestByIdAsync
   - id: FS.ApprovalSetting
     name: ApprovalSettingService
     layer: foundation
@@ -3187,7 +3355,7 @@ components:
     name: ApprovalOrchestrationService
     layer: orchestration
     col: 4
-    description: "The approval workflow (design 12.5.3, 16.7, 9.7, 10.17). Records human approve/reject decisions on the Approval row - the source of truth - and re-evaluates a round whenever its inputs change. Holds NONE of the seven entity services on purpose: the decided state reaches its entity as an <Entity>.Approving command event published under the system identity (CreateSystemAsync), addressed to the PROCESSING tier for the versioned types (ContentItem, Link) and to the foundation for the other five. Holds no IApprovalSettingService either - every policy question is asked as a verdict from IAccessBroker. The 22 On*Async handlers verify the envelope signature through IEnvelopeIntegrityBroker and then delegate to the same ProcessEntityAdded / ProcessEntityModified / ProcessApprovalInputsChanged path as the public methods. Has NO IStorageBroker, so no ProcessedEvents dedupe - the integrity verify is its substrate guard instead. The -Removed handlers serve both soft and hard removal; no entity -Removed is subscribed by design (a takedown is not a moderation step). IApprovalCommentService is injected but currently unused. ILoggingBroker is exception-path only, so no logging edge is drawn."
+    description: "The approval workflow (design 12.5.3, 16.7, 9.7, 10.17). Records human approve/reject decisions on the Approval row - the source of truth - and re-evaluates a round whenever its inputs change. Holds NONE of the seven entity services on purpose: the decided state reaches its entity as an <Entity>.Approving command event published under the system identity (CreateSystemAsync), addressed to the PROCESSING tier for the versioned types (ContentItem, Link) and to the foundation for the other five. Holds no IApprovalSettingService either - every policy question is asked as a verdict from IAccessBroker. The 22 On*Async handlers verify the envelope signature through IEnvelopeIntegrityBroker and then delegate to the same ProcessEntityAdded / ProcessEntityModified / ProcessApprovalInputsChanged path as the public methods. Has NO IStorageBroker, so no ProcessedEvents dedupe - the integrity verify is its substrate guard instead. The -Removed handlers serve both soft and hard removal; no entity -Removed is subscribed by design (a takedown is not a moderation step). IApprovalCommentService is injected but currently unused. It also carries the 7.9 INVITATION flow (16.7.4): RetrieveReviewerCandidatesAsync, RequestApprovalReviewAsync and WithdrawApprovalReviewRequestAsync, which need BOTH stores - the round, the entity owner and the existing reviews from Core through IAccessBroker, and role membership from the identity store through IIdentityUserService. The 18.6 tier NAMES are composed here from the approval role subjects, so the convention keeps one home. OnApprovalReviewAddedAsync additionally retires the answered invitation through the workflow seam (rule 6), after the signature check and before the suppression test. This took the service to eleven dependencies - see issue 348. ILoggingBroker is exception-path only, so no logging edge is drawn."
     methods:
       - RetrieveApprovalVerdictAsync
       - DecideApprovalAsync
@@ -3217,6 +3385,48 @@ components:
       - OnApprovalCommentResolvedAsync
       - OnApprovalCommentRemovedAsync
     calls:
+      - from: RetrieveReviewerCandidatesAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RetrieveReviewerCandidatesAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: RetrieveReviewerCandidatesAsync
+        to: AccessBroker
+        method: RetrieveApprovalReviewerScopeByIdAsync
+      - from: RetrieveReviewerCandidatesAsync
+        to: FS.IdentityUser
+        method: RetrieveIdentityUsersInRolesAsync
+      - from: RequestApprovalReviewAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: RequestApprovalReviewAsync
+        to: FS.Approval
+        method: FindApprovalByEntityAsync
+      - from: RequestApprovalReviewAsync
+        to: AccessBroker
+        method: RetrieveApprovalReviewerScopeByIdAsync
+      - from: RequestApprovalReviewAsync
+        to: FS.IdentityUser
+        method: RetrieveIdentityUsersInRolesAsync
+      - from: RequestApprovalReviewAsync
+        to: FS.ApprovalReviewRequest
+        method: RetrieveApprovalReviewRequestByIdAsync
+      - from: RequestApprovalReviewAsync
+        to: FS.ApprovalReviewRequest
+        method: AddApprovalReviewRequestAsync
+      - from: WithdrawApprovalReviewRequestAsync
+        to: EventEnvelopeBroker
+        method: CreateAsync
+      - from: WithdrawApprovalReviewRequestAsync
+        to: FS.ApprovalReviewRequest
+        method: RemoveApprovalReviewRequestByIdAsync
+      - from: OnApprovalReviewAddedAsync
+        to: AccessBroker
+        method: RetrieveApprovalReviewerScopeByIdAsync
+      - from: OnApprovalReviewAddedAsync
+        to: FS.ApprovalReviewRequest
+        method: RetireAnsweredApprovalReviewRequestAsync
       - from: RetrieveApprovalVerdictAsync
         to: EventEnvelopeBroker
         method: CreateAsync

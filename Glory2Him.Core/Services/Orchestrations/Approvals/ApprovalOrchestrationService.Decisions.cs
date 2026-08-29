@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Bases;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 
@@ -130,8 +131,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 ? bypassReason
                 : null;
 
+            // A person clicked Approve or Reject, so UpdatedBy records them - the only write on
+            // this seam that belongs to a human rather than to the workflow.
             return await this.approvalService.ModifyApprovalAsync(
                 approval: storageApproval,
+                attribution: WorkflowAttribution.DecidingCaller,
                 cancellationToken: cancellationToken);
         }
 

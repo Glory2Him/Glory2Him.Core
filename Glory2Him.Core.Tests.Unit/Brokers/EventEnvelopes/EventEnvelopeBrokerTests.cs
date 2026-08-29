@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Brokers.EventEnvelopes;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Tests.Unit.Brokers.EventEnvelopes
 {
@@ -163,6 +164,92 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.EventEnvelopes
             actualEnvelope.Metadata.Should().NotBeNull();
             actualEnvelope.Metadata.EventId.Should().NotBe(Guid.Empty);
             actualEnvelope.RequestContext.Should().NotBeNull();
+        }
+
+        // The whole point of the split, and the one thing a reader of an audit row depends on.
+        // Before this, "the system did it" and "a person did it" produced a byte-identical
+        // SubjectId, so DeletedBy on an auto-retired invitation named the reviewer who happened
+        // to be answering — a person who did not withdraw anything.
+        [Fact]
+        public async Task ShouldRecordTheSystemAsTheActorOnCreateSystemAsync()
+        {
+            // given
+            var eventEnvelopeBroker = new EventEnvelopeBroker();
+
+            // when
+            EventEnvelope<string> actualEnvelope =
+                await eventEnvelopeBroker.CreateSystemAsync(content: "content");
+
+            // then
+            actualEnvelope.SecurityContext.SubjectId.Should().Be(
+                SystemIdentity.UserId,
+                because: "CreatedBy, UpdatedBy and DeletedBy are resolved from SubjectId, and " +
+                    "an act nobody asked for must not name whichever human's request was on " +
+                    "the stack when it ran");
+
+            actualEnvelope.SecurityContext.Username.Should().Be(SystemIdentity.Username);
+
+            actualEnvelope.SecurityContext.AuthenticationType.Should().Be(
+                AuthenticationType.System,
+                because: "the enum member existed for exactly this and had never been minted");
+        }
+
+        // The audit column stops naming the triggering person, so the causal trail has to land
+        // somewhere or it is simply lost. Delegation is where — an operator asking "what caused
+        // this system write" still has an answer, without the audit column claiming a person
+        // performed an act they did not.
+        [Fact]
+        public async Task ShouldCarryTheTriggeringCallerOnDelegationOnCreateSystemAsync()
+        {
+            // given
+            var eventEnvelopeBroker = new EventEnvelopeBroker();
+
+            // when
+            EventEnvelope<string> actualEnvelope =
+                await eventEnvelopeBroker.CreateSystemAsync(content: "content");
+
+            // then
+            // With no ambient caller there is nobody to delegate from, so the assertion that
+            // carries weight is the negative one: whatever lands here, it is never the system
+            // naming itself as its own trigger.
+            actualEnvelope.SecurityContext.DelegatedBySubjectId
+                .Should().NotBe(SystemIdentity.UserId,
+                    because: "delegation records who TRIGGERED the act, never the system itself");
+
+            actualEnvelope.SecurityContext.SubjectId
+                .Should().NotBe(actualEnvelope.SecurityContext.DelegatedBySubjectId,
+                    because: "the actor and its trigger are different fields answering " +
+                        "different questions — collapsing them is the bug this split fixes");
+        }
+
+        // The other half of the split. A manual approve or reject really is a person's act — they
+        // are simply not permitted to write the row directly — so the audit answer to "who
+        // approved this" stays a human. Minting both through one method is what made these
+        // indistinguishable in the first place.
+        [Fact]
+        public async Task ShouldRetainTheDecidingCallerOnCreateElevatedAsync()
+        {
+            // given
+            var eventEnvelopeBroker = new EventEnvelopeBroker();
+
+            // when
+            EventEnvelope<string> actualEnvelope =
+                await eventEnvelopeBroker.CreateElevatedAsync(content: "content");
+
+            // then
+            actualEnvelope.SecurityContext.SubjectId.Should().NotBe(
+                SystemIdentity.UserId,
+                because: "stamping the system here would erase the administrator from every " +
+                    "manual decision — the exact regression the split exists to prevent");
+
+            actualEnvelope.SecurityContext.AuthenticationType.Should().Be(
+                AuthenticationType.Delegated);
+
+            actualEnvelope.SecurityContext.IsSystemIdentity.Should().BeTrue(
+                because: "the elevation is still the workflow's; only the actor is the caller's");
+
+            actualEnvelope.SecurityContext.Roles.Should().BeEmpty(
+                because: "both mints drop roles, so the flag stands alone as the authority");
         }
     }
 }

@@ -81,13 +81,23 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // transitions are legal, who may bypass) stay in the orchestration
         private async ValueTask ValidateUserCanModifyStorageApprovalAsync(
             Approval storageApproval,
-            SecurityContext securityContext)
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
         {
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
+            // The ENTITY's author, not the approval's. The workflow owns approval rows outright,
+            // so Approval.CreatedBy records the system and never a person; anchoring here would
+            // refuse every author their own work, silently, since a submitter holds no role to
+            // fall back on (§14.7 posture D rule 3).
+            string entityCreatedBy = await this.accessBroker.RetrieveEntityAuthorAsync(
+                storageApproval.EntityType,
+                storageApproval.EntityId,
+                cancellationToken);
+
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
-                    && storageApproval.CreatedBy == actorUserId;
+                    && entityCreatedBy == actorUserId;
 
             if (isOwner is false && HasReviewRole(securityContext) is false)
             {
@@ -138,13 +148,23 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // act through the approval's status instead
         private async ValueTask ValidateUserCanRemoveStorageApprovalAsync(
             Approval storageApproval,
-            SecurityContext securityContext)
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
         {
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
+            // The ENTITY's author, not the approval's. The workflow owns approval rows outright,
+            // so Approval.CreatedBy records the system and never a person; anchoring here would
+            // refuse every author their own work, silently, since a submitter holds no role to
+            // fall back on (§14.7 posture D rule 3).
+            string entityCreatedBy = await this.accessBroker.RetrieveEntityAuthorAsync(
+                storageApproval.EntityType,
+                storageApproval.EntityId,
+                cancellationToken);
+
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
-                    && storageApproval.CreatedBy == actorUserId;
+                    && entityCreatedBy == actorUserId;
 
             if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
             {

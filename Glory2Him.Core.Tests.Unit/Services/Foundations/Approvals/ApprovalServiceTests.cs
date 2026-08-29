@@ -84,11 +84,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
-            // The workflow's own path mints through here instead (#287). Modelled the way the
-            // real broker behaves: the caller's SubjectId is kept — the audit answer to "who
-            // caused this" is a person — and the roles are dropped, so the system flag stands
-            // alone as the authority. A test that left roles on would pass without the flag
-            // doing anything.
+            // The workflow's own path mints through one of these two instead (#287). Modelled
+            // the way the real broker behaves, and the difference between them is the whole
+            // point: an act nobody asked for records SystemIdentity, an act carried out for a
+            // person records the person. Both drop roles, so the system flag stands alone as the
+            // authority — a test that left roles on would pass without the flag doing anything.
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateSystemAsync(It.IsAny<Approval>()))
                     .Returns((Approval content) =>
@@ -100,10 +100,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                                 SecurityContext = new SecurityContext
                                 {
                                     IsAuthenticated = true,
+                                    SubjectId = SystemIdentity.UserId,
+                                    Username = SystemIdentity.Username,
+                                    DelegatedBySubjectId = this.ambientSecurityContext?.SubjectId,
+                                    Roles = [],
+                                    IsSystemIdentity = true,
+                                    AuthenticationType = AuthenticationType.System
+                                },
+
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
+
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateElevatedAsync(It.IsAny<Approval>()))
+                    .Returns((Approval content) =>
+                        new ValueTask<EventEnvelope<Approval>>(
+                            new EventEnvelope<Approval>
+                            {
+                                Content = content,
+
+                                SecurityContext = new SecurityContext
+                                {
+                                    IsAuthenticated = true,
                                     SubjectId = this.ambientSecurityContext?.SubjectId,
                                     Username = this.ambientSecurityContext?.Username,
+                                    DelegatedBySubjectId = this.ambientSecurityContext?.SubjectId,
                                     Roles = [],
-                                    IsSystemIdentity = true
+                                    IsSystemIdentity = true,
+                                    AuthenticationType = AuthenticationType.Delegated
                                 },
 
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
@@ -168,9 +192,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// Mirrors the real decision instead of blanket-permitting: owner OR review tier. A
         /// default that permits everything cannot tell a gate that admits the submitter from one
         /// that does not, which is exactly the defect this suite failed to catch once already.
+        ///
+        /// <para>The owner is the ENTITY's author. The workflow owns approval rows outright, so
+        /// Approval.CreatedBy records the system and never a person — a mirror anchored there
+        /// would model a decision that refuses every author their own work.</para>
         /// </summary>
         private void SetupAccessBrokerToMirrorTheAmendmentDecision(
-            string approvalCreatedBy,
+            string entityCreatedBy,
             string actorUserId) =>
             this.accessBrokerMock.Setup(broker =>
                 broker.MayAmendApprovalAsync(
@@ -182,8 +210,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                             // the ACTOR id as the audit surface resolves it, which is what the
                             // real broker forwards — not SecurityContext.SubjectId
                             bool isOwner =
-                                string.IsNullOrWhiteSpace(approvalCreatedBy) is false
-                                    && approvalCreatedBy == actorUserId;
+                                string.IsNullOrWhiteSpace(entityCreatedBy) is false
+                                    && entityCreatedBy == actorUserId;
 
                             bool hasReviewTier = securityContext.Roles.Any(role =>
                                 role == Roles.Reviewer
