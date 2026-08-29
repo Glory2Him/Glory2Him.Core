@@ -61,9 +61,11 @@ export interface ReviewPanelProps {
     // synthesized "Vote…" placeholder — an uncast vote has no ApprovalReview row to project.
     approvalReviewCollection?: ReadonlyArray<ApprovalReviewItem>;
 
-    // The approval's pending ApprovalReviewRequest rows (design §7.9), rendered as
-    // "Awaiting review" rows after the cast votes. The signed-in viewer is excluded — their own
-    // row already renders the vote dropdown, and one person must not appear twice.
+    // The approval's pending ApprovalReviewRequest rows (design §7.9). They share ONE
+    // alphabetical list with the cast votes, wearing a "Requested" chip where a vote would be —
+    // a reader asks "where does this round stand?" per person, so a name keeps its place whether
+    // or not the answer has arrived. The signed-in viewer is excluded: their own row already
+    // renders the vote dropdown, and one person must not appear twice.
     requestedReviewerCollection?: ReadonlyArray<ReviewerCandidateItem>;
 
     // ── Review requests ───────────────────────────────────────────────────────
@@ -93,8 +95,10 @@ export interface ReviewPanelProps {
     // consumer needs no existence check of its own.
     onReviewRequested?: (candidate: ReviewerCandidateItem) => void;
 
-    // Fired from the withdraw control on an "Awaiting review" row. Pending requests only —
-    // a cast review is owner-only (§7.9 rule 5) and gets no such control.
+    // Fired from the picker's Requested section, which is the ONLY route to unassigning
+    // somebody — the main list carries no withdraw control. Pending requests only: once the
+    // invitation has been answered the server refuses the withdrawal (§7.9 rule 5), and a
+    // person who has voted renders ticked and inert in the picker rather than clickable.
     onReviewRequestWithdrawn?: (candidate: ReviewerCandidateItem) => void;
 
     // Fired when the viewer casts or changes their vote (Approved or Rejected only — "Vote…" is
@@ -352,14 +356,12 @@ export function ReviewPanel({
             userId: item.reviewerUserId,
             displayName: item.reviewerDisplayName,
             vote: item.vote as ApprovalStatus | undefined,
-            candidate: undefined as ReviewerCandidateItem | undefined,
         }))
         .concat(pendingRequests.map((candidate) => ({
             key: `requested-${candidate.userId}`,
             userId: candidate.userId,
             displayName: candidate.displayName,
             vote: undefined as ApprovalStatus | undefined,
-            candidate: candidate as ReviewerCandidateItem | undefined,
         })))
         .sort((left, right) => left.displayName.localeCompare(
             right.displayName, undefined, { sensitivity: 'base' }));
@@ -484,12 +486,21 @@ export function ReviewPanel({
 
     const requestedPickerRows = requestedReviewerCollection.filter(matchesFilter);
 
+    const suggestedUserIds = new Set(
+        suggestedReviewerCollection.map((candidate) => candidate.userId));
+
     // Everyone else, with the already-voted at the top so the assigned reader sees them first.
     // The two groups keep the order the consumer supplied within themselves; only the split is
     // the panel's doing.
+    //
+    // "Everyone ELSE" is meant literally: a person already shown under Suggestions or Requested
+    // does not appear again here. The natural consumer ranks its suggestions out of the same
+    // candidates read, so without this the same name renders twice in one open picker.
     const everyoneElseRows = reviewerCandidateCollection
         .filter((candidate) =>
-            matchesFilter(candidate) && requestedUserIds.has(candidate.userId) === false)
+            matchesFilter(candidate)
+                && requestedUserIds.has(candidate.userId) === false
+                && suggestedUserIds.has(candidate.userId) === false)
         .slice()
         .sort((left, right) => {
             const leftVoted = votedUserIds.has(left.userId) ? 0 : 1;

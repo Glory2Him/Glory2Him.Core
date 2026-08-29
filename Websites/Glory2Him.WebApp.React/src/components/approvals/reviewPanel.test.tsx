@@ -768,6 +768,67 @@ describe('ReviewPanel', () => {
             expect(screen.getByRole('checkbox')).not.toBeChecked();
         });
 
+        /// A selection made under the bypass must not outlive the tick that made it possible.
+        /// Without this the Submit button stays on screen offering an Approve the server will
+        /// refuse, which is the one outcome guaranteed to look like a bug.
+        it('should clear a bypass approve selection when the bypass is unticked', async () => {
+            // given
+            signInAs(authState, ['Publisher']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalVerdict={blockedVerdict({ isBypassAllowedForCurrentUser: true })} />);
+
+            await userEvent.click(screen.getByRole('checkbox'));
+            await userEvent.click(screen.getByRole('button', { name: 'Set approval status' }));
+            await userEvent.click(screen.getByRole('button', { name: /Approve this item/ }));
+
+            // when
+            await userEvent.click(screen.getByRole('checkbox'));
+
+            // then
+            expect(screen.getByRole('button', { name: 'Set approval status' }))
+                .toBeInTheDocument();
+
+            expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+        });
+
+        /// canApprove is the SERVER's per-caller answer and the panel must read it verbatim: it
+        /// already folds the approval conditions, HR-2 self-approval, and the reviewer whose own
+        /// review carried the round over the line - none of which a browser can compute.
+        ///
+        /// Every other fixture ties canApprove to isBlocked, so a panel that ignored the field
+        /// and re-derived it from the block set would leave the suite green. This one holds
+        /// isBlocked false and canApprove false together, which no reason code can produce, so it
+        /// fails the moment the field stops being read.
+        it('should refuse approve on the verdict word even when nothing is blocking', async () => {
+            // given
+            signInAs(authState, ['Publisher']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalVerdict={verdictWith({
+                        isBlocked: false,
+                        blockReasons: [],
+                        canApprove: false
+                    })} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Set approval status' }));
+
+            // then - no bypass is on offer either, so the verdict is the only thing that could
+            // have disabled this
+            expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+            expect(screen.getByRole('button', { name: /Approve this item/ })).toBeDisabled();
+
+            expect(screen.getByRole('button', { name: /Reject this item/ })).toBeEnabled();
+        });
+
         /// The case the reason codes cannot catch. Two different approvals blocked for the SAME
         /// reasons produce an identical signature in every other field, so without approvalId a
         /// consumer swapping items without remounting keeps the previous item's tick, its typed
@@ -1235,6 +1296,28 @@ describe('ReviewPanel', () => {
 
             await userEvent.click(row);
             expect(onReviewRequested).not.toHaveBeenCalled();
+        });
+
+        /// "Everyone else" is meant literally. A consumer ranks its suggestions out of the same
+        /// candidates read, so the same person arrives in both collections - and rendering them
+        /// twice in one open picker makes the second row look like a different person.
+        it('should not repeat a suggested person under everyone else', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    suggestedReviewerCollection={[mary]}
+                    reviewerCandidateCollection={[mary, paul]} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // then
+            expect(screen.getAllByRole('button', { name: /mary\.m/ })).toHaveLength(1);
+            expect(screen.getAllByRole('button', { name: /paul\.p/ })).toHaveLength(1);
         });
 
         it('should name the cap in the picker heading', async () => {

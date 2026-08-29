@@ -40,9 +40,9 @@ export type ApprovalReviewItem = {
 };
 
 // One person the panel can name outside the cast votes: a reviewer candidate offered in the
-// request picker, or the target of a pending ApprovalReviewRequest rendered as an
-// "Awaiting review" row (design §7.9). userId is the identity — displayName is presentation
-// only and is never compared.
+// request picker, or the target of a pending ApprovalReviewRequest, which renders in the main
+// list wearing a "Requested" chip (design §7.9). userId is the identity — displayName is
+// presentation only and is never compared.
 export type ReviewerCandidateItem = {
     userId: string;
     displayName: string;
