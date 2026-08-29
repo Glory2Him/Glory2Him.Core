@@ -46,6 +46,11 @@ export type ApprovalReviewItem = {
 export type ReviewerCandidateItem = {
     userId: string;
     displayName: string;
+    // OPTIONAL by design, not by oversight. The §16.7.4 candidates read returns "the minimum a
+    // picker needs — account id and display name — and nothing else", so a consumer wired to it
+    // supplies no username at all. The row then renders the display name alone and the filter
+    // matches on it alone, which is why the filter placeholder promises "name" rather than
+    // anything a caller may not be able to give.
     userName?: string;
 
     // Why the picker is suggesting this person - "Recently reviewed this type", and the like.
