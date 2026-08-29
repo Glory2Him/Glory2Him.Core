@@ -168,7 +168,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// </summary>
         ValueTask<ApprovalReviewRequest> WithdrawApprovalReviewRequestAsync(
             Guid approvalReviewRequestId,
-            string deletionReason = null,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default);
     }
 }

@@ -21,6 +21,9 @@ using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
+using G2H.Security.Client.Models.Foundations.Access;
+using Xeptions;
+using Glory2Him.Core.Models.Foundations.Approvals;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
@@ -463,6 +466,109 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 service.RemoveApprovalReviewRequestByIdAsync(
                     It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        /// <summary>
+        /// The race rule 4's pre-check cannot see. Two callers inviting the same person both read
+        /// a scope with no standing request, both try to write, and the unique index refuses the
+        /// loser. "Somebody else asked them half a second before you" is the same outcome as "you
+        /// asked twice", so it dissolves the same way rather than surfacing as a collision.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnTheWinningRequestWhenTwoInvitationsRaceAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            Guid approvalId = Guid.NewGuid();
+            Guid invitedId = Guid.NewGuid();
+            Guid winningRequestId = Guid.NewGuid();
+
+            ApprovalReviewerScope ScopeWith(IReadOnlyList<ActiveReviewRequest> activeRequests) =>
+                new ApprovalReviewerScope
+                {
+                    ApprovalId = approvalId,
+                    ApprovalStatus = ApprovalStatus.Submitted,
+                    EntityCreatedBy = "the-entity-owner",
+
+                    RoleSubjects = new[]
+                    {
+                        new RoleSubject
+                        {
+                            EntityType = nameof(EntityType.ContentItem),
+                            ContentType = null,
+                        }
+                    },
+
+                    ActiveReviewerUserIds = Array.Empty<string>(),
+                    ActiveRequests = activeRequests,
+                };
+
+            this.approvalServiceMock.Setup(service =>
+                service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ApprovalEntityMatch
+                        {
+                            Id = approvalId,
+                            ApprovalStatus = ApprovalStatus.Submitted,
+                            IsDeleted = false,
+                        });
+
+            // the FIRST read sees nothing, which is what lets both callers try; the re-read after
+            // the collision sees the winner's row
+            this.accessBrokerMock.SetupSequence(broker =>
+                broker.RetrieveApprovalReviewerScopeByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(ScopeWith(Array.Empty<ActiveReviewRequest>()))
+                        .ReturnsAsync(ScopeWith(new[]
+                        {
+                            new ActiveReviewRequest
+                            {
+                                Id = winningRequestId,
+                                RequestedUserId = invitedId.ToString(),
+                            }
+                        }));
+
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new List<IdentityUser>
+                        {
+                            CreateIdentityUser(invitedId, preferredName: "Invited"),
+                        });
+
+            this.approvalReviewRequestServiceMock.Setup(service =>
+                service.AddApprovalReviewRequestAsync(
+                    It.IsAny<ApprovalReviewRequest>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(new ApprovalReviewRequestDependencyValidationException(
+                            message: "collision",
+                            innerException: new AlreadyExistsApprovalReviewRequestException(
+                                message: "already exists",
+                                innerException: new Xeption(),
+                                data: new Xeption().Data)));
+
+            var winningRequest = new ApprovalReviewRequest { Id = winningRequestId };
+
+            this.approvalReviewRequestServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestByIdAsync(
+                    winningRequestId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(winningRequest);
+
+            // when
+            ApprovalReviewRequest actualRequest =
+                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    invitedId.ToString(),
+                    TestContext.Current.CancellationToken);
+
+            // then: the winner's row, not a collision
+            actualRequest.Should().BeSameAs(winningRequest);
         }
     }
 }

@@ -321,12 +321,13 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// reason the decision's scalars do: it is a value the operation owns outright, and a body
         /// would invite a caller to restate the entity key twice and let the two disagree.</para>
         ///
-        /// <para><b>A 409 survives, for the race alone.</b> Rule 4 dissolves the duplicate it can
-        /// SEE, from a read taken a moment earlier. Two callers inviting the same person at once
-        /// can still have one beat that check to
-        /// <c>UX_ApprovalReviewRequests_ApprovalId_RequestedUserId</c>, and the index refusing is
-        /// the correct answer — the invitation the loser wanted exists. It is the one outcome
-        /// here a caller may simply treat as success.</para>
+        /// <para><b>The race dissolves too.</b> Rule 4's check reads a scope taken a moment
+        /// earlier, so two callers inviting the same person can both find nothing and both try to
+        /// write. The index refuses the loser — one active invitation per person is the invariant
+        /// — and the orchestration answers that by re-reading and returning the winner's row,
+        /// because "somebody asked them half a second before you" is the same outcome as "you
+        /// asked twice". The <c>409</c> below survives only for the case the re-read cannot
+        /// explain: the winning row withdrawn between the collision and the second look.</para>
         /// </summary>
         [HttpPost("{entityType}/{entityId}/ReviewRequests")]
         [Authorize]

@@ -3381,7 +3381,7 @@ Recommended endpoints:
 | `POST` | `/api/approvals/{approvalId}/comments` | Add approval comment. |
 | `GET` | `/api/approvals/entity/{entityType}/{entityId}` | Retrieve approval for entity. |
 | `GET` | `/api/Approvals/{entityType}/{entityId}/ReviewerCandidates` | Who may be asked to review — the §16.7.4 candidates read; requesting tier only. |
-| `POST` | `/api/Approvals/{entityType}/{entityId}/ReviewRequests?requestedUserId=` | Invite an eligible user to review (§7.9). Idempotent on both duplicate shapes; `204` on every success, because "already invited", "created" and "already answered" are outcomes a caller has no use for telling apart. A `409` remains possible for the race alone — two callers inviting the same person at once, one beating rule 4's check to the unique index. |
+| `POST` | `/api/Approvals/{entityType}/{entityId}/ReviewRequests?requestedUserId=` | Invite an eligible user to review (§7.9). Idempotent on both duplicate shapes; `204` on every success, because "already invited", "created" and "already answered" are outcomes a caller has no use for telling apart. The race dissolves too: two callers inviting the same person can both miss the check, and the loser's index collision is answered by re-reading and returning the winner's row. A `409` survives only where that re-read finds nothing — the winning invitation withdrawn in between. |
 | `DELETE` | `/api/ApprovalReviewRequests/{id}?deletionReason=` | Withdraw a **pending** review request (soft delete, requesting tier); `204`. Refused with `400` once the invitation has been answered (§7.9 rule 5). Withdrawing one already withdrawn is a no-op, not a `404`. |
 
 ### 17.6 Media, Share and Crawler Endpoints

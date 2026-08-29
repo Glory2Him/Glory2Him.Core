@@ -178,14 +178,53 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 // The foundation re-decides the caller's tier and stamps the audit values; this
                 // layer never assumes its own gate was the only one (14.6 rule 2).
-                return await this.approvalReviewRequestService.AddApprovalReviewRequestAsync(
-                    approvalReviewRequest,
-                    cancellationToken);
+                try
+                {
+                    return await this.approvalReviewRequestService.AddApprovalReviewRequestAsync(
+                        approvalReviewRequest,
+                        cancellationToken);
+                }
+
+                // The RACE, and rule 4 covers it too. The duplicate check above reads a scope
+                // taken a moment earlier, so two callers inviting the same person can both find
+                // nothing and both try to write. The index refuses the loser - correctly, one
+                // active invitation per person is the invariant - but "somebody else asked them
+                // half a second before you" is the same outcome as "you asked twice", and rule 4
+                // does not care which caller won.
+                //
+                // Re-read rather than assume: the row is the winner's and this caller has never
+                // seen it. If it has already gone - withdrawn between the collision and the
+                // re-read, which is a narrow window but a real one - the collision is the honest
+                // answer and goes back to the caller unchanged.
+                catch (ApprovalReviewRequestDependencyValidationException collisionException)
+                    when (collisionException.InnerException
+                        is AlreadyExistsApprovalReviewRequestException)
+                {
+                    ApprovalReviewerScope reReadScope = await ResolveReviewerScopeAsync(
+                        entityType: entityType,
+                        entityId: entityId,
+                        onSecurityContext: ValidateUserMayRequestApprovalReviews,
+                        cancellationToken: cancellationToken);
+
+                    ActiveReviewRequest winningRequest = reReadScope.ActiveRequests
+                        .FirstOrDefault(request =>
+                            request.RequestedUserId == requestedUserId);
+
+                    if (winningRequest is null)
+                    {
+                        throw;
+                    }
+
+                    return await this.approvalReviewRequestService
+                        .RetrieveApprovalReviewRequestByIdAsync(
+                            winningRequest.Id,
+                            cancellationToken);
+                }
             });
 
         public ValueTask<ApprovalReviewRequest> WithdrawApprovalReviewRequestAsync(
             Guid approvalReviewRequestId,
-            string deletionReason = null,
+            string? deletionReason = null,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {

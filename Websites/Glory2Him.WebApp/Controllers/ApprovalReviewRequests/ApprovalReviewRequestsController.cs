@@ -79,7 +79,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviewRequests
                     // Null is the ordinary "no reason supplied" case the orchestration passes
                     // through, so the absent query value is not coerced to an empty string a
                     // length check would then have to treat as blank all over again.
-                    deletionReason: deletionReason!,
+                    deletionReason: deletionReason,
                     cancellationToken: cancellationToken);
 
                 // The withdrawn row is of no use to a caller - it is the record of something
