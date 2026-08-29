@@ -98,15 +98,15 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                         "successful would hide the failure from the only caller placed to see " +
                         "it");
 
-                // and: the OTHER subscribers on this address still ran. The fact reaches more
-                // than one listener, and containment that stopped at the first failure would
-                // make one broken handler silently disable every handler behind it.
-                deliveries.Count.Should().BeGreaterThan(1,
-                    because: "this address has more than one subscriber, which is what makes " +
-                        "the next assertion meaningful");
-
-                deliveries.Should().Contain(delivery => delivery.IsSuccess,
-                    because: "one failing subscriber must not take its siblings down with it");
+                // Deliberately NOT asserting that sibling subscribers survived. ApprovalReview-
+                // Added binds exactly ONE subscription, so there are no siblings to survive, and
+                // an earlier version of this test asserted two deliveries because a local
+                // substrate database still carried a subscription row from a previous run - the
+                // "fire twice per edit" shape WorkflowRecordFactTests exists to catch. CI, with a
+                // fresh store, was right and the assertion was encoding a dirty environment.
+                //
+                // Containment is what #298 asked and what this test answers: the publish
+                // completes, and the failure is reported on the delivery rather than thrown.
             }
             finally
             {
