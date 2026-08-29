@@ -36,6 +36,8 @@ using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Services.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
@@ -64,6 +66,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
         private readonly Mock<ICommentService> commentServiceMock;
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
         private readonly Mock<IApprovalReviewService> approvalReviewServiceMock;
+        private readonly Mock<IApprovalReviewRequestService> approvalReviewRequestServiceMock;
         private readonly Mock<IApprovalSettingService> approvalSettingServiceMock;
         private readonly Mock<IAssociationService> associationServiceMock;
         private readonly Mock<IContentItemSettingService> contentItemSettingServiceMock;
@@ -84,6 +87,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
             this.commentServiceMock = new Mock<ICommentService>();
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
             this.approvalReviewServiceMock = new Mock<IApprovalReviewService>();
+            this.approvalReviewRequestServiceMock = new Mock<IApprovalReviewRequestService>();
             this.approvalSettingServiceMock = new Mock<IApprovalSettingService>();
             this.associationServiceMock = new Mock<IAssociationService>();
             this.contentItemSettingServiceMock = new Mock<IContentItemSettingService>();
@@ -114,6 +118,9 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 .Returns(this.approvalCommentServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalReviewService)))
                 .Returns(this.approvalReviewServiceMock.Object);
+
+            serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalReviewRequestService)))
+                .Returns(this.approvalReviewRequestServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(IApprovalSettingService)))
                 .Returns(this.approvalSettingServiceMock.Object);
             serviceProviderMock.Setup(p => p.GetService(typeof(IAssociationService)))
@@ -399,6 +406,30 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                             expectedOperation,
                             It.Is<Func<EventEnvelope<ApprovalReview>, CancellationToken,
                                 ValueTask<EventEnvelope<ApprovalReview>?>>>(handler =>
+                                    captured(handler)),
+                            It.IsAny<CancellationToken>()),
+                        Times.Once));
+        }
+
+        private void VerifyApprovalReviewRequestSubscription(
+            Guid expectedSubscriptionId,
+            string expectedSubscriptionName,
+            ApprovalReviewRequestEventOperation expectedOperation,
+            Func<EventEnvelope<ApprovalReviewRequest>, CancellationToken,
+                ValueTask<EventEnvelope<ApprovalReviewRequest>?>> expectedHandler)
+        {
+            VerifySubscription<ApprovalReviewRequest>(
+                expectedSubscriptionName: expectedSubscriptionName,
+                expectedHandler: expectedHandler,
+                capture: captured =>
+                    this.eventBrokerMock.Verify(broker =>
+                        broker.SubscribeToApprovalReviewRequestEventAsync(
+                            It.Is<EventSubscription>(subscription =>
+                                subscription.Id == expectedSubscriptionId
+                                    && subscription.Name == expectedSubscriptionName),
+                            expectedOperation,
+                            It.Is<Func<EventEnvelope<ApprovalReviewRequest>, CancellationToken,
+                                ValueTask<EventEnvelope<ApprovalReviewRequest>?>>>(handler =>
                                     captured(handler)),
                             It.IsAny<CancellationToken>()),
                         Times.Once));
@@ -1006,6 +1037,44 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 expectedOperation: ApprovalReviewEventOperation.RetrievingById,
                 expectedHandler: this.approvalReviewServiceMock.Object.OnRetrievingApprovalReviewByIdAsync);
 
+            // Four, not five: an invitation has nothing amendable (§7.9), so there is no
+            // ApprovalReviewRequest-Modifying address and nothing to subscribe to.
+            VerifyApprovalReviewRequestSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnAddingApprovalReviewRequestSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnAddingApprovalReviewRequestSubscriptionName,
+                expectedOperation: ApprovalReviewRequestEventOperation.Adding,
+                expectedHandler: this.approvalReviewRequestServiceMock.Object
+                    .OnAddingApprovalReviewRequestAsync);
+
+            VerifyApprovalReviewRequestSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnRemovingApprovalReviewRequestByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnRemovingApprovalReviewRequestByIdSubscriptionName,
+                expectedOperation: ApprovalReviewRequestEventOperation.RemovingById,
+                expectedHandler: this.approvalReviewRequestServiceMock.Object
+                    .OnRemovingApprovalReviewRequestByIdAsync);
+
+            VerifyApprovalReviewRequestSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnHardRemovingApprovalReviewRequestByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnHardRemovingApprovalReviewRequestByIdSubscriptionName,
+                expectedOperation: ApprovalReviewRequestEventOperation.HardRemovingById,
+                expectedHandler: this.approvalReviewRequestServiceMock.Object
+                    .OnHardRemovingApprovalReviewRequestByIdAsync);
+
+            VerifyApprovalReviewRequestSubscription(
+                expectedSubscriptionId: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnRetrievingApprovalReviewRequestByIdSubscriptionId,
+                expectedSubscriptionName: EventBrokerIdentifiers
+                    .ApprovalReviewRequestOnRetrievingApprovalReviewRequestByIdSubscriptionName,
+                expectedOperation: ApprovalReviewRequestEventOperation.RetrievingById,
+                expectedHandler: this.approvalReviewRequestServiceMock.Object
+                    .OnRetrievingApprovalReviewRequestByIdAsync);
+
             VerifyApprovalSettingSubscription(
                 expectedSubscriptionId:
                     EventBrokerIdentifiers.ApprovalSettingOnAddingApprovalSettingSubscriptionId,
@@ -1468,6 +1537,7 @@ namespace Glory2Him.Core.Tests.Unit.Registrations
                 this.bibleReferenceServiceMock, this.tagServiceMock, this.linkServiceMock,
                 this.reactionServiceMock, this.commentServiceMock,
                 this.approvalCommentServiceMock, this.approvalReviewServiceMock,
+                this.approvalReviewRequestServiceMock,
                 this.approvalSettingServiceMock, this.associationServiceMock,
                 this.contentItemSettingServiceMock, this.contentItemProcessingServiceMock,
                 this.linkProcessingServiceMock, this.approvalOrchestrationServiceMock

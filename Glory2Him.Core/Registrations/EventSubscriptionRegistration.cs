@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Events.Processings;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
 using Glory2Him.Core.Models.Foundations.Associations;
@@ -31,6 +32,7 @@ using Glory2Him.Core.Models.Foundations.Links;
 using Glory2Him.Core.Models.Foundations.Reactions;
 using Glory2Him.Core.Models.Foundations.Tags;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
@@ -1324,6 +1326,83 @@ namespace Glory2Him.Core.Registrations
                 operation: ApprovalReviewEventOperation.RetrievingById,
                 approvalReviewEventHandler: Scoped<IApprovalReviewService, ApprovalReview>(
                         service => service.OnRetrievingApprovalReviewByIdAsync),
+                cancellationToken: cancellationToken);
+
+            // ── ApprovalReviewRequest request handlers ───────────────────────────
+            // No Modifying handler, and that is by design: an invitation has nothing amendable
+            // (§7.9), so the address does not exist to subscribe to.
+            await this.eventBroker.SubscribeToApprovalReviewRequestEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnAddingApprovalReviewRequestSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnAddingApprovalReviewRequestSubscriptionName,
+
+                    Description = "Handles add requests: stores the approval review request, " +
+                        "publishes ApprovalReviewRequest-Added, and replies with the added entity."
+                },
+                operation: ApprovalReviewRequestEventOperation.Adding,
+                approvalReviewRequestEventHandler:
+                    Scoped<IApprovalReviewRequestService, ApprovalReviewRequest>(
+                        service => service.OnAddingApprovalReviewRequestAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewRequestEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnRemovingApprovalReviewRequestByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnRemovingApprovalReviewRequestByIdSubscriptionName,
+
+                    Description = "Handles withdraw requests: soft-deletes the approval review " +
+                        "request, publishes ApprovalReviewRequest-Removed, and replies with the " +
+                        "withdrawn entity."
+                },
+                operation: ApprovalReviewRequestEventOperation.RemovingById,
+                approvalReviewRequestEventHandler:
+                    Scoped<IApprovalReviewRequestService, ApprovalReviewRequest>(
+                        service => service.OnRemovingApprovalReviewRequestByIdAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewRequestEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnHardRemovingApprovalReviewRequestByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnHardRemovingApprovalReviewRequestByIdSubscriptionName,
+
+                    Description = "Handles hard-remove requests: permanently deletes the approval " +
+                        "review request, publishes ApprovalReviewRequestHardRemoved on the removal " +
+                        "address, and replies with the deleted entity."
+                },
+                operation: ApprovalReviewRequestEventOperation.HardRemovingById,
+                approvalReviewRequestEventHandler:
+                    Scoped<IApprovalReviewRequestService, ApprovalReviewRequest>(
+                        service => service.OnHardRemovingApprovalReviewRequestByIdAsync),
+                cancellationToken: cancellationToken);
+
+            await this.eventBroker.SubscribeToApprovalReviewRequestEventAsync(
+                subscription: new EventSubscription
+                {
+                    Id = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnRetrievingApprovalReviewRequestByIdSubscriptionId,
+
+                    Name = EventBrokerIdentifiers
+                        .ApprovalReviewRequestOnRetrievingApprovalReviewRequestByIdSubscriptionName,
+
+                    Description = "Handles retrieve requests: retrieves an approval review request " +
+                        "by id and replies with it on the delivery."
+                },
+                operation: ApprovalReviewRequestEventOperation.RetrievingById,
+                approvalReviewRequestEventHandler:
+                    Scoped<IApprovalReviewRequestService, ApprovalReviewRequest>(
+                        service => service.OnRetrievingApprovalReviewRequestByIdAsync),
                 cancellationToken: cancellationToken);
 
             // ── ApprovalSetting request handlers ─────────────────────────────────
