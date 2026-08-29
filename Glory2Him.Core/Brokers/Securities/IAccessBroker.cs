@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -68,6 +69,24 @@ namespace Glory2Him.Core.Brokers.Securities
         /// the submitter as well and the service composes this with its row-local check as an
         /// AND: a decision answering only the tier half would delete the owner branch.</para>
         /// </summary>
+        /// <summary>
+        /// The account id of whoever authored the ENTITY an approval is about — the person §14.7
+        /// posture D rule 3 calls the submitter, and the only meaning "owner" has on an approval.
+        ///
+        /// <para>Not <c>Approval.CreatedBy</c>. The workflow owns approval rows outright — it
+        /// opens them itself when content is submitted — so that column records the system and
+        /// never a person. A gate anchored there refuses every author their own work, silently,
+        /// since a submitter holds no role to fall back on.</para>
+        ///
+        /// <para>Read from STORAGE, like everything else here. It lives on this broker because
+        /// resolving it means knowing which table an <c>EntityType</c> points at, which is the
+        /// one thing a single-entity foundation service cannot work out for itself.</para>
+        /// </summary>
+        ValueTask<string> RetrieveEntityAuthorAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
         ValueTask<AccessVerdict> MayAmendApprovalAsync(
             Guid approvalId,
             Models.Events.SecurityContext securityContext,

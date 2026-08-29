@@ -192,9 +192,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         /// Mirrors the real decision instead of blanket-permitting: owner OR review tier. A
         /// default that permits everything cannot tell a gate that admits the submitter from one
         /// that does not, which is exactly the defect this suite failed to catch once already.
+        ///
+        /// <para>The owner is the ENTITY's author. The workflow owns approval rows outright, so
+        /// Approval.CreatedBy records the system and never a person — a mirror anchored there
+        /// would model a decision that refuses every author their own work.</para>
         /// </summary>
         private void SetupAccessBrokerToMirrorTheAmendmentDecision(
-            string approvalCreatedBy,
+            string entityCreatedBy,
             string actorUserId) =>
             this.accessBrokerMock.Setup(broker =>
                 broker.MayAmendApprovalAsync(
@@ -206,8 +210,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                             // the ACTOR id as the audit surface resolves it, which is what the
                             // real broker forwards — not SecurityContext.SubjectId
                             bool isOwner =
-                                string.IsNullOrWhiteSpace(approvalCreatedBy) is false
-                                    && approvalCreatedBy == actorUserId;
+                                string.IsNullOrWhiteSpace(entityCreatedBy) is false
+                                    && entityCreatedBy == actorUserId;
 
                             bool hasReviewTier = securityContext.Roles.Any(role =>
                                 role == Roles.Reviewer

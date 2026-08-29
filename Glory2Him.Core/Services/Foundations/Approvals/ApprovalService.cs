@@ -260,9 +260,15 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: securityContext);
 
+            // The ENTITY's author, not the approval's - see the modify gate for why.
+            string entityCreatedBy = await this.accessBroker.RetrieveEntityAuthorAsync(
+                maybeApproval.EntityType,
+                maybeApproval.EntityId,
+                cancellationToken);
+
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
-                    && maybeApproval.CreatedBy == actorUserId;
+                    && entityCreatedBy == actorUserId;
 
             if (isOwner is false && HasReviewRole(securityContext) is false)
             {
