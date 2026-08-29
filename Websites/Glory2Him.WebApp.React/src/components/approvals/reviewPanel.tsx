@@ -482,12 +482,16 @@ export function ReviewPanel({
     // stays listed, ticked, so that searching for them finds them and answers "why is this
     // person not here?" before it is asked. What differs between the sections is what a click
     // MEANS, and whether there is one at all.
-    const suggestionRows = suggestedReviewerCollection.filter(matchesFilter);
-
-    const requestedPickerRows = requestedReviewerCollection.filter(matchesFilter);
-
     const suggestedUserIds = new Set(
         suggestedReviewerCollection.map((candidate) => candidate.userId));
+
+    const suggestionRows = suggestedReviewerCollection.filter(matchesFilter);
+
+    // Suggestions win the tie: a person offered as both is shown once, under the section that
+    // says why they are worth asking.
+    const requestedPickerRows = requestedReviewerCollection.filter(
+        (candidate) => matchesFilter(candidate)
+            && suggestedUserIds.has(candidate.userId) === false);
 
     // Everyone else, with the already-voted at the top so the assigned reader sees them first.
     // The two groups keep the order the consumer supplied within themselves; only the split is
@@ -666,10 +670,13 @@ export function ReviewPanel({
     ): ReactElement => {
         const hasVoted = votedUserIds.has(candidate.userId);
         const isTicked = kind === 'requested' || hasVoted;
-        // A cast verdict makes the row inert WHEREVER it appears, not only under "Everyone
-        // else": a consumer is free to suggest somebody who has since voted, and a ticked row
-        // that still fires a request would send one the server refuses.
-        const isInert = kind !== 'requested' && hasVoted;
+        // A cast verdict makes the row inert WHEREVER it appears, Requested included. A person
+        // can be both invited and answered - rule 6 normally retires the invitation, but a
+        // failed retirement or a stale panel leaves it standing - and withdrawing an ANSWERED
+        // invitation is refused by the server (§7.9 rule 5). Leaving that row clickable offers
+        // the one click in this panel that round-trips into an error, which is exactly what
+        // gating Submit on the verdict exists to avoid.
+        const isInert = hasVoted;
 
         // The cap stops new invitations, never withdrawals — otherwise reaching the limit would
         // trap the round with no way to free a slot.

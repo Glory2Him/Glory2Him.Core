@@ -1354,6 +1354,61 @@ describe('ReviewPanel', () => {
             expect(onReviewRequested).toHaveBeenCalledTimes(1);
         });
 
+        /// The case the first inert test does not reach. A person can be both invited AND
+        /// answered - rule 6 normally retires the invitation, but a failed retirement or a stale
+        /// panel leaves it standing - and the server refuses to withdraw an answered invitation
+        /// (rule 5). A clickable row there is the one click in the panel that round-trips into an
+        /// error.
+        it('should render a requested candidate who has already voted as inert', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+            const onReviewRequestWithdrawn = vi.fn();
+
+            const invitedAndAnswered: ReviewerCandidateItem = {
+                userId: 'user-john',
+                displayName: 'John',
+                userName: 'john.b'
+            };
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[johnApproved]}
+                    requestedReviewerCollection={[invitedAndAnswered]}
+                    onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+            const row = screen.getByRole('button', { name: /john\.b/ });
+
+            // then
+            expect(row).toBeDisabled();
+
+            await userEvent.click(row);
+            expect(onReviewRequestWithdrawn).not.toHaveBeenCalled();
+        });
+
+        /// Suggestions win the tie. A consumer ranking suggestions out of its own request list can
+        /// hand the same person to both collections, and two rows read as two people.
+        it('should not repeat a suggested person under requested', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    suggestedReviewerCollection={[mary]}
+                    requestedReviewerCollection={[mary]} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // then
+            expect(screen.getAllByRole('button', { name: /mary\.m/ })).toHaveLength(1);
+        });
+
         it('should name the cap in the picker heading', async () => {
             // given
             signInAs(authState, ['Reviewer']);

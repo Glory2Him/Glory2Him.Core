@@ -7,6 +7,7 @@ import {
     ApprovalVerdictItem,
     ReviewerCandidateItem
 } from '../../../models/components/approvals/approvalReviewItem';
+import { useAuth } from '../../../components/securitys/authProvider';
 import { useDocumentTitle } from '../../useDocumentTitle';
 import {
     CodeSample,
@@ -340,6 +341,16 @@ export function ReviewPanelDoc() {
     useDocumentTitle('Review Panel');
     const [lastEvent, setLastEvent] = useState('');
 
+    // The panel reads the viewer from the auth context, so the only way to demonstrate a cast
+    // vote of ONE'S OWN is to put the signed-in reader into the collection.
+    const { user } = useAuth();
+
+    const viewerHasVoted: ApprovalReviewItem = {
+        reviewerUserId: user?.userId ?? '',
+        reviewerDisplayName: user?.displayName ?? 'You',
+        vote: ApprovalStatus.Approved
+    };
+
     const describeDecision = (
         decision: ApprovalDecision,
         isBypassRequested: boolean,
@@ -433,14 +444,14 @@ export function ReviewPanelDoc() {
                     </>
                 }>
                 <LiveDemo>
-                    {/* viewerId is what makes a row "mine". Passed explicitly so the demo shows
-                        the voted state on a reference page whose reader is somebody else. */}
+                    {/* The panel decides "mine" from the SIGNED-IN identity, not from a prop, so
+                        the demo has to put the reader into the collection - hence the review
+                        built from useAuth() above. Hard-coding a name here would show somebody
+                        else voting, which is the state the demo above already shows. */}
                     <ReviewPanel
                         entityType="ContentItem"
                         approvalStatus={ApprovalStatus.Submitted}
-                        viewerId="user-susan"
-                        viewerDisplayName="Susan"
-                        approvalReviewCollection={[john, susan]}
+                        approvalReviewCollection={[john, viewerHasVoted]}
                         decisionRoles=""
                         showBorder={true} />
                 </LiveDemo>
