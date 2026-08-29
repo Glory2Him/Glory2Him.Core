@@ -116,6 +116,7 @@ export interface ReviewPanelProps {
     votePlaceholderText?: string;
     approvedText?: string;
     rejectedText?: string;
+    dismissedVoteText?: string;
     approveVoteDescription?: string;
     rejectVoteDescription?: string;
     blockedTitleText?: string;
@@ -141,6 +142,7 @@ export interface ReviewPanelProps {
     // ── Theme classes ─────────────────────────────────────────────────────────
     approvedVoteCssClass?: string;
     rejectedVoteCssClass?: string;
+    dismissedVoteCssClass?: string;
     uncastVoteCssClass?: string;
     awaitingPillCssClass?: string;
     approvedPillCssClass?: string;
@@ -188,6 +190,7 @@ export function ReviewPanel({
     votePlaceholderText = 'Vote...',
     approvedText = 'Approved',
     rejectedText = 'Rejected',
+    dismissedVoteText = 'Dismissed',
     approveVoteDescription = 'I am happy with this item',
     rejectVoteDescription = 'I do not think we should approve this item',
     blockedTitleText = 'Approval is blocked',
@@ -211,6 +214,7 @@ export function ReviewPanel({
     emptyText = '',
     approvedVoteCssClass = 'btn-success',
     rejectedVoteCssClass = 'btn-danger',
+    dismissedVoteCssClass = 'btn-outline-secondary',
     uncastVoteCssClass = 'btn-secondary',
     awaitingPillCssClass = 'btn-dark',
     approvedPillCssClass = 'btn-success',
@@ -286,11 +290,20 @@ export function ReviewPanel({
         && isSubmitted
         && holdsAnyRole(voteRoleList);
 
+    // The viewer's STANDING review. A dismissed one is deliberately not it: §7.7 rule 7 says the
+    // reviewer files a NEW review once theirs has been dismissed, and rule 2a forbids amending
+    // the dismissed row — so treating it as their current vote would offer an amendment the
+    // server refuses, and would withhold the placeholder they are entitled to.
     const viewerReview = approvalReviewCollection.find(
-        (item) => item.reviewerUserId.length > 0 && item.reviewerUserId === viewerId);
+        (item) => item.reviewerUserId.length > 0
+            && item.reviewerUserId === viewerId
+            && item.vote !== ApprovalStatus.Dismissed);
 
+    // Matched on the id rather than on object identity, so the viewer's own dismissed review is
+    // not repeated below their control row. Somebody ELSE's dismissed review still lists, which
+    // is the point of retaining it (§9.5).
     const otherReviews = approvalReviewCollection
-        .filter((item) => item !== viewerReview)
+        .filter((item) => item.reviewerUserId !== viewerId)
         .slice()
         .sort((left, right) => left.reviewerDisplayName.localeCompare(
             right.reviewerDisplayName, undefined, { sensitivity: 'base' }));
@@ -409,11 +422,28 @@ export function ReviewPanel({
             isBypassApprove ? bypassReason.trim() : '');
     };
 
-    const voteBadgeCssClass = (vote: ApprovalStatus): string =>
-        vote === ApprovalStatus.Approved ? approvedVoteCssClass : rejectedVoteCssClass;
+    // Dismissed is named explicitly rather than folded in with rejection. A dismissed review is
+    // what HAPPENS to a verdict when the content it judged changes (§9.5): it is retained as
+    // evidence, and it is neither a withdrawal nor a refusal. Collapsing it into "Rejected"
+    // prints a rejection the reviewer never made — and a publisher reads it as one while the
+    // verdict carries no blocking-rejection reason at all.
+    const voteBadgeCssClass = (vote: ApprovalStatus): string => {
+        if (vote === ApprovalStatus.Approved) {
+            return approvedVoteCssClass;
+        }
 
-    const voteBadgeText = (vote: ApprovalStatus): string =>
-        vote === ApprovalStatus.Approved ? approvedText : rejectedText;
+        return vote === ApprovalStatus.Dismissed
+            ? dismissedVoteCssClass
+            : rejectedVoteCssClass;
+    };
+
+    const voteBadgeText = (vote: ApprovalStatus): string => {
+        if (vote === ApprovalStatus.Approved) {
+            return approvedText;
+        }
+
+        return vote === ApprovalStatus.Dismissed ? dismissedVoteText : rejectedText;
+    };
 
     const statusPill = (): { text: string; pillCssClass: string; iconCssClass: string } => {
         if (approvalStatus === ApprovalStatus.Approved) {

@@ -894,4 +894,84 @@ describe('ReviewPanel', () => {
                 .not.toBeInTheDocument();
         });
     });
+
+    describe('dismissed reviews', () => {
+        /// A dismissed review is what HAPPENS to a verdict when the content it judged changes
+        /// (§9.5) - retained as evidence, and neither a withdrawal nor a refusal. Rendering it
+        /// as "Rejected" prints a rejection the reviewer never made, and a publisher reads it as
+        /// one while the verdict carries no blocking-rejection reason at all.
+        it('should render another reviewer\u2019s dismissed review as dismissed, not rejected', () => {
+            // given
+            signInAs(authState, ['Publisher']);
+
+            const dismissed: ApprovalReviewItem = {
+                reviewerUserId: 'user-jane',
+                reviewerDisplayName: 'Jane',
+                vote: ApprovalStatus.Dismissed
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[dismissed]} />);
+
+            // then
+            expect(screen.getByText('Dismissed')).toBeInTheDocument();
+            expect(screen.queryByText('Rejected')).not.toBeInTheDocument();
+        });
+
+        /// §7.7 rule 7: the reviewer files a NEW review once theirs has been dismissed, and rule
+        /// 2a forbids amending the dismissed row. So the viewer must get the placeholder rather
+        /// than a dropdown labelled with a verdict they can no longer amend.
+        it('should offer the vote placeholder to a viewer whose own review was dismissed', () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            const viewerDismissed: ApprovalReviewItem = {
+                reviewerUserId: ViewerId,
+                reviewerDisplayName: 'Tester',
+                vote: ApprovalStatus.Dismissed
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[viewerDismissed]} />);
+
+            // then
+            expect(screen.getByRole('button', { name: 'Vote...' })).toBeInTheDocument();
+
+            // and their dismissed row is not repeated below the control
+            expect(screen.queryByText('Dismissed')).not.toBeInTheDocument();
+            expect(rowNames()).toEqual(['Tester']);
+        });
+
+        it('should keep a standing vote when another reviewer\u2019s review is dismissed', () => {
+            // given: dismissal is per-review, so one being dismissed must not disturb another
+            signInAs(authState, ['Reviewer']);
+
+            const janeDismissed: ApprovalReviewItem = {
+                reviewerUserId: 'user-jane',
+                reviewerDisplayName: 'Jane',
+                vote: ApprovalStatus.Dismissed
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[janeDismissed, viewerRejected, johnApproved]} />);
+
+            // then
+            expect(rowNames()).toEqual(['Tester', 'Jane', 'John']);
+            expect(screen.getByRole('button', { name: 'Rejected' })).toBeInTheDocument();
+            expect(screen.getByText('Dismissed')).toBeInTheDocument();
+            expect(screen.getByText('Approved')).toBeInTheDocument();
+        });
+    });
 });
