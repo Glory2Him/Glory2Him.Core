@@ -251,10 +251,11 @@ namespace Glory2Him.Core.Brokers.Securities
             // Subjects only. The amendment decision reads neither the round nor the reviews, so
             // gathering them would be work whose result is discarded — and would invite a later
             // change to start consulting a window that posture D rule 3 exists to let callers move.
-            (_, IReadOnlyList<RoleSubject> roleSubjects, _) = await ResolveEntityAsync(
-                maybeApproval.EntityType,
-                maybeApproval.EntityId,
-                cancellationToken);
+            (string entityCreatedBy, IReadOnlyList<RoleSubject> roleSubjects, _) =
+                await ResolveEntityAsync(
+                    maybeApproval.EntityType,
+                    maybeApproval.EntityId,
+                    cancellationToken);
 
             return await this.securityClient.Access.MayAmendApprovalAsync(
                 new AmendApprovalRequest
@@ -264,7 +265,13 @@ namespace Glory2Him.Core.Brokers.Securities
 
                     // From STORAGE. Taking the submitter from a caller's copy would let anyone
                     // name themselves the owner and clear the gate on someone else's approval.
-                    ApprovalCreatedBy = maybeApproval.CreatedBy,
+                    //
+                    // The ENTITY's creator, not the approval's. The workflow owns Approval rows
+                    // outright — it opens them itself when content is submitted — so
+                    // Approval.CreatedBy records the system and never a person. The submitter
+                    // §14.7 posture D rule 3 admits is whoever wrote the content the round is
+                    // about, which is what the three sibling decisions already anchor on.
+                    EntityCreatedBy = entityCreatedBy,
                 });
         }
 

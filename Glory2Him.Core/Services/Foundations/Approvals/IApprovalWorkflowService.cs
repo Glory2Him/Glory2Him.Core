@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
+using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Foundations.Approvals
 {
@@ -86,6 +87,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         /// </remarks>
         ValueTask<Approval> ModifyApprovalAsync(
             Approval approval,
+            WorkflowAttribution attribution,
             CancellationToken cancellationToken = default);
 
         /// <summary>

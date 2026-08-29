@@ -201,6 +201,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             ValueTask<Approval> modifyTask =
                 this.approvalWorkflowService.ModifyApprovalAsync(
                     inputApproval,
+                    WorkflowAttribution.System,
                     TestContext.Current.CancellationToken);
 
             // then
@@ -482,6 +483,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             Approval actualApproval =
                 await this.approvalWorkflowService.ModifyApprovalAsync(
                     inputApproval,
+                    WorkflowAttribution.DecidingCaller,
                     TestContext.Current.CancellationToken);
 
             // then: the waiver reaches storage rather than being refused
@@ -567,6 +569,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             Approval actualApproval =
                 await this.approvalWorkflowService.ModifyApprovalAsync(
                     inputApproval,
+                    WorkflowAttribution.System,
                     TestContext.Current.CancellationToken);
 
             // then
@@ -602,14 +605,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.CreateSystemAsync(It.IsAny<Approval>()),
                 Times.Once);
 
-            // The MINTED context is what stamps the row, carrying the deciding human forward
-            // with no roles — the audit answer to "who caused this" is still a person.
+            // The MINTED context is what stamps the row. An automatic approval is nobody's act,
+            // so UpdatedBy records the system and the triggering contributor survives only on
+            // DelegatedBySubjectId — the causal trail without the audit column claiming a person
+            // decided something they did not. Roles are dropped either way, so the system flag
+            // stands alone as the authority.
             this.securityAuditBrokerMock.Verify(broker =>
                 broker.ApplyModifyAuditValuesAsync(
                     It.IsAny<Approval>(),
                     It.Is<SecurityContext>(securityContext =>
                         securityContext.IsSystemIdentity
-                            && securityContext.SubjectId == contributorUserId
+                            && securityContext.SubjectId == SystemIdentity.UserId
+                            && securityContext.DelegatedBySubjectId == contributorUserId
                             && securityContext.Roles.Count == 0)),
                 Times.Once);
         }

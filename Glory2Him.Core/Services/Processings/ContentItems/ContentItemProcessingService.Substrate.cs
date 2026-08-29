@@ -161,7 +161,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         {
             // ONE gated probe, not a caller-filtered read plus a group lookup. The swap
             // acts on the workflow's system identity, which CreateSystemAsync leaves with no
-            // roles and a SubjectId that is the deciding reviewer rather than the row's owner.
+            // roles and a SubjectId that is the SYSTEM rather than the row's owner.
             // Passed to the caller-facing read that identity is refused outright — the row is
             // mid-promotion, so not publicly visible, and the actor is neither owner nor
             // review-role holder. Forwarding a correct identity into a filtered read is what

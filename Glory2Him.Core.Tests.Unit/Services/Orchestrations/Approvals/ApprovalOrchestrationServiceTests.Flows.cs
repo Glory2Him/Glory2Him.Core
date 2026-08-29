@@ -104,6 +104,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -206,6 +207,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -402,6 +404,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -490,6 +493,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -671,6 +675,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 
@@ -925,8 +930,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
-                        .Returns((Approval approval, CancellationToken cancellationToken) =>
+                        .Returns((Approval approval, WorkflowAttribution attribution, CancellationToken cancellationToken) =>
                         {
                             Approval savedApproval = approval.DeepClone();
                             savedApprovals.Add(savedApproval);

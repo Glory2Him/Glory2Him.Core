@@ -27,8 +27,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
     /// roles — the system flag stands in for the tier by itself. So the public withdraw verb
     /// cannot serve rule 6: its gate asks for a review-tier role and the system identity holds
     /// none. Without this seam the orchestration's only options would be to forge a role-bearing
-    /// context or to retire the request under the answering user's identity, and both contradict
-    /// what <c>ApprovalReviewRequest.DeletedBy</c> is documented to mean.</para>
+    /// context or to call the public verb as the answering user, and the second would record
+    /// THEM as having withdrawn their own invitation — which is not what happened, and not what
+    /// <c>ApprovalReviewRequest.DeletedBy</c> is documented to mean.</para>
     ///
     /// <para><b>Withdrawal and retirement are different acts</b>, which is why this is its own
     /// verb rather than a bypass bolted onto the existing one. A withdrawal says the invitation

@@ -187,7 +187,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         private static AmendApprovalRequest CreateRandomAmendApprovalRequest(
             AccessActor? actor = null,
             IReadOnlyList<RoleSubject>? roleSubjects = null,
-            string? approvalCreatedBy = null) =>
+            string? entityCreatedBy = null) =>
             new AmendApprovalRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(
@@ -197,7 +197,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
                 // Someone else by default, so a tier test cannot pass through the owner branch
                 // and quietly stop testing the tier.
-                ApprovalCreatedBy = approvalCreatedBy ?? GetRandomString(),
+                EntityCreatedBy = entityCreatedBy ?? GetRandomString(),
             };
 
         private static DecideApprovalRequest CreateRandomDecideApprovalRequest(

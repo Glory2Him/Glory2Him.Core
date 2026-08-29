@@ -19,6 +19,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Moq;
 
 namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
@@ -153,12 +154,18 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         }
 
         /// <summary>
-        /// The submitter comes from the STORED approval, never a caller's copy — it is what
-        /// admits the owner, so a payload-supplied value would let anyone name themselves the
-        /// submitter and clear the gate on somebody else's approval.
+        /// The submitter is the person who wrote the ENTITY, read from storage and never from a
+        /// caller's copy — it is what admits the owner, so a payload-supplied value would let
+        /// anyone name themselves the submitter and clear the gate on somebody else's approval.
+        ///
+        /// <para>Not <c>Approval.CreatedBy</c>. The workflow owns Approval rows outright — it
+        /// opens them itself when content is submitted — so that column records the system and
+        /// never a person. Anchoring the owner branch there would refuse every author their own
+        /// resubmission, silently, since §14.7 posture D rule 3 admits the submitter precisely
+        /// because they hold no role to fall back on.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldSendTheStoredSubmitterOnAmendmentAsync()
+        public async Task ShouldSendTheStoredEntityAuthorOnAmendmentAsync()
         {
             // given
             Guid approvalId = Guid.NewGuid();
@@ -170,7 +177,8 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 entityId,
                 ApprovalStatus.Submitted);
 
-            approval.CreatedBy = "the-approval-submitter";
+            // What the workflow really writes there, and precisely why it cannot be the anchor.
+            approval.CreatedBy = SystemIdentity.UserId;
 
             SetupApprovalById(approval);
             SetupEntityAuthor(EntityType.Tag, entityId, createdBy: "the-entity-author");
@@ -181,10 +189,13 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
                 CreateAuthenticatedSecurityContext(),
                 TestContext.Current.CancellationToken);
 
-            // then: the APPROVAL's submitter, not the entity's author — they are different
-            // people often enough that confusing them would be a live defect
-            this.capturedAmendApprovalRequest.ApprovalCreatedBy
-                .Should().Be("the-approval-submitter");
+            // then: the ENTITY's author. Pinned against the system token rather than against
+            // another name, so the test fails loudly if the anchor ever moves back.
+            this.capturedAmendApprovalRequest.EntityCreatedBy
+                .Should().Be("the-entity-author");
+
+            this.capturedAmendApprovalRequest.EntityCreatedBy
+                .Should().NotBe(SystemIdentity.UserId);
         }
 
         /// <summary>

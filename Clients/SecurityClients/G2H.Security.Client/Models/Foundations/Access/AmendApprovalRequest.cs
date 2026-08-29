@@ -56,6 +56,6 @@ namespace G2H.Security.Client.Models.Foundations.Access
         /// storage: this is compared against the actor to admit the owner, so a payload-supplied
         /// value would let anyone name themselves the submitter.
         /// </summary>
-        public required string ApprovalCreatedBy { get; init; }
+        public required string EntityCreatedBy { get; init; }
     }
 }

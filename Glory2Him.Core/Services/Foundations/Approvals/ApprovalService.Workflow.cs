@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 
 namespace Glory2Him.Core.Services.Foundations.Approvals
@@ -73,14 +74,19 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
         ValueTask<Approval> IApprovalWorkflowService.ModifyApprovalAsync(
             Approval approval,
+            WorkflowAttribution attribution,
             CancellationToken cancellationToken) =>
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateApprovalIsNotNull(approval);
 
+                // The one place a workflow write can belong to a person. Everything else this
+                // seam does happened because a condition came true, not because somebody asked.
                 EventEnvelope<Approval> systemEnvelope =
-                    await this.eventEnvelopeBroker.CreateSystemAsync(content: approval);
+                    attribution == WorkflowAttribution.DecidingCaller
+                        ? await this.eventEnvelopeBroker.CreateElevatedAsync(content: approval)
+                        : await this.eventEnvelopeBroker.CreateSystemAsync(content: approval);
 
                 return await DoModifyApprovalAsync(
                     isSystemIdentity: true,

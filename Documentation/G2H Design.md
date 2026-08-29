@@ -1775,11 +1775,13 @@ new SecurityContext
 
 **Client credentials / machine-to-machine:**
 
+`SubjectId` is **never blank on a context that will write**. `CreatedBy`, `UpdatedBy` and `DeletedBy` are all resolved from it, and the audit client refuses a null or whitespace user id outright — so a context minted with `SubjectId = null` throws on the first audited write rather than recording a machine act. A machine that only reads may leave it null; one that writes carries `SystemIdentity.UserId`.
+
 ```csharp
 new SecurityContext
 {
-    SubjectId = null,
-    Username = null,
+    SubjectId = SystemIdentity.UserId,
+    Username = SystemIdentity.Username,
     Roles = [],
     Scopes = scopes,
     Permissions = permissions,
@@ -2997,6 +2999,26 @@ Two brokers sit in that chain:
 
 1. `SecurityAuditBroker` assigns `httpContextAccessor.HttpContext?.User` to a field in its
    constructor. It stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps.
+
+   **RULE — the audit columns name the actor, and the system is an actor.** They are resolved from
+   `SecurityContext.SubjectId`, so whatever that holds is what the row says happened. An act the
+   system performs on its own account — an approval opened because content was submitted, a round
+   re-approved because its conditions came to be met, an invitation retired because the person
+   answered it (§7.9 rule 6), a review dismissed because the content moved under it (§9.5) — is
+   minted through `CreateSystemAsync` and records `SystemIdentity.UserId`. An act the workflow
+   carries out *for* a person, which is the manual approve or reject and nothing else, is minted
+   through `CreateElevatedAsync` and records the person. Both drop roles; the difference is only
+   whose name the row carries. The triggering person is kept on `DelegatedBySubjectId` either way,
+   so the causal trail survives without the audit column claiming somebody acted who did not.
+
+   The caller names the **act**, never an identity, so it can only ever elect to be recorded as
+   itself — the system flag stays unforgeable by construction rather than by validation (§16.7.1).
+
+   `Approval` is the one entity the system owns outright: it opens the row itself, so
+   `Approval.CreatedBy` records the system and never a person. Ownership questions about an
+   approval therefore anchor on the **entity's** author, which is what §14.7 posture D rule 3 means
+   by the submitter — anchoring them on `Approval.CreatedBy` would refuse every author their own
+   resubmission, silently, since a submitter holds no role to fall back on.
 2. `EventEnvelopeBroker` constructs an `EventEnvelopeClient`, which builds its own service
    provider and resolves `IEventEnvelopeService` **once**, and the `SecurityBroker` beneath that
    reads `HttpContext.User` in *its* constructor. This one is easy to miss: the capture is an
