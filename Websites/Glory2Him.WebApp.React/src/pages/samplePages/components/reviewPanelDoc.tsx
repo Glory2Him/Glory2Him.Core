@@ -180,6 +180,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'approvalReviewCollection',
         type: 'ApprovalReviewItem[]',
+        defaultValue: '[]',
         description: 'Every recorded review. The viewer\u2019s own row is matched by '
             + 'reviewerUserId — never by name — and pulled to the top; the rest sort '
             + 'alphabetically.'
@@ -187,6 +188,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'requestedReviewerCollection',
         type: 'ReviewerCandidateItem[]',
+        defaultValue: '[]',
         description: 'Pending ApprovalReviewRequest rows (\u00a77.9), rendered with a warning-'
             + 'coloured \u201cRequested\u201d chip in the SAME alphabetical list as the votes. A '
             + 'vote supersedes a request, and the signed-in viewer is excluded \u2014 their own '
@@ -195,6 +197,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'reviewerCandidateCollection',
         type: 'ReviewerCandidateItem[]',
+        defaultValue: '[]',
         description: 'Everyone the cog\u2019s picker can offer, fetched by the CONSUMER when '
             + 'onReviewerLookupRequested fires. Nobody is filtered out of it: people who have '
             + 'already voted stay listed, ticked and inert, so a search finds them.'
@@ -202,6 +205,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'suggestedReviewerCollection',
         type: 'ReviewerCandidateItem[]',
+        defaultValue: '[]',
         description: 'Worth asking first, shown above everyone else with each entry\u2019s own '
             + 'suggestionReason. The panel does no ranking \u2014 who suits this item depends on '
             + 'history it cannot see, and inventing an order would quietly become policy.'
@@ -209,6 +213,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'maxReviewerRequests',
         type: 'number',
+        defaultValue: '15',
         description: 'How many people may be waited on at once; names the picker heading and '
             + 'stops new requests at the limit. Counted on OUTSTANDING invitations, so an '
             + 'answered one frees its slot. Withdrawal is never blocked. Default 15.'
@@ -244,13 +249,75 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
             + 'tier, not just whoever sent it.'
     },
     {
+        name: 'isCandidatesLoading',
+        type: 'boolean',
+        defaultValue: 'false',
+        description: 'Shown inside the picker while the consumer fetches candidates. Its own '
+            + 'flag rather than isLoading: the cog can be opened while the reviewer rows are '
+            + 'already settled, and the two spinners answer different questions.'
+    },
+    {
+        name: 'voteRoles',
+        type: 'string?',
+        description: 'Comma-separated override for who may vote. Defaults to the §18.6 tier '
+            + 'composed from entityType and contentType — pass "" in a demo to render the panel '
+            + 'as a reader with no vote control.'
+    },
+    {
+        name: 'decisionRoles',
+        type: 'string?',
+        description: 'The same override for who may decide. The server re-decides both '
+            + '(§14.6), so these change what is RENDERED and nothing else.'
+    },
+    {
+        name: 'titleText',
+        type: 'string',
+        defaultValue: "'Approval Reviews'",
+        description: 'Heading above the reviewer rows.'
+    },
+    {
+        name: 'outcomeTitleText',
+        type: 'string',
+        defaultValue: "'Review Outcome'",
+        description: 'Heading above the block reasons and decision controls.'
+    },
+    {
+        name: 'pickerTitleText',
+        type: 'string',
+        defaultValue: "'Request up to {max} reviewers'",
+        description: 'Picker heading. {max} is replaced with maxReviewerRequests.'
+    },
+    {
+        name: 'cssClass',
+        type: 'string',
+        defaultValue: "''",
+        description: 'Appended to the panel’s own class list, for a consumer that needs to '
+            + 'place it in a grid or constrain its width.'
+    },
+    {
+        name: 'text overrides',
+        type: 'string (many)',
+        description: 'Every visible string is a prop with an English default: votePlaceholderText, '
+            + 'approvedText, rejectedText, approveVoteDescription, rejectVoteDescription, '
+            + 'blockedTitleText, awaitingApprovalText, approvedStatusText, rejectedStatusText, '
+            + 'dismissedStatusText, requestedVoteText, suggestionsSectionText, '
+            + 'requestedSectionText, everyoneElseSectionText, requestCapReachedText, '
+            + 'requestReviewTooltip, withdrawRequestTooltip, candidateFilterPlaceholderText, '
+            + 'noCandidatesText, bypassLabelText, bypassReasonPlaceholderText, setStatusText, '
+            + 'approveOptionText, approveOptionDescription, rejectOptionText, '
+            + 'rejectOptionDescription, submitButtonText and emptyText. Nothing is hard-coded, '
+            + 'so the panel can be translated without touching it.'
+    },
+    {
         name: 'showBorder',
         type: 'boolean',
+        defaultValue: 'false',
         description: 'Wraps the panel in the bordered card. Default false.'
     },
     {
         name: 'isLoading',
         type: 'boolean',
+        defaultValue: 'false',
         description: 'Shows the loading line instead of the review rows.'
     },
     {
