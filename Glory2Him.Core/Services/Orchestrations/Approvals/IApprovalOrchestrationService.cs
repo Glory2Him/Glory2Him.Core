@@ -120,9 +120,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Who may be invited to review this entity (§16.7.4) — the people holding a review-tier
-        /// role for it, minus the entity's owner, minus anyone already holding an active review,
-        /// minus anyone already invited.
+        /// Who is in scope to review this entity (§16.7.4) — the people holding a review-tier
+        /// role for it, minus the entity's own author alone. Anyone who has already answered, and
+        /// anyone already invited, stay IN: the read describes the round's population, and
+        /// deciding what is left to do belongs to the surface, which needs the whole set to do
+        /// it.
         ///
         /// <para>Writes nothing and grants nothing. It is a USER-ENUMERATION surface, so it is
         /// restricted to the requesting tier (§7.9 rule 2) and each candidate carries an account

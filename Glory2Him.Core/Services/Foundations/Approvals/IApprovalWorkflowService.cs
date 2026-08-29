@@ -54,9 +54,14 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         /// Opens a round for an entity that has been submitted.
         /// </summary>
         /// <remarks>
-        /// The system context keeps the submitter's <c>SubjectId</c>, so <c>CreatedBy</c> still
-        /// names the person whose submission opened the round — the audit answer to "who caused
-        /// this" is a person, and only the roles are dropped.
+        /// Opened under the SYSTEM identity, so <c>CreatedBy</c> records the system rather than
+        /// the person whose submission triggered it: the workflow owns this row, and nobody asked
+        /// it to exist. The triggering person survives on the envelope's
+        /// <c>DelegatedBySubjectId</c>.
+        ///
+        /// <para>Which is why "is this caller the submitter?" is answered from the ENTITY's author
+        /// and never from here (§14.6.1). A gate anchored on this column matches no human at
+        /// all.</para>
         /// </remarks>
         ValueTask<Approval> AddApprovalAsync(
             Approval approval,

@@ -52,9 +52,15 @@ namespace G2H.Security.Client.Models.Foundations.Access
         public required IReadOnlyList<RoleSubject> RoleSubjects { get; init; }
 
         /// <summary>
-        /// The stored approval's <c>CreatedBy</c> — its submitter. The caller must read it from
-        /// storage: this is compared against the actor to admit the owner, so a payload-supplied
-        /// value would let anyone name themselves the submitter.
+        /// The author of the ENTITY the approval is about — the submitter, and the only meaning
+        /// "owner" has here. The caller must read it from storage: this is compared against the
+        /// actor to admit the owner, so a payload-supplied value would let anyone name themselves
+        /// the submitter.
+        ///
+        /// <para><b>Not the approval's own <c>CreatedBy</c>.</b> The workflow opens approval rows
+        /// itself, so that column records the system and never a person. A caller that filled this
+        /// from it would refuse every author their own resubmission — silently, and fail-closed,
+        /// because a submitter holds no role to fall back on.</para>
         /// </summary>
         public required string EntityCreatedBy { get; init; }
     }

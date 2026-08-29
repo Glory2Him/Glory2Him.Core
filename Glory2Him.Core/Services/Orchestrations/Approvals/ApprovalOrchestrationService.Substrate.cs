@@ -382,20 +382,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // screen saying why. The stale invitation is the far smaller harm, and a person in
             // the review tier can clear it by hand.
             //
-            // Narrow on purpose. These four are what a refusal or an outage inside the retire
-            // path raises; anything else is a defect in this process and stays loud rather than
-            // being absorbed into a log line.
+            // BROAD on purpose, and the breadth is the point. An earlier version named the four
+            // ApprovalReviewRequest exception types, which read as disciplined and guarded the
+            // wrong half: the hook's FIRST statement is an access-broker read, and that broker
+            // catches nothing, so a storage outage arrives as a raw SqlException and walked
+            // straight past the filter - taking the re-test with it in exactly the case the
+            // isolation exists for.
+            //
+            // The argument for absorbing does not rest on which exception was raised. It rests
+            // on what the act IS: bookkeeping, on somebody else's path, whose failure is never a
+            // reason to leave a round un-evaluated. A defect in here is still a defect and still
+            // logged; what it must not do is decide the workflow's outcome.
+            //
+            // Cancellation is the one thing that passes through. A cancelled request means the
+            // caller has gone, and the re-test below has nothing left to serve.
             if (onVerifiedAsync is not null)
             {
                 try
                 {
                     await onVerifiedAsync();
                 }
-                catch (Exception onVerifiedException) when (
-                    onVerifiedException is ApprovalReviewRequestValidationException
-                        or ApprovalReviewRequestDependencyValidationException
-                        or ApprovalReviewRequestDependencyException
-                        or ApprovalReviewRequestServiceException)
+                catch (Exception onVerifiedException)
+                    when (onVerifiedException is not OperationCanceledException)
                 {
                     await this.loggingBroker.LogErrorAsync(onVerifiedException);
                 }

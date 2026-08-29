@@ -248,5 +248,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 broker.LogErrorAsync(retirementException),
                 Times.Once);
         }
+
+        /// <summary>
+        /// The hook's FIRST statement is an access-broker read, and that broker catches nothing,
+        /// so a storage outage arrives as a raw exception rather than one of the
+        /// ApprovalReviewRequest types. An earlier narrow filter let exactly this case walk past
+        /// and cancel the re-test - the one failure the isolation exists to prevent.
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillReTestTheRoundWhenTheRetirementLookupFaultsAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid invitedId = Guid.NewGuid();
+
+            this.approvalServiceMock.Setup(service =>
+                service.RetrieveApprovalByIdAsync(approvalId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(CreateSubstrateApproval(
+                        approvalId: approvalId,
+                        entityId: Guid.NewGuid(),
+                        entityType: EntityType.ContentItem));
+
+            // a storage fault, shaped like what the broker really lets through
+            var storageFailure = new InvalidOperationException("the database was unavailable");
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveApprovalReviewerScopeByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(storageFailure);
+
+            // when
+            await this.approvalOrchestrationService.OnApprovalReviewAddedAsync(
+                CreateReviewAddedEnvelope(approvalId, invitedId.ToString()),
+                TestContext.Current.CancellationToken);
+
+            // then: the round was still read, which is the first thing the re-test does
+            this.approvalServiceMock.Verify(service =>
+                service.RetrieveApprovalByIdAsync(approvalId, It.IsAny<CancellationToken>()),
+                Times.AtLeastOnce);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(storageFailure),
+                Times.Once);
+        }
+
     }
 }

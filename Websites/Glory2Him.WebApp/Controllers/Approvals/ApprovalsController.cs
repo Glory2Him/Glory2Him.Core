@@ -239,8 +239,10 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         }
 
         /// <summary>
-        /// Who may be invited to review this entity (§16.7.4) — the review tier for it, minus the
-        /// owner, minus anyone who has already reviewed, minus anyone already invited.
+        /// Who is in scope to review this entity (§16.7.4) — the review tier for it, minus the
+        /// entity's own author alone. People who have already reviewed, and people already
+        /// invited, are included: a picker renders them inert and under their own heading rather
+        /// than hiding them, so a search for a name finds it.
         ///
         /// <para>A <b>user-enumeration surface</b>, and its posture follows from that: the
         /// orchestration admits only the requesting tier (§7.9 rule 2), and each candidate carries
@@ -308,9 +310,9 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// <summary>
         /// Invites somebody to review this entity (§7.9).
         ///
-        /// <para><b>Always a 204, and never a 409.</b> Rule 4 dissolves both duplicate shapes —
-        /// a person already invited, and a person who has already answered — so the outcomes are
-        /// "already there", "created" and "nothing to create", and a caller has no use for the
+        /// <para><b>204 on every success.</b> Rule 4 dissolves both duplicate shapes — a person
+        /// already invited, and a person who has already answered — so the outcomes are "already
+        /// there", "created" and "nothing to create", and a caller has no use for the
         /// difference. A UI asking twice, or asking from a panel a few seconds stale, is a
         /// harmless thing to do; turning it into an error would make every caller carry an
         /// existence check the server can make correctly and they cannot.</para>
@@ -318,6 +320,13 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// <para><c>requestedUserId</c> rides the query string rather than a body for the same
         /// reason the decision's scalars do: it is a value the operation owns outright, and a body
         /// would invite a caller to restate the entity key twice and let the two disagree.</para>
+        ///
+        /// <para><b>A 409 survives, for the race alone.</b> Rule 4 dissolves the duplicate it can
+        /// SEE, from a read taken a moment earlier. Two callers inviting the same person at once
+        /// can still have one beat that check to
+        /// <c>UX_ApprovalReviewRequests_ApprovalId_RequestedUserId</c>, and the index refusing is
+        /// the correct answer — the invitation the loser wanted exists. It is the one outcome
+        /// here a caller may simply treat as success.</para>
         /// </summary>
         [HttpPost("{entityType}/{entityId}/ReviewRequests")]
         [Authorize]

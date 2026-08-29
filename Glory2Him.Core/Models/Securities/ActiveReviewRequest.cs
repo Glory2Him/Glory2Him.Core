@@ -28,7 +28,8 @@ namespace Glory2Him.Core.Models.Securities
         /// <summary>The request row, so rule 5 can withdraw it and rule 6 can retire it.</summary>
         public required Guid Id { get; init; }
 
-        /// <summary>Who was invited - what the candidates read subtracts and rule 4 matches on.</summary>
+        /// <summary>Who was invited - what rule 4 matches on to dissolve a duplicate, and what a
+        /// surface groups its Requested section by.</summary>
         public required string RequestedUserId { get; init; }
     }
 }

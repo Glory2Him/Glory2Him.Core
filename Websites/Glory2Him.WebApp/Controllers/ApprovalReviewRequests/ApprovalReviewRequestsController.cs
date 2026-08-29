@@ -55,7 +55,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviewRequests
         /// <summary>
         /// Withdraws a pending invitation — the undo for one sent to the wrong person.
         ///
-        /// <para>Withdrawing an already-withdrawn request is a 200, not a 404: the caller asked
+        /// <para>Withdrawing an already-withdrawn request is a 204, not a 404: the caller asked
         /// for a state the row is already in, and the foundation returns it unchanged without
         /// publishing a second removal fact.</para>
         ///

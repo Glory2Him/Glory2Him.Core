@@ -19,9 +19,11 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     /// email, no roles, no account state. A moderator learns that somebody is invitable, which
     /// they would learn anyway the moment they invited them.</para>
     ///
-    /// <para>The list is already filtered to people who qualify - the entity owner, anyone
-    /// holding an active review, and anyone already invited are removed before it is built - so
-    /// a caller never has to re-apply 7.9 rules it cannot see the inputs for.</para>
+    /// <para>It answers "who belongs to this round", not "who is left to ask". Only the entity's
+    /// own author is removed, because rule 3 refuses an invitation aimed at them outright. People
+    /// who have already ANSWERED, and people already invited, are deliberately IN - a moderation
+    /// surface renders them inert and under their own heading, so somebody searching for a name
+    /// finds them and learns their state. It cannot show a person it was never sent.</para>
     /// </summary>
     public class ReviewerCandidate
     {

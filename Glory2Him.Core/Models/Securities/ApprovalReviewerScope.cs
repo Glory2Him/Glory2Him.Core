@@ -55,9 +55,11 @@ namespace Glory2Him.Core.Models.Securities
         public required IReadOnlyList<RoleSubject> RoleSubjects { get; init; }
 
         /// <summary>
-        /// Who already holds an ACTIVE review on this approval. The candidates read subtracts
-        /// them (16.7.4) and rule 4 dissolves a duplicate invitation to one of them, because a
-        /// person who has answered does not need asking.
+        /// Who already holds an ACTIVE review on this approval. Rule 4 dissolves an invitation
+        /// aimed at one of them - a person who has answered does not need asking - and rule 5
+        /// refuses to withdraw the invitation they answered. The candidates read does NOT
+        /// subtract them: it describes the round's population, and a surface renders an answered
+        /// person inert rather than hiding them.
         ///
         /// <para>Soft-deleted and dismissed reviews are excluded here: a withdrawn or stale
         /// verdict leaves the person invitable again, which is the same reasoning the review
@@ -66,9 +68,11 @@ namespace Glory2Him.Core.Models.Securities
         public required IReadOnlyList<string> ActiveReviewerUserIds { get; init; }
 
         /// <summary>
-        /// The invitations still outstanding on this approval. The candidates read subtracts the
-        /// people named here (16.7.4), rule 4 dissolves a duplicate rather than colliding with
-        /// the uniqueness index, and rule 6 finds the row to retire once its target answers.
+        /// The invitations still outstanding on this approval. Rule 4 dissolves a duplicate
+        /// rather than colliding with the uniqueness index, and rule 6 finds the row to retire
+        /// once its target answers. The candidates read does NOT subtract these people - a
+        /// surface shows them under their own heading, which it cannot do if it never receives
+        /// them.
         /// </summary>
         public required IReadOnlyList<ActiveReviewRequest> ActiveRequests { get; init; }
     }
