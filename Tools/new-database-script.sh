@@ -35,6 +35,7 @@ set -euo pipefail
 
 OUTPUT_PATH="${1:-Glory2Him.Core.Database.sql}"
 PROJECT="Glory2Him.Core"
+CONTEXT="StorageBroker"
 TEMP_PATH="${OUTPUT_PATH}.tmp"
 
 if [ ! -d "$PROJECT" ]; then
@@ -43,7 +44,10 @@ if [ ! -d "$PROJECT" ]; then
 fi
 
 echo "Generating idempotent migration script from $PROJECT ..."
-dotnet ef migrations script --idempotent --project "$PROJECT" --output "$TEMP_PATH"
+# --context is required since Glory2Him.Core gained a second DbContext: the read-only
+# IdentityCoreStorageBroker over the security database (design 12.7.1). Without it EF
+# refuses to guess and fails with "More than one DbContext was found".
+dotnet ef migrations script --idempotent --project "$PROJECT" --context "$CONTEXT" --output "$TEMP_PATH"
 
 echo "Prepending required SET options ..."
 

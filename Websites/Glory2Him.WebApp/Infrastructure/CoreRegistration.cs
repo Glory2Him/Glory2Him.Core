@@ -21,6 +21,9 @@ using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Brokers.Storages.Identity;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Processings.Links;
@@ -142,12 +145,27 @@ namespace Glory2Him.WebApp.Infrastructure
             // them the DbContext.
             services.AddScoped<IApprovalOrchestrationService, ApprovalOrchestrationService>();
 
-            // The remaining ten. Not exposed by any endpoint this host serves — they are here
-            // because this host now BINDS all 109 subscriptions, and a subscription resolves its
+            // The remaining eleven. Not exposed by any endpoint this host serves — they are here
+            // because this host now BINDS every subscription, and a subscription resolves its
             // service out of a scope when a fact arrives. Registering only the five the
-            // controllers use would leave the other ten bindings throwing
+            // controllers use would leave the other bindings throwing
             // InvalidOperationException at delivery time, which the substrate records as a
             // failed delivery and nothing surfaces. Bind a subscription, register its service.
+            services.AddScoped<IApprovalReviewRequestService, ApprovalReviewRequestService>();
+
+            // The read-only identity-store window (design 12.7.1). Scoped like every other
+            // DbContext here: it is one, and a singleton would capture a connection for the life
+            // of the process.
+            services.AddScoped<IIdentityCoreStorageBroker, IdentityCoreStorageBroker>();
+            services.AddScoped<IIdentityUserService, IdentityUserService>();
+
+            // The workflow's own retirement seam (§7.9 rule 6), resolved through the public door
+            // so there is one object. The system identity it runs under carries no roles, which
+            // is exactly why the public withdraw verb cannot serve that rule.
+            services.AddScoped<IApprovalReviewRequestWorkflowService>(provider =>
+                (ApprovalReviewRequestService)provider
+                    .GetRequiredService<IApprovalReviewRequestService>());
+
             services.AddScoped<IContentItemService, ContentItemService>();
             services.AddScoped<ILinkService, LinkService>();
             services.AddScoped<IReactionService, ReactionService>();
