@@ -239,6 +239,13 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         /// </remarks>
         internal List<Guid> ApprovalIdsRead { get; } = new List<Guid>();
 
+        /// <summary>
+        /// When set, the workflow's approval read throws this instead of answering - the
+        /// closest this fixture can get to a handler failing part-way through real work. Null
+        /// by default, so it changes nothing for any test that does not ask for it.
+        /// </summary>
+        internal Exception HandlerException { get; set; }
+
         // Enough for ResolveApprovalAsync to reach a decision: no approval exists for the entity,
         // so one is created at Draft and handed straight back.
         private Mock<IApprovalService> BuildApprovalServiceMock()
@@ -302,6 +309,15 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 .ReturnsAsync((Guid approvalId, CancellationToken _) =>
                 {
                     ApprovalIdsRead.Add(approvalId);
+
+                    // Opt-in, and null on every existing test, so the only behaviour this adds
+                    // is to whoever sets it. It answers the one question nothing else in the
+                    // suite can: does a handler that THROWS take the publisher down with it, or
+                    // does the substrate contain it as a failed delivery (issue #298)?
+                    if (HandlerException is not null)
+                    {
+                        throw HandlerException;
+                    }
 
                     return new Approval
                     {
