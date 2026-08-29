@@ -1,0 +1,737 @@
+import { ReactElement, ReactNode, useEffect, useId, useState } from 'react';
+import { useAuth } from '../securitys/authProvider';
+import {
+    ApprovalDecision,
+    ApprovalReviewItem,
+    ApprovalStatus,
+    ApprovalVerdictItem,
+    ReviewerCandidateItem
+} from '../../models/components/approvals/approvalReviewItem';
+import './approvals.css';
+
+// An approval round, rendered: who has reviewed, the viewer's own vote, why approval is blocked,
+// and the publisher-tier decision controls (design §8.5–§8.7, §12.5.3, §16.7.2).
+//
+// SECURITY POSTURE. Every gate below decides what to RENDER and nothing more. The approval
+// orchestration re-decides votes, decisions and bypass against the stored row (§14.6): a hidden
+// control is a courtesy to the reader, never an authorization boundary. Wherever the server has
+// already answered a question per caller — canApprove, isBypassAllowedForCurrentUser — the
+// verdict's answer is used verbatim rather than re-derived from role names.
+//
+// FRESHNESS CONTRACT. This is a pure presentation component: props in, events out, no fetching.
+// The CONSUMER owns freshness — it must re-fetch the review collection and the verdict, and
+// re-render this panel, whenever a review is cast elsewhere, a comment is added or resolved, or
+// the approval is decided (including auto-approval). SignalR, polling or a refetch after each
+// event callback are all the consumer's choice; without one of them this panel simply shows the
+// world as of the last props it was handed.
+//
+// THEMING. Styling is expressed as CSS CLASSES rather than colours, so every control follows the
+// light/dark theme. Pass btn-success, btn-danger or any theme class — never a literal colour.
+export interface ReviewPanelProps {
+    // ── Subject ───────────────────────────────────────────────────────────────
+    // Names the entity under approval so the vote-tier roles can be composed (§18.6,
+    // capability-last and singular): {entityType}-Reviewer / {entityType}-Publisher, and — only
+    // when entityType is 'ContentItem' and a contentType is given — the narrower
+    // ContentItem-{contentType}-Reviewer / -Publisher pair. Identifiers are NOT used to fetch
+    // anything here; the consumer resolves reviews and verdict itself.
+    entityType: string;
+    contentType?: string;
+
+    // The entity owner's account id. The owner never votes on their own submission, so their
+    // placeholder row and vote dropdown are suppressed — the server refuses it regardless.
+    entityOwnerId?: string;
+
+    // The approval's current status. Deliberately its own prop rather than read off the verdict:
+    // the verdict endpoint admits only the moderation tier (§16.7.2), so a read-only viewer has
+    // a status to show and no verdict to show it from. While it is not Submitted the panel is
+    // frozen — no vote dropdown, no bypass, no decision controls.
+    approvalStatus: ApprovalStatus;
+
+    // ── Presentation ──────────────────────────────────────────────────────────
+    showBorder?: boolean;
+    cssClass?: string;
+    titleText?: string;
+    outcomeTitleText?: string;
+    isLoading?: boolean;
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
+    // Every recorded review. The viewer's own row (matched by reviewerUserId, never by name) is
+    // pulled to the top; the rest render alphabetically. An eligible viewer with no row gets a
+    // synthesized "Vote…" placeholder — an uncast vote has no ApprovalReview row to project.
+    approvalReviewCollection?: ReadonlyArray<ApprovalReviewItem>;
+
+    // The approval's pending ApprovalReviewRequest rows (design §7.9), rendered as
+    // "Awaiting review" rows after the cast votes. The signed-in viewer is excluded — their own
+    // row already renders the vote dropdown, and one person must not appear twice.
+    requestedReviewerCollection?: ReadonlyArray<ReviewerCandidateItem>;
+
+    // ── Review requests ───────────────────────────────────────────────────────
+    // The cog beside the title opens a picker over these candidates — the §16.7.4 candidates
+    // read, fetched by the CONSUMER (never here) when onReviewerLookupRequested fires. The
+    // picker filters the supplied list client-side by name; it never searches the server.
+    reviewerCandidateCollection?: ReadonlyArray<ReviewerCandidateItem>;
+    isCandidatesLoading?: boolean;
+
+    // Fired when the picker opens, so a consumer can fetch (or refresh) the candidate list
+    // lazily instead of paying the lookup on every render of the panel.
+    onReviewerLookupRequested?: () => void;
+
+    // Fired when a candidate is picked. The consumer POSTs the review request and refreshes the
+    // requested collection — the server dissolves a duplicate quietly (§7.9 rule 4), so the
+    // consumer needs no existence check of its own.
+    onReviewRequested?: (candidate: ReviewerCandidateItem) => void;
+
+    // Fired from the withdraw control on an "Awaiting review" row. Pending requests only —
+    // a cast review is owner-only (§7.9 rule 5) and gets no such control.
+    onReviewRequestWithdrawn?: (candidate: ReviewerCandidateItem) => void;
+
+    // Fired when the viewer casts or changes their vote (Approved or Rejected only — "Vote…" is
+    // a placeholder, not a castable state). The consumer persists it via the ApprovalReviews API
+    // and then refreshes the collection AND the verdict, which the new vote may have changed.
+    onReviewStatusChanged?: (vote: ApprovalStatus) => void;
+
+    // ── Outcome ───────────────────────────────────────────────────────────────
+    // The per-caller verdict from GET api/Approvals/{entityType}/{entityId}/Verdict. Absent for
+    // viewers outside the moderation tier — the outcome section then shows the status pill
+    // alone, which is §14.7 posture D: a verdict names resolved policy and is never public.
+    approvalVerdict?: ApprovalVerdictItem;
+
+    // Fired when a decision is submitted. isBypassRequested is true only for an approve over
+    // unmet conditions with the checkbox ticked; rejection never records a bypass — it withholds
+    // approval rather than granting it (§12.5.3 rule 13). Maps 1:1 onto
+    // POST api/Approvals/{entityType}/{entityId}/Decision.
+    onApprovalStatusChanged?: (
+        decision: ApprovalDecision,
+        isBypassRequested: boolean,
+        bypassReason: string) => void;
+
+    // ── Roles ─────────────────────────────────────────────────────────────────
+    // Comma-separated overrides. Defaults are composed from entityType/contentType per §18.6;
+    // pass these only when a surface needs a different render gate. decisionRoles deliberately
+    // excludes the Reviewer tier: HR-3 — a reviewer may never set an ApprovalStatus.
+    voteRoles?: string;
+    decisionRoles?: string;
+
+    // ── Text ──────────────────────────────────────────────────────────────────
+    votePlaceholderText?: string;
+    approvedText?: string;
+    rejectedText?: string;
+    approveVoteDescription?: string;
+    rejectVoteDescription?: string;
+    blockedTitleText?: string;
+    awaitingApprovalText?: string;
+    approvedStatusText?: string;
+    rejectedStatusText?: string;
+    dismissedStatusText?: string;
+    awaitingReviewText?: string;
+    requestReviewTooltip?: string;
+    candidateFilterPlaceholderText?: string;
+    noCandidatesText?: string;
+    withdrawRequestTooltip?: string;
+    bypassLabelText?: string;
+    bypassReasonPlaceholderText?: string;
+    setStatusText?: string;
+    approveOptionText?: string;
+    approveOptionDescription?: string;
+    rejectOptionText?: string;
+    rejectOptionDescription?: string;
+    submitButtonText?: string;
+    emptyText?: string;
+
+    // ── Theme classes ─────────────────────────────────────────────────────────
+    approvedVoteCssClass?: string;
+    rejectedVoteCssClass?: string;
+    uncastVoteCssClass?: string;
+    awaitingPillCssClass?: string;
+    approvedPillCssClass?: string;
+    rejectedPillCssClass?: string;
+    dismissedPillCssClass?: string;
+    blockedIconCssClass?: string;
+    bypassCssClass?: string;
+    setStatusCssClass?: string;
+    approveSelectionCssClass?: string;
+    rejectSelectionCssClass?: string;
+}
+
+const parseRoles = (roles: string): ReadonlyArray<string> =>
+    roles
+        .split(',')
+        .map((role) => role.trim())
+        .filter((role) => role.length > 0);
+
+// Both admin vocabularies are honoured deliberately: the portal seeds "Administrators" and the
+// core role enum seeds "Admin" — two surfaces, two names, one tier (SeedData).
+const AdminRoles = 'Admin, Administrators';
+
+export function ReviewPanel({
+    entityType,
+    contentType,
+    entityOwnerId,
+    approvalStatus,
+    showBorder = false,
+    cssClass = '',
+    titleText = 'Approval Reviews',
+    outcomeTitleText = 'Review Outcome',
+    isLoading = false,
+    approvalReviewCollection = [],
+    requestedReviewerCollection = [],
+    reviewerCandidateCollection = [],
+    isCandidatesLoading = false,
+    onReviewerLookupRequested,
+    onReviewRequested,
+    onReviewRequestWithdrawn,
+    onReviewStatusChanged,
+    approvalVerdict,
+    onApprovalStatusChanged,
+    voteRoles,
+    decisionRoles,
+    votePlaceholderText = 'Vote...',
+    approvedText = 'Approved',
+    rejectedText = 'Rejected',
+    approveVoteDescription = 'I am happy with this item',
+    rejectVoteDescription = 'I do not think we should approve this item',
+    blockedTitleText = 'Approval is blocked',
+    awaitingApprovalText = 'Awaiting approval',
+    approvedStatusText = 'Approved',
+    rejectedStatusText = 'Rejected',
+    dismissedStatusText = 'Dismissed',
+    awaitingReviewText = 'Awaiting review',
+    requestReviewTooltip = 'Request a review',
+    candidateFilterPlaceholderText = 'Filter by name',
+    noCandidatesText = 'No eligible reviewers found.',
+    withdrawRequestTooltip = 'Withdraw review request',
+    bypassLabelText = 'Approve without waiting for requirements to be met (bypass rules)',
+    bypassReasonPlaceholderText = 'Reason for bypassing the approval requirements',
+    setStatusText = 'Set approval status',
+    approveOptionText = 'Approve this item',
+    approveOptionDescription = 'Approve this item based on the Reviewer votes',
+    rejectOptionText = 'Reject this item',
+    rejectOptionDescription = 'Reject this item based on the Reviewer votes',
+    submitButtonText = 'Submit',
+    emptyText = '',
+    approvedVoteCssClass = 'btn-success',
+    rejectedVoteCssClass = 'btn-danger',
+    uncastVoteCssClass = 'btn-secondary',
+    awaitingPillCssClass = 'btn-dark',
+    approvedPillCssClass = 'btn-success',
+    rejectedPillCssClass = 'btn-danger',
+    dismissedPillCssClass = 'btn-secondary',
+    blockedIconCssClass = 'bi-exclamation-circle-fill text-danger',
+    bypassCssClass = 'text-danger',
+    setStatusCssClass = 'btn-dark',
+    approveSelectionCssClass = 'btn-success',
+    rejectSelectionCssClass = 'btn-danger'
+}: ReviewPanelProps) {
+    const { isAuthenticated, user, userRoles } = useAuth();
+    const headingId = useId();
+    const outcomeHeadingId = useId();
+
+    const [isVoteMenuOpen, setIsVoteMenuOpen] = useState(false);
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const [candidateFilter, setCandidateFilter] = useState('');
+    const [isDecisionMenuOpen, setIsDecisionMenuOpen] = useState(false);
+    const [selectedDecision, setSelectedDecision] = useState<ApprovalDecision | undefined>();
+    const [isBypassChecked, setIsBypassChecked] = useState(false);
+    const [bypassReason, setBypassReason] = useState('');
+
+    // §18.6 composition, capability LAST and singular — ContentItem-Blog-Reviewer, never
+    // Reviewer-ContentItem-Blog: the services recognise a review role by its "-Reviewer" suffix.
+    // The content-type tier exists only for ContentItem (§18.6 rule 5).
+    const contentTypedRole = (capability: string): string | undefined =>
+        entityType === 'ContentItem' && contentType != null && contentType.length > 0
+            ? `${entityType}-${contentType}-${capability}`
+            : undefined;
+
+    const defaultVoteRoles = [
+        'Reviewer', 'Publisher', ...parseRoles(AdminRoles),
+        `${entityType}-Reviewer`, `${entityType}-Publisher`,
+        contentTypedRole('Reviewer'), contentTypedRole('Publisher')
+    ].filter((role): role is string => role != null);
+
+    // HR-3: the Reviewer tier may never set an ApprovalStatus — deciding is the Publisher
+    // tier's and Admin's alone, so no -Reviewer role appears here.
+    const defaultDecisionRoles = [
+        'Publisher', ...parseRoles(AdminRoles),
+        `${entityType}-Publisher`,
+        contentTypedRole('Publisher')
+    ].filter((role): role is string => role != null);
+
+    const voteRoleList = voteRoles != null ? parseRoles(voteRoles) : defaultVoteRoles;
+    const decisionRoleList = decisionRoles != null ? parseRoles(decisionRoles) : defaultDecisionRoles;
+
+    const holdsAnyRole = (roles: ReadonlyArray<string>): boolean =>
+        roles.some((role) => userRoles.includes(role));
+
+    const viewerId = user?.userId ?? '';
+    const isOwner = viewerId.length > 0 && viewerId === entityOwnerId;
+    const isSubmitted = approvalStatus === ApprovalStatus.Submitted;
+
+    const mayVote =
+        isAuthenticated
+        && isOwner === false
+        && isSubmitted
+        && holdsAnyRole(voteRoleList);
+
+    const mayDecide =
+        isAuthenticated
+        && isSubmitted
+        && holdsAnyRole(decisionRoleList);
+
+    // Requesting a review is coordination, not decision, so it is open to the whole tier above
+    // the read-only view — reviewers included (§7.9 rule 2) — and, unlike voting, the entity's
+    // owner is not excluded: soliciting review of your own submission is not passing verdict
+    // on it.
+    const mayRequest =
+        isAuthenticated
+        && isSubmitted
+        && holdsAnyRole(voteRoleList);
+
+    const viewerReview = approvalReviewCollection.find(
+        (item) => item.reviewerUserId.length > 0 && item.reviewerUserId === viewerId);
+
+    const otherReviews = approvalReviewCollection
+        .filter((item) => item !== viewerReview)
+        .slice()
+        .sort((left, right) => left.reviewerDisplayName.localeCompare(
+            right.reviewerDisplayName, undefined, { sensitivity: 'base' }));
+
+    // The viewer's row leads even before they vote: an eligible reviewer with no ApprovalReview
+    // row yet gets a synthesized placeholder, because "you have not voted" is the one state the
+    // stored collection cannot carry.
+    const showPlaceholderRow = viewerReview == null && mayVote;
+
+    // The verdict is a moving target — another vote, a new comment, a resolved thread all change
+    // it. A bypass tick given against ONE set of reasons must not silently carry over to the
+    // next, so any content change resets the checkbox, its reason, and a pending selection.
+    const verdictSignature = approvalVerdict == null
+        ? ''
+        : approvalVerdict.blockReasons.map((reason) => reason.code).join(',')
+            + `|${approvalVerdict.canApprove}|${approvalVerdict.isBypassAllowedForCurrentUser}`;
+
+    useEffect(() => {
+        setIsBypassChecked(false);
+        setBypassReason('');
+        setSelectedDecision(undefined);
+    }, [verdictSignature]);
+
+    const isBlocked = approvalVerdict?.isBlocked === true;
+
+    const showBypassCheckbox =
+        mayDecide
+        && isBlocked
+        && approvalVerdict?.isBypassAllowedForCurrentUser === true;
+
+    // The whole of the approve rule, per the verdict (§16.7.2): canApprove already folds the
+    // conditions AND this caller's standing (HR-2 owners, carrying reviewers). A checked bypass
+    // waives the conditions wholesale (§9.7.5). Reject is NOT gated by any of this — a direct
+    // reject needs no conditions and no bypass (§12.5.3 rule 13).
+    const mayApproveNow =
+        approvalVerdict != null
+        && (approvalVerdict.canApprove || (isBlocked && showBypassCheckbox && isBypassChecked));
+
+    const isBypassApprove =
+        selectedDecision === ApprovalDecision.Approve
+        && isBlocked
+        && isBypassChecked;
+
+    // An unexplained bypass is refused by the server before any policy is read, so Submit holds
+    // until the reason exists rather than letting the click round-trip into a 400.
+    const maySubmitDecision =
+        selectedDecision != null
+        && (selectedDecision === ApprovalDecision.Reject || mayApproveNow)
+        && (isBypassApprove === false || bypassReason.trim().length > 0);
+
+    const onBypassToggled = (checked: boolean) => {
+        setIsBypassChecked(checked);
+
+        if (checked === false) {
+            setBypassReason('');
+
+            // A selection made under the bypass must not outlive it: with the tick gone an
+            // Approve the caller cannot perform is no longer a selection worth submitting.
+            if (selectedDecision === ApprovalDecision.Approve
+                && approvalVerdict?.canApprove !== true) {
+                setSelectedDecision(undefined);
+            }
+        }
+    };
+
+    const castVote = (vote: ApprovalStatus) => {
+        setIsVoteMenuOpen(false);
+
+        if (vote !== viewerReview?.vote) {
+            onReviewStatusChanged?.(vote);
+        }
+    };
+
+    const togglePicker = () => {
+        const opening = isPickerOpen === false;
+
+        setIsPickerOpen(opening);
+        setCandidateFilter('');
+
+        if (opening) {
+            onReviewerLookupRequested?.();
+        }
+    };
+
+    const requestReview = (candidate: ReviewerCandidateItem) => {
+        setIsPickerOpen(false);
+        onReviewRequested?.(candidate);
+    };
+
+    const filteredCandidates = reviewerCandidateCollection.filter((candidate) => {
+        const filter = candidateFilter.trim().toLowerCase();
+
+        return filter.length === 0
+            || candidate.displayName.toLowerCase().includes(filter)
+            || (candidate.userName ?? '').toLowerCase().includes(filter);
+    });
+
+    // One person, one row: the viewer's own request renders nowhere — their row is already the
+    // vote dropdown, which is the invitation answered.
+    const requestedRows = requestedReviewerCollection.filter(
+        (candidate) => candidate.userId !== viewerId);
+
+    const chooseDecision = (decision: ApprovalDecision) => {
+        setIsDecisionMenuOpen(false);
+        setSelectedDecision(decision);
+    };
+
+    const submitDecision = () => {
+        if (selectedDecision == null) {
+            return;
+        }
+
+        onApprovalStatusChanged?.(
+            selectedDecision,
+            isBypassApprove,
+            isBypassApprove ? bypassReason.trim() : '');
+    };
+
+    const voteBadgeCssClass = (vote: ApprovalStatus): string =>
+        vote === ApprovalStatus.Approved ? approvedVoteCssClass : rejectedVoteCssClass;
+
+    const voteBadgeText = (vote: ApprovalStatus): string =>
+        vote === ApprovalStatus.Approved ? approvedText : rejectedText;
+
+    const statusPill = (): { text: string; pillCssClass: string; iconCssClass: string } => {
+        if (approvalStatus === ApprovalStatus.Approved) {
+            return {
+                text: approvedStatusText,
+                pillCssClass: approvedPillCssClass,
+                iconCssClass: 'bi-check-circle-fill'
+            };
+        }
+
+        if (approvalStatus === ApprovalStatus.Rejected) {
+            return {
+                text: rejectedStatusText,
+                pillCssClass: rejectedPillCssClass,
+                iconCssClass: 'bi-slash-circle'
+            };
+        }
+
+        if (approvalStatus === ApprovalStatus.Dismissed) {
+            return {
+                text: dismissedStatusText,
+                pillCssClass: dismissedPillCssClass,
+                iconCssClass: 'bi-dash-circle'
+            };
+        }
+
+        // Draft and Submitted both read as waiting: a draft has not opened the round yet and a
+        // submitted one has not closed it.
+        return {
+            text: awaitingApprovalText,
+            pillCssClass: awaitingPillCssClass,
+            iconCssClass: 'bi-circle-fill text-warning'
+        };
+    };
+
+    const renderViewerVoteControl = (): ReactNode => {
+        const currentVote = viewerReview?.vote;
+
+        const buttonCssClass = currentVote == null
+            ? uncastVoteCssClass
+            : voteBadgeCssClass(currentVote);
+
+        const buttonText = currentVote == null
+            ? votePlaceholderText
+            : voteBadgeText(currentVote);
+
+        if (mayVote === false) {
+            // A cast vote stays visible after the round closes or the roles change; it is simply
+            // no longer a control.
+            return currentVote == null
+                ? null
+                : (
+                    <span className={`btn btn-sm ${buttonCssClass} g2h-review-vote-badge mb-0`}>
+                        {buttonText}
+                    </span>
+                );
+        }
+
+        return (
+            <div className="dropdown">
+                <button
+                    type="button"
+                    className={`btn btn-sm dropdown-toggle ${buttonCssClass} mb-0`}
+                    aria-expanded={isVoteMenuOpen}
+                    onClick={() => setIsVoteMenuOpen(!isVoteMenuOpen)}>
+                    {buttonText}
+                </button>
+
+                {isVoteMenuOpen && (
+                    <div className="dropdown-menu dropdown-menu-end show shadow">
+                        <button
+                            type="button"
+                            className="dropdown-item"
+                            onClick={() => castVote(ApprovalStatus.Approved)}>
+                            <span className="fw-bold d-block">
+                                {currentVote === ApprovalStatus.Approved && (
+                                    <i className="bi bi-check me-1" aria-hidden="true"></i>
+                                )}
+                                {approvedText}
+                            </span>
+                            <small className="text-muted">{approveVoteDescription}</small>
+                        </button>
+
+                        <button
+                            type="button"
+                            className="dropdown-item"
+                            onClick={() => castVote(ApprovalStatus.Rejected)}>
+                            <span className="fw-bold d-block">
+                                {currentVote === ApprovalStatus.Rejected && (
+                                    <i className="bi bi-check me-1" aria-hidden="true"></i>
+                                )}
+                                {rejectedText}
+                            </span>
+                            <small className="text-muted">{rejectVoteDescription}</small>
+                        </button>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderReviewRow = (name: string, control: ReactNode, key: string): ReactElement => (
+        <div
+            key={key}
+            className="d-flex justify-content-between align-items-center py-2 border-bottom g2h-review-row">
+            <span>{name}</span>
+            {control}
+        </div>
+    );
+
+    const viewerRow = (): ReactNode => {
+        if (viewerReview != null || showPlaceholderRow) {
+            const name = viewerReview?.reviewerDisplayName
+                ?? user?.displayName
+                ?? user?.userName
+                ?? '';
+
+            const control = renderViewerVoteControl();
+
+            return control == null && viewerReview == null
+                ? null
+                : renderReviewRow(name, control, 'viewer-row');
+        }
+
+        return null;
+    };
+
+    const decisionSelection = selectedDecision === ApprovalDecision.Approve
+        ? { text: approveOptionText, selectionCssClass: approveSelectionCssClass }
+        : selectedDecision === ApprovalDecision.Reject
+            ? { text: rejectOptionText, selectionCssClass: rejectSelectionCssClass }
+            : undefined;
+
+    const pill = statusPill();
+    const renderedViewerRow = viewerRow();
+
+    const panelCssClass = showBorder
+        ? `g2h-review-panel border rounded-3 p-3 p-lg-4 ${cssClass}`
+        : `g2h-review-panel ${cssClass}`;
+
+    return (
+        <section className={panelCssClass} aria-labelledby={headingId}>
+            <div className="d-flex justify-content-between align-items-start mb-3">
+                <h4 className="mb-0" id={headingId}>{titleText}</h4>
+
+                {mayRequest && (
+                    <div className="dropdown">
+                        <button
+                            type="button"
+                            className="btn btn-link p-0 text-body g2h-review-request-cog"
+                            title={requestReviewTooltip}
+                            aria-label={requestReviewTooltip}
+                            aria-expanded={isPickerOpen}
+                            onClick={togglePicker}>
+                            <i className="bi bi-gear-fill" aria-hidden="true"></i>
+                        </button>
+
+                        {isPickerOpen && (
+                            <div className="dropdown-menu dropdown-menu-end show shadow p-2 g2h-review-candidate-picker">
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm mb-2"
+                                    placeholder={candidateFilterPlaceholderText}
+                                    aria-label={candidateFilterPlaceholderText}
+                                    value={candidateFilter}
+                                    onChange={(event) => setCandidateFilter(event.target.value)} />
+
+                                {isCandidatesLoading ? (
+                                    <p className="small text-muted mb-0 px-1">Loading…</p>
+                                ) : filteredCandidates.length === 0 ? (
+                                    <p className="small text-muted mb-0 px-1">{noCandidatesText}</p>
+                                ) : (
+                                    filteredCandidates.map((candidate) => (
+                                        <button
+                                            key={candidate.userId}
+                                            type="button"
+                                            className="dropdown-item"
+                                            onClick={() => requestReview(candidate)}>
+                                            {candidate.displayName}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {isLoading ? (
+                <p className="small text-muted mb-3">Loading…</p>
+            ) : (
+                <div className="mb-4">
+                    {renderedViewerRow}
+
+                    {otherReviews.map((item) => renderReviewRow(
+                        item.reviewerDisplayName,
+                        <span className={`btn btn-sm ${voteBadgeCssClass(item.vote)} g2h-review-vote-badge mb-0`}>
+                            {voteBadgeText(item.vote)}
+                        </span>,
+                        item.id ?? item.reviewerUserId))}
+
+                    {requestedRows.map((candidate) => renderReviewRow(
+                        candidate.displayName,
+                        <span className="d-inline-flex align-items-center gap-1">
+                            <span className="btn btn-sm btn-outline-secondary g2h-review-vote-badge mb-0">
+                                {awaitingReviewText}
+                            </span>
+
+                            {mayRequest && (
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-link text-danger p-0 ms-1"
+                                    title={withdrawRequestTooltip}
+                                    aria-label={`${withdrawRequestTooltip} ${candidate.displayName}`}
+                                    onClick={() => onReviewRequestWithdrawn?.(candidate)}>
+                                    <i className="bi bi-x-lg" aria-hidden="true"></i>
+                                </button>
+                            )}
+                        </span>,
+                        `requested-${candidate.userId}`))}
+
+                    {renderedViewerRow == null
+                        && otherReviews.length === 0
+                        && requestedRows.length === 0
+                        && emptyText.length > 0
+                        && <p className="small text-muted mb-0">{emptyText}</p>}
+                </div>
+            )}
+
+            <h4 className="mb-3" id={outcomeHeadingId}>{outcomeTitleText}</h4>
+
+            {isBlocked && (
+                <div className="d-flex mb-3 g2h-review-blocked" role="status">
+                    <i className={`bi ${blockedIconCssClass} fs-3 me-2`} aria-hidden="true"></i>
+                    <div>
+                        <span className="fw-bold d-block">{blockedTitleText}</span>
+                        {approvalVerdict?.blockReasons.map((reason) => (
+                            <span className="small text-muted d-block" key={reason.code}>
+                                {reason.message}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            <div className={`btn ${pill.pillCssClass} w-100 mb-3 g2h-review-status-pill`}>
+                <i className={`bi ${pill.iconCssClass} me-2 small`} aria-hidden="true"></i>
+                {pill.text}
+            </div>
+
+            {showBypassCheckbox && (
+                <div className={`form-check mb-3 ${bypassCssClass}`}>
+                    <input
+                        type="checkbox"
+                        className="form-check-input"
+                        id={`${headingId}-bypass`}
+                        checked={isBypassChecked}
+                        onChange={(event) => onBypassToggled(event.target.checked)} />
+                    <label className="form-check-label" htmlFor={`${headingId}-bypass`}>
+                        {bypassLabelText}
+                    </label>
+                </div>
+            )}
+
+            {showBypassCheckbox && isBypassChecked && (
+                <input
+                    type="text"
+                    className="form-control mb-3"
+                    placeholder={bypassReasonPlaceholderText}
+                    aria-label={bypassReasonPlaceholderText}
+                    value={bypassReason}
+                    onChange={(event) => setBypassReason(event.target.value)} />
+            )}
+
+            {mayDecide && (
+                <>
+                    <div className="dropdown">
+                        <button
+                            type="button"
+                            className={`btn w-100 dropdown-toggle d-flex justify-content-between align-items-center ${decisionSelection?.selectionCssClass ?? setStatusCssClass} mb-0`}
+                            aria-expanded={isDecisionMenuOpen}
+                            onClick={() => setIsDecisionMenuOpen(!isDecisionMenuOpen)}>
+                            {decisionSelection?.text ?? setStatusText}
+                        </button>
+
+                        {isDecisionMenuOpen && (
+                            <div className="dropdown-menu show shadow w-100">
+                                <button
+                                    type="button"
+                                    className="dropdown-item"
+                                    disabled={mayApproveNow === false}
+                                    onClick={() => chooseDecision(ApprovalDecision.Approve)}>
+                                    <span className="fw-bold d-block">{approveOptionText}</span>
+                                    <small className="text-muted">{approveOptionDescription}</small>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    className="dropdown-item"
+                                    onClick={() => chooseDecision(ApprovalDecision.Reject)}>
+                                    <span className="fw-bold d-block">{rejectOptionText}</span>
+                                    <small className="text-muted">{rejectOptionDescription}</small>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {decisionSelection != null && (
+                        <button
+                            type="button"
+                            className={`btn w-100 mt-2 mb-0 ${decisionSelection.selectionCssClass}`}
+                            disabled={maySubmitDecision === false}
+                            onClick={submitDecision}>
+                            {submitButtonText}
+                        </button>
+                    )}
+                </>
+            )}
+        </section>
+    );
+}

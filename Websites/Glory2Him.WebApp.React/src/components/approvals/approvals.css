@@ -1,0 +1,48 @@
+/* ── ReviewPanel ──────────────────────────────────────────────────────────── */
+
+/* Same neutralisation the association panel needs: the Blogzine theme gives every bare section
+   page-band padding, wildly wrong for a panel inside a sidebar or card. showBorder's p-3/p-lg-4
+   utilities carry !important and still win. */
+section.g2h-review-panel {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* A vote that is displayed rather than offered — another reviewer's, or the viewer's own once
+   the round has closed. It shares the button classes so it matches the dropdown beside it in
+   both themes, but it is not a control and must not invite a click. */
+.g2h-review-vote-badge {
+    pointer-events: none;
+}
+
+/* The overall status bar reads as a label, not a button: no hover affordance, no pointer. The
+   colour stays the caller's theme class so it follows light/dark mode. */
+.g2h-review-status-pill {
+    pointer-events: none;
+    text-align: center;
+}
+
+/* The React-controlled dropdown menus position under their toggle; the wrapper anchors them. */
+.g2h-review-panel .dropdown {
+    position: relative;
+}
+
+.g2h-review-panel .dropdown-menu.show {
+    position: absolute;
+    inset: auto 0 auto auto;
+}
+
+/* The cog is an icon button, not a link: no underline, and a size matching the heading beside
+   it. Colour stays the theme's body colour so it follows light/dark mode. */
+.g2h-review-request-cog {
+    text-decoration: none;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+/* The picker needs room for names and its filter box; the list scrolls rather than the page. */
+.g2h-review-candidate-picker {
+    min-width: 14rem;
+    max-height: 16rem;
+    overflow-y: auto;
+}
