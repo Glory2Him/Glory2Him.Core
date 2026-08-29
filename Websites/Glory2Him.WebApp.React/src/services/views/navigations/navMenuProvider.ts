@@ -100,6 +100,8 @@ const samplePagesSection: NavItem = {
                 sample(
                     "Bible Reference Association Panel",
                     "SamplePages/Components/Bible-Reference-Association-Panel"),
+
+                sample("Review Panel", "SamplePages/Components/Review-Panel"),
             ]
         },
         sample("Lifestyle", "SamplePages/Lifestyle", "bi-stars"),
