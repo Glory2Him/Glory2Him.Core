@@ -64,25 +64,22 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                         roleNames: ComposeReviewTierRoleNames(scope.RoleSubjects),
                         cancellationToken: cancellationToken);
 
-                // The three subtractions of 16.7.4, in one pass. Each is a person who cannot
-                // usefully be invited: the owner would be reviewing their own work (rule 3,
-                // HR-1), an active reviewer has already answered, and an invited person is
-                // already on the panel.
+                // ONE subtraction, and only one: the entity's own author. They cannot review
+                // their own work (rule 3, HR-1), so an invitation aimed at them is refused
+                // outright - offering the row would be offering a click that always fails.
+                //
+                // People who have ALREADY ANSWERED, and people already invited, are deliberately
+                // LEFT IN. This read answers "who is in scope for this round", not "who is not
+                // yet dealt with". The picker renders an answered person ticked and inert and an
+                // invited person under its own Requested heading, so a moderator searching for
+                // somebody finds them and learns their state, instead of finding nothing and
+                // wondering whether they typed the name wrong. Subtracting them here made that
+                // impossible: the panel cannot show a person it was never sent.
                 var excludedUserIds = new HashSet<string>(StringComparer.Ordinal);
 
                 if (string.IsNullOrWhiteSpace(scope.EntityCreatedBy) is false)
                 {
                     excludedUserIds.Add(scope.EntityCreatedBy);
-                }
-
-                foreach (string reviewerUserId in scope.ActiveReviewerUserIds)
-                {
-                    excludedUserIds.Add(reviewerUserId);
-                }
-
-                foreach (ActiveReviewRequest activeRequest in scope.ActiveRequests)
-                {
-                    excludedUserIds.Add(activeRequest.RequestedUserId);
                 }
 
                 return tierMembers

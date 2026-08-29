@@ -87,11 +87,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// The three subtractions of 16.7.4 in one pass - the owner, anyone who already reviewed,
-        /// and anyone already invited all drop out, leaving only people who can usefully be asked.
+        /// ONE subtraction, and only one: the entity's own author, because rule 3 refuses an
+        /// invitation aimed at them outright and listing them would offer a click that always
+        /// fails.
+        ///
+        /// <para>Everyone else in the tier stays, INCLUDING people who have already answered and
+        /// people already invited. The read answers "who belongs to this round", not "who is not
+        /// yet dealt with": a moderation surface renders an answered person inert and an invited
+        /// one under its own heading, so somebody searching for a name finds them and learns
+        /// their state. A surface cannot show a person it was never sent, and subtracting them
+        /// here made the whole ticked-and-inert branch unreachable in production.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldRetrieveReviewerCandidatesExcludingOwnerReviewersAndInviteesAsync()
+        public async Task ShouldRetrieveReviewerCandidatesExcludingOnlyTheEntityOwnerAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
@@ -134,9 +142,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     TestContext.Current.CancellationToken);
 
             // then
-            candidates.Should().HaveCount(1);
-            candidates[0].UserId.Should().Be(freshId.ToString());
-            candidates[0].DisplayName.Should().Be("Fresh");
+            candidates.Select(candidate => candidate.UserId).Should().BeEquivalentTo(new[]
+            {
+                freshId.ToString(),
+                reviewedId.ToString(),
+                invitedId.ToString(),
+            });
+
+            candidates.Select(candidate => candidate.UserId)
+                .Should().NotContain(ownerId.ToString());
         }
 
         /// <summary>
