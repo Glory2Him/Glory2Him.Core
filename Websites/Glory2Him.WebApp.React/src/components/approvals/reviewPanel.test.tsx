@@ -767,6 +767,61 @@ describe('ReviewPanel', () => {
             // then — consent given against the old reasons does not carry over
             expect(screen.getByRole('checkbox')).not.toBeChecked();
         });
+
+        /// The case the reason codes cannot catch. Two different approvals blocked for the SAME
+        /// reasons produce an identical signature in every other field, so without approvalId a
+        /// consumer swapping items without remounting keeps the previous item's tick, its typed
+        /// justification and its pending decision over a repainted panel. Submitting then writes
+        /// one item's justification onto another's permanent record, and the server cannot catch
+        /// it — a bypass reason is free text it only checks for being non-blank.
+        it('should reset the bypass tick when the panel moves to another approval', async () => {
+            // given
+            signInAs(authState, ['Publisher']);
+            const onApprovalStatusChanged = vi.fn();
+
+            const reasonBoxQuery = () =>
+                screen.queryByRole('textbox', {
+                    name: 'Reason for bypassing the approval requirements'
+                });
+
+            const panelWith = (verdict: ApprovalVerdictItem): ReactElement => (
+                <MemoryRouter>
+                    <AuthProvider>
+                        <ReviewPanel
+                            entityType="ContentItem"
+                            approvalStatus={ApprovalStatus.Submitted}
+                            approvalVerdict={verdict}
+                            onApprovalStatusChanged={onApprovalStatusChanged} />
+                    </AuthProvider>
+                </MemoryRouter>
+            );
+
+            const { rerender } = renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalVerdict={blockedVerdict({
+                        approvalId: 'approval-a',
+                        isBypassAllowedForCurrentUser: true
+                    })}
+                    onApprovalStatusChanged={onApprovalStatusChanged} />);
+
+            await userEvent.click(screen.getByRole('checkbox'));
+            await userEvent.type(reasonBoxQuery()!, 'Trustees approved this out of band');
+            expect(screen.getByRole('checkbox')).toBeChecked();
+
+            // when — the consumer points the panel at a DIFFERENT approval that happens to be
+            // blocked for exactly the same reasons
+            rerender(panelWith(blockedVerdict({
+                approvalId: 'approval-b',
+                isBypassAllowedForCurrentUser: true
+            })));
+
+            // then — nothing of the first item's consent survives onto the second
+            expect(screen.getByRole('checkbox')).not.toBeChecked();
+            expect(reasonBoxQuery()).not.toBeInTheDocument();
+            expect(onApprovalStatusChanged).not.toHaveBeenCalled();
+        });
     });
 
     describe('decision', () => {

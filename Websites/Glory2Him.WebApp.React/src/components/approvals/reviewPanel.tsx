@@ -372,9 +372,18 @@ export function ReviewPanel({
     // The verdict is a moving target — another vote, a new comment, a resolved thread all change
     // it. A bypass tick given against ONE set of reasons must not silently carry over to the
     // next, so any content change resets the checkbox, its reason, and a pending selection.
+    //
+    // approvalId LEADS it, and it is the field that matters most. Two different approvals blocked
+    // for the same reasons produce identical signatures for every other field — the common case,
+    // not a corner one — so without the id a consumer that swaps this panel from one item to the
+    // next without remounting keeps the previous item's bypass tick, its typed justification and
+    // its pending decision, over a repainted panel showing the new item. Submitting then writes
+    // one item's justification onto another's permanent record, and the server cannot catch it
+    // because a bypass reason is free text it only checks for being non-blank.
     const verdictSignature = approvalVerdict == null
         ? ''
-        : approvalVerdict.blockReasons.map((reason) => reason.code).join(',')
+        : `${approvalVerdict.approvalId}|`
+            + approvalVerdict.blockReasons.map((reason) => reason.code).join(',')
             + `|${approvalVerdict.canApprove}|${approvalVerdict.isBypassAllowedForCurrentUser}`;
 
     useEffect(() => {
