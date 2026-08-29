@@ -637,7 +637,10 @@ export function ReviewPanel({
     ): ReactElement => {
         const hasVoted = votedUserIds.has(candidate.userId);
         const isTicked = kind === 'requested' || hasVoted;
-        const isInert = kind === 'everyone' && hasVoted;
+        // A cast verdict makes the row inert WHEREVER it appears, not only under "Everyone
+        // else": a consumer is free to suggest somebody who has since voted, and a ticked row
+        // that still fires a request would send one the server refuses.
+        const isInert = kind !== 'requested' && hasVoted;
 
         // The cap stops new invitations, never withdrawals — otherwise reaching the limit would
         // trap the round with no way to free a slot.

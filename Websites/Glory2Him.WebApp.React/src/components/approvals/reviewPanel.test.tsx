@@ -1148,6 +1148,40 @@ describe('ReviewPanel', () => {
             expect(screen.getByText('Recently reviewed this type')).toBeInTheDocument();
         });
 
+        /// A consumer ranks suggestions from history the panel cannot see, so it may well
+        /// suggest somebody who has voted since. The tick has to mean the same thing in every
+        /// section: already answered, nothing to do here.
+        it('should render a suggested candidate who has already voted as inert', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+            const onReviewRequested = vi.fn();
+
+            const suggested: ReviewerCandidateItem = {
+                userId: 'user-john',
+                displayName: 'John',
+                userName: 'john.b'
+            };
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[johnApproved]}
+                    suggestedReviewerCollection={[suggested]}
+                    onReviewRequested={onReviewRequested} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+            const row = screen.getByRole('button', { name: /john\.b/ });
+
+            // then
+            expect(row).toBeDisabled();
+            expect(row).toHaveAccessibleName(/has already reviewed/);
+
+            await userEvent.click(row);
+            expect(onReviewRequested).not.toHaveBeenCalled();
+        });
+
         it('should name the cap in the picker heading', async () => {
             // given
             signInAs(authState, ['Reviewer']);
