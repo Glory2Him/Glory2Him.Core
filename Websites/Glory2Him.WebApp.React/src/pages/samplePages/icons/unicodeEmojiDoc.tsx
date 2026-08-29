@@ -7,10 +7,16 @@ import { CodeSample, ComponentDoc, DocSection, LiveDemo } from '../components/sh
 // flag-country variants) as a bundled JSON file — data from unicode.org, no network request,
 // no icon library. Emoji are plain text characters, so the whole catalogue is just as
 // enumerable and searchable as the Bootstrap Icons manifest the Icons page reads.
-const allEmoji = emojiGroups.flatMap((group) =>
-    group.emojis.map((entry) => ({ glyph: entry.emoji, name: entry.name, group: group.name })));
+//
+// The whole catalogue renders at once, under its unicode.org group headings: you cannot search
+// for an emoji you do not already know the name of, so browsing has to work without a search
+// term. ~1,900 spans of text is a cheap grid — no virtualisation needed.
+const catalogue = emojiGroups.map((group) => ({
+    name: group.name,
+    emojis: group.emojis.map((entry) => ({ glyph: entry.emoji, name: entry.name }))
+}));
 
-const MAX_UNFILTERED_RESULTS = 150;
+const totalEmojiCount = catalogue.reduce((total, group) => total + group.emojis.length, 0);
 
 const sizeSample = `
 // Emoji are just text, so any font-size utility scales them — no separate asset per size.
@@ -34,12 +40,25 @@ export const UnicodeEmojiDoc = () => {
 
     const [search, setSearch] = useState('');
 
-    const filtered = useMemo(() => {
+    // Groups keep their headings while filtering — a search for "heart" should still say which
+    // of them are smileys and which are symbols. Groups with no match drop out entirely.
+    const filteredGroups = useMemo(() => {
         const term = search.trim().toLowerCase();
-        return term === '' ? allEmoji : allEmoji.filter((entry) => entry.name.includes(term));
+
+        if (term === '') {
+            return catalogue;
+        }
+
+        return catalogue
+            .map((group) => ({
+                name: group.name,
+                emojis: group.emojis.filter((entry) =>
+                    entry.name.includes(term) || group.name.toLowerCase().includes(term))
+            }))
+            .filter((group) => group.emojis.length > 0);
     }, [search]);
 
-    const visible = search.trim() === '' ? filtered.slice(0, MAX_UNFILTERED_RESULTS) : filtered;
+    const matchCount = filteredGroups.reduce((total, group) => total + group.emojis.length, 0);
 
     return (
         <ComponentDoc
@@ -73,7 +92,7 @@ export const UnicodeEmojiDoc = () => {
 
             <DocSection
                 title="Catalogue"
-                lead={`The full set — ${allEmoji.length} emoji from unicode.org. Search narrows the grid; without a search term only the first ${MAX_UNFILTERED_RESULTS} are shown.`}>
+                lead={`Every one of the ${totalEmojiCount} emoji from unicode.org, under its own group heading. Search narrows the grid by emoji name or group name.`}>
                 <LiveDemo>
                     <input
                         type="search"
@@ -82,29 +101,35 @@ export const UnicodeEmojiDoc = () => {
                         value={search}
                         onChange={(event) => setSearch(event.target.value)} />
 
-                    <div className="d-flex flex-wrap gap-3">
-                        {visible.map((entry) => (
-                            <div
-                                key={entry.glyph}
-                                className="text-center border rounded p-2"
-                                style={{ width: '6.5rem' }}
-                                title={entry.group}>
-                                <div className="fs-2" aria-hidden="true">{entry.glyph}</div>
-                                <div className="small text-body-secondary text-truncate">
-                                    {entry.name}
-                                </div>
+                    <p className="small text-body-secondary">
+                        Showing {matchCount} of {totalEmojiCount} emoji.
+                    </p>
+
+                    {filteredGroups.map((group) => (
+                        <section key={group.name} className="mb-4">
+                            <h3 className="h6 text-body-secondary border-bottom pb-2 mb-3">
+                                {group.name}{' '}
+                                <span className="fw-normal">({group.emojis.length})</span>
+                            </h3>
+
+                            <div className="d-flex flex-wrap gap-3">
+                                {group.emojis.map((entry) => (
+                                    <div
+                                        key={entry.glyph}
+                                        className="text-center border rounded p-2"
+                                        style={{ width: '6.5rem' }}
+                                        title={entry.name}>
+                                        <div className="fs-2" aria-hidden="true">{entry.glyph}</div>
+                                        <div className="small text-body-secondary text-truncate">
+                                            {entry.name}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </section>
+                    ))}
 
-                    {filtered.length > visible.length && (
-                        <p className="small text-body-secondary mt-2 mb-0">
-                            {filtered.length - visible.length} more — refine the search to see
-                            them.
-                        </p>
-                    )}
-
-                    {filtered.length === 0 && (
+                    {matchCount === 0 && (
                         <p className="text-body-secondary small mb-0">No matches.</p>
                     )}
                 </LiveDemo>

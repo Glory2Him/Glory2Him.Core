@@ -109,7 +109,8 @@ const samplePagesSection: NavItem = {
             title: "Icons", icon: "bi-emoji-smile", href: "SamplePages/Icons",
             children: [
                 sample("Unicode Emoji", "SamplePages/Icons/UnicodeEmoji"),
-                sample("Icons", "SamplePages/Icons/Icons"),
+                sample("Bootstrap", "SamplePages/Icons/Bootstrap"),
+                sample("Font Awesome", "SamplePages/Icons/FontAwesome"),
             ]
         },
         sample("Dashboard", "SamplePages/Dashboard", "bi-speedometer2"),
