@@ -10,10 +10,13 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
@@ -219,6 +222,142 @@ namespace Glory2Him.WebApp.Controllers.Approvals
                     is LockedApprovalException)
             {
                 return Locked(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
+        /// Who may be invited to review this entity (§16.7.4) — the review tier for it, minus the
+        /// owner, minus anyone who has already reviewed, minus anyone already invited.
+        ///
+        /// <para>A <b>user-enumeration surface</b>, and its posture follows from that: the
+        /// orchestration admits only the requesting tier (§7.9 rule 2), and each candidate carries
+        /// an account id and a display name and nothing else. No role list, no email, no account
+        /// state — a moderator learns only that somebody is invitable, which they would learn
+        /// anyway by inviting them.</para>
+        ///
+        /// <para>Bare <c>[Authorize]</c> for the same reason the verdict carries one: the admitted
+        /// set is matched by SUFFIX across every entity type and content type (§18.6), so no fixed
+        /// <c>Roles = ...</c> list could express it without locking out the scoped tiers and every
+        /// entity type added later.</para>
+        ///
+        /// <para>No <c>Conflict</c> or <c>Locked</c> clause — this performs SELECTs only, and
+        /// every source of a dependency-validation fault beneath it is a write-path one.</para>
+        /// </summary>
+        [HttpGet("{entityType}/{entityId}/ReviewerCandidates")]
+        [Authorize]
+        public async ValueTask<ActionResult<IReadOnlyList<ReviewerCandidate>>>
+            GetReviewerCandidatesAsync(
+                EntityType entityType,
+                Guid entityId,
+                CancellationToken cancellationToken)
+        {
+            try
+            {
+                IReadOnlyList<ReviewerCandidate> reviewerCandidates =
+                    await this.approvalOrchestrationService.RetrieveReviewerCandidatesAsync(
+                        entityType,
+                        entityId,
+                        cancellationToken);
+
+                return Ok(reviewerCandidates);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
+        /// Invites somebody to review this entity (§7.9).
+        ///
+        /// <para><b>A repeat invitation is a 200, not a 409.</b> Rule 4 dissolves it: the standing
+        /// request comes back unchanged. A UI asking twice — a double-click, a retried request —
+        /// is a harmless thing to do, and turning it into an error would make every caller carry
+        /// an existence check the server can make correctly and they cannot.</para>
+        ///
+        /// <para><c>requestedUserId</c> rides the query string rather than a body for the same
+        /// reason the decision's scalars do: it is a value the operation owns outright, and a body
+        /// would invite a caller to restate the entity key twice and let the two disagree.</para>
+        /// </summary>
+        [HttpPost("{entityType}/{entityId}/ReviewRequests")]
+        [Authorize]
+        public async ValueTask<ActionResult<ApprovalReviewRequest>> PostReviewRequestAsync(
+            EntityType entityType,
+            Guid entityId,
+            [FromQuery][BindRequired] string requestedUserId,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                ApprovalReviewRequest approvalReviewRequest =
+                    await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                        entityType,
+                        entityId,
+                        requestedUserId,
+                        cancellationToken);
+
+                return Ok(approvalReviewRequest);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+                when (approvalOrchestrationDependencyValidationException.InnerException
+                    is AlreadyExistsApprovalReviewRequestException)
+            {
+                return Conflict(approvalOrchestrationDependencyValidationException.InnerException);
             }
             catch (ApprovalOrchestrationDependencyValidationException
                 approvalOrchestrationDependencyValidationException)

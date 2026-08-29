@@ -803,7 +803,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             List<string> expectedActions = new List<string>
             {
                 nameof(ApprovalsController.GetApprovalVerdictAsync),
-                nameof(ApprovalsController.PostApprovalDecisionAsync)
+                nameof(ApprovalsController.PostApprovalDecisionAsync),
+                nameof(ApprovalsController.GetReviewerCandidatesAsync),
+                nameof(ApprovalsController.PostReviewRequestAsync)
             };
 
             // When
@@ -830,6 +832,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [Theory]
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
+        [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         public void ActionShouldCarryAuthorizeWithNoFixedRoleList(string actionName)
         {
             // Given
@@ -872,6 +876,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [Theory]
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
+        [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         public void ActionShouldNotAllowAnonymous(string actionName)
         {
             // Given
