@@ -30,6 +30,11 @@ export type ApprovalReviewItem = {
     // an uncast vote has no row, which is why the placeholder is synthesized instead.
     vote: ApprovalStatus;
 
+    // Soft deletion, orthogonal to the verdict - a withdrawn review keeps its row. Excluded from
+    // the panel like a dismissed one, so a projection that has not already filtered deleted rows
+    // away can hand them over safely.
+    isDeleted?: boolean;
+
     // Optional stable key. Prefer it over reviewerUserId whenever the source row has an id.
     id?: string;
 };
@@ -42,6 +47,11 @@ export type ReviewerCandidateItem = {
     userId: string;
     displayName: string;
     userName?: string;
+
+    // Why the picker is suggesting this person - "Recently reviewed this type", and the like.
+    // Presentation only, and the CONSUMER decides it: the panel has no basis for ranking people
+    // and must not invent one. Present only on entries passed as suggestions.
+    suggestionReason?: string;
 };
 
 // One reason approval cannot be granted right now — the client-side shape of

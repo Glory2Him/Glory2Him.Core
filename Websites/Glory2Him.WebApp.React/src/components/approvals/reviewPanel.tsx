@@ -1,4 +1,5 @@
 import { ReactElement, ReactNode, useEffect, useId, useState } from 'react';
+import { Avatar } from '../coreUI/avatar';
 import { useAuth } from '../securitys/authProvider';
 import {
     ApprovalDecision,
@@ -70,6 +71,17 @@ export interface ReviewPanelProps {
     // read, fetched by the CONSUMER (never here) when onReviewerLookupRequested fires. The
     // picker filters the supplied list client-side by name; it never searches the server.
     reviewerCandidateCollection?: ReadonlyArray<ReviewerCandidateItem>;
+
+    // People worth asking first, rendered above everyone else with the CONSUMER's reason on each
+    // ("Recently reviewed this type"). The panel does no ranking of its own: who is a good
+    // reviewer for this item depends on history the panel cannot see, and inventing an order
+    // would quietly become policy.
+    suggestedReviewerCollection?: ReadonlyArray<ReviewerCandidateItem>;
+
+    // How many people may be waiting on at once. Counted on OUTSTANDING invitations, so an
+    // answered request frees its slot.
+    maxReviewerRequests?: number;
+
     isCandidatesLoading?: boolean;
 
     // Fired when the picker opens, so a consumer can fetch (or refresh) the candidate list
@@ -116,7 +128,7 @@ export interface ReviewPanelProps {
     votePlaceholderText?: string;
     approvedText?: string;
     rejectedText?: string;
-    dismissedVoteText?: string;
+
     approveVoteDescription?: string;
     rejectVoteDescription?: string;
     blockedTitleText?: string;
@@ -124,7 +136,13 @@ export interface ReviewPanelProps {
     approvedStatusText?: string;
     rejectedStatusText?: string;
     dismissedStatusText?: string;
-    awaitingReviewText?: string;
+    requestedVoteText?: string;
+    requestedVoteCssClass?: string;
+    pickerTitleText?: string;
+    suggestionsSectionText?: string;
+    requestedSectionText?: string;
+    everyoneElseSectionText?: string;
+    requestCapReachedText?: string;
     requestReviewTooltip?: string;
     candidateFilterPlaceholderText?: string;
     noCandidatesText?: string;
@@ -142,7 +160,7 @@ export interface ReviewPanelProps {
     // ── Theme classes ─────────────────────────────────────────────────────────
     approvedVoteCssClass?: string;
     rejectedVoteCssClass?: string;
-    dismissedVoteCssClass?: string;
+
     uncastVoteCssClass?: string;
     awaitingPillCssClass?: string;
     approvedPillCssClass?: string;
@@ -178,6 +196,8 @@ export function ReviewPanel({
     approvalReviewCollection = [],
     requestedReviewerCollection = [],
     reviewerCandidateCollection = [],
+    suggestedReviewerCollection = [],
+    maxReviewerRequests = 15,
     isCandidatesLoading = false,
     onReviewerLookupRequested,
     onReviewRequested,
@@ -190,7 +210,7 @@ export function ReviewPanel({
     votePlaceholderText = 'Vote...',
     approvedText = 'Approved',
     rejectedText = 'Rejected',
-    dismissedVoteText = 'Dismissed',
+
     approveVoteDescription = 'I am happy with this item',
     rejectVoteDescription = 'I do not think we should approve this item',
     blockedTitleText = 'Approval is blocked',
@@ -198,7 +218,13 @@ export function ReviewPanel({
     approvedStatusText = 'Approved',
     rejectedStatusText = 'Rejected',
     dismissedStatusText = 'Dismissed',
-    awaitingReviewText = 'Awaiting review',
+    requestedVoteText = 'Requested',
+    requestedVoteCssClass = 'btn-warning',
+    pickerTitleText = 'Request up to {max} reviewers',
+    suggestionsSectionText = 'Suggestions',
+    requestedSectionText = 'Requested',
+    everyoneElseSectionText = 'Everyone else',
+    requestCapReachedText = 'Request limit reached. Withdraw one to ask somebody else.',
     requestReviewTooltip = 'Request a review',
     candidateFilterPlaceholderText = 'Filter by name',
     noCandidatesText = 'No eligible reviewers found.',
@@ -214,7 +240,7 @@ export function ReviewPanel({
     emptyText = '',
     approvedVoteCssClass = 'btn-success',
     rejectedVoteCssClass = 'btn-danger',
-    dismissedVoteCssClass = 'btn-outline-secondary',
+
     uncastVoteCssClass = 'btn-secondary',
     awaitingPillCssClass = 'btn-dark',
     approvedPillCssClass = 'btn-success',
@@ -290,23 +316,53 @@ export function ReviewPanel({
         && isSubmitted
         && holdsAnyRole(voteRoleList);
 
-    // The viewer's STANDING review. A dismissed one is deliberately not it: §7.7 rule 7 says the
-    // reviewer files a NEW review once theirs has been dismissed, and rule 2a forbids amending
-    // the dismissed row — so treating it as their current vote would offer an amendment the
-    // server refuses, and would withhold the placeholder they are entitled to.
-    const viewerReview = approvalReviewCollection.find(
-        (item) => item.reviewerUserId.length > 0
-            && item.reviewerUserId === viewerId
-            && item.vote !== ApprovalStatus.Dismissed);
+    // WHAT THIS PANEL IS ABOUT: the round as it stands. Only three states are in scope —
+    // approved, rejected, and pending (someone asked who has not answered). Two kinds of row
+    // are therefore excluded outright rather than styled:
+    //
+    //   Dismissed — dismissal is what HAPPENS to a verdict when the content it judged changes
+    //   (§9.5). The row is retained as evidence that somebody once ruled on superseded text; it
+    //   is not a standing opinion on what is being reviewed now, and showing it would invite a
+    //   publisher to count it.
+    //
+    //   Soft-deleted — a withdrawn review keeps its row, and a withdrawn opinion is no opinion.
+    //
+    // Filtering here rather than at each use site is deliberate: every derived list below reads
+    // from this one, so nothing downstream can accidentally reintroduce a row that is out of
+    // scope. A consumer whose projection already filters can leave isDeleted unset.
+    const visibleReviews = approvalReviewCollection.filter(
+        (item) => item.isDeleted !== true && item.vote !== ApprovalStatus.Dismissed);
 
-    // Matched on the id rather than on object identity, so the viewer's own dismissed review is
-    // not repeated below their control row. Somebody ELSE's dismissed review still lists, which
-    // is the point of retaining it (§9.5).
-    const otherReviews = approvalReviewCollection
+    const viewerReview = visibleReviews.find(
+        (item) => item.reviewerUserId.length > 0 && item.reviewerUserId === viewerId);
+
+    // A vote SUPERSEDES an outstanding request: once somebody answers, the invitation is spent
+    // (§7.9 rule 6 retires it server-side), and rendering both would show one person twice.
+    const pendingRequests = requestedReviewerCollection.filter(
+        (candidate) => candidate.userId !== viewerId
+            && visibleReviews.every((item) => item.reviewerUserId !== candidate.userId));
+
+    // Votes and outstanding requests share ONE alphabetical list rather than sitting in separate
+    // blocks. A reader is asking "where does this round stand?", and that question is answered
+    // per person — so a name keeps its place whether or not the answer has arrived yet.
+    const otherRows = visibleReviews
         .filter((item) => item.reviewerUserId !== viewerId)
-        .slice()
-        .sort((left, right) => left.reviewerDisplayName.localeCompare(
-            right.reviewerDisplayName, undefined, { sensitivity: 'base' }));
+        .map((item) => ({
+            key: item.id ?? item.reviewerUserId,
+            userId: item.reviewerUserId,
+            displayName: item.reviewerDisplayName,
+            vote: item.vote as ApprovalStatus | undefined,
+            candidate: undefined as ReviewerCandidateItem | undefined,
+        }))
+        .concat(pendingRequests.map((candidate) => ({
+            key: `requested-${candidate.userId}`,
+            userId: candidate.userId,
+            displayName: candidate.displayName,
+            vote: undefined as ApprovalStatus | undefined,
+            candidate: candidate as ReviewerCandidateItem | undefined,
+        })))
+        .sort((left, right) => left.displayName.localeCompare(
+            right.displayName, undefined, { sensitivity: 'base' }));
 
     // The viewer's row leads even before they vote: an eligible reviewer with no ApprovalReview
     // row yet gets a synthesized placeholder, because "you have not voted" is the one state the
@@ -388,24 +444,55 @@ export function ReviewPanel({
         }
     };
 
+    // Requesting somebody. The picker STAYS OPEN: assigning several reviewers is one task, and
+    // closing after each pick would make the common case four round trips through the cog.
     const requestReview = (candidate: ReviewerCandidateItem) => {
-        setIsPickerOpen(false);
         onReviewRequested?.(candidate);
     };
 
-    const filteredCandidates = reviewerCandidateCollection.filter((candidate) => {
+    const withdrawRequest = (candidate: ReviewerCandidateItem) => {
+        onReviewRequestWithdrawn?.(candidate);
+    };
+
+    const matchesFilter = (candidate: ReviewerCandidateItem): boolean => {
         const filter = candidateFilter.trim().toLowerCase();
 
         return filter.length === 0
             || candidate.displayName.toLowerCase().includes(filter)
             || (candidate.userName ?? '').toLowerCase().includes(filter);
-    });
+    };
 
-    // One person, one row: the viewer's own request renders nowhere — their row is already the
-    // vote dropdown, which is the invitation answered.
-    const requestedRows = requestedReviewerCollection.filter(
-        (candidate) => candidate.userId !== viewerId);
+    const requestedUserIds = new Set(
+        requestedReviewerCollection.map((candidate) => candidate.userId));
 
+    const votedUserIds = new Set(visibleReviews.map((item) => item.reviewerUserId));
+
+    // The picker's three sections. NOBODY is filtered out of it — a person already assigned
+    // stays listed, ticked, so that searching for them finds them and answers "why is this
+    // person not here?" before it is asked. What differs between the sections is what a click
+    // MEANS, and whether there is one at all.
+    const suggestionRows = suggestedReviewerCollection.filter(matchesFilter);
+
+    const requestedPickerRows = requestedReviewerCollection.filter(matchesFilter);
+
+    // Everyone else, with the already-voted at the top so the assigned reader sees them first.
+    // The two groups keep the order the consumer supplied within themselves; only the split is
+    // the panel's doing.
+    const everyoneElseRows = reviewerCandidateCollection
+        .filter((candidate) =>
+            matchesFilter(candidate) && requestedUserIds.has(candidate.userId) === false)
+        .slice()
+        .sort((left, right) => {
+            const leftVoted = votedUserIds.has(left.userId) ? 0 : 1;
+            const rightVoted = votedUserIds.has(right.userId) ? 0 : 1;
+
+            return leftVoted - rightVoted;
+        });
+
+    // "Request up to N reviewers". Counted on OUTSTANDING invitations rather than on everybody
+    // who has ever been asked, because a request that has been answered is no longer occupying a
+    // slot — the cap limits how many people are being waited on at once.
+    const isAtRequestCap = requestedReviewerCollection.length >= maxReviewerRequests;
     const chooseDecision = (decision: ApprovalDecision) => {
         setIsDecisionMenuOpen(false);
         setSelectedDecision(decision);
@@ -422,28 +509,14 @@ export function ReviewPanel({
             isBypassApprove ? bypassReason.trim() : '');
     };
 
-    // Dismissed is named explicitly rather than folded in with rejection. A dismissed review is
-    // what HAPPENS to a verdict when the content it judged changes (§9.5): it is retained as
-    // evidence, and it is neither a withdrawal nor a refusal. Collapsing it into "Rejected"
-    // prints a rejection the reviewer never made — and a publisher reads it as one while the
-    // verdict carries no blocking-rejection reason at all.
-    const voteBadgeCssClass = (vote: ApprovalStatus): string => {
-        if (vote === ApprovalStatus.Approved) {
-            return approvedVoteCssClass;
-        }
+    // Only two verdicts ever reach a badge. Dismissed and soft-deleted rows were removed from
+    // visibleReviews above rather than styled here, because they are not opinions on the round
+    // as it stands — see the note there.
+    const voteBadgeCssClass = (vote: ApprovalStatus): string =>
+        vote === ApprovalStatus.Approved ? approvedVoteCssClass : rejectedVoteCssClass;
 
-        return vote === ApprovalStatus.Dismissed
-            ? dismissedVoteCssClass
-            : rejectedVoteCssClass;
-    };
-
-    const voteBadgeText = (vote: ApprovalStatus): string => {
-        if (vote === ApprovalStatus.Approved) {
-            return approvedText;
-        }
-
-        return vote === ApprovalStatus.Dismissed ? dismissedVoteText : rejectedText;
-    };
+    const voteBadgeText = (vote: ApprovalStatus): string =>
+        vote === ApprovalStatus.Approved ? approvedText : rejectedText;
 
     const statusPill = (): { text: string; pillCssClass: string; iconCssClass: string } => {
         if (approvalStatus === ApprovalStatus.Approved) {
@@ -545,6 +618,105 @@ export function ReviewPanel({
         );
     };
 
+    // One row of the picker. What a click MEANS is the only thing that differs between the three
+    // sections, and each is a rule from §7.9 rather than a UI preference:
+    //
+    //   suggestion / everyone-with-no-vote -> request them (rule 2: coordination is open to the
+    //   whole review tier)
+    //
+    //   requested -> withdraw (rule 5). This is the ONLY route to unassigning somebody, which is
+    //   why the requested section exists as its own group rather than as ticks in the main list.
+    //
+    //   everyone-who-has-voted -> nothing at all. A cast verdict is theirs (§8.6.1, owner-only),
+    //   so there is no "unassign" to offer; the row is rendered ticked and inert rather than
+    //   hidden, so that searching for the person finds them and answers "why are they missing?"
+    //   before it is asked.
+    const renderPickerRow = (
+        candidate: ReviewerCandidateItem,
+        kind: 'suggestion' | 'requested' | 'everyone'
+    ): ReactElement => {
+        const hasVoted = votedUserIds.has(candidate.userId);
+        const isTicked = kind === 'requested' || hasVoted;
+        const isInert = kind === 'everyone' && hasVoted;
+
+        // The cap stops new invitations, never withdrawals — otherwise reaching the limit would
+        // trap the round with no way to free a slot.
+        const isBlockedByCap = isAtRequestCap && kind !== 'requested' && hasVoted === false;
+        const isDisabled = isInert || isBlockedByCap;
+
+        const onClick = () => {
+            if (kind === 'requested') {
+                withdrawRequest(candidate);
+
+                return;
+            }
+
+            requestReview(candidate);
+        };
+
+        // A visually-hidden hint rather than an aria-label. An aria-label REPLACES the accessible
+        // name, so the button would announce as "Request a review: Mary" while reading "mary.a
+        // Mary Adeyemi" on screen - the mismatch WCAG 2.5.3 exists to stop, and one that breaks
+        // voice control. Appending keeps the visible text in the name and still says what a
+        // click will do.
+        const actionHint = isInert
+            ? 'has already reviewed'
+            : isBlockedByCap
+                ? 'request limit reached'
+                : kind === 'requested'
+                    ? withdrawRequestTooltip
+                    : requestReviewTooltip;
+
+        return (
+            <button
+                key={`${kind}-${candidate.userId}`}
+                type="button"
+                className="dropdown-item d-flex align-items-center gap-2 g2h-review-picker-row"
+                disabled={isDisabled}
+                aria-pressed={isTicked}
+                onClick={onClick}>
+                <span className="g2h-review-picker-tick" aria-hidden="true">
+                    {isTicked && <i className="bi bi-check"></i>}
+                </span>
+
+                <Avatar name={candidate.displayName} sizePx={28} />
+
+                <span className="text-truncate">
+                    <span className="fw-semibold">
+                        {candidate.userName ?? candidate.displayName}
+                    </span>
+
+                    {candidate.userName != null && (
+                        <span className="text-muted ms-1">{candidate.displayName}</span>
+                    )}
+
+                    {candidate.suggestionReason != null
+                        && candidate.suggestionReason.length > 0 && (
+                        <small className="text-muted d-block">
+                            {candidate.suggestionReason}
+                        </small>
+                    )}
+                </span>
+
+                <span className="visually-hidden">{actionHint}</span>
+            </button>
+        );
+    };
+
+    const renderPickerSection = (
+        title: string,
+        rows: ReadonlyArray<ReviewerCandidateItem>,
+        kind: 'suggestion' | 'requested' | 'everyone'
+    ): ReactNode => rows.length === 0 ? null : (
+        <div className="g2h-review-picker-section">
+            <p className="g2h-review-picker-section-title small fw-bold mb-0 px-3 py-1">
+                {title}
+            </p>
+
+            {rows.map((candidate) => renderPickerRow(candidate, kind))}
+        </div>
+    );
+
     const renderReviewRow = (name: string, control: ReactNode, key: string): ReactElement => (
         <div
             key={key}
@@ -602,29 +774,50 @@ export function ReviewPanel({
                         </button>
 
                         {isPickerOpen && (
-                            <div className="dropdown-menu dropdown-menu-end show shadow p-2 g2h-review-candidate-picker">
-                                <input
-                                    type="text"
-                                    className="form-control form-control-sm mb-2"
-                                    placeholder={candidateFilterPlaceholderText}
-                                    aria-label={candidateFilterPlaceholderText}
-                                    value={candidateFilter}
-                                    onChange={(event) => setCandidateFilter(event.target.value)} />
+                            <div className="dropdown-menu dropdown-menu-end show shadow p-0 g2h-review-candidate-picker">
+                                <div className="g2h-review-picker-head px-3 pt-3 pb-2">
+                                    <p className="fw-bold small mb-2">
+                                        {pickerTitleText.replace(
+                                            '{max}', String(maxReviewerRequests))}
+                                    </p>
+
+                                    <input
+                                        type="text"
+                                        className="form-control form-control-sm"
+                                        placeholder={candidateFilterPlaceholderText}
+                                        aria-label={candidateFilterPlaceholderText}
+                                        value={candidateFilter}
+                                        onChange={(event) =>
+                                            setCandidateFilter(event.target.value)} />
+
+                                    {isAtRequestCap && (
+                                        <p className="small text-warning-emphasis mb-0 mt-2">
+                                            {requestCapReachedText}
+                                        </p>
+                                    )}
+                                </div>
 
                                 {isCandidatesLoading ? (
-                                    <p className="small text-muted mb-0 px-1">Loading…</p>
-                                ) : filteredCandidates.length === 0 ? (
-                                    <p className="small text-muted mb-0 px-1">{noCandidatesText}</p>
+                                    <p className="small text-muted mb-0 px-3 py-2">Loading…</p>
                                 ) : (
-                                    filteredCandidates.map((candidate) => (
-                                        <button
-                                            key={candidate.userId}
-                                            type="button"
-                                            className="dropdown-item"
-                                            onClick={() => requestReview(candidate)}>
-                                            {candidate.displayName}
-                                        </button>
-                                    ))
+                                    <div className="g2h-review-picker-list">
+                                        {renderPickerSection(
+                                            suggestionsSectionText, suggestionRows, 'suggestion')}
+
+                                        {renderPickerSection(
+                                            requestedSectionText, requestedPickerRows, 'requested')}
+
+                                        {renderPickerSection(
+                                            everyoneElseSectionText, everyoneElseRows, 'everyone')}
+
+                                        {suggestionRows.length === 0
+                                            && requestedPickerRows.length === 0
+                                            && everyoneElseRows.length === 0 && (
+                                            <p className="small text-muted mb-0 px-3 py-2">
+                                                {noCandidatesText}
+                                            </p>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}
@@ -638,36 +831,24 @@ export function ReviewPanel({
                 <div className="mb-4">
                     {renderedViewerRow}
 
-                    {otherReviews.map((item) => renderReviewRow(
-                        item.reviewerDisplayName,
-                        <span className={`btn btn-sm ${voteBadgeCssClass(item.vote)} g2h-review-vote-badge mb-0`}>
-                            {voteBadgeText(item.vote)}
-                        </span>,
-                        item.id ?? item.reviewerUserId))}
-
-                    {requestedRows.map((candidate) => renderReviewRow(
-                        candidate.displayName,
-                        <span className="d-inline-flex align-items-center gap-1">
-                            <span className="btn btn-sm btn-outline-secondary g2h-review-vote-badge mb-0">
-                                {awaitingReviewText}
+                    {otherRows.map((row) => renderReviewRow(
+                        row.displayName,
+                        row.vote != null ? (
+                            <span className={`btn btn-sm ${voteBadgeCssClass(row.vote)} g2h-review-vote-badge mb-0`}>
+                                {voteBadgeText(row.vote)}
                             </span>
-
-                            {mayRequest && (
-                                <button
-                                    type="button"
-                                    className="btn btn-sm btn-link text-danger p-0 ms-1"
-                                    title={withdrawRequestTooltip}
-                                    aria-label={`${withdrawRequestTooltip} ${candidate.displayName}`}
-                                    onClick={() => onReviewRequestWithdrawn?.(candidate)}>
-                                    <i className="bi bi-x-lg" aria-hidden="true"></i>
-                                </button>
-                            )}
-                        </span>,
-                        `requested-${candidate.userId}`))}
+                        ) : (
+                            // Asked and not yet answered. A warning chip rather than a muted one:
+                            // an outstanding request is the round waiting on somebody, which is
+                            // the thing a publisher is deciding whether to keep waiting for.
+                            <span className={`btn btn-sm ${requestedVoteCssClass} g2h-review-vote-badge mb-0`}>
+                                {requestedVoteText}
+                            </span>
+                        ),
+                        row.key))}
 
                     {renderedViewerRow == null
-                        && otherReviews.length === 0
-                        && requestedRows.length === 0
+                        && otherRows.length === 0
                         && emptyText.length > 0
                         && <p className="small text-muted mb-0">{emptyText}</p>}
                 </div>

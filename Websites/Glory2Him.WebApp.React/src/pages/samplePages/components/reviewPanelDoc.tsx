@@ -95,6 +95,19 @@ const mary: ReviewerCandidateItem = {
     userName: 'mary.a'
 };
 
+const christo: ReviewerCandidateItem = {
+    userId: 'user-christo',
+    displayName: 'Christo du Toit',
+    userName: 'cjdutoit',
+    suggestionReason: 'Recently reviewed this type'
+};
+
+const johnCandidate: ReviewerCandidateItem = {
+    userId: 'user-john',
+    displayName: 'John',
+    userName: 'john.b'
+};
+
 const paul: ReviewerCandidateItem = {
     userId: 'user-paul',
     displayName: 'Paul Nkemdirim',
@@ -174,14 +187,31 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'requestedReviewerCollection',
         type: 'ReviewerCandidateItem[]',
-        description: 'Pending ApprovalReviewRequest rows (§7.9), rendered as “Awaiting review”. '
-            + 'The signed-in viewer is excluded — their own row is already the vote control.'
+        description: 'Pending ApprovalReviewRequest rows (\u00a77.9), rendered with a warning-'
+            + 'coloured \u201cRequested\u201d chip in the SAME alphabetical list as the votes. A '
+            + 'vote supersedes a request, and the signed-in viewer is excluded \u2014 their own '
+            + 'row is already the vote control.'
     },
     {
         name: 'reviewerCandidateCollection',
         type: 'ReviewerCandidateItem[]',
-        description: 'Who the cog\u2019s picker offers. Fetched by the CONSUMER when '
-            + 'onReviewerLookupRequested fires; the picker filters this list client-side.'
+        description: 'Everyone the cog\u2019s picker can offer, fetched by the CONSUMER when '
+            + 'onReviewerLookupRequested fires. Nobody is filtered out of it: people who have '
+            + 'already voted stay listed, ticked and inert, so a search finds them.'
+    },
+    {
+        name: 'suggestedReviewerCollection',
+        type: 'ReviewerCandidateItem[]',
+        description: 'Worth asking first, shown above everyone else with each entry\u2019s own '
+            + 'suggestionReason. The panel does no ranking \u2014 who suits this item depends on '
+            + 'history it cannot see, and inventing an order would quietly become policy.'
+    },
+    {
+        name: 'maxReviewerRequests',
+        type: 'number',
+        description: 'How many people may be waited on at once; names the picker heading and '
+            + 'stops new requests at the limit. Counted on OUTSTANDING invitations, so an '
+            + 'answered one frees its slot. Withdrawal is never blocked. Default 15.'
     },
     {
         name: 'onReviewStatusChanged',
@@ -344,7 +374,8 @@ export function ReviewPanelDoc() {
                         approvalStatus={ApprovalStatus.Submitted}
                         approvalReviewCollection={[john, susan]}
                         requestedReviewerCollection={[mary]}
-                        reviewerCandidateCollection={[mary, paul]}
+                        reviewerCandidateCollection={[johnCandidate, mary, paul]}
+                        suggestedReviewerCollection={[christo]}
                         approvalVerdict={blockedVerdict}
                         onApprovalStatusChanged={describeDecision}
                         onReviewStatusChanged={(vote) =>
@@ -405,6 +436,71 @@ export function ReviewPanelDoc() {
                         approvalReviewCollection={[john, susan]}
                         showBorder={true} />
                 </LiveDemo>
+            </DocSection>
+
+            <DocSection
+                title="The request picker"
+                lead={
+                    <>
+                        The cog assigns reviewers. Its three sections differ in one thing &mdash;
+                        what a click <em>means</em> &mdash; and each rule comes from &sect;7.9
+                        rather than from taste.
+                    </>
+                }>
+                <ul className="small">
+                    <li>
+                        <strong>Suggestions</strong> &mdash; worth asking first, each with the
+                        consumer&rsquo;s own reason. Clicking requests them.
+                    </li>
+                    <li>
+                        <strong>Requested</strong> &mdash; asked and not yet answered, shown
+                        ticked. Clicking <strong>withdraws</strong>. This is the only route to
+                        unassigning somebody (&sect;7.9 rule 5).
+                    </li>
+                    <li>
+                        <strong>Everyone else</strong> &mdash; people who have already voted sit
+                        at the top, ticked and <strong>inert</strong>: a cast verdict is theirs
+                        (&sect;8.6.1 is owner-only), so there is no unassign to offer. Everyone
+                        below them is clickable and gets requested.
+                    </li>
+                </ul>
+
+                <p className="small text-body-secondary">
+                    <strong>Nobody is filtered out of the picker.</strong> An assigned person
+                    stays listed and ticked rather than disappearing, so searching for them finds
+                    them &mdash; and answers &ldquo;why is this person not here?&rdquo; before it
+                    is asked. The picker also stays open after a pick, because assigning several
+                    reviewers is one task.
+                </p>
+
+                <p className="small text-body-secondary">
+                    <code>maxReviewerRequests</code> caps how many people are waited on at once
+                    and names the heading. At the cap new requests stop, but{' '}
+                    <strong>withdrawal never does</strong> &mdash; otherwise reaching the limit
+                    would trap the round with no way to free a slot.
+                </p>
+            </DocSection>
+
+            <DocSection
+                title="What the panel shows, and what it leaves out"
+                lead={
+                    <>
+                        Three states are in scope: approved, rejected, and pending. Votes and
+                        outstanding requests share <em>one</em> alphabetical list with the viewer
+                        first, because a reader asks &ldquo;where does this round stand?&rdquo;
+                        per person &mdash; so a name keeps its place whether or not the answer has
+                        arrived.
+                    </>
+                }>
+                <p className="small text-body-secondary">
+                    Two kinds of row are excluded outright rather than styled.{' '}
+                    <strong>Dismissed</strong> verdicts describe content that has since changed
+                    (&sect;9.5): the row is kept as evidence that somebody once ruled on
+                    superseded text, not as a standing opinion, and showing it would invite a
+                    publisher to count it. <strong>Soft-deleted</strong> reviews are withdrawn,
+                    and a withdrawn opinion is no opinion. A vote also supersedes an outstanding
+                    request, so nobody is listed twice.
+                </p>
             </DocSection>
 
             <DocSection

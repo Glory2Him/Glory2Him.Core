@@ -292,7 +292,7 @@ describe('ReviewPanel', () => {
 
             // then
             expect(screen.getByText('Mary')).toBeInTheDocument();
-            expect(screen.getByText('Awaiting review')).toBeInTheDocument();
+            expect(screen.getByText('Requested')).toBeInTheDocument();
         });
 
         it('should not render the viewer among the requested rows', () => {
@@ -311,7 +311,7 @@ describe('ReviewPanel', () => {
 
             // then
             expect(rowNames()).toEqual(['Tester', 'Mary']);
-            expect(screen.getAllByText('Awaiting review')).toHaveLength(1);
+            expect(screen.getAllByText('Requested')).toHaveLength(1);
         });
 
         it('should render the loading text instead of the review rows while loading', () => {
@@ -399,8 +399,8 @@ describe('ReviewPanel', () => {
 
             // then
             expect(onReviewerLookupRequested).toHaveBeenCalledTimes(1);
-            expect(screen.getByRole('button', { name: 'Mary' })).toBeInTheDocument();
-            expect(screen.getByRole('button', { name: 'Paul' })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /Mary/ })).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /Paul/ })).toBeInTheDocument();
         });
 
         it('should show the loading text in the picker while candidates load', async () => {
@@ -437,19 +437,21 @@ describe('ReviewPanel', () => {
             await userEvent.type(filterBox, 'mar');
 
             // then
-            expect(screen.getByRole('button', { name: 'Mary' })).toBeInTheDocument();
-            expect(screen.queryByRole('button', { name: 'Paul' })).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /Mary/ })).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /Paul/ })).not.toBeInTheDocument();
 
             // when — by username
             await userEvent.clear(filterBox);
             await userEvent.type(filterBox, 'paul.p');
 
             // then
-            expect(screen.getByRole('button', { name: 'Paul' })).toBeInTheDocument();
-            expect(screen.queryByRole('button', { name: 'Mary' })).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /Paul/ })).toBeInTheDocument();
+            expect(screen.queryByRole('button', { name: /Mary/ })).not.toBeInTheDocument();
         });
 
-        it('should raise onReviewRequested with the candidate and close the picker', async () => {
+        /// The picker deliberately STAYS OPEN after a pick: assigning several reviewers is one
+        /// task, and closing after each would make the common case four trips through the cog.
+        it('should raise onReviewRequested and keep the picker open', async () => {
             // given
             signInAs(authState, ['Reviewer']);
             const onReviewRequested = vi.fn();
@@ -463,15 +465,17 @@ describe('ReviewPanel', () => {
 
             // when
             await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
-            await userEvent.click(screen.getByRole('button', { name: 'Mary' }));
+            await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
 
             // then
             expect(onReviewRequested).toHaveBeenCalledTimes(1);
             expect(onReviewRequested).toHaveBeenCalledWith(mary);
-            expect(screen.queryByRole('button', { name: 'Paul' })).not.toBeInTheDocument();
+            expect(screen.getByRole('button', { name: /Paul/ })).toBeInTheDocument();
         });
 
-        it('should raise onReviewRequestWithdrawn from a requested row\'s withdraw control', async () => {
+        /// Unassigning happens ONLY through the picker's Requested section (§7.9 rule 5). There
+        /// is no inline control on the row, so the one route is the one place the rule lives.
+        it('should withdraw a request when its Requested row is picked', async () => {
             // given
             signInAs(authState, ['Reviewer']);
             const onReviewRequestWithdrawn = vi.fn();
@@ -481,18 +485,83 @@ describe('ReviewPanel', () => {
                     entityType="ContentItem"
                     approvalStatus={ApprovalStatus.Submitted}
                     requestedReviewerCollection={[mary]}
+                    reviewerCandidateCollection={[mary, paul]}
                     onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
 
             // when
-            await userEvent.click(
-                screen.getByRole('button', { name: 'Withdraw review request Mary' }));
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+            await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
 
             // then
             expect(onReviewRequestWithdrawn).toHaveBeenCalledTimes(1);
             expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(mary);
         });
 
-        it('should not offer the withdraw control to a roleless reader', () => {
+        /// A requested person is NOT filtered out of the picker - they move into the Requested
+        /// section. Filtering them away would leave a searcher wondering why the person is
+        /// missing, which is the question the ticks exist to answer.
+        it('should list a requested person once, in the Requested section', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    requestedReviewerCollection={[mary]}
+                    reviewerCandidateCollection={[mary, paul]} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // then
+            const maryRows = screen.getAllByRole('button', { name: /Mary/ });
+            expect(maryRows).toHaveLength(1);
+
+            // ticked, which is how the picker says "already assigned"
+            expect(maryRows[0]).toHaveAttribute('aria-pressed', 'true');
+            expect(maryRows[0]).toBeEnabled();
+            expect(screen.getByText('Everyone else')).toBeInTheDocument();
+        });
+
+        /// Somebody who has already voted stays listed, ticked and INERT. A cast verdict is
+        /// theirs (§8.6.1 owner-only), so there is no unassign to offer - but hiding them would
+        /// make a search for them come back empty.
+        it('should list a voter as ticked and refuse to act on a click', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+            const onReviewRequested = vi.fn();
+            const onReviewRequestWithdrawn = vi.fn();
+
+            const voted: ApprovalReviewItem = {
+                reviewerUserId: mary.userId,
+                reviewerDisplayName: mary.displayName,
+                vote: ApprovalStatus.Approved
+            };
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[voted]}
+                    reviewerCandidateCollection={[mary, paul]}
+                    onReviewRequested={onReviewRequested}
+                    onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            const maryRow = screen.getByRole('button', { name: /Mary/ });
+            await userEvent.click(maryRow);
+
+            // then
+            expect(maryRow).toBeDisabled();
+            expect(maryRow).toHaveAttribute('aria-pressed', 'true');
+            expect(onReviewRequested).not.toHaveBeenCalled();
+            expect(onReviewRequestWithdrawn).not.toHaveBeenCalled();
+        });
+
+        it('should not offer the cog to a roleless reader', () => {
             // given
             signInAs(authState, ['Users']);
 
@@ -503,10 +572,10 @@ describe('ReviewPanel', () => {
                     approvalStatus={ApprovalStatus.Submitted}
                     requestedReviewerCollection={[mary]} />);
 
-            // then — the row still renders; only the control is withheld
+            // then — the row still renders; only the way to change it is withheld
             expect(screen.getByText('Mary')).toBeInTheDocument();
 
-            expect(screen.queryByRole('button', { name: 'Withdraw review request Mary' }))
+            expect(screen.queryByRole('button', { name: 'Request a review' }))
                 .not.toBeInTheDocument();
         });
     });
@@ -895,12 +964,12 @@ describe('ReviewPanel', () => {
         });
     });
 
-    describe('dismissed reviews', () => {
-        /// A dismissed review is what HAPPENS to a verdict when the content it judged changes
-        /// (§9.5) - retained as evidence, and neither a withdrawal nor a refusal. Rendering it
-        /// as "Rejected" prints a rejection the reviewer never made, and a publisher reads it as
-        /// one while the verdict carries no blocking-rejection reason at all.
-        it('should render another reviewer\u2019s dismissed review as dismissed, not rejected', () => {
+    describe('out-of-scope rows', () => {
+        /// This panel shows the round AS IT STANDS: approved, rejected, and pending. A dismissed
+        /// verdict describes content that has since changed (§9.5) - it is kept as evidence, not
+        /// as a standing opinion - so it is excluded outright rather than badged. Rendering it
+        /// would invite a publisher to count an opinion nobody currently holds.
+        it('should exclude a dismissed review entirely', () => {
             // given
             signInAs(authState, ['Publisher']);
 
@@ -915,15 +984,43 @@ describe('ReviewPanel', () => {
                 <ReviewPanel
                     entityType="ContentItem"
                     approvalStatus={ApprovalStatus.Submitted}
-                    approvalReviewCollection={[dismissed]} />);
+                    approvalReviewCollection={[dismissed, johnApproved]}
+                    voteRoles="" />);
 
             // then
-            expect(screen.getByText('Dismissed')).toBeInTheDocument();
-            expect(screen.queryByText('Rejected')).not.toBeInTheDocument();
+            expect(screen.queryByText('Jane')).not.toBeInTheDocument();
+            expect(screen.queryByText('Dismissed')).not.toBeInTheDocument();
+            expect(screen.getByText('John')).toBeInTheDocument();
+            expect(rowNames()).toEqual(['John']);
+        });
+
+        /// A withdrawn review keeps its row, and a withdrawn opinion is no opinion.
+        it('should exclude a soft-deleted review entirely', () => {
+            // given
+            signInAs(authState, ['Publisher']);
+
+            const withdrawn: ApprovalReviewItem = {
+                reviewerUserId: 'user-jane',
+                reviewerDisplayName: 'Jane',
+                vote: ApprovalStatus.Approved,
+                isDeleted: true
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[withdrawn, johnApproved]}
+                    voteRoles="" />);
+
+            // then
+            expect(screen.queryByText('Jane')).not.toBeInTheDocument();
+            expect(rowNames()).toEqual(['John']);
         });
 
         /// §7.7 rule 7: the reviewer files a NEW review once theirs has been dismissed, and rule
-        /// 2a forbids amending the dismissed row. So the viewer must get the placeholder rather
+        /// 2a forbids amending the dismissed row. Excluding it gives them the placeholder rather
         /// than a dropdown labelled with a verdict they can no longer amend.
         it('should offer the vote placeholder to a viewer whose own review was dismissed', () => {
             // given
@@ -944,14 +1041,12 @@ describe('ReviewPanel', () => {
 
             // then
             expect(screen.getByRole('button', { name: 'Vote...' })).toBeInTheDocument();
-
-            // and their dismissed row is not repeated below the control
-            expect(screen.queryByText('Dismissed')).not.toBeInTheDocument();
             expect(rowNames()).toEqual(['Tester']);
         });
 
-        it('should keep a standing vote when another reviewer\u2019s review is dismissed', () => {
-            // given: dismissal is per-review, so one being dismissed must not disturb another
+        /// Dismissal is per-review, so one being dismissed must not disturb another.
+        it('should keep the standing votes when one review is dismissed', () => {
+            // given
             signInAs(authState, ['Reviewer']);
 
             const janeDismissed: ApprovalReviewItem = {
@@ -968,10 +1063,140 @@ describe('ReviewPanel', () => {
                     approvalReviewCollection={[janeDismissed, viewerRejected, johnApproved]} />);
 
             // then
-            expect(rowNames()).toEqual(['Tester', 'Jane', 'John']);
+            expect(rowNames()).toEqual(['Tester', 'John']);
             expect(screen.getByRole('button', { name: 'Rejected' })).toBeInTheDocument();
-            expect(screen.getByText('Dismissed')).toBeInTheDocument();
             expect(screen.getByText('Approved')).toBeInTheDocument();
+        });
+
+        /// A vote SUPERSEDES an outstanding request. Once somebody answers, the invitation is
+        /// spent (§7.9 rule 6 retires it server-side) and showing both would list one person
+        /// twice - once as an answer and once as a question.
+        it('should drop a request once its target has voted', () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            const johnRequested: ReviewerCandidateItem = {
+                userId: johnApproved.reviewerUserId,
+                displayName: 'John'
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[johnApproved]}
+                    requestedReviewerCollection={[johnRequested, mary]} />);
+
+            // then
+            expect(rowNames()).toEqual(['Tester', 'John', 'Mary']);
+            expect(screen.getByText('Approved')).toBeInTheDocument();
+            expect(screen.getAllByText('Requested')).toHaveLength(1);
+        });
+
+        /// Votes and outstanding requests share one alphabetical list, viewer first - a reader
+        /// asks "where does this round stand?" per person, so a name keeps its place whether or
+        /// not the answer has arrived.
+        it('should sort requests and votes into one alphabetical list', () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            const bill: ReviewerCandidateItem = {
+                userId: 'user-bill',
+                displayName: 'BillWoodNHS'
+            };
+
+            // when
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[viewerRejected, johnApproved, susanApproved]}
+                    requestedReviewerCollection={[bill]} />);
+
+            // then
+            expect(rowNames()).toEqual(['Tester', 'BillWoodNHS', 'John', 'Susan']);
+        });
+    });
+
+    describe('picker sections and the request cap', () => {
+        /// The panel does no ranking of its own - who is worth asking depends on history it
+        /// cannot see - so suggestions and their reasons come from the consumer.
+        it('should render supplied suggestions with their reason', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            const suggested: ReviewerCandidateItem = {
+                userId: 'user-christo',
+                displayName: 'Christo du Toit',
+                userName: 'cjdutoit',
+                suggestionReason: 'Recently reviewed this type'
+            };
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    suggestedReviewerCollection={[suggested]}
+                    reviewerCandidateCollection={[mary]} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // then
+            expect(screen.getByText('Suggestions')).toBeInTheDocument();
+            expect(screen.getByText('Recently reviewed this type')).toBeInTheDocument();
+        });
+
+        it('should name the cap in the picker heading', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary]}
+                    maxReviewerRequests={3} />);
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // then
+            expect(screen.getByText('Request up to 3 reviewers')).toBeInTheDocument();
+        });
+
+        /// At the cap, NEW invitations stop but withdrawals must not - otherwise reaching the
+        /// limit would trap the round with no way to free a slot.
+        it('should stop new requests at the cap while leaving withdrawal available', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+            const onReviewRequested = vi.fn();
+            const onReviewRequestWithdrawn = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    requestedReviewerCollection={[mary]}
+                    reviewerCandidateCollection={[mary, paul]}
+                    maxReviewerRequests={1}
+                    onReviewRequested={onReviewRequested}
+                    onReviewRequestWithdrawn={onReviewRequestWithdrawn} />);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // when: Paul is un-requested and the cap is reached
+            const paulRow = screen.getByRole('button', { name: /Paul/ });
+            await userEvent.click(paulRow);
+
+            // then
+            expect(paulRow).toBeDisabled();
+            expect(onReviewRequested).not.toHaveBeenCalled();
+
+            // and the standing request can still be withdrawn to free the slot
+            await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+            expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(mary);
         });
     });
 });
