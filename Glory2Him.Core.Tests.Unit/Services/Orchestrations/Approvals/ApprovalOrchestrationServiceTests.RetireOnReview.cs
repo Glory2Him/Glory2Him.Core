@@ -18,6 +18,8 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Securities;
 using Moq;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
+using Xeptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
@@ -171,6 +173,80 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 service.RetireAnsweredApprovalReviewRequestAsync(
                     It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
                 Times.Never);
+        }
+
+        /// <summary>
+        /// Retiring the invitation is bookkeeping; re-testing the round is the workflow. A
+        /// failure in the first must not cancel the second, or a vote that carried a round over
+        /// the line is counted by nothing and the item sits blocked with its conditions provably
+        /// met. Nothing re-drives it afterwards, so the round would stay stuck until somebody
+        /// edited the content to produce a fresh fact.
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillReTestTheRoundWhenRetiringTheInvitationFailsAsync()
+        {
+            // given
+            Guid approvalId = Guid.NewGuid();
+            Guid invitedId = Guid.NewGuid();
+            Guid requestId = Guid.NewGuid();
+
+            this.approvalServiceMock.Setup(service =>
+                service.RetrieveApprovalByIdAsync(approvalId, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(CreateSubstrateApproval(
+                        approvalId: approvalId,
+                        entityId: Guid.NewGuid(),
+                        entityType: EntityType.ContentItem));
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveApprovalReviewerScopeByIdAsync(
+                    approvalId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ApprovalReviewerScope
+                        {
+                            ApprovalId = approvalId,
+                            ApprovalStatus = ApprovalStatus.Submitted,
+                            EntityCreatedBy = "somebody-else",
+                            RoleSubjects = Array.Empty<G2H.Security.Client.Models.Foundations.Access.RoleSubject>(),
+                            ActiveReviewerUserIds = Array.Empty<string>(),
+
+                            ActiveRequests = new[]
+                            {
+                                new ActiveReviewRequest
+                                {
+                                    Id = requestId,
+                                    RequestedUserId = invitedId.ToString(),
+                                }
+                            },
+                        });
+
+            var retirementException =
+                new ApprovalReviewRequestDependencyException(
+                    message: "storage was unavailable",
+                    innerException: new Xeption());
+
+            this.approvalReviewRequestWorkflowServiceMock.Setup(service =>
+                service.RetireAnsweredApprovalReviewRequestAsync(
+                    requestId,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(retirementException);
+
+            // when
+            await this.approvalOrchestrationService.OnApprovalReviewAddedAsync(
+                CreateReviewAddedEnvelope(approvalId, invitedId.ToString()),
+                TestContext.Current.CancellationToken);
+
+            // then: the round was still read, which is the first thing the re-test does. Without
+            // the isolation this assertion fails because the exception escapes the hook and
+            // takes ProcessApprovalInputsChangedAsync with it.
+            this.approvalServiceMock.Verify(service =>
+                service.RetrieveApprovalByIdAsync(approvalId, It.IsAny<CancellationToken>()),
+                Times.AtLeastOnce);
+
+            // and: the failure is not silent. It is the only trace left of a retirement that did
+            // not happen, since the delivery reports success once the hook is contained.
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(retirementException),
+                Times.Once);
         }
     }
 }

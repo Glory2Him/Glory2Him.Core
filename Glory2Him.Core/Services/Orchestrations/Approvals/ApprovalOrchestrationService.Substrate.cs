@@ -19,6 +19,7 @@ using Glory2Him.Core.Models.Foundations.ApprovalComments;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Associations;
 using Glory2Him.Core.Models.Foundations.BibleReferences;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Comments;
 using Glory2Him.Core.Models.Foundations.ContentItems;
 using Glory2Him.Core.Models.Foundations.Links;
@@ -371,9 +372,33 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             // RE-TEST the round; retiring an answered invitation is not a re-test and must
             // happen either way, or a review recorded during a dismissal cascade would leave its
             // invitation standing forever.
+            //
+            // ISOLATED from the re-test that follows, and this is the whole point of the catch.
+            // The hook is bookkeeping - it deletes a row that records who was asked. The re-test
+            // decides whether the round is now approved. Letting the first abort the second
+            // trades a stale invitation for a round that never re-evaluates: the vote that would
+            // have carried it over the line is counted by nothing, and no later event re-drives
+            // it, so the item sits blocked with its conditions provably met and nothing on any
+            // screen saying why. The stale invitation is the far smaller harm, and a person in
+            // the review tier can clear it by hand.
+            //
+            // Narrow on purpose. These four are what a refusal or an outage inside the retire
+            // path raises; anything else is a defect in this process and stays loud rather than
+            // being absorbed into a log line.
             if (onVerifiedAsync is not null)
             {
-                await onVerifiedAsync();
+                try
+                {
+                    await onVerifiedAsync();
+                }
+                catch (Exception onVerifiedException) when (
+                    onVerifiedException is ApprovalReviewRequestValidationException
+                        or ApprovalReviewRequestDependencyValidationException
+                        or ApprovalReviewRequestDependencyException
+                        or ApprovalReviewRequestServiceException)
+                {
+                    await this.loggingBroker.LogErrorAsync(onVerifiedException);
+                }
             }
 
             // Deliberately AFTER the signature check. An unverifiable envelope is refused
