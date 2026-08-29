@@ -391,7 +391,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             {
                 await ValidateUserCanModifyStorageApprovalAsync(
                     storageApproval: maybeApproval,
-                    securityContext: inboundEnvelope.SecurityContext);
+                    securityContext: inboundEnvelope.SecurityContext,
+                    cancellationToken: cancellationToken);
 
                 // and that tier narrowed to the entity actually under approval, which the
                 // row-local check above cannot see — a Tag-Reviewer clears it for any approval
@@ -525,7 +526,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             // caller learns nothing about the row's deletion state
             await ValidateUserCanRemoveStorageApprovalAsync(
                 storageApproval: maybeApproval,
-                securityContext: inboundEnvelope.SecurityContext);
+                securityContext: inboundEnvelope.SecurityContext,
+                cancellationToken: cancellationToken);
 
             if (maybeApproval.IsDeleted)
                 return maybeApproval;

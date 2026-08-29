@@ -479,19 +479,6 @@ namespace Glory2Him.Core.Brokers.Securities
         /// replaces: the subjects used to be built from the approval's own <c>EntityType</c>,
         /// which is right for every entity except the one that matters.</para>
         /// </summary>
-        public async ValueTask<string> RetrieveEntityAuthorAsync(
-            EntityType entityType,
-            Guid entityId,
-            CancellationToken cancellationToken = default)
-        {
-            (string entityCreatedBy, _, _) = await ResolveEntityAsync(
-                entityType,
-                entityId,
-                cancellationToken);
-
-            return entityCreatedBy;
-        }
-
         private async ValueTask<(string CreatedBy, IReadOnlyList<RoleSubject> RoleSubjects, decimal? ConfidenceScore)> ResolveEntityAsync(
             EntityType entityType,
             Guid entityId,
@@ -586,6 +573,21 @@ namespace Glory2Him.Core.Brokers.Securities
                     // this arm.
                     return (string.Empty, SubjectsFor(entityType, contentType: null), null);
             }
+        }
+
+        // Sits beside ResolveEntityAsync because it IS that read, narrowed. The gates that use
+        // it want one string and have no use for the subjects or the confidence score.
+        public async ValueTask<string> RetrieveEntityAuthorAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default)
+        {
+            (string entityCreatedBy, _, _) = await ResolveEntityAsync(
+                entityType,
+                entityId,
+                cancellationToken);
+
+            return entityCreatedBy;
         }
 
         /// <summary>

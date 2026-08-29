@@ -81,7 +81,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // transitions are legal, who may bypass) stay in the orchestration
         private async ValueTask ValidateUserCanModifyStorageApprovalAsync(
             Approval storageApproval,
-            SecurityContext securityContext)
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
         {
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
@@ -91,7 +92,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             // fall back on (§14.7 posture D rule 3).
             string entityCreatedBy = await this.accessBroker.RetrieveEntityAuthorAsync(
                 storageApproval.EntityType,
-                storageApproval.EntityId);
+                storageApproval.EntityId,
+                cancellationToken);
 
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false
@@ -146,7 +148,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // act through the approval's status instead
         private async ValueTask ValidateUserCanRemoveStorageApprovalAsync(
             Approval storageApproval,
-            SecurityContext securityContext)
+            SecurityContext securityContext,
+            CancellationToken cancellationToken)
         {
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(securityContext);
 
@@ -156,7 +159,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             // fall back on (§14.7 posture D rule 3).
             string entityCreatedBy = await this.accessBroker.RetrieveEntityAuthorAsync(
                 storageApproval.EntityType,
-                storageApproval.EntityId);
+                storageApproval.EntityId,
+                cancellationToken);
 
             bool isOwner =
                 string.IsNullOrWhiteSpace(actorUserId) is false

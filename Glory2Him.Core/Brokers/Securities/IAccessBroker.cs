@@ -69,6 +69,11 @@ namespace Glory2Him.Core.Brokers.Securities
         /// the submitter as well and the service composes this with its row-local check as an
         /// AND: a decision answering only the tier half would delete the owner branch.</para>
         /// </summary>
+        ValueTask<AccessVerdict> MayAmendApprovalAsync(
+            Guid approvalId,
+            Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
         /// <summary>
         /// The account id of whoever authored the ENTITY an approval is about — the person §14.7
         /// posture D rule 3 calls the submitter, and the only meaning "owner" has on an approval.
@@ -85,11 +90,6 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<string> RetrieveEntityAuthorAsync(
             EntityType entityType,
             Guid entityId,
-            CancellationToken cancellationToken = default);
-
-        ValueTask<AccessVerdict> MayAmendApprovalAsync(
-            Guid approvalId,
-            Models.Events.SecurityContext securityContext,
             CancellationToken cancellationToken = default);
 
         /// <summary>
