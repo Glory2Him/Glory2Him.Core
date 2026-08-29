@@ -19,9 +19,11 @@ using G2H.Security.Client.Models.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
+using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Services.Orchestrations.Approvals
@@ -189,11 +191,30 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
                 ValidateUserMayRequestApprovalReviews(envelope.SecurityContext);
 
-                return await this.approvalReviewRequestService
-                    .RemoveApprovalReviewRequestByIdAsync(
-                        approvalReviewRequestId: approvalReviewRequestId,
-                        deletionReason: deletionReason,
-                        cancellationToken: cancellationToken);
+                try
+                {
+                    return await this.approvalReviewRequestService
+                        .RemoveApprovalReviewRequestByIdAsync(
+                            approvalReviewRequestId: approvalReviewRequestId,
+                            deletionReason: deletionReason,
+                            cancellationToken: cancellationToken);
+                }
+
+                // Translated HERE because this operation is keyed on the request ROW rather than
+                // on an entity. Every sibling resolves an approval first and raises its own
+                // not-found at that site; this one deliberately does no lookup — the foundation
+                // owns the pending check — so there is no earlier place for a missing row to
+                // become a not-found. Without this the foundation's validation exception
+                // categorises as a dependency-validation failure and the caller is told 400 for
+                // an id that simply does not exist, leaving the exposer's NotFound branch dead.
+                catch (ApprovalReviewRequestValidationException approvalReviewRequestValidationException)
+                    when (approvalReviewRequestValidationException.InnerException
+                        is NotFoundApprovalReviewRequestException)
+                {
+                    throw new NotFoundApprovalOrchestrationException(
+                        message: "Approval review request not found with id: "
+                            + $"{approvalReviewRequestId}.");
+                }
             });
 
         /// <summary>
