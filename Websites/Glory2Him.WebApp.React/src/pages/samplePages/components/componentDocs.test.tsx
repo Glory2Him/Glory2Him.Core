@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
+import { ReviewPanelDoc } from './reviewPanelDoc';
 import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
 import {
     createAuthState,
@@ -153,6 +154,58 @@ describe('Component reference pages', () => {
 
             expect(approvedChip?.querySelector('i.bi-book')).toBeInTheDocument();
             expect(pendingChip?.querySelector('i.bi-hourglass-split')).toBeInTheDocument();
+        });
+    });
+
+    describe('ReviewPanelDoc', () => {
+        it('should document the component and name its source', () => {
+            // when
+            renderWithAuth(<ReviewPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Review Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('src/components/approvals/reviewPanel.tsx'))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'Security posture' }))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
+        });
+
+        /// The page exists to show the states that actually differ, so the demos must RUN
+        /// rather than merely render a heading.
+        it('should run the blocked-round demo with its reasons and bypass', () => {
+            // when
+            renderWithAuth(<ReviewPanelDoc />);
+
+            // then: every block reason is rendered, not just the first
+            expect(screen.getByText(
+                'At least 3 approving review(s) is required by reviewers.')).toBeInTheDocument();
+
+            expect(screen.getByText('A rejected review is blocking approval.'))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('All review comments must be resolved.')).toBeInTheDocument();
+
+            // the bypass is offered because the demo verdict allows it
+            expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
+        });
+
+        it("should show controls only on the demos whose state allows them", () => {
+            // when
+            renderWithAuth(<ReviewPanelDoc />);
+
+            // then: two of the four demos are actionable - the blocked round and the unblocked
+            // one. The read-only demo pins its role props empty, and the decided demo is
+            // terminal, so neither offers the decision control.
+            expect(screen.getAllByRole("button", { name: "Set approval status" }))
+                .toHaveLength(2);
+
+            expect(screen.getAllByRole("button", { name: "Request a review" }))
+                .toHaveLength(2);
         });
     });
 });

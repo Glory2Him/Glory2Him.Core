@@ -15,6 +15,7 @@ const lazyNamed = <T extends Record<string, ComponentType>, K extends keyof T & 
 const AssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/associationPanelDoc'), 'AssociationPanelDoc');
 const BibleReferenceAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/bibleReferenceAssociationPanelDoc'), 'BibleReferenceAssociationPanelDoc');
 const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/tagAssociationPanelDoc'), 'TagAssociationPanelDoc');
+const ReviewPanelDoc = lazyNamed(() => import('../pages/samplePages/components/reviewPanelDoc'), 'ReviewPanelDoc');
 const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
 const DashboardSample = lazyNamed(() => import('../pages/samplePages/dashboardSample'), 'DashboardSample');
@@ -83,6 +84,10 @@ export const samplePagesRoutes: RouteObject[] = [
             {
                 path: 'SamplePages/Components/Bible-Reference-Association-Panel',
                 element: secured(<BibleReferenceAssociationPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Review-Panel',
+                element: secured(<ReviewPanelDoc />),
             },
             {
                 path: 'SamplePages/Icons/UnicodeEmoji',

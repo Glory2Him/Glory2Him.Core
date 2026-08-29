@@ -126,7 +126,8 @@ describe('navMenuProvider.getSamplePagesSection', () => {
         expect((components?.children ?? []).map((child) => child.title)).toEqual([
             'Association Panel',
             'Tag Association Panel',
-            'Bible Reference Association Panel'
+            'Bible Reference Association Panel',
+            'Review Panel'
         ]);
     });
 
@@ -139,7 +140,8 @@ describe('navMenuProvider.getSamplePagesSection', () => {
         expect((components?.children ?? []).map((child) => child.href)).toEqual([
             'SamplePages/Components/Association-Panel',
             'SamplePages/Components/Tag-Association-Panel',
-            'SamplePages/Components/Bible-Reference-Association-Panel'
+            'SamplePages/Components/Bible-Reference-Association-Panel',
+            'SamplePages/Components/Review-Panel'
         ]);
     });
 });
