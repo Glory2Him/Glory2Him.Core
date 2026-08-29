@@ -308,10 +308,12 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// <summary>
         /// Invites somebody to review this entity (§7.9).
         ///
-        /// <para><b>A repeat invitation is a 200, not a 409.</b> Rule 4 dissolves it: the standing
-        /// request comes back unchanged. A UI asking twice — a double-click, a retried request —
-        /// is a harmless thing to do, and turning it into an error would make every caller carry
-        /// an existence check the server can make correctly and they cannot.</para>
+        /// <para><b>Always a 204, and never a 409.</b> Rule 4 dissolves both duplicate shapes —
+        /// a person already invited, and a person who has already answered — so the outcomes are
+        /// "already there", "created" and "nothing to create", and a caller has no use for the
+        /// difference. A UI asking twice, or asking from a panel a few seconds stale, is a
+        /// harmless thing to do; turning it into an error would make every caller carry an
+        /// existence check the server can make correctly and they cannot.</para>
         ///
         /// <para><c>requestedUserId</c> rides the query string rather than a body for the same
         /// reason the decision's scalars do: it is a value the operation owns outright, and a body
@@ -327,14 +329,22 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         {
             try
             {
-                ApprovalReviewRequest approvalReviewRequest =
-                    await this.approvalOrchestrationService.RequestApprovalReviewAsync(
-                        entityType,
-                        entityId,
-                        requestedUserId,
-                        cancellationToken);
+                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
+                    entityType,
+                    entityId,
+                    requestedUserId,
+                    cancellationToken);
 
-                return Ok(approvalReviewRequest);
+                // 204 on every success, and the same 204 for all of them. The operation is a
+                // presence check plus an add (7.9 rule 4), so its outcomes are "already there",
+                // "created" and "already answered, nothing to create" - and a caller has no use
+                // for the difference. It refreshes from the round either way, which is the only
+                // source that stays right when somebody else is working the same item.
+                //
+                // The answered case has nothing to return at all: rule 6 retired the invitation
+                // when the person answered. Ok(null) would hand that caller a 200 with a null
+                // body to special-case.
+                return NoContent();
             }
             catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
                 when (approvalOrchestrationValidationException.InnerException

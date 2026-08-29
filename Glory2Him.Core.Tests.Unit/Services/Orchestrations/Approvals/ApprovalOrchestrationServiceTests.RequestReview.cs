@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 {
@@ -242,11 +243,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
         }
 
+        /// <summary>
+        /// The other half of rule 4, and it behaves exactly like the first: inviting somebody who
+        /// has already answered dissolves quietly. The goal of the operation is that the person
+        /// has been asked, and an answer is more than that.
+        ///
+        /// <para>Nothing is created, deliberately. Rule 6 retires an invitation the moment its
+        /// target answers, so a fresh one here could never be retired - the vote that would have
+        /// done it has already happened - and rule 5 refuses to withdraw an answered invitation,
+        /// so nobody could clear it by hand either. It would sit in the picker forever.</para>
+        /// </summary>
         [Fact]
-        public async Task ShouldThrowOnRequestIfTheInvitedUserHasAlreadyReviewedAsync()
+        public async Task ShouldDissolveTheRequestQuietlyIfTheInvitedUserHasAlreadyReviewedAsync()
         {
-            // given: the other half of rule 4 - reported rather than dissolved, because unlike a
-            // repeat invitation this is the caller misreading the panel
+            // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
             Guid approvalId = Guid.NewGuid();
             Guid reviewedId = Guid.NewGuid();
@@ -256,20 +266,29 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 activeReviewerUserIds: new[] { reviewedId.ToString() });
 
             // when
-            ValueTask<ApprovalReviewRequest> requestTask =
-                this.approvalOrchestrationService.RequestApprovalReviewAsync(
+            ApprovalReviewRequest actualRequest =
+                await this.approvalOrchestrationService.RequestApprovalReviewAsync(
                     EntityType.ContentItem,
                     Guid.NewGuid(),
                     reviewedId.ToString(),
                     TestContext.Current.CancellationToken);
 
-            ApprovalOrchestrationValidationException actualException =
-                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
-                    requestTask.AsTask);
+            // then: no error, and nothing to hand back - the invitation this would have returned
+            // was retired when they answered
+            actualRequest.Should().BeNull();
 
-            // then
-            actualException.InnerException.Should()
-                .BeOfType<InvalidApprovalOrchestrationException>();
+            this.approvalReviewRequestServiceMock.Verify(service =>
+                service.AddApprovalReviewRequestAsync(
+                    It.IsAny<ApprovalReviewRequest>(), It.IsAny<CancellationToken>()),
+                // An invitation created after the answer could never be retired or withdrawn,
+                // and would sit in the picker forever.
+                Times.Never);
+
+            // and: it stops before the identity store, because there is nothing left to decide
+            this.identityUserServiceMock.Verify(service =>
+                service.RetrieveIdentityUsersInRolesAsync(
+                    It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Fact]
@@ -325,6 +344,98 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // then
             actual.Should().BeSameAs(withdrawn);
+        }
+
+        /// <summary>
+        /// Rule 5 stops at the answer. Withdrawing says the invitation was a mistake, and once it
+        /// has been answered that is no longer anyone's to say - the verdict stands, and the
+        /// record of who was asked is part of how it came about.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseToWithdrawARequestItsTargetHasAlreadyAnsweredAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            Guid requestId = Guid.NewGuid();
+            Guid approvalId = Guid.NewGuid();
+            Guid answeredById = Guid.NewGuid();
+
+            this.approvalReviewRequestServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestByIdAsync(
+                    requestId,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ApprovalReviewRequest
+                        {
+                            Id = requestId,
+                            ApprovalId = approvalId,
+                            RequestedUserId = answeredById.ToString()
+                        });
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeReviewerUserIds: new[] { answeredById.ToString() });
+
+            // when
+            ValueTask<ApprovalReviewRequest> withdrawTask =
+                this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                    requestId,
+                    GetRandomString(),
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                    withdrawTask.AsTask);
+
+            // then
+            actualException.InnerException.Should()
+                .BeOfType<InvalidApprovalOrchestrationException>();
+
+            this.approvalReviewRequestServiceMock.Verify(service =>
+                service.RemoveApprovalReviewRequestByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// The answered case is normally already GONE - rule 6 retires an invitation the moment
+        /// its target answers - so the gate above is reached only where retirement has not run.
+        /// Withdrawing a row that is already withdrawn must stay the harmless no-op it has always
+        /// been, rather than becoming a not-found because a new lookup was added in front of it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldStillWithdrawIdempotentlyWhenTheRequestIsAlreadyGoneAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            Guid requestId = Guid.NewGuid();
+            string deletionReason = GetRandomString();
+            var alreadyWithdrawn = new ApprovalReviewRequest { Id = requestId, IsDeleted = true };
+
+            this.approvalReviewRequestServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestByIdAsync(
+                    requestId,
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(new ApprovalReviewRequestValidationException(
+                            message: "not found",
+                            innerException: new NotFoundApprovalReviewRequestException(
+                                message: "not found")));
+
+            this.approvalReviewRequestServiceMock.Setup(service =>
+                service.RemoveApprovalReviewRequestByIdAsync(
+                    requestId,
+                    deletionReason,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(alreadyWithdrawn);
+
+            // when
+            ApprovalReviewRequest actual =
+                await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                    requestId,
+                    deletionReason,
+                    TestContext.Current.CancellationToken);
+
+            // then: not-found on the LOOKUP means "nothing to check", never "nothing to remove"
+            actual.Should().BeSameAs(alreadyWithdrawn);
         }
 
         [Fact]

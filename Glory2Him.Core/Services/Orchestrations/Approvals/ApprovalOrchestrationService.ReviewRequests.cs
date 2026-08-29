@@ -117,10 +117,14 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // in the panel forever with nothing that could answer it.
                 ValidateApprovalRoundIsOpenForRequests(scope, entityType, entityId);
 
-                // Rule 4, and it comes BEFORE the eligibility work on purpose: asking twice is a
-                // harmless thing for a UI to do, so it returns the standing state rather than
-                // spending an identity-store read to reach the same place, and rather than
-                // colliding with UX_ApprovalReviewRequests_ApprovalId_RequestedUserId.
+                // Rule 4, BOTH halves, and they come before the eligibility work on purpose:
+                // this operation is a presence check plus an add, so neither half spends an
+                // identity-store read to reach a place it is already at.
+                //
+                // Neither errors. A repeat invitation is a UI asking twice - a double click, a
+                // stale panel, another moderator half a second earlier - and returns the standing
+                // row rather than colliding with
+                // UX_ApprovalReviewRequests_ApprovalId_RequestedUserId.
                 ActiveReviewRequest standingRequest = scope.ActiveRequests
                     .FirstOrDefault(request =>
                         request.RequestedUserId == requestedUserId);
@@ -133,10 +137,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                             cancellationToken);
                 }
 
-                // The other half of rule 4: somebody who has already answered needs no asking.
-                // Reported as an ordinary refusal rather than silently, because unlike a repeat
-                // invitation this is the caller misreading the panel.
-                ValidateRequestedUserHasNotAlreadyReviewed(scope, requestedUserId);
+                // And somebody who has ALREADY ANSWERED needs no asking. The goal of this
+                // operation is that the person has been asked; an answer is more than that, so
+                // it is already met. Nothing is created and nothing is returned - rule 6 retires
+                // an invitation the moment its target answers, so on this path there is usually
+                // no row left to hand back, and creating a fresh one would manufacture an
+                // invitation that can never be withdrawn (rule 5 refuses to withdraw once a vote
+                // is cast) and that nothing would ever retire, because the vote that would have
+                // has already happened.
+                //
+                // The likely caller is a panel a few seconds stale, not a mistake worth an error.
+                if (scope.ActiveReviewerUserIds.Contains(requestedUserId))
+                {
+                    return null;
+                }
 
                 // Rule 3 - the invited person must be worth inviting. Both halves are checked
                 // against STORED facts: the owner comes off the entity, and the tier membership
@@ -190,6 +204,47 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     await this.eventEnvelopeBroker.CreateAsync(content: withdrawRequest);
 
                 ValidateUserMayRequestApprovalReviews(envelope.SecurityContext);
+
+                // Rule 5 stops at the answer. Withdrawing says the invitation was a mistake, and
+                // once it has been ANSWERED that is no longer something anyone gets to say - the
+                // verdict stands, and the record of who was asked is part of how it came about.
+                //
+                // Only on the LIVE row. A row already gone is nothing to refuse: rule 6 retires
+                // an invitation the moment its target answers, so the ordinary answered case is
+                // already deleted and the remove below returns it unchanged, exactly as it does
+                // today. This gate is therefore reached only where retirement has not run or did
+                // not succeed - which is the one place a live invitation and a cast vote can
+                // coexist. Reading through the caller-facing read keeps that split honest: it
+                // reports not-found for a retired row, and not-found here means "nothing to
+                // check", not "nothing to remove".
+                ApprovalReviewRequest standingRequest = null;
+
+                try
+                {
+                    standingRequest = await this.approvalReviewRequestService
+                        .RetrieveApprovalReviewRequestByIdAsync(
+                            approvalReviewRequestId,
+                            cancellationToken);
+                }
+                catch (ApprovalReviewRequestValidationException standingReadException)
+                    when (standingReadException.InnerException
+                        is NotFoundApprovalReviewRequestException)
+                {
+                    // Withdrawn already, or never there. The remove decides which, and answers
+                    // the same way it always has.
+                }
+
+                if (standingRequest is not null)
+                {
+                    ApprovalReviewerScope answeringScope = await this.accessBroker
+                        .RetrieveApprovalReviewerScopeByIdAsync(
+                            standingRequest.ApprovalId,
+                            cancellationToken);
+
+                    ValidateInvitationHasNotBeenAnswered(
+                        answeringScope,
+                        standingRequest.RequestedUserId);
+                }
 
                 try
                 {

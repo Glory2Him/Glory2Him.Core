@@ -142,10 +142,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// <c>Submitted</c> (rule 7), the invited person holds a review-tier role for the entity
         /// and does not own it (rule 3), and the caller is in the requesting tier (rule 2).
         ///
-        /// <para><b>Idempotent on a duplicate</b> (rule 4): if the invited person already holds an
-        /// active review or an active invitation, the existing state is returned unchanged rather
-        /// than raising a conflict — asking twice is a harmless thing for a UI to do, and the
-        /// uniqueness index would otherwise turn it into an error.</para>
+        /// <para><b>Idempotent, and never an error</b> (rule 4). An active invitation already
+        /// standing comes back unchanged rather than colliding with the uniqueness index. And
+        /// somebody who has already ANSWERED needs no asking, so nothing is created and nothing is
+        /// returned: rule 6 retired their invitation the moment they answered, and a fresh one
+        /// could never be retired — the vote that would have done it has already happened — nor
+        /// withdrawn, since rule 5 refuses to withdraw an answered invitation. Both cases are a
+        /// stale panel rather than a mistake, so neither is worth an error.</para>
         /// </summary>
         ValueTask<ApprovalReviewRequest> RequestApprovalReviewAsync(
             EntityType entityType,

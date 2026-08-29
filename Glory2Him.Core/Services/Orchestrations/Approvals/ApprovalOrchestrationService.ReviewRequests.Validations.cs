@@ -123,17 +123,20 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
         }
 
-        // The other half of rule 4. A repeat INVITATION dissolves quietly because a UI asking
-        // twice is harmless; being asked to invite somebody who has already answered is the
-        // caller misreading the panel, so it is reported.
-        private static void ValidateRequestedUserHasNotAlreadyReviewed(
+
+        // Rule 5 stops at the answer. This is the same test that used to refuse an INVITATION to
+        // somebody who had already voted; it belongs here instead. Inviting them again is
+        // harmless and now dissolves quietly (rule 4), but deleting the record of an invitation
+        // they have answered rewrites how a standing verdict came about.
+        private static void ValidateInvitationHasNotBeenAnswered(
             ApprovalReviewerScope scope,
             string requestedUserId)
         {
             if (scope.ActiveReviewerUserIds.Contains(requestedUserId))
             {
                 throw new InvalidApprovalOrchestrationException(
-                    message: "The requested user has already reviewed this approval.");
+                    message: "This review request has already been answered and can no longer " +
+                        "be withdrawn.");
             }
         }
 

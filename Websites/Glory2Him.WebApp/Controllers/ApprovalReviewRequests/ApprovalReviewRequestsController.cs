@@ -73,17 +73,20 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviewRequests
         {
             try
             {
-                ApprovalReviewRequest approvalReviewRequest =
-                    await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
-                        approvalReviewRequestId: approvalReviewRequestId,
+                await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                    approvalReviewRequestId: approvalReviewRequestId,
 
-                        // Null is the ordinary "no reason supplied" case the orchestration passes
-                        // through, so the absent query value is not coerced to an empty string a
-                        // length check would then have to treat as blank all over again.
-                        deletionReason: deletionReason!,
-                        cancellationToken: cancellationToken);
+                    // Null is the ordinary "no reason supplied" case the orchestration passes
+                    // through, so the absent query value is not coerced to an empty string a
+                    // length check would then have to treat as blank all over again.
+                    deletionReason: deletionReason!,
+                    cancellationToken: cancellationToken);
 
-                return Ok(approvalReviewRequest);
+                // The withdrawn row is of no use to a caller - it is the record of something
+                // that is now gone, and the panel refreshes from the round rather than from
+                // this. Withdrawing one already withdrawn answers the same way, which is what
+                // keeps a double click harmless.
+                return NoContent();
             }
             catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
                 when (approvalOrchestrationValidationException.InnerException
