@@ -52,7 +52,11 @@ namespace Glory2Him.WebApp.Data
         // composes the name from entityType.ToString(), so the set of entity types and the set
         // of scoped role names are the same fact, and writing them out twice is what lets them
         // disagree.
-        private static readonly string[] CoreRoles = BuildCoreRoleNames();
+        // INTERNAL rather than private so ContentTypeRoleSeedTests can pin the seeded set to
+        // the enums it is composed from. The seed is the only place a role can be minted, and
+        // a name that silently stops being seeded is invisible until somebody cannot be granted
+        // a tier that the code already reads.
+        internal static readonly string[] CoreRoles = BuildCoreRoleNames();
 
         // Association is excluded, and its absence is a rule rather than an oversight: it "has
         // no scoped roles of its own (design §14.7, §18.6) — authorization is derived from its
@@ -93,6 +97,36 @@ namespace Glory2Him.WebApp.Data
                 coreRoleNames.Add(Roles.ReadOnlyFor(entityType));
                 coreRoleNames.Add(Roles.ReviewerFor(entityType));
                 coreRoleNames.Add(Roles.PublisherFor(entityType));
+            }
+
+            // The NARROW tier of §18.6 rule 5 — "trusted with stories but not testimonies".
+            // ContentItem ONLY, because it is the one entity type that carries a ContentType.
+            // Composing it for any other type would mint exactly the roles §14.7 posture A′
+            // rule 6 exists to refuse: AssociationService tests the endpoint type as well as
+            // the content type so a ContentItem-Testimony-Reviewer can never be matched
+            // against a Tag endpoint that happens to carry Testimony.
+            //
+            // EVERY member is seeded, Series and Topic included, and that is a decision rather
+            // than a foreach nobody thought about. They are ContentType members on ContentItem,
+            // and §18.6 rule 5 scopes the tier to the entity type, not to a chosen subset of its
+            // content types. Withholding them would protect nothing — the coarse
+            // ContentItem-Reviewer still admits somebody to a Series either way — it would only
+            // remove an administrator's ability to scope a person narrowly. A role that exists
+            // and is assigned to nobody grants nothing, which is the same argument Attachment
+            // above is seeded on.
+            //
+            // There is deliberately NO ReadOnlyFor(EntityType, ContentType): Roles.cs says so at
+            // the point where it would sit. The block tier has no content-type tier, and offering
+            // the composition would invent a role nothing issues and nothing checks. Two roles
+            // per content type, not three.
+            //
+            // Walking the enum is what keeps this correct as ContentType grows — see §18.6's
+            // seeding rule, and ContentTypeRoleSeedTests, which fails if this loop is ever
+            // replaced by a hand-written list.
+            foreach (ContentType contentType in Enum.GetValues<ContentType>())
+            {
+                coreRoleNames.Add(Roles.ReviewerFor(EntityType.ContentItem, contentType));
+                coreRoleNames.Add(Roles.PublisherFor(EntityType.ContentItem, contentType));
             }
 
             // Attachment is included even though it has no service yet (§12.4 entry 3). The
