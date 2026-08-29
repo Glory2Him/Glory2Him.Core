@@ -382,10 +382,16 @@ export function ReviewPanel({
     // its pending decision, over a repainted panel showing the new item. Submitting then writes
     // one item's justification onto another's permanent record, and the server cannot catch it
     // because a bypass reason is free text it only checks for being non-blank.
+    // The reasons are taken as the publisher READ them, message and all, not just their codes. A
+    // code can stay put while what it says changes — "at least 3 approving review(s)" becomes
+    // "at least 2" as votes land — and consent given against the old sentence is not consent to
+    // the new one.
     const verdictSignature = approvalVerdict == null
         ? ''
         : `${approvalVerdict.approvalId}|`
-            + approvalVerdict.blockReasons.map((reason) => reason.code).join(',')
+            + approvalVerdict.blockReasons
+                .map((reason) => `${reason.code}:${reason.message}`)
+                .join('|')
             + `|${approvalVerdict.canApprove}|${approvalVerdict.isBypassAllowedForCurrentUser}`;
 
     useEffect(() => {
@@ -394,7 +400,11 @@ export function ReviewPanel({
         setSelectedDecision(undefined);
     }, [verdictSignature]);
 
-    const isBlocked = approvalVerdict?.isBlocked === true;
+    // Gated on the STATUS as well as the verdict. approvalStatus is the canonical prop that
+    // freezes this panel, and a consumer refreshing after a decision can hand over the new status
+    // with a verdict fetched a moment earlier — which would paint block reasons over a round
+    // that is already settled.
+    const isBlocked = isSubmitted && approvalVerdict?.isBlocked === true;
 
     const showBypassCheckbox =
         mayDecide

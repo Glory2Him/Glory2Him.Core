@@ -194,7 +194,7 @@ describe('Component reference pages', () => {
             expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
         });
 
-        it("should show controls only on the demos whose state allows them", () => {
+        it('should show controls only on the demos whose state allows them', () => {
             // when
             renderWithAuth(<ReviewPanelDoc />);
 
@@ -202,13 +202,13 @@ describe('Component reference pages', () => {
             // unblocked one. The read-only demo pins its role props empty, the decided demo is
             // terminal, and the voted-reviewer and picker demos pin decisionRoles empty because
             // they are about reviewing rather than deciding.
-            expect(screen.getAllByRole("button", { name: "Set approval status" }))
+            expect(screen.getAllByRole('button', { name: 'Set approval status' }))
                 .toHaveLength(2);
 
             // The cog follows the VOTE tier, not the decision tier, so it appears on all four
             // demos that leave voteRoles to compose: the two decision demos plus the two that
             // exist to show reviewing.
-            expect(screen.getAllByRole("button", { name: "Request a review" }))
+            expect(screen.getAllByRole('button', { name: 'Request a review' }))
                 .toHaveLength(4);
         });
     });

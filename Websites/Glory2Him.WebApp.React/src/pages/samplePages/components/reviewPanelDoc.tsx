@@ -497,7 +497,7 @@ export function ReviewPanelDoc() {
 
                 {lastEvent.length > 0 && (
                     <p className="small text-body-secondary">
-                        <i className="bi bi-broadcast me-1"></i>
+                        <i className="bi bi-broadcast me-1" aria-hidden="true"></i>
                         Last event: <code>{lastEvent}</code>
                     </p>
                 )}

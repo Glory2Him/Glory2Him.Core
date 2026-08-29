@@ -731,6 +731,31 @@ describe('ReviewPanel', () => {
             expect(reasonBoxQuery()).toHaveValue('');
         });
 
+        /// approvalStatus is the canonical prop that freezes this panel. A consumer refreshing
+        /// after a decision can hand over the new status with a verdict fetched a moment earlier,
+        /// and painting block reasons over a settled round tells the reader it is still waiting.
+        it('should not render block reasons once the round is no longer submitted', () => {
+            // given
+            signInAs(authState, ['Publisher']);
+
+            // when - a terminal status alongside a verdict that still says blocked
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Approved}
+                    approvalVerdict={blockedVerdict({
+                        blockReasons: [
+                            { code: 1, message: 'At least 3 approving review(s) is required.' }
+                        ]
+                    })} />);
+
+            // then
+            expect(screen.queryByText('At least 3 approving review(s) is required.'))
+                .not.toBeInTheDocument();
+
+            expect(screen.queryByText('Approval is blocked')).not.toBeInTheDocument();
+        });
+
         it('should reset the bypass tick when the verdict changes underneath it', async () => {
             // given
             signInAs(authState, ['Publisher']);
@@ -827,6 +852,50 @@ describe('ReviewPanel', () => {
             expect(screen.getByRole('button', { name: /Approve this item/ })).toBeDisabled();
 
             expect(screen.getByRole('button', { name: /Reject this item/ })).toBeEnabled();
+        });
+
+        /// A reason code can stay put while what it SAYS changes - "at least 3 approving
+        /// review(s)" becomes "at least 2" as votes land. Consent was given against the sentence
+        /// the publisher read, not against its code.
+        it('should reset the bypass tick when a block reason is reworded', async () => {
+            // given
+            signInAs(authState, ['Publisher']);
+
+            const panelWith = (verdict: ApprovalVerdictItem): ReactElement => (
+                <MemoryRouter>
+                    <AuthProvider>
+                        <ReviewPanel
+                            entityType="ContentItem"
+                            approvalStatus={ApprovalStatus.Submitted}
+                            approvalVerdict={verdict} />
+                    </AuthProvider>
+                </MemoryRouter>
+            );
+
+            const { rerender } = renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalVerdict={blockedVerdict({
+                        isBypassAllowedForCurrentUser: true,
+                        blockReasons: [
+                            { code: 1, message: 'At least 3 approving review(s) is required.' }
+                        ]
+                    })} />);
+
+            await userEvent.click(screen.getByRole('checkbox'));
+            expect(screen.getByRole('checkbox')).toBeChecked();
+
+            // when - same code, fewer approvals still needed
+            rerender(panelWith(blockedVerdict({
+                isBypassAllowedForCurrentUser: true,
+                blockReasons: [
+                    { code: 1, message: 'At least 1 approving review(s) is required.' }
+                ]
+            })));
+
+            // then
+            expect(screen.getByRole('checkbox')).not.toBeChecked();
         });
 
         /// The case the reason codes cannot catch. Two different approvals blocked for the SAME
