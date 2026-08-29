@@ -181,7 +181,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         // the name is checked immediately before the call rather than trusted from a distance.
         //
         // Checked against the exact set this run computed, not a prefix: see the remark on
-        // TestDatabaseSegment above for why a prefix is no longer a safe guard on its own.
+        // TestDatabaseSegment above for why a prefix is no longer a safeguard on its own.
         private static void GuardAgainstDroppingANonTestDatabase(string databaseName)
         {
             bool isTestDatabase = Array.IndexOf(DatabaseNames, databaseName) >= 0;

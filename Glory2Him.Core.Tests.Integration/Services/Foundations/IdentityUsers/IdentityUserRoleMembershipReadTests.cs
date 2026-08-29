@@ -11,12 +11,12 @@
 
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.Core.Brokers.Storages.Identity;
 using Glory2Him.Core.Models.Foundations.IdentityUsers;
 using Glory2Him.Core.Tests.Integration.Brokers;
+using Xunit;
 
 namespace Glory2Him.Core.Tests.Integration.Services.Foundations.IdentityUsers
 {
@@ -72,7 +72,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.IdentityUsers
             List<IdentityUser> matches =
                 await this.identityCoreStorageBroker.SelectIdentityUsersInRolesAsync(
                     new[] { requestedRoleName.ToUpperInvariant() },
-                    CancellationToken.None);
+                    TestContext.Current.CancellationToken);
 
             // then
             matches.Should().ContainSingle(user => user.Id == activeMemberId);
