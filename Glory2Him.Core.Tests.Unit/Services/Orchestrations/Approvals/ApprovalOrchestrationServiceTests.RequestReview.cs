@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -322,14 +323,117 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 Times.Never);
         }
 
+        /// <summary>
+        /// The read §7.9 was written around. Answered through the CALLER-FACING foundation read
+        /// rather than off the scope: the scope's ActiveRequests are gathered unfiltered because
+        /// invitability is a fact about storage (§16.7.4), and they carry no display name.
+        /// </summary>
+        [Fact]
+        public async Task ShouldRetrieveTheRoundsOutstandingReviewRequestsAsync()
+        {
+            // given: two rows on this round and one on another, so a read that forgot to filter
+            // by ApprovalId is distinguishable from one that did
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            Guid approvalId = Guid.NewGuid();
+            Guid otherApprovalId = Guid.NewGuid();
+
+            SetupReviewerScope(approvalId: approvalId);
+
+            var zoe = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserDisplayName = "Zoe",
+            };
+
+            var adam = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = approvalId,
+                RequestedUserDisplayName = "adam",
+            };
+
+            var anotherRoundsRequest = new ApprovalReviewRequest
+            {
+                Id = Guid.NewGuid(),
+                ApprovalId = otherApprovalId,
+                RequestedUserDisplayName = "Someone Else",
+            };
+
+            this.approvalReviewRequestServiceMock.Setup(service =>
+                service.RetrieveAllApprovalReviewRequestsAsync(It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(new List<ApprovalReviewRequest>
+                    {
+                        zoe,
+                        anotherRoundsRequest,
+                        adam,
+                    }.AsQueryable());
+
+            // when
+            IReadOnlyList<ApprovalReviewRequest> actual =
+                await this.approvalOrchestrationService.RetrieveApprovalReviewRequestsAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            // then: this round only, and ordered case-insensitively by display name the way the
+            // candidates read beside it is — "adam" before "Zoe", not after
+            actual.Should().Equal(new[] { adam, zoe });
+        }
+
+        [Fact]
+        public async Task ShouldThrowUnauthorizedOnRetrieveReviewRequestsOutsideTheTierAsync()
+        {
+            // given: the same user-enumeration posture the candidates read carries — these rows
+            // name people, so they are not for everyone who happens to be signed in
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
+
+            // when
+            ValueTask<IReadOnlyList<ApprovalReviewRequest>> retrieveTask =
+                this.approvalOrchestrationService.RetrieveApprovalReviewRequestsAsync(
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    TestContext.Current.CancellationToken);
+
+            ApprovalOrchestrationValidationException actualException =
+                await Assert.ThrowsAsync<ApprovalOrchestrationValidationException>(
+                    retrieveTask.AsTask);
+
+            // then
+            actualException.InnerException.Should()
+                .BeOfType<UnauthorizedApprovalOrchestrationException>();
+
+            this.approvalReviewRequestServiceMock.Verify(service =>
+                service.RetrieveAllApprovalReviewRequestsAsync(It.IsAny<CancellationToken>()),
+                Times.Never);
+        }
+
+        /// <summary>
+        /// Keyed on the round and the PERSON. The row id is resolved from the scope rather than
+        /// supplied, which is what removes the round trip the create's 204 had made impossible.
+        /// </summary>
         [Fact]
         public async Task ShouldWithdrawApprovalReviewRequestAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            Guid approvalId = Guid.NewGuid();
             Guid requestId = Guid.NewGuid();
+            Guid entityId = Guid.NewGuid();
+            string requestedUserId = Guid.NewGuid().ToString();
             string deletionReason = GetRandomString();
             var withdrawn = new ApprovalReviewRequest { Id = requestId, IsDeleted = true };
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = requestId,
+                        RequestedUserId = requestedUserId,
+                    }
+                });
 
             this.approvalReviewRequestServiceMock.Setup(service =>
                 service.RemoveApprovalReviewRequestByIdAsync(
@@ -341,18 +445,30 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             ApprovalReviewRequest actual =
                 await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
-                    requestId,
+                    EntityType.ContentItem,
+                    entityId,
+                    requestedUserId,
                     deletionReason,
                     TestContext.Current.CancellationToken);
 
-            // then
+            // then: the row the SCOPE named was the one removed, not one the caller chose
             actual.Should().BeSameAs(withdrawn);
+
+            this.approvalReviewRequestServiceMock.Verify(service =>
+                service.RemoveApprovalReviewRequestByIdAsync(
+                    requestId,
+                    deletionReason,
+                    It.IsAny<CancellationToken>()),
+                Times.Once);
         }
 
         /// <summary>
         /// Rule 5 stops at the answer. Withdrawing says the invitation was a mistake, and once it
         /// has been answered that is no longer anyone's to say - the verdict stands, and the
         /// record of who was asked is part of how it came about.
+        ///
+        /// <para>Reachable only while the row is still LIVE, which after rule 6 means retirement
+        /// did not run. That is the one place a standing invitation and a cast vote coexist.</para>
         /// </summary>
         [Fact]
         public async Task ShouldRefuseToWithdrawARequestItsTargetHasAlreadyAnsweredAsync()
@@ -363,25 +479,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             Guid approvalId = Guid.NewGuid();
             Guid answeredById = Guid.NewGuid();
 
-            this.approvalReviewRequestServiceMock.Setup(service =>
-                service.RetrieveApprovalReviewRequestByIdAsync(
-                    requestId,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(new ApprovalReviewRequest
-                        {
-                            Id = requestId,
-                            ApprovalId = approvalId,
-                            RequestedUserId = answeredById.ToString()
-                        });
-
             SetupReviewerScope(
                 approvalId: approvalId,
-                activeReviewerUserIds: new[] { answeredById.ToString() });
+                activeReviewerUserIds: new[] { answeredById.ToString() },
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = requestId,
+                        RequestedUserId = answeredById.ToString(),
+                    }
+                });
 
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
                 this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
-                    requestId,
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    answeredById.ToString(),
                     GetRandomString(),
                     TestContext.Current.CancellationToken);
 
@@ -400,45 +515,50 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// The answered case is normally already GONE - rule 6 retires an invitation the moment
-        /// its target answers - so the gate above is reached only where retirement has not run.
-        /// Withdrawing a row that is already withdrawn must stay the harmless no-op it has always
-        /// been, rather than becoming a not-found because a new lookup was added in front of it.
+        /// Withdrawing an invitation that is not outstanding - already withdrawn, or taken by a
+        /// rule 6 retirement - stays the harmless no-op it has always been.
+        ///
+        /// <para>What CHANGED with the re-key is where the no-op is decided. Keyed on a row id the
+        /// operation had to attempt the remove and let the foundation answer; resolved from the
+        /// round it simply finds nothing outstanding and stops. Null here is the exposer's 204,
+        /// which is what the id-keyed route answered for this case too.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldStillWithdrawIdempotentlyWhenTheRequestIsAlreadyGoneAsync()
+        public async Task ShouldWithdrawIdempotentlyWhenNothingIsOutstandingForThatPersonAsync()
         {
-            // given
+            // given: a round with an invitation out to somebody ELSE, so the miss is specific to
+            // the person asked for rather than an empty round answering everything
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
-            Guid requestId = Guid.NewGuid();
-            string deletionReason = GetRandomString();
-            var alreadyWithdrawn = new ApprovalReviewRequest { Id = requestId, IsDeleted = true };
+            Guid approvalId = Guid.NewGuid();
 
-            this.approvalReviewRequestServiceMock.Setup(service =>
-                service.RetrieveApprovalReviewRequestByIdAsync(
-                    requestId,
-                    It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(new ApprovalReviewRequestValidationException(
-                            message: "not found",
-                            innerException: new NotFoundApprovalReviewRequestException(
-                                message: "not found")));
-
-            this.approvalReviewRequestServiceMock.Setup(service =>
-                service.RemoveApprovalReviewRequestByIdAsync(
-                    requestId,
-                    deletionReason,
-                    It.IsAny<CancellationToken>()))
-                        .ReturnsAsync(alreadyWithdrawn);
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = Guid.NewGuid(),
+                        RequestedUserId = Guid.NewGuid().ToString(),
+                    }
+                });
 
             // when
             ApprovalReviewRequest actual =
                 await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
-                    requestId,
-                    deletionReason,
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    GetRandomString(),
                     TestContext.Current.CancellationToken);
 
-            // then: not-found on the LOOKUP means "nothing to check", never "nothing to remove"
-            actual.Should().BeSameAs(alreadyWithdrawn);
+            // then
+            actual.Should().BeNull();
+
+            // and nothing was removed — least of all the OTHER person's standing invitation
+            this.approvalReviewRequestServiceMock.Verify(service =>
+                service.RemoveApprovalReviewRequestByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         [Fact]
@@ -450,7 +570,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
                 this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                    EntityType.ContentItem,
                     Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
                     deletionReason: null,
                     cancellationToken: TestContext.Current.CancellationToken);
 

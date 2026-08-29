@@ -806,7 +806,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 nameof(ApprovalsController.GetApprovalVerdictAsync),
                 nameof(ApprovalsController.PostApprovalDecisionAsync),
                 nameof(ApprovalsController.GetReviewerCandidatesAsync),
-                nameof(ApprovalsController.PostReviewRequestAsync)
+                nameof(ApprovalsController.PostReviewRequestAsync),
+                nameof(ApprovalsController.GetReviewRequestsAsync),
+                nameof(ApprovalsController.DeleteReviewRequestAsync)
             };
 
             // When
@@ -835,6 +837,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewRequestsAsync))]
+        [InlineData(nameof(ApprovalsController.DeleteReviewRequestAsync))]
         public void ActionShouldCarryAuthorizeWithNoFixedRoleList(string actionName)
         {
             // Given
@@ -1094,6 +1098,133 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                     GetRandomEntityType(),
                     Guid.NewGuid(),
                     Guid.NewGuid().ToString(),
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<NoContentResult>();
+        }
+
+        /// <summary>
+        /// The read §7.9 was written around. Until this route the request rows could be created
+        /// and withdrawn but never seen, so the panel's Requested section was permanently empty —
+        /// not because nobody had been asked, but because it could not be known.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnReviewRequestsOnGetReviewRequestsAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+
+            IReadOnlyList<ApprovalReviewRequest> randomApprovalReviewRequests =
+                new List<ApprovalReviewRequest>
+                {
+                    new ApprovalReviewRequest { Id = Guid.NewGuid() },
+                    new ApprovalReviewRequest { Id = Guid.NewGuid() },
+                };
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(randomApprovalReviewRequests);
+
+            // when
+            ActionResult<IReadOnlyList<ApprovalReviewRequest>> actualActionResult =
+                await this.approvalsController.GetReviewRequestsAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<OkObjectResult>();
+
+            ((OkObjectResult)actualActionResult.Result).Value
+                .Should().BeSameAs(randomApprovalReviewRequests);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Keyed on the round and the person, matching the POST beside it. The old
+        /// <c>DELETE /api/ApprovalReviewRequests/{id}</c> is gone: the row id it needed appeared
+        /// only in the create's response body, which #352 correctly made a 204.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnNoContentOnDeleteReviewRequestAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+            string randomRequestedUserId = Guid.NewGuid().ToString();
+            string randomDeletionReason = Guid.NewGuid().ToString();
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ApprovalReviewRequest { Id = Guid.NewGuid() });
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.DeleteReviewRequestAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    randomRequestedUserId,
+                    randomDeletionReason,
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<NoContentResult>();
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    randomRequestedUserId,
+                    randomDeletionReason,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Nothing outstanding for that person is a no-op, not a not-found. Withdrawing an
+        /// invitation already withdrawn, or one a rule 6 retirement has taken, is a stale panel
+        /// rather than a mistake — and the orchestration returns null for it.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnNoContentOnDeleteReviewRequestWhenNothingIsOutstandingAsync()
+        {
+            // given
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((ApprovalReviewRequest)null);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.DeleteReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    deletionReason: null,
                     default);
 
             // then
