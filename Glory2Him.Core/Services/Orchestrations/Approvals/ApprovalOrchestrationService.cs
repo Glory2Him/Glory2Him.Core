@@ -24,6 +24,8 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
+using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
 using Glory2Him.Core.Services.Foundations.Approvals;
 
@@ -34,6 +36,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         private readonly IApprovalWorkflowService approvalService;
         private readonly IApprovalReviewWorkflowService approvalReviewWorkflowService;
         private readonly IApprovalCommentService approvalCommentService;
+        private readonly IApprovalReviewRequestService approvalReviewRequestService;
+        private readonly IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService;
+        private readonly IIdentityUserService identityUserService;
         private readonly IAccessBroker accessBroker;
         private readonly IEventEnvelopeBroker eventEnvelopeBroker;
         private readonly IEventBroker eventBroker;
@@ -50,6 +55,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             IApprovalWorkflowService approvalService,
             IApprovalReviewWorkflowService approvalReviewWorkflowService,
             IApprovalCommentService approvalCommentService,
+            IApprovalReviewRequestService approvalReviewRequestService,
+            IApprovalReviewRequestWorkflowService approvalReviewRequestWorkflowService,
+            IIdentityUserService identityUserService,
             IAccessBroker accessBroker,
             IEventEnvelopeBroker eventEnvelopeBroker,
             IEventBroker eventBroker,
@@ -59,6 +67,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             this.approvalService = approvalService;
             this.approvalReviewWorkflowService = approvalReviewWorkflowService;
             this.approvalCommentService = approvalCommentService;
+            this.approvalReviewRequestService = approvalReviewRequestService;
+            this.approvalReviewRequestWorkflowService = approvalReviewRequestWorkflowService;
+            this.identityUserService = identityUserService;
             this.accessBroker = accessBroker;
             this.eventEnvelopeBroker = eventEnvelopeBroker;
             this.eventBroker = eventBroker;

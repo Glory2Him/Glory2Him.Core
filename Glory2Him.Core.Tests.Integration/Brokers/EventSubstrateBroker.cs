@@ -26,7 +26,9 @@ using Glory2Him.Core.Models.Events;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Registrations;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalSettings;
 using Glory2Him.Core.Services.Foundations.Associations;
@@ -128,6 +130,12 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
                 approvalService: BuildApprovalWorkflowServiceMock().Object,
                 approvalReviewWorkflowService: new Mock<IApprovalReviewWorkflowService>().Object,
                 approvalCommentService: new Mock<IApprovalCommentService>().Object,
+                approvalReviewRequestService: new Mock<IApprovalReviewRequestService>().Object,
+
+                approvalReviewRequestWorkflowService:
+                    new Mock<IApprovalReviewRequestWorkflowService>().Object,
+
+                identityUserService: new Mock<IIdentityUserService>().Object,
                 accessBroker: BuildAccessBrokerMock().Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
                 eventBroker: EventBroker,
@@ -136,7 +144,12 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
             // The registration opens a scope per delivery now, so the fixture supplies a
             // provider that hands back these instances. The orchestration is the real one; the
-            // other fourteen are mocks, which is what keeps this suite about the WIRING.
+            // other fifteen are mocks, which is what keeps this suite about the WIRING.
+            //
+            // Every service the subscriptions bind must appear below: Scoped<TService,TEntity>
+            // resolves through GetRequiredService at DELIVERY time, so a missing one throws
+            // mid-delivery rather than at registration — recorded as a failed delivery, with
+            // nothing surfacing.
             var serviceProviderMock = new Mock<IServiceProvider>();
 
             void Provide<TService>(TService instance) where TService : class =>
@@ -152,6 +165,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
             Provide<ICommentService>(new Mock<ICommentService>().Object);
             Provide<IApprovalCommentService>(new Mock<IApprovalCommentService>().Object);
             Provide<IApprovalReviewService>(new Mock<IApprovalReviewService>().Object);
+            Provide<IApprovalReviewRequestService>(new Mock<IApprovalReviewRequestService>().Object);
             Provide<IApprovalSettingService>(new Mock<IApprovalSettingService>().Object);
             Provide<IAssociationService>(new Mock<IAssociationService>().Object);
             Provide<IContentItemSettingService>(new Mock<IContentItemSettingService>().Object);

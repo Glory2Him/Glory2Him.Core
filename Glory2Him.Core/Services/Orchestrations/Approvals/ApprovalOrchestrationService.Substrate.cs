@@ -222,6 +222,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // modify, the owner or an Admin through the resolve transition — and which one carried a
         // change depends on nothing more than which control was clicked.
 
+        // The one workflow-record fact that also RETIRES something. A review being recorded is
+        // how an invitation gets answered (§7.9 rule 6), so the request the reviewer was asked
+        // through stops being outstanding here. Passed as an after-verification hook rather than
+        // run inline, because retiring on the strength of an envelope whose signature has not
+        // been checked would let anyone reaching the address clear the panel.
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewAddedAsync(
             EventEnvelope<ApprovalReview> envelope,
             CancellationToken cancellationToken = default) =>
@@ -229,7 +234,11 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 envelope: envelope,
                 acceptedEventNames: new[] { "ApprovalReviewAdded" },
                 approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                onVerifiedAsync: () => RetireAnsweredReviewRequestAsync(
+                    approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
+                    reviewerUserId: envelope?.Content?.CreatedBy,
+                    cancellationToken: cancellationToken));
 
         public ValueTask<EventEnvelope<ApprovalReview>?> OnApprovalReviewModifiedAsync(
             EventEnvelope<ApprovalReview> envelope,
@@ -343,7 +352,8 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             EventEnvelope<TRecord> envelope,
             string[] acceptedEventNames,
             Guid approvalId,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<ValueTask> onVerifiedAsync = null)
         {
             // FIRST, and deliberately ahead of the signature check — unlike the suppression
             // test below, which sits after it on purpose. Cancellation abandons the delivery
@@ -356,6 +366,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             cancellationToken.ThrowIfCancellationRequested();
 
             await ValidateEntityFactEnvelopeAsync(envelope, acceptedEventNames);
+
+            // After verification, before the suppression test. Suppression decides whether to
+            // RE-TEST the round; retiring an answered invitation is not a re-test and must
+            // happen either way, or a review recorded during a dismissal cascade would leave its
+            // invitation standing forever.
+            if (onVerifiedAsync is not null)
+            {
+                await onVerifiedAsync();
+            }
 
             // Deliberately AFTER the signature check. An unverifiable envelope is refused
             // whether or not we would have acted on it — suppression must never become a way

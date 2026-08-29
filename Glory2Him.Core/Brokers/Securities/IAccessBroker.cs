@@ -161,5 +161,22 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<List<Guid>> FindDismissableApprovalReviewIdsAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gathers everything the invitation flow needs about an approval's subject (§7.9,
+        /// §16.7.4) — the round's status, the entity's owner, the role subjects the review tier
+        /// composes from, and who already holds an active review.
+        ///
+        /// <para>Gather-only, like every other read here: it writes nothing and decides nothing.
+        /// Whether a particular person may be invited is composed above this, because the tier
+        /// naming convention (§18.6) belongs in one place and the role MEMBERSHIP behind it lives
+        /// in the identity store (§12.7.1), which this broker does not read.</para>
+        ///
+        /// <para>Returns <c>null</c> when no approval carries the id, so a caller can report
+        /// not-found rather than inferring it from an empty scope.</para>
+        /// </summary>
+        ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByIdAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
     }
 }

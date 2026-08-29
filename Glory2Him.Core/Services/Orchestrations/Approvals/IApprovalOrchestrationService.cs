@@ -10,10 +10,12 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 
 namespace Glory2Him.Core.Services.Orchestrations.Approvals
@@ -115,6 +117,53 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// </summary>
         ValueTask<ApprovalOutcome> ProcessApprovalInputsChangedAsync(
             Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Who may be invited to review this entity (§16.7.4) — the people holding a review-tier
+        /// role for it, minus the entity's owner, minus anyone already holding an active review,
+        /// minus anyone already invited.
+        ///
+        /// <para>Writes nothing and grants nothing. It is a USER-ENUMERATION surface, so it is
+        /// restricted to the requesting tier (§7.9 rule 2) and each candidate carries an account
+        /// id and a display name and nothing else.</para>
+        ///
+        /// <para>Role membership comes from the identity store through the read-only
+        /// <c>IdentityCoreStorageBroker</c> (§12.7.1); the tier NAMES are composed here from the
+        /// approval's role subjects, so §18.6's convention keeps one home.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ReviewerCandidate>> RetrieveReviewerCandidatesAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Invites somebody to review this entity (§7.9). Refuses unless the round is
+        /// <c>Submitted</c> (rule 7), the invited person holds a review-tier role for the entity
+        /// and does not own it (rule 3), and the caller is in the requesting tier (rule 2).
+        ///
+        /// <para><b>Idempotent on a duplicate</b> (rule 4): if the invited person already holds an
+        /// active review or an active invitation, the existing state is returned unchanged rather
+        /// than raising a conflict — asking twice is a harmless thing for a UI to do, and the
+        /// uniqueness index would otherwise turn it into an error.</para>
+        /// </summary>
+        ValueTask<ApprovalReviewRequest> RequestApprovalReviewAsync(
+            EntityType entityType,
+            Guid entityId,
+            string requestedUserId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Withdraws a pending invitation (§7.9 rule 5) — the undo for one sent to the wrong
+        /// person. Open to the whole requesting tier rather than to the requester alone, because
+        /// a request carries no verdict to protect and the person who sent it may not be around.
+        ///
+        /// <para>Distinct from the RETIREMENT of rule 6, which happens when the invited person
+        /// answers and runs under the system identity; that has no caller-facing verb.</para>
+        /// </summary>
+        ValueTask<ApprovalReviewRequest> WithdrawApprovalReviewRequestAsync(
+            Guid approvalReviewRequestId,
+            string deletionReason = null,
             CancellationToken cancellationToken = default);
     }
 }
