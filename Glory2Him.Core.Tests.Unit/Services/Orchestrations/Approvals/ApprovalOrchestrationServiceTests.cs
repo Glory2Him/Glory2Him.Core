@@ -22,10 +22,13 @@ using Glory2Him.Core.Brokers.Loggings;
 using Glory2Him.Core.Brokers.Securities;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Moq;
@@ -39,6 +42,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         private readonly Mock<IApprovalWorkflowService> approvalServiceMock;
         private readonly Mock<IApprovalReviewWorkflowService> approvalReviewServiceMock;
         private readonly Mock<IApprovalCommentService> approvalCommentServiceMock;
+        private readonly Mock<IApprovalReviewRequestService> approvalReviewRequestServiceMock;
+        private readonly Mock<IApprovalReviewRequestWorkflowService> approvalReviewRequestWorkflowServiceMock;
+        private readonly Mock<IIdentityUserService> identityUserServiceMock;
         private readonly Mock<IAccessBroker> accessBrokerMock;
         private readonly Mock<IEventEnvelopeBroker> eventEnvelopeBrokerMock;
         private readonly Mock<IEventBroker> eventBrokerMock;
@@ -52,6 +58,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock = new Mock<IApprovalWorkflowService>();
             this.approvalReviewServiceMock = new Mock<IApprovalReviewWorkflowService>();
             this.approvalCommentServiceMock = new Mock<IApprovalCommentService>();
+            this.approvalReviewRequestServiceMock = new Mock<IApprovalReviewRequestService>();
+
+            this.approvalReviewRequestWorkflowServiceMock =
+                new Mock<IApprovalReviewRequestWorkflowService>();
+
+            this.identityUserServiceMock = new Mock<IIdentityUserService>();
             this.accessBrokerMock = new Mock<IAccessBroker>();
             this.eventEnvelopeBrokerMock = new Mock<IEventEnvelopeBroker>();
             this.eventBrokerMock = new Mock<IEventBroker>();
@@ -74,6 +86,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
                             }));
 
+            // The withdraw path mints an ApprovalReviewRequest envelope rather than an Approval
+            // one - it is keyed on the request row, not on the entity behind it.
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.IsAny<ApprovalReviewRequest>()))
+                    .Returns((ApprovalReviewRequest content) =>
+                        new ValueTask<EventEnvelope<ApprovalReviewRequest>>(
+                            new EventEnvelope<ApprovalReviewRequest>
+                            {
+                                Content = content,
+                                SecurityContext = this.ambientSecurityContext,
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
+
             // Valid by default. Tests about verification override it; every other
             // test would otherwise be asserting the guard rather than its own subject.
             this.envelopeIntegrityBrokerMock.Setup(broker =>
@@ -87,6 +112,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 approvalService: this.approvalServiceMock.Object,
                 approvalReviewWorkflowService: this.approvalReviewServiceMock.Object,
                 approvalCommentService: this.approvalCommentServiceMock.Object,
+                approvalReviewRequestService: this.approvalReviewRequestServiceMock.Object,
+
+                approvalReviewRequestWorkflowService:
+                    this.approvalReviewRequestWorkflowServiceMock.Object,
+
+                identityUserService: this.identityUserServiceMock.Object,
                 accessBroker: this.accessBrokerMock.Object,
                 eventEnvelopeBroker: this.eventEnvelopeBrokerMock.Object,
                 eventBroker: this.eventBrokerMock.Object,

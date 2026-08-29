@@ -16,6 +16,7 @@ using System.Threading.Tasks;
 using EFxceptions;
 using G2H.StorageClient.Clients;
 using Glory2Him.Core.Models.Foundations.ApprovalComments;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ApprovalSettings;
@@ -66,6 +67,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             AddApprovalConfigurations(modelBuilder.Entity<Approval>());
             AddApprovalCommentConfigurations(modelBuilder.Entity<ApprovalComment>());
             AddApprovalReviewConfigurations(modelBuilder.Entity<ApprovalReview>());
+            AddApprovalReviewRequestConfigurations(modelBuilder.Entity<ApprovalReviewRequest>());
             AddApprovalSettingConfigurations(modelBuilder.Entity<ApprovalSetting>());
             AddAssociationConfigurations(modelBuilder.Entity<Association>());
             AddAttachmentConfigurations(modelBuilder.Entity<Attachment>());

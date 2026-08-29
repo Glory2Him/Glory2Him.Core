@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Foundations.ProcessedEvents;
 using Moq;
+using Glory2Him.Core.Models.Enums;
 
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 {
@@ -43,6 +44,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditAppliedApproval.CreatedBy);
+
+            // The gate reads the ENTITY's author now, not the approval's: the workflow
+            // owns approval rows, so Approval.CreatedBy records the system. Same person,
+            // resolved from the row that really has an owner.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(auditAppliedApproval.CreatedBy);
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())

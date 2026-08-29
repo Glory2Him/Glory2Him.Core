@@ -40,16 +40,40 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
         /// write no human is permitted to make directly (design §16.7.1) — the approval workflow
         /// syncing a decision onto its entity.
         ///
-        /// <para>The deciding subject is retained, so the entity's <c>UpdatedBy</c> still records
-        /// the person whose decision this is; roles are dropped, because the system identity
-        /// stands in for the publisher tier and reading roles off it would suggest an authority
-        /// it is not exercising.</para>
+        /// <para>The actor recorded is <c>SystemIdentity.UserId</c>, because no human performed
+        /// this: an approval opens because content was submitted, a round re-approves because its
+        /// conditions came to be met, an invitation retires because the person answered it.
+        /// Stamping whichever human's request happened to be on the stack would name somebody who
+        /// did not act — and on <c>Approval</c>, whose rows the workflow owns outright, would
+        /// forge an owner. The triggering person is kept on <c>DelegatedBySubjectId</c>, so the
+        /// causal trail survives without the audit columns lying. Roles are dropped, because the
+        /// system identity stands in for the publisher tier and reading roles off it would
+        /// suggest an authority it is not exercising.</para>
+        ///
+        /// <para>For the manual approve or reject — an act a person really did perform, but is
+        /// not permitted to write directly — use <see cref="CreateElevatedAsync"/> instead.</para>
         ///
         /// <para>The claim is only worth anything because it is signed: envelopes leave this
         /// system signed with a key only this system holds, and the security context is inside
         /// the signed payload (§14.6 rule 4).</para>
         /// </summary>
         ValueTask<EventEnvelope<T>> CreateSystemAsync<T>(T content);
+
+        /// <summary>
+        /// Mints an envelope for a write the workflow performs while CARRYING OUT a person's
+        /// decision — the manual approve or reject, with or without bypass. The ambient caller is
+        /// retained, so the entity's <c>UpdatedBy</c> records the administrator whose decision
+        /// this is; roles are dropped exactly as for <see cref="CreateSystemAsync"/>, because the
+        /// system identity stands in for the publisher tier and reading roles off it would
+        /// suggest an authority it is not exercising.
+        ///
+        /// <para><b>How this differs from <see cref="CreateSystemAsync"/>.</b> That one is for
+        /// acts nobody asked for, and records <c>SystemIdentity.UserId</c>. This one is for an act
+        /// a person asked for but is not permitted to write directly, and records the person. The
+        /// caller chooses which ACT it is performing; it never supplies an identity, so it can
+        /// only ever elect to be recorded as itself (§16.7.1).</para>
+        /// </summary>
+        ValueTask<EventEnvelope<T>> CreateElevatedAsync<T>(T content);
 
         ValueTask<EventEnvelope<T>> CreateNextAsync<TSource, T>(
             EventEnvelope<TSource> sourceEnvelope,

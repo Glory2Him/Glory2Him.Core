@@ -11,5 +11,5 @@ components:
     col: 11
     shared: true
     deriveMethods: true
-    description: "The DbContext handed to EFCoreClient. In this solution that is Glory2Him.Core's StorageBroker itself (it derives from EFxceptionsContext and passes itself into EFCoreClient)."
+    description: "The DbContext handed to EFCoreClient. In this solution that is Glory2Him.Core's StorageBroker itself (it derives from EFxceptionsContext and passes itself into EFCoreClient). IdentityCoreStorageBroker is a SECOND DbContext, over the security database, and queries EF directly rather than through EFCoreClient - it is read-only and needs none of the client's write surface."
     methods: []

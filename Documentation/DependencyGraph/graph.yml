@@ -73,6 +73,7 @@ roots:
   - ESR
   - SecurityBroker
   - AccessBroker
+  - IdentityCoreStorageBroker
   - FS.ContentItem
   - FS.Association
   - FS.BibleReference
@@ -83,6 +84,8 @@ roots:
   - FS.Approval
   - FS.ApprovalComment
   - FS.ApprovalReview
+  - FS.ApprovalReviewRequest
+  - FS.IdentityUser
   - FS.ApprovalSetting
   - FS.ContentItemSetting
   - SC.UserClient
@@ -395,6 +398,27 @@ events:
   - id: ApprovalReview.HardRemoved
     publish: PublishApprovalReviewAsync
     subscribe: SubscribeToApprovalReviewEventAsync
+  - id: ApprovalReviewRequest.Adding
+    publish: PublishApprovalReviewRequestAsync
+    subscribe: SubscribeToApprovalReviewRequestEventAsync
+  - id: ApprovalReviewRequest.RemovingById
+    publish: PublishApprovalReviewRequestAsync
+    subscribe: SubscribeToApprovalReviewRequestEventAsync
+  - id: ApprovalReviewRequest.HardRemovingById
+    publish: PublishApprovalReviewRequestAsync
+    subscribe: SubscribeToApprovalReviewRequestEventAsync
+  - id: ApprovalReviewRequest.RetrievingById
+    publish: PublishApprovalReviewRequestAsync
+    subscribe: SubscribeToApprovalReviewRequestEventAsync
+  - id: ApprovalReviewRequest.Added
+    publish: PublishApprovalReviewRequestAsync
+    subscribe: SubscribeToApprovalReviewRequestEventAsync
+  - id: ApprovalReviewRequest.Removed
+    publish: PublishApprovalReviewRequestAsync
+    subscribe: SubscribeToApprovalReviewRequestEventAsync
+  - id: ApprovalReviewRequest.HardRemoved
+    publish: PublishApprovalReviewRequestAsync
+    subscribe: SubscribeToApprovalReviewRequestEventAsync
   - id: ApprovalSetting.Adding
     publish: PublishApprovalSettingAsync
     subscribe: SubscribeToApprovalSettingEventAsync

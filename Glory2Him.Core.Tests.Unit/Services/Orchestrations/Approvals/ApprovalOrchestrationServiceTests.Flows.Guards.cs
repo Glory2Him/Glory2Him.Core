@@ -20,6 +20,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews.Exceptions;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Moq;
@@ -550,6 +551,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(foundationException);
 
@@ -608,6 +610,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(foundationException);
 
@@ -1280,6 +1283,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(foundationException);
 
@@ -1300,6 +1304,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -1335,6 +1340,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(foundationException);
 
@@ -1354,6 +1360,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Once);
 
@@ -1452,6 +1459,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(serviceException);
 
@@ -1696,6 +1704,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
 
@@ -1746,6 +1755,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Setup(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(operationCanceledException);
 
@@ -1943,6 +1953,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             this.approvalServiceMock.Verify(service =>
                 service.ModifyApprovalAsync(
                     It.IsAny<Approval>(),
+                    It.IsAny<WorkflowAttribution>(),
                     It.IsAny<CancellationToken>()),
                 Times.Never);
 

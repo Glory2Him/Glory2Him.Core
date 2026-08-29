@@ -15,6 +15,7 @@ using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 
 namespace Glory2Him.Core.Services.Orchestrations.Approvals
@@ -121,6 +122,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             return await this.approvalService.ModifyApprovalAsync(
                 approval: storageApproval,
+                attribution: WorkflowAttribution.System,
                 cancellationToken: cancellationToken);
         }
 
@@ -178,6 +180,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             Approval approvedApproval = await this.approvalService.ModifyApprovalAsync(
                 approval: approval,
+                attribution: WorkflowAttribution.System,
                 cancellationToken: cancellationToken);
 
             await PublishEntityApprovalCommandAsync(

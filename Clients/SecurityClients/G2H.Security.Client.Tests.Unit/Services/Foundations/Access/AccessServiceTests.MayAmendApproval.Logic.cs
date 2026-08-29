@@ -86,7 +86,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 {
                     new RoleSubject { EntityType = "ContentItem", ContentType = "Testimony" },
                 },
-                approvalCreatedBy: submitter.UserId);
+                entityCreatedBy: submitter.UserId);
 
             // when
             AccessVerdict actualVerdict =
@@ -118,7 +118,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 {
                     new RoleSubject { EntityType = "ContentItem", ContentType = null },
                 },
-                approvalCreatedBy: blankSubmitter!);
+                entityCreatedBy: blankSubmitter!);
 
             // when
             AccessVerdict actualVerdict =

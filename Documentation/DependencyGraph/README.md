@@ -7,7 +7,7 @@ Data and renderer are separate files, all in this folder:
 
 - [graph.yml](./graph.yml) — the manifest: solution name, project list (which
   also names each project's data file), root order, and the event registry
-  (all 170 `<Entity>.<Operation>` events with their publish/subscribe row
+  (all 177 `<Entity>.<Operation>` events with their publish/subscribe row
   labels).
 - `projects/*.yml` — one file per project / package boundary, each declaring
   that project's components with their methods, outbound calls, publishes and
@@ -18,6 +18,12 @@ Data and renderer are separate files, all in this folder:
 
 ```bash
 python -m http.server 8731 --bind 127.0.0.1
+```
+
+or, where Python is not installed:
+
+```bash
+npx --yes http-server -p 8731 -a 127.0.0.1
 ```
 
 then open `http://127.0.0.1:8731/`.
@@ -75,14 +81,51 @@ view you were on, and switching carries your current selection across.
   toggle reveals the DateTime / Identifier / Logging / Hash broker copies
   that are hidden by default for readability.
 
-## Current truths captured in the data (full re-scan 2026-08-21)
+## Current truths captured in the data (full re-scan 2026-08-21; targeted update 2026-08-28)
 
-- **All 108 subscriptions are now drawn.** `EventSubscriptionRegistration`
-  wires 108 and the data files carry 108 — the first time these have matched
-  since the 2026-08-11 scan, which drew 71 against 85. The gap closed in two
-  halves: the six approvable entities gained their `Submitting` / `Approving`
+- **All 112 subscriptions are drawn.** `EventSubscriptionRegistration` wires
+  112 and the data files carry 112. They first matched at 108 in the 2026-08-21
+  scan (the 2026-08-11 scan drew 71 against 85); the four added since are
+  `ApprovalReviewRequest`'s, below. The original gap closed in two halves: the
+  six approvable entities gained their `Submitting` / `Approving`
   subscriptions and their submit and approval-transition verbs, and
   `ApprovalOrchestrationService` was added with its 22 handlers.
+- **`FS.ApprovalReviewRequest` is new** (2026-08-28, design §7.9 / §16.7.4) —
+  the review INVITATIONS that let a moderation surface show who has been asked
+  and has not yet answered. Three things make it unlike every other approval
+  foundation, and all three are visible in the data: it has **no
+  `IAccessBroker`** edge, because an invitation grants no eligibility and
+  enters no §8.5 condition, so there is no cross-entity invariant to defend;
+  it has **no Modify** method or `-Modifying` address, because `ApprovalId` and
+  `RequestedUserId` are the halves of its uniqueness index and are fixed at
+  creation; and its **remove path takes no `GetUserIdAsync`**, because
+  withdrawal is open to the whole review tier rather than to the requester
+  alone (§7.9 rule 5). Four subscriptions, four publishes, 37 direct calls.
+  Its facts have no subscribers, so none of its edges are circular.
+- **`FS.IdentityUser` and `IdentityCoreStorageBroker` are new** (2026-08-28, design §12.7.1) —
+  Core's first read into the SECURITY database, and the first time it has had two
+  DbContexts. They exist because §7.9 rule 3 and the reviewer-candidates read both ask
+  about ROLE MEMBERSHIP, which lives in the ASP.NET Identity store and nowhere else:
+  `ISecurityClient.Users` reads a `ClaimsPrincipal`, so it only ever describes the
+  current caller. The broker is read-only by interface (Select members only, no design-time
+  factory, no migrations), and `FS.IdentityUser` is the one foundation with **no**
+  `EventEnvelopeBroker` and **no** `SecurityAuditBroker` edge — it writes nothing, publishes
+  nothing, and who may enumerate users is decided by `AO` before the call is made.
+- **`AO` gained the invitation flow** — `RetrieveReviewerCandidatesAsync`,
+  `RequestApprovalReviewAsync` and `WithdrawApprovalReviewRequestAsync`, plus the rule 6
+  retirement hanging off `OnApprovalReviewAddedAsync`. These are the operations needing BOTH
+  stores, which is why they sit in an orchestration rather than a foundation. It took the
+  service to eleven dependencies; the refactor is tracked separately.
+- **`RetireAnsweredApprovalReviewRequestAsync` is the second workflow seam in
+  the graph**, after `ApprovalReviewService.DismissStaleApprovalReviewAsync`,
+  and it is drawn the same way: a `CreateSystemAsync` edge instead of
+  `CreateAsync`, and no `InsertProcessedEventAsync` pair. It exists because
+  §7.9 rule 6 retires an answered invitation under the SYSTEM identity, and
+  `CreateSystemAsync` mints a context with no roles — so the public withdraw
+  verb, whose gate asks for a review-tier role, cannot serve that rule. It
+  publishes the ordinary `ApprovalReviewRequest.Removed` fact; what
+  distinguishes a retirement from a withdrawal is recorded on the row, not on
+  a separate address.
 - **`ApprovalOrchestrationService` (`AO`) is the approval workflow**, added on
   this branch (PR #289 and the workflow-record subscriptions that followed).
   It records human approve/reject decisions on the `Approval` row and
@@ -159,13 +202,21 @@ view you were on, and switching carries your current selection across.
   added 2026-08-12) is not modelled. It has no events, so it does not affect
   the subscription count.
 - **The four WebApp controllers** above are not modelled.
-- **7 of 177 event addresses are absent from the manifest** — the whole
+- **7 of 184 event addresses are absent from the manifest** — the whole
   `Attachment` family. They are declared on `IEventBroker` but no service
   publishes or subscribes them, so nothing would be drawn. The manifest
-  otherwise carries 170 of 177, exactly the set with a producer or consumer.
+  otherwise carries 177 of 184, exactly the set with a producer or consumer
+  (170 before `ApprovalReviewRequest` added its seven).
 - The `Attachment` storage family (`IStorageBroker.Attachment.cs`, 11
   operations) is likewise unmodelled; only `SelectAttachmentByIdAsync` has a
   caller today, and it is drawn.
+- **No foundation draws its `IEnvelopeIntegrityBroker` edge.** The body text
+  above is right that every substrate handler verifies the envelope signature
+  there, but only `ApprovalOrchestrationService` declares those calls in the
+  data — the 14 foundations and both processing services do not.
+  `FS.ApprovalReviewRequest` follows its siblings rather than fixing this for
+  one service alone, which would make the picture less consistent, not more.
+  Correcting it is a template-wide edit and belongs to a full re-scan.
 
 ## The data files
 

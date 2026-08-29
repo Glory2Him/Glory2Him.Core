@@ -33,6 +33,7 @@ using RESTFulSense.Controllers;
 using RESTFulSense.Models;
 using Tynamix.ObjectFiller;
 using Xeptions;
+using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 
 namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 {
@@ -803,7 +804,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             List<string> expectedActions = new List<string>
             {
                 nameof(ApprovalsController.GetApprovalVerdictAsync),
-                nameof(ApprovalsController.PostApprovalDecisionAsync)
+                nameof(ApprovalsController.PostApprovalDecisionAsync),
+                nameof(ApprovalsController.GetReviewerCandidatesAsync),
+                nameof(ApprovalsController.PostReviewRequestAsync)
             };
 
             // When
@@ -830,6 +833,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [Theory]
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
+        [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         public void ActionShouldCarryAuthorizeWithNoFixedRoleList(string actionName)
         {
             // Given
@@ -872,6 +877,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [Theory]
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
+        [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         public void ActionShouldNotAllowAnonymous(string actionName)
         {
             // Given
@@ -1017,6 +1024,80 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 ApprovedByBypassReason = GetRandomString(),
                 IsEntitySyncRequested = true
             };
+        }
+
+        /// <summary>
+        /// The invite answers 204 on every success, and the same 204 for all of them. Its
+        /// outcomes are "already invited", "created" and "already answered, nothing to create"
+        /// (7.9 rule 4), and a caller has no use for the difference - it refreshes from the round
+        /// either way, which is the only source that stays right while somebody else works the
+        /// same item.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnNoContentOnPostReviewRequestAsync()
+        {
+            // given
+            EntityType randomEntityType = GetRandomEntityType();
+            Guid randomEntityId = Guid.NewGuid();
+            string randomRequestedUserId = Guid.NewGuid().ToString();
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestApprovalReviewAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(new ApprovalReviewRequest { Id = Guid.NewGuid() });
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.PostReviewRequestAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    randomRequestedUserId,
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<NoContentResult>();
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RequestApprovalReviewAsync(
+                    randomEntityType,
+                    randomEntityId,
+                    randomRequestedUserId,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The answered case has nothing to hand back at all - rule 6 retired the invitation when
+        /// the person answered - so the orchestration returns null. That must still be a 204 and
+        /// never an error: the likely caller is a panel a few seconds stale, not a mistake.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnNoContentOnPostReviewRequestWhenThereIsNothingToCreateAsync()
+        {
+            // given
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RequestApprovalReviewAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync((ApprovalReviewRequest)null);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.PostReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<NoContentResult>();
         }
     }
 }

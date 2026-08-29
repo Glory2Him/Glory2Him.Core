@@ -189,7 +189,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldAllowTheSubmitterToModifyTheirOwnApprovalWithNoRolesAsync()
         {
             // given: the arrangement of the happy path, with ONE difference — the caller holds
-            // no roles at all and is admitted purely as the approval's submitter
+            // no roles at all and is admitted purely as the submitter of the CONTENT. The
+            // approval row itself is the workflow's, and its CreatedBy is pinned to the system
+            // below so this test fails if the gate is ever re-anchored on it: a submitter holds
+            // no role to fall back on, so that regression refuses every author their own work.
             string submitterUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -197,6 +200,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
             Approval randomApproval =
                 CreateRandomModifyApproval(randomDateTimeOffset, submitterUserId);
+
+            // What the workflow really writes there, set before the clones diverge so every
+            // copy agrees. If the gate is ever re-anchored on this column, no human matches it.
+            randomApproval.CreatedBy = SystemIdentity.UserId;
 
             Approval inputApproval = randomApproval;
             Approval auditAppliedApproval = inputApproval.DeepClone();
@@ -211,6 +218,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(submitterUserId);
+
+            // The gate reads the ENTITY's author now, not the approval's.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(submitterUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
@@ -246,7 +261,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // the decision as production computes it — owner OR review tier — rather than the
             // fixture's blanket permit, which cannot tell the two designs apart
             SetupAccessBrokerToMirrorTheAmendmentDecision(
-                approvalCreatedBy: storageApproval.CreatedBy,
+                entityCreatedBy: submitterUserId,
                 actorUserId: submitterUserId);
 
             // when
@@ -267,10 +282,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
         /// <summary>
         /// The row-local gate runs FIRST, so a caller holding no review role at all is refused
-        /// without the approval's entity ever being read. Without this the two gates can be
-        /// swapped and nothing fails — the caller sees the same refusal while a cross-entity read
-        /// has already happened on their behalf. The suite's usual <c>VerifyNoOtherCalls</c> tail
-        /// cannot catch it: that convention excludes <c>accessBrokerMock</c>.
+        /// without the DECISION function ever being consulted. Without this the two gates can be
+        /// swapped and nothing fails — the caller sees the same refusal while a full policy
+        /// evaluation has already run on their behalf. The suite's usual <c>VerifyNoOtherCalls</c>
+        /// tail cannot catch it: that convention excludes <c>accessBrokerMock</c>.
+        ///
+        /// <para>The row-local gate does resolve the entity's author, because that is the only
+        /// thing "owner" can mean on an approval — the workflow owns the approval row itself. So
+        /// the property under test is that <c>MayAmendApprovalAsync</c> is not reached, not that
+        /// the broker is untouched.</para>
         /// </summary>
         [Fact]
         public async Task ShouldRefuseModifyRowLocallyBeforeConsultingTheAccessBrokerAsync()
@@ -290,6 +310,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 storageApproval.UpdatedWhen.AddDays(GetRandomNegativeNumber());
 
             SetupModifyApprovalRun(inputApproval, storageApproval, randomDateTimeOffset);
+
+            // Somebody else wrote the content, so the caller is not the submitter either.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync("somebody-else");
 
             // when
             ValueTask<Approval> modifyApprovalTask =
@@ -532,6 +560,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(auditAppliedApproval.UpdatedBy);
+
+            // The ownership gates read the ENTITY's author now, not the approval's: the
+            // workflow owns approval rows, so Approval.CreatedBy records the system. These runs
+            // are the actor acting on their own submission, so the entity answers with them.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(auditAppliedApproval.UpdatedBy);
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())

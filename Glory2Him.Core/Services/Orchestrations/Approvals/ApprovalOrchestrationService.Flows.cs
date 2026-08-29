@@ -18,6 +18,7 @@ using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
+using Glory2Him.Core.Models.Securities;
 using Glory2Him.Core.Models.Orchestrations.Approvals;
 
 namespace Glory2Him.Core.Services.Orchestrations.Approvals
@@ -176,6 +177,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
 
             Approval rejectedApproval = await this.approvalService.ModifyApprovalAsync(
                 approval: approval,
+                attribution: WorkflowAttribution.System,
                 cancellationToken: cancellationToken);
 
             await PublishEntityApprovalCommandAsync(

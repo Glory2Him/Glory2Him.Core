@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
+using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -71,6 +72,24 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<AccessVerdict> MayAmendApprovalAsync(
             Guid approvalId,
             Models.Events.SecurityContext securityContext,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The account id of whoever authored the ENTITY an approval is about — the person §14.7
+        /// posture D rule 3 calls the submitter, and the only meaning "owner" has on an approval.
+        ///
+        /// <para>Not <c>Approval.CreatedBy</c>. The workflow owns approval rows outright — it
+        /// opens them itself when content is submitted — so that column records the system and
+        /// never a person. A gate anchored there refuses every author their own work, silently,
+        /// since a submitter holds no role to fall back on.</para>
+        ///
+        /// <para>Read from STORAGE, like everything else here. It lives on this broker because
+        /// resolving it means knowing which table an <c>EntityType</c> points at, which is the
+        /// one thing a single-entity foundation service cannot work out for itself.</para>
+        /// </summary>
+        ValueTask<string> RetrieveEntityAuthorAsync(
+            EntityType entityType,
+            Guid entityId,
             CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -159,6 +178,23 @@ namespace Glory2Him.Core.Brokers.Securities
         /// authority to weigh.</para>
         /// </remarks>
         ValueTask<List<Guid>> FindDismissableApprovalReviewIdsAsync(
+            Guid approvalId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Gathers everything the invitation flow needs about an approval's subject (§7.9,
+        /// §16.7.4) — the round's status, the entity's owner, the role subjects the review tier
+        /// composes from, and who already holds an active review.
+        ///
+        /// <para>Gather-only, like every other read here: it writes nothing and decides nothing.
+        /// Whether a particular person may be invited is composed above this, because the tier
+        /// naming convention (§18.6) belongs in one place and the role MEMBERSHIP behind it lives
+        /// in the identity store (§12.7.1), which this broker does not read.</para>
+        ///
+        /// <para>Returns <c>null</c> when no approval carries the id, so a caller can report
+        /// not-found rather than inferring it from an empty scope.</para>
+        /// </summary>
+        ValueTask<ApprovalReviewerScope?> RetrieveApprovalReviewerScopeByIdAsync(
             Guid approvalId,
             CancellationToken cancellationToken = default);
     }

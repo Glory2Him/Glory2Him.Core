@@ -12,6 +12,7 @@
 using System.Threading.Tasks;
 using G2H.EventEnvelope.Client.Clients;
 using Glory2Him.Core.Models.Events;
+using Glory2Him.Core.Models.Securities;
 using ExternalEventEnvelopes = G2H.EventEnvelope.Client.Models.Foundations;
 
 namespace Glory2Him.Core.Brokers.EventEnvelopes
@@ -31,12 +32,29 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
             return ConvertToEventEnvelope(externalEventEnvelope);
         }
 
-        // Built on CreateAsync rather than beside it, so metadata, correlation and every other
-        // carried section are minted exactly as any other envelope's are — only the identity
-        // differs, and it differs in one visible place.
-        public async ValueTask<EventEnvelope<T>> CreateSystemAsync<T>(T content)
+        // Both system mints are built on CreateAsync rather than beside it, so metadata,
+        // correlation and every other carried section are minted exactly as any other
+        // envelope's are — only the identity differs, and it differs in one visible place.
+        public async ValueTask<EventEnvelope<T>> CreateSystemAsync<T>(T content) =>
+            await CreateSystemContextAsync(
+                content: content,
+                isCarryingOutACallersDecision: false);
+
+        public async ValueTask<EventEnvelope<T>> CreateElevatedAsync<T>(T content) =>
+            await CreateSystemContextAsync(
+                content: content,
+                isCarryingOutACallersDecision: true);
+
+        // ONE writer for both, because the difference between them is a single field and two
+        // near-identical copies would drift. The caller picks the ACT through the two public
+        // methods above; it never supplies an identity, so it can only ever elect to be recorded
+        // as itself and the flag stays unforgeable by construction (§16.7.1).
+        private async ValueTask<EventEnvelope<T>> CreateSystemContextAsync<T>(
+            T content,
+            bool isCarryingOutACallersDecision)
         {
             EventEnvelope<T> callerEnvelope = await CreateAsync(content);
+            string? callerSubjectId = callerEnvelope.SecurityContext?.SubjectId;
 
             return new EventEnvelope<T>
             {
@@ -47,17 +65,32 @@ namespace Glory2Him.Core.Brokers.EventEnvelopes
 
                 SecurityContext = new SecurityContext
                 {
-                    // The deciding human is kept, because the audit answer to "who approved
-                    // this" is a person, not a process. Roles are not: the flag stands in for
-                    // the publisher tier by itself, and carrying them would leave a context that
-                    // looks like it was authorised two different ways.
-                    SubjectId = callerEnvelope.SecurityContext?.SubjectId,
-                    Username = callerEnvelope.SecurityContext?.Username,
+                    // Whose act it is decides whose name the audit columns carry. Carrying out a
+                    // person's decision keeps the person — the audit answer to "who approved
+                    // this" is a human. Acting on its own account records the system, because
+                    // stamping whichever request happened to be on the stack would name somebody
+                    // who did not act. Either way the triggering person survives on
+                    // DelegatedBySubjectId, so the causal trail is not lost to make the audit
+                    // truthful. Roles are dropped in both: the flag stands in for the publisher
+                    // tier by itself, and carrying them would leave a context that looks like it
+                    // was authorised two different ways.
+                    SubjectId = isCarryingOutACallersDecision
+                        ? callerSubjectId
+                        : SystemIdentity.UserId,
+
+                    Username = isCarryingOutACallersDecision
+                        ? callerEnvelope.SecurityContext?.Username
+                        : SystemIdentity.Username,
+
+                    DelegatedBySubjectId = callerSubjectId,
                     TenantId = callerEnvelope.SecurityContext?.TenantId,
                     IsAuthenticated = true,
                     IsSystemIdentity = true,
-                    AuthenticationType = callerEnvelope.SecurityContext?.AuthenticationType
-                        ?? default,
+
+                    // The two enum members that existed for this and had never been minted.
+                    AuthenticationType = isCarryingOutACallersDecision
+                        ? AuthenticationType.Delegated
+                        : AuthenticationType.System,
                 }
             };
         }

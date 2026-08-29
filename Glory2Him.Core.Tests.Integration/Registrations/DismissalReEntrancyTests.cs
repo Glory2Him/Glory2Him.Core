@@ -25,7 +25,9 @@ using Glory2Him.Core.Models.Events.Foundations;
 using Glory2Him.Core.Models.Foundations.ApprovalReviews;
 using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Services.Foundations.ApprovalComments;
+using Glory2Him.Core.Services.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Services.Foundations.ApprovalReviews;
+using Glory2Him.Core.Services.Foundations.IdentityUsers;
 using Glory2Him.Core.Services.Foundations.Approvals;
 using Glory2Him.Core.Services.Orchestrations.Approvals;
 using Glory2Him.Core.Tests.Integration.Brokers;
@@ -322,6 +324,12 @@ namespace Glory2Him.Core.Tests.Integration.Registrations
                 approvalService: approvalServiceMock.Object,
                 approvalReviewWorkflowService: approvalReviewServiceMock.Object,
                 approvalCommentService: new Mock<IApprovalCommentService>().Object,
+                approvalReviewRequestService: new Mock<IApprovalReviewRequestService>().Object,
+
+                approvalReviewRequestWorkflowService:
+                    new Mock<IApprovalReviewRequestWorkflowService>().Object,
+
+                identityUserService: new Mock<IIdentityUserService>().Object,
                 accessBroker: accessBrokerMock.Object,
                 eventEnvelopeBroker: new Mock<IEventEnvelopeBroker>().Object,
                 eventBroker: this.broker.EventBroker,

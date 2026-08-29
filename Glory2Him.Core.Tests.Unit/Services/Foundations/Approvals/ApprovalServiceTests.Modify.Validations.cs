@@ -288,6 +288,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
 
+            // The gate reads the ENTITY's author now, not the approval's.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(randomUserId);
+
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
                     .ReturnsAsync(randomDateTimeOffset);
@@ -484,6 +492,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomUserId);
+
+            // The gate reads the ENTITY's author now, not the approval's.
+            this.accessBrokerMock.Setup(broker =>
+                broker.RetrieveEntityAuthorAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(randomUserId);
 
             this.dateTimeBrokerMock.Setup(broker =>
                 broker.GetCurrentDateTimeOffsetAsync())
