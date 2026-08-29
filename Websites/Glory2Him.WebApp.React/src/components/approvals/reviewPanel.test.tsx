@@ -1320,6 +1320,40 @@ describe('ReviewPanel', () => {
             expect(screen.getAllByRole('button', { name: /paul\.p/ })).toHaveLength(1);
         });
 
+        /// A request whose target has since voted is spent - rule 6 retires it server-side - but
+        /// when that retirement fails or the panel is a few seconds stale it lingers in the
+        /// collection. Counting it against the cap would refuse new invitations on behalf of
+        /// somebody who has already answered, with nothing on screen saying why.
+        it('should not count an answered request against the cap', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+            const onReviewRequested = vi.fn();
+
+            const votedInvitee: ReviewerCandidateItem = {
+                userId: 'user-john',
+                displayName: 'John',
+                userName: 'john.b'
+            };
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalReviewCollection={[johnApproved]}
+                    requestedReviewerCollection={[votedInvitee, mary]}
+                    reviewerCandidateCollection={[paul]}
+                    maxReviewerRequests={2}
+                    onReviewRequested={onReviewRequested} />);
+
+            // when - two rows are in the collection and the cap is two, but only Mary is
+            // actually being waited on
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+            await userEvent.click(screen.getByRole('button', { name: /paul\.p/ }));
+
+            // then
+            expect(onReviewRequested).toHaveBeenCalledTimes(1);
+        });
+
         it('should name the cap in the picker heading', async () => {
             // given
             signInAs(authState, ['Reviewer']);

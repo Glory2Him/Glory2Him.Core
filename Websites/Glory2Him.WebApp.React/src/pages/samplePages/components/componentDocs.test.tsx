@@ -198,14 +198,18 @@ describe('Component reference pages', () => {
             // when
             renderWithAuth(<ReviewPanelDoc />);
 
-            // then: two of the four demos are actionable - the blocked round and the unblocked
-            // one. The read-only demo pins its role props empty, and the decided demo is
-            // terminal, so neither offers the decision control.
+            // then: the DECISION control appears on two demos only - the blocked round and the
+            // unblocked one. The read-only demo pins its role props empty, the decided demo is
+            // terminal, and the voted-reviewer and picker demos pin decisionRoles empty because
+            // they are about reviewing rather than deciding.
             expect(screen.getAllByRole("button", { name: "Set approval status" }))
                 .toHaveLength(2);
 
+            // The cog follows the VOTE tier, not the decision tier, so it appears on all four
+            // demos that leave voteRoles to compose: the two decision demos plus the two that
+            // exist to show reviewing.
             expect(screen.getAllByRole("button", { name: "Request a review" }))
-                .toHaveLength(2);
+                .toHaveLength(4);
         });
     });
 });

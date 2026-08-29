@@ -512,7 +512,16 @@ export function ReviewPanel({
     // "Request up to N reviewers". Counted on OUTSTANDING invitations rather than on everybody
     // who has ever been asked, because a request that has been answered is no longer occupying a
     // slot — the cap limits how many people are being waited on at once.
-    const isAtRequestCap = requestedReviewerCollection.length >= maxReviewerRequests;
+    //
+    // So it counts the same set the main list treats as outstanding, not the raw collection. A
+    // request whose target has since voted is normally retired server-side (§7.9 rule 6), but
+    // when that retirement fails or the panel is a few seconds stale it lingers — and counting
+    // it would refuse new invitations on behalf of somebody who has already answered, with
+    // nothing on screen saying why.
+    const outstandingRequests = requestedReviewerCollection.filter(
+        (candidate) => votedUserIds.has(candidate.userId) === false);
+
+    const isAtRequestCap = outstandingRequests.length >= maxReviewerRequests;
     const chooseDecision = (decision: ApprovalDecision) => {
         setIsDecisionMenuOpen(false);
         setSelectedDecision(decision);

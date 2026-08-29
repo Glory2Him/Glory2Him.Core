@@ -422,6 +422,31 @@ export function ReviewPanelDoc() {
             </DocSection>
 
             <DocSection
+                title="Reviewer who has already voted"
+                lead={
+                    <>
+                        A cast vote replaces the dropdown with a badge. The viewer&rsquo;s own row
+                        stays pinned first so they can see their answer without hunting for it,
+                        and the badge is not a control &mdash; changing a review is the server&rsquo;s
+                        business (&sect;8.6.1 is owner-only) and happens through its own route, not
+                        by re-opening a menu here.
+                    </>
+                }>
+                <LiveDemo>
+                    {/* viewerId is what makes a row "mine". Passed explicitly so the demo shows
+                        the voted state on a reference page whose reader is somebody else. */}
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        viewerId="user-susan"
+                        viewerDisplayName="Susan"
+                        approvalReviewCollection={[john, susan]}
+                        decisionRoles=""
+                        showBorder={true} />
+                </LiveDemo>
+            </DocSection>
+
+            <DocSection
                 title="Blocked round, bypass available"
                 lead={
                     <>
@@ -546,6 +571,30 @@ export function ReviewPanelDoc() {
                     <strong>withdrawal never does</strong> &mdash; otherwise reaching the limit
                     would trap the round with no way to free a slot.
                 </p>
+
+                <LiveDemo>
+                    {/* All three sections populated at once, which no other demo does: Christo is
+                        suggested, Mary is requested, John has voted and Paul is free. Open the cog
+                        to see what each section does to a click. */}
+                    <ReviewPanel
+                        entityType="ContentItem"
+                        contentType="Blog"
+                        approvalStatus={ApprovalStatus.Submitted}
+                        approvalReviewCollection={[john]}
+                        requestedReviewerCollection={[mary]}
+                        reviewerCandidateCollection={[johnCandidate, mary, paul]}
+                        suggestedReviewerCollection={[christo]}
+                        maxReviewerRequests={4}
+                        decisionRoles=""
+                        onReviewerLookupRequested={() =>
+                            setLastEvent('onReviewerLookupRequested()')}
+                        onReviewRequested={(candidate) =>
+                            setLastEvent('onReviewRequested(' + candidate.displayName + ')')}
+                        onReviewRequestWithdrawn={(candidate) =>
+                            setLastEvent(
+                                'onReviewRequestWithdrawn(' + candidate.displayName + ')')}
+                        showBorder={true} />
+                </LiveDemo>
             </DocSection>
 
             <DocSection
