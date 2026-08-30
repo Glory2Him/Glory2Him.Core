@@ -901,6 +901,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             BibleReference invalidBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
+            invalidBibleReference.ScriptureHtml = GetRandomStringWithLengthOf(50_001);
 
             var invalidBibleReferenceException =
                 new InvalidBibleReferenceException(
@@ -913,6 +914,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.UpdatedBy),
                 values: $"Text exceed max length of {invalidBibleReference.UpdatedBy.Length - 1} characters");
+
+            invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.ScriptureHtml),
+                values: $"Text exceed max length of {invalidBibleReference.ScriptureHtml.Length - 1} characters");
 
             var expectedBibleReferenceValidationException =
                 new BibleReferenceValidationException(

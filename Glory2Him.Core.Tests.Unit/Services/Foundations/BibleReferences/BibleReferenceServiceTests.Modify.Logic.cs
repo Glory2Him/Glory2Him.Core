@@ -370,6 +370,26 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         [InlineData(
             "<span class=\"evil\">text</span>",
             "<span>text</span>")]
+
+        [InlineData(
+            "<p onclick=\"alert(1)\">Jesus said</p>",
+            "<p>Jesus said</p>")]
+
+        [InlineData(
+            "<x-evil onclick=\"alert(1)\">click</x-evil>",
+            "click")]
+
+        [InlineData(
+            "<script/src=\"//evil.example/x.js\">",
+            "")]
+
+        [InlineData(
+            "<p class=\"wj nd\">Jesus said, \"God\"</p>",
+            "<p class=\"wj nd\">Jesus said, \"God\"</p>")]
+
+        [InlineData(
+            "<p class=wj>unquoted</p>",
+            "<p class=\"wj\">unquoted</p>")]
         public async Task ShouldSanitizeScriptureHtmlOnModifyAsync(
             string rawScriptureHtml,
             string expectedSanitizedScriptureHtml)

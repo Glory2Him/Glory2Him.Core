@@ -195,6 +195,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             invalidBibleReference.USFM = GetRandomStringWithLengthOf(51);
             invalidBibleReference.Reference = GetRandomStringWithLengthOf(256);
             invalidBibleReference.Translation = GetRandomStringWithLengthOf(51);
+            invalidBibleReference.ScriptureHtml = GetRandomStringWithLengthOf(50_001);
 
             var invalidBibleReferenceException =
                 new InvalidBibleReferenceException(
@@ -211,6 +212,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.Translation),
                 values: $"Text exceed max length of {invalidBibleReference.Translation.Length - 1} characters");
+
+            invalidBibleReferenceException.AddData(
+                key: nameof(BibleReference.ScriptureHtml),
+                values: $"Text exceed max length of {invalidBibleReference.ScriptureHtml.Length - 1} characters");
 
             invalidBibleReferenceException.AddData(
                 key: nameof(BibleReference.CreatedBy),
