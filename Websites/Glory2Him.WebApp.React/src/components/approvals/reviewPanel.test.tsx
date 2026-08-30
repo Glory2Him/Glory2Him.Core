@@ -1715,12 +1715,14 @@ describe('ReviewPanel', () => {
                 // trigger fall through to that item's action — casting a vote or picking a
                 // decision with no visible menu the user noticed opening. See #370.
                 await open();
-                const menu = open === openVoteMenu
-                    ? screen.getByRole('button', { name: /Approved/ }).closest('.dropdown-menu')
-                    : screen.getByRole('button', { name: /Approve this item/ }).closest('.dropdown-menu');
+                const item = open === openVoteMenu
+                    ? screen.getByRole('button', { name: /Approved/ })
+                    : screen.getByRole('button', { name: /Approve this item/ });
+                const menu = item.closest('.dropdown-menu');
+                expect(menu).not.toBeNull();
 
                 // then
-                expect(menu).toHaveFocus();
+                expect(menu as HTMLElement).toHaveFocus();
             });
 
         it('should not cast a vote when Enter is pressed right after the vote menu opens', async () => {
