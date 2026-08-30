@@ -36,7 +36,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
         // Spelt out rather than referenced from AcceptanceDatabaseBroker on purpose: a test that
         // takes its expectation from the thing under test passes when both move together, which
         // is exactly the change this is here to catch.
-        private const string ExpectedDatabasePrefix = "Glory2HimAcceptance_";
+        //
+        // "Glory2Him." alone would also match the production names issue #351 gave the
+        // normal-use databases (Glory2Him.Core, Glory2Him.Events, Glory2Him.Security), so the
+        // segment checked here is the one only a per-run catalogue carries.
+        private const string ExpectedDatabaseSegment = "_Acceptance_";
 
         private readonly ApiBroker apiBroker;
 
@@ -58,9 +62,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
 
             foreach (KeyValuePair<string, string> resolvedDatabaseName in resolvedDatabaseNames)
             {
-                resolvedDatabaseName.Value.Should().StartWith(ExpectedDatabasePrefix,
+                resolvedDatabaseName.Value.Should().Contain(ExpectedDatabaseSegment,
                     because: $"'{resolvedDatabaseName.Key}' must resolve to a per-run catalogue. "
-                        + "A name without this prefix is a developer database: the suite would "
+                        + "A name without this segment is a developer database: the suite would "
                         + "still pass, and would leave a growing event ledger behind it every "
                         + "run. It is also what AcceptanceDatabaseBroker refuses to drop, so a "
                         + "regression here silently disables teardown as well");

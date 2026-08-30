@@ -77,7 +77,11 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
 
         // Every database this fixture is willing to create or drop starts with this. The
         // guard below refuses to touch anything else, because a drop here is unrecoverable.
-        private const string TestDatabasePrefix = "Glory2HimCoreIntegration_";
+        //
+        // Named Glory2Him.Core_Integration_<process id>, matching the per-tier layout issue
+        // #351 settled on for all three stores (Core, Events, Security) across both the
+        // acceptance and integration tiers.
+        private const string TestDatabasePrefix = "Glory2Him.Core_Integration_";
 
         // The connection string comes from a TEST-ONLY key.
         //
@@ -87,7 +91,7 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
         // is the production key, so any host, container or CI job that configures Glory2Him.Core
         // through the environment sets exactly the variable this fixture would then resolve, and
         // `EnsureDeleted` would drop whatever it points at. The test key cannot collide with it.
-        private const string TestConnectionStringKey = "Glory2HimIntegrationConnectionString";
+        private const string TestConnectionStringKey = "Glory2HimCoreIntegrationConnectionString";
 
         private static IConfiguration BuildTestConfiguration()
         {
