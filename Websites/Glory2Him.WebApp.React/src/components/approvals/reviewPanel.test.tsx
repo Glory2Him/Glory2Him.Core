@@ -1786,6 +1786,8 @@ describe('ReviewPanel', () => {
 
                 // and focus is not dragged back — the user has already moved on
                 expect(trigger).not.toHaveFocus();
+
+                document.body.removeChild(outside);
             });
 
         it('should not leave a menu open for a later Escape to stale-close after focus moves on', async () => {
