@@ -42,7 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldResolveDisplayNamesForTheIdsGivenAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid firstUserId = Guid.NewGuid();
             Guid secondUserId = Guid.NewGuid();
 
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldResolveNamesWithoutConsultingTheReviewTierAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid departedUserId = Guid.NewGuid();
 
             IdentityUser departedUser = CreateIdentityUser(
@@ -113,7 +113,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldOmitIdsThatNameNoAccountAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid knownUserId = Guid.NewGuid();
             Guid unknownUserId = Guid.NewGuid();
             SetupResolvedIdentityUsers(CreateIdentityUser(knownUserId, preferredName: "Known"));
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldTrimAndDeduplicateTheIdsBeforeResolvingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid userId = Guid.NewGuid();
             IEnumerable<string> capturedUserIds = null;
 
@@ -204,7 +204,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldThrowValidationOnResolveIfTheBatchExceedsTheCapAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             string[] tooManyUserIds = Enumerable.Range(0, 201)
                 .Select(_ => Guid.NewGuid().ToString())
@@ -244,7 +244,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldCountAccountsRatherThanSpellingsAgainstTheCapAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             List<Guid> distinctUserIds = Enumerable.Range(0, 200)
                 .Select(_ => Guid.NewGuid())
@@ -298,7 +298,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldNotCountUnusableIdsAgainstTheCapAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid realUserId = Guid.NewGuid();
 
             var mostlyRubbish = new List<string> { realUserId.ToString() };
@@ -331,7 +331,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldResolveANonCanonicalSpellingAsTheCanonicalIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid userId = Guid.NewGuid();
             IEnumerable<string> capturedUserIds = null;
 
@@ -368,7 +368,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldReturnNoNamesWhenNoIdsAreGivenAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             SetupResolvedIdentityUsers();
 
             // when
