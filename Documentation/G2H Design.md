@@ -2705,8 +2705,15 @@ Business Rules:
 4. Only one **live** override setting per content item may exist where `ContentItemId IS NOT NULL`. (also enforced by database unique index, filtered `IsDeleted = 0`)
 
    The `IsDeleted` term is not a loosening of rules 3 and 4 — a soft-deleted row is not a setting, being invisible to every caller including `Administrators` under §14.5 rule 3 and never resolved by rules 1 and 2. Without the term the row went on occupying its scope anyway, and since the API's delete *is* a soft delete, the ordinary way to remove a setting was the way that trapped its content type, or its content item, permanently (#326). `ApprovalSetting`'s two scope indexes carry the term for the same reason.
-5. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
-6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
+5. **Every `ContentType` member must ALWAYS have a live default setting.** Rules 3 and 4 cap each scope at one row; this one puts a floor under the default scope. It is not optional configuration: rule 1 makes the default the setting that applies when no item override exists, so a content type without one has no resolvable setting at all and rendering for that type falls back to nothing.
+
+   **The rule belongs to the entity, not to this service.** §12.5.2 still describes a service that has not been built, and the invariant is enforced today — `ContentItemSettingService` refuses to remove a row whose `ContentItemId` is null. The refusal is a validation error naming the rule rather than a not-found: the row is there and every caller may read it, so the caller is being told the entity does not permit what they asked, which is the shape `BibleReference.USFM`'s immutability takes (§12.3.1 rule 2a). Overrides stay freely removable.
+
+   **Hard removal is refused on the same terms — ruled.** The invariant is about the row existing, so the mechanism that removes it is irrelevant and no code path may leave a content type without a default even briefly. Hard delete as an escape hatch, with the startup re-seed as the repair, was considered and rejected: it leaves a window in which anything rendering that content type resolves nothing.
+
+   **The seed restores a missing default.** `ContentItemSettingSeedData` runs on every startup and tests for a live default per content type — `ContentItemId IS NULL AND IsDeleted = 0` — so a content type that lost its default by a route the service does not own (a direct write, a restore, a database seeded before the refusal existed) gets it back. The `IsDeleted` term on `UX_ContentItemSettings_DefaultPerType` (rule 3) is what makes that insert possible; without it the dead row would still hold the scope and the repair would take Core initialisation down.
+6. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
+7. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentType`
    - `ContentItemId`
    - `ApprovalStatus`
@@ -2716,8 +2723,8 @@ Business Rules:
    - `DeletedBy`
    - `DeletedWhen`
    - `DeletionReason`
-7. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
-8. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
+8. On every update, the orchestration must load the current entity from the database and map only the permitted caller-supplied setting fields (`TagsAllowed`, `ShowTags`, `ReactionsAllowed`, `ShowReactions`, `LinksAllowed`, `ShowLinks`, `AttachmentsAllowed`, `ShowAttachments`, `CommentsAllowed`, `ShowComments`, `BibleReferenceAllowed`, `ShowBibleReferences`, `LimitReactionsToLoveOnly`) onto that entity before saving.
+9. Review dismissal is not the responsibility of this orchestration. Publishing `ContentItemSettingUpdatedEvent` is sufficient — `ApprovalOrchestrationService` must handle dismissal when it receives that event.
 
 #### 12.5.3 ApprovalOrchestrationService
 
