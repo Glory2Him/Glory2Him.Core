@@ -19,13 +19,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     /// ApprovalSetting rows torn down beneath HTTP — the sibling of
     /// <c>ApiBroker.TagArrangements.cs</c> and its counterparts.
     ///
-    /// <para><b>Teardown here matters more than it does for the content entities.</b> Neither
-    /// <c>UX_ApprovalSettings_EntityTypeDefault</c> nor
-    /// <c>UX_ApprovalSettings_EntityTypeContentType</c> carries an <c>IsDeleted</c> term, so a
-    /// soft-deleted row still occupies its scope. A test that tore down through the API's own
-    /// delete would leave that entity type's default slot permanently taken and every later test
-    /// writing to it would get a 409 out of nowhere. The physical removal below is what keeps the
-    /// suite's scopes reusable.</para>
+    /// <para><b>Teardown here is physical, and the reason has changed.</b> It was once load-bearing
+    /// for uniqueness: neither <c>UX_ApprovalSettings_EntityTypeDefault</c> nor
+    /// <c>UX_ApprovalSettings_EntityTypeContentType</c> carried an <c>IsDeleted</c> term, so a
+    /// soft-deleted row still occupied its scope and a suite tearing down through the API's own
+    /// delete would have left that entity type's default slot permanently taken — every later
+    /// test writing to it getting a 409 out of nowhere. #326 added the term to both, so a soft
+    /// delete now genuinely releases a scope. The physical removal stays for the ordinary reason
+    /// every suite has one — the row itself must not outlive the test, or the collection reads
+    /// see it. With only eight <c>EntityType</c> members to hand round, it also keeps the supply
+    /// of free scopes honest.</para>
     ///
     /// <para>There is deliberately no insert arrangement. This exposer has no approval round to
     /// open — <c>ApprovalSetting</c> carries no <c>ApprovalStatus</c> at all — so every row this

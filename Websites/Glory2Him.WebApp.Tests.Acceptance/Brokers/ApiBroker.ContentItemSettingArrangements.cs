@@ -10,7 +10,10 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using Glory2Him.Core.Models.Enums;
+using Microsoft.EntityFrameworkCore;
 using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
@@ -19,17 +22,21 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     /// ContentItemSetting rows torn down beneath HTTP — the sibling of
     /// <c>ApiBroker.TagArrangements.cs</c> and its counterparts.
     ///
-    /// <para><b>Teardown here matters more than it does for the content entities.</b> Neither
-    /// <c>UX_ContentItemSettings_EntityTypeDefault</c> nor
-    /// <c>UX_ContentItemSettings_EntityTypeContentType</c> carries an <c>IsDeleted</c> term, so a
-    /// soft-deleted row still occupies its scope. A test that tore down through the API's own
-    /// delete would leave that entity type's default slot permanently taken and every later test
-    /// writing to it would get a 409 out of nowhere. The physical removal below is what keeps the
-    /// suite's scopes reusable.</para>
+    /// <para><b>Teardown here is physical, and the reason has changed.</b> It was once load-bearing
+    /// for uniqueness: neither <c>UX_ContentItemSettings_DefaultPerType</c> nor
+    /// <c>UX_ContentItemSettings_OverridePerEntity</c> carried an <c>IsDeleted</c> term, so a
+    /// soft-deleted row still occupied its scope and a suite tearing down through the API's own
+    /// delete would have left every scope it touched permanently taken. #326 added the term to
+    /// both, so a soft delete now genuinely releases a scope. The physical removal stays for the
+    /// ordinary reason every suite has one — the row itself must not outlive the test, or the
+    /// collection reads see it.</para>
     ///
-    /// <para>There is deliberately no insert arrangement. This exposer has no approval round to
-    /// open — <c>ContentItemSetting</c> carries no <c>ApprovalStatus</c> at all — so every row this
-    /// suite needs can be created through the endpoint under test.</para>
+    /// <para>The insert arrangement below exists for exactly one case, and not to arrange ordinary
+    /// rows: the host seeds one default per content type at startup, so a test that needs a
+    /// default slot free has to take the seeded incumbent out and put it back exactly as it was.
+    /// Everything else this suite needs is created through the endpoint under test — this exposer
+    /// has no approval round to open, <c>ContentItemSetting</c> carrying no
+    /// <c>ApprovalStatus</c> at all.</para>
     /// </summary>
     public partial class ApiBroker
     {
@@ -47,5 +54,39 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
                 await this.storageBroker.DeleteContentItemSettingAsync(storedContentItemSetting);
             }
         }
+
+        /// <summary>
+        /// The LIVE per-type default, whatever its id — <c>ContentItemSettingSeedData</c> mints a
+        /// fresh <c>Guid</c> per environment, so it can only be found by its scope.
+        ///
+        /// <para>The <c>IsDeleted</c> term is not decoration. <c>UX_ContentItemSettings_DefaultPerType</c>
+        /// now constrains live rows only (#326), so a scope may legitimately hold one live default
+        /// alongside soft-deleted predecessors and the scope alone no longer names a single row.
+        /// Without the term this would return whichever the query happened to reach first, and a
+        /// caller lifting a default out of its slot could remove a predecessor while the live row
+        /// went on occupying it.</para>
+        /// </summary>
+        public async ValueTask<CoreContentItemSetting> GetCoreDefaultContentItemSettingAsync(
+            ContentType contentType)
+        {
+            IQueryable<CoreContentItemSetting> allContentItemSettings =
+                await this.storageBroker.SelectAllContentItemSettingsAsync();
+
+            return await allContentItemSettings.FirstOrDefaultAsync(
+                contentItemSetting =>
+                    contentItemSetting.ContentType == contentType
+                    && contentItemSetting.ContentItemId == null
+                    && contentItemSetting.IsDeleted == false);
+        }
+
+        /// <summary>
+        /// Puts a row back exactly as it was, audit fields and id included — the other half of a
+        /// test that has to free a seeded default's slot to write to it. The seed is idempotent on
+        /// "a row exists for this content type", counting soft-deleted ones, so a restart would not
+        /// replace what such a test removed.
+        /// </summary>
+        public async ValueTask<CoreContentItemSetting> InsertCoreContentItemSettingAsync(
+            CoreContentItemSetting contentItemSetting) =>
+            await this.storageBroker.InsertContentItemSettingAsync(contentItemSetting);
     }
 }

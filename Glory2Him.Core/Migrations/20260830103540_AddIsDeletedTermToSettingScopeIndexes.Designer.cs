@@ -4,6 +4,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    partial class StorageBrokerModelSnapshot : ModelSnapshot
+    [Migration("20260830103540_AddIsDeletedTermToSettingScopeIndexes")]
+    partial class AddIsDeletedTermToSettingScopeIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -631,13 +634,13 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GroupId")
-                        .IsUnique()
-                        .HasDatabaseName("UX_Attachments_GroupId_IsPublished")
-                        .HasFilter("[IsPublished] = 1 AND [IsDeleted] = 0");
-
                     b.HasIndex("Hash")
                         .HasDatabaseName("IX_Attachments_Hash");
+
+                    b.HasIndex("GroupId", "IsPublished")
+                        .IsUnique()
+                        .HasDatabaseName("UX_Attachments_GroupId_IsPublished")
+                        .HasFilter("[IsPublished] = 1");
 
                     b.HasIndex("GroupId", "Version")
                         .IsUnique()
@@ -931,11 +934,6 @@ namespace Glory2Him.Core.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<int>("SortOrder")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1000);
-
                     b.Property<bool>("TagsAllowed")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1073,16 +1071,16 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("DeletedWhen")
                         .HasDatabaseName("IX_ContentItems_DeletedWhen");
 
-                    b.HasIndex("GroupId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_ContentItem_IsPublished")
-                        .HasFilter("[IsPublished] = 1 AND [IsDeleted] = 0");
-
                     b.HasIndex("PublishDate")
                         .HasDatabaseName("IX_ContentItems_PublishDate");
 
                     b.HasIndex("ContentType", "ContentHash")
                         .HasDatabaseName("IX_ContentItems_ContentTypeId_ContentHash");
+
+                    b.HasIndex("GroupId", "IsPublished")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ContentItem_IsPublished")
+                        .HasFilter("[IsPublished] = 1");
 
                     b.HasIndex("GroupId", "Version")
                         .IsUnique()
@@ -1180,10 +1178,10 @@ namespace Glory2Him.Core.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("GroupId")
+                    b.HasIndex("GroupId", "IsPublished")
                         .IsUnique()
                         .HasDatabaseName("UX_Links_GroupId_IsPublished")
-                        .HasFilter("[IsPublished] = 1 AND [IsDeleted] = 0");
+                        .HasFilter("[IsPublished] = 1");
 
                     b.HasIndex("GroupId", "Version")
                         .IsUnique()

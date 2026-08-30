@@ -2702,8 +2702,10 @@ Business Rules:
 
 1. If no item-level override exists, the content type default setting applies.
 2. If an item-level override exists, it takes full precedence over the content type default.
-3. Only one default setting per content type may exist where `ContentItemId IS NULL`. (also enforced by database unique index)
-4. Only one override setting per content item may exist where `ContentItemId IS NOT NULL`. (also enforced by database unique index)
+3. Only one **live** default setting per content type may exist where `ContentItemId IS NULL`. (also enforced by database unique index, filtered `IsDeleted = 0`)
+4. Only one **live** override setting per content item may exist where `ContentItemId IS NOT NULL`. (also enforced by database unique index, filtered `IsDeleted = 0`)
+
+   The `IsDeleted` term is not a loosening of rules 3 and 4 — a soft-deleted row is not a setting, being invisible to every caller including `Administrators` under §14.5 rule 3 and never resolved by rules 1 and 2. Without the term the row went on occupying its scope anyway, and since the API's delete *is* a soft delete, the ordinary way to remove a setting was the way that trapped its content type, or its content item, permanently (#326). `ApprovalSetting`'s two scope indexes carry the term for the same reason.
 5. Disabling a feature in settings must prevent the creation of new associations of that type for the affected content items.
 6. The following fields are control fields and must never be accepted from an external caller. They must always be set internally by the orchestration or approval workflow:
    - `ContentType`

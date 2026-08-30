@@ -155,20 +155,31 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
 
             // ------------------------------------------------------------------------
             // Filtered unique indexes (SQL Server) to enforce your business rules:
-            // 1) At most one default per type:
-            //      UNIQUE(ContentType) WHERE ContentItemId IS NULL
-            // 2) At most one override per entity/post:
-            //      UNIQUE(ContentItemId) WHERE ContentItemId IS NOT NULL
+            // 1) At most one LIVE default per type:
+            //      UNIQUE(ContentType) WHERE ContentItemId IS NULL AND IsDeleted = 0
+            // 2) At most one LIVE override per entity/post:
+            //      UNIQUE(ContentItemId) WHERE ContentItemId IS NOT NULL AND IsDeleted = 0
+            //
+            // The IsDeleted term is load-bearing rather than tidy. It is what §12.5.2 business
+            // rules 3-4 mean by one default per content type and one override per item: a
+            // soft-deleted row is invisible to every caller including Administrators (§14.5
+            // rule 3), so one occupying a scope could be neither seen nor moved — and the API's
+            // delete is a SOFT delete, which made the ordinary way to remove a setting the way
+            // that trapped its content type, or its content item, forever.
             // ------------------------------------------------------------------------
 
             model.HasIndex(contentItemSetting => contentItemSetting.ContentType)
                  .IsUnique()
-                 .HasFilter($"[{nameof(ContentItemSetting.ContentItemId)}] IS NULL")
+                 .HasFilter(
+                     $"[{nameof(ContentItemSetting.ContentItemId)}] IS NULL AND " +
+                     $"[{nameof(ContentItemSetting.IsDeleted)}] = 0")
                  .HasDatabaseName("UX_ContentItemSettings_DefaultPerType");
 
             model.HasIndex(contentItemSetting => contentItemSetting.ContentItemId)
                  .IsUnique()
-                 .HasFilter($"[{nameof(ContentItemSetting.ContentItemId)}] IS NOT NULL")
+                 .HasFilter(
+                     $"[{nameof(ContentItemSetting.ContentItemId)}] IS NOT NULL AND " +
+                     $"[{nameof(ContentItemSetting.IsDeleted)}] = 0")
                  .HasDatabaseName("UX_ContentItemSettings_OverridePerEntity");
         }
     }

@@ -353,5 +353,96 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
                     invalidApprovalSetting.Id);
             }
         }
+
+        /// <summary>
+        /// The INVERSE of the two conflict tests above, and the sharper half of #326.
+        ///
+        /// <para>Both indexes now carry an <c>IsDeleted</c> term, so removing a policy through the
+        /// API — a SOFT delete — genuinely releases its scope. Without the term the scope was
+        /// trapped: §14.5 hides the deleted row from every caller including
+        /// <c>Administrators</c>, so the
+        /// re-create answered 409 naming nothing anybody could see or move, and with eight
+        /// <c>EntityType</c> members holding one default slot each, the ability to have a default
+        /// for that entity type was destroyed permanently.</para>
+        ///
+        /// <para>Asserted rather than assumed, mirroring
+        /// <c>ShouldAllowPostWhenUsfmIsHeldOnlyByASoftDeletedRowAsync</c> on
+        /// <c>BibleReference</c>. If either filter is ever narrowed back, this test fails.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldAllowPostWhenEntityTypeDefaultIsHeldOnlyByASoftDeletedRowAsync()
+        {
+            // given
+            ApprovalSetting removedApprovalSetting = await PostRandomApprovalSettingAsync();
+            await this.apiBroker.DeleteApprovalSettingByIdAsync(removedApprovalSetting.Id);
+
+            ApprovalSetting reusedScopeApprovalSetting = CreateRandomApprovalSetting();
+            reusedScopeApprovalSetting.EntityType = removedApprovalSetting.EntityType;
+            reusedScopeApprovalSetting.ContentType = null;
+
+            try
+            {
+                // when
+                ApprovalSetting actualApprovalSetting =
+                    await this.apiBroker.PostApprovalSettingAsync(reusedScopeApprovalSetting);
+
+                // then
+                actualApprovalSetting.EntityType.Should().Be(removedApprovalSetting.EntityType);
+                actualApprovalSetting.ContentType.Should().BeNull();
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
+                    removedApprovalSetting.Id);
+
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
+                    reusedScopeApprovalSetting.Id);
+            }
+        }
+
+        /// <summary>
+        /// The same release, on the second index. Written rather than folded into the test above
+        /// because the two filters are separate strings in the configuration and a fix applied to
+        /// one and missed on the other is exactly the shape of the original defect.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAllowPostWhenEntityTypeContentTypePairIsHeldOnlyByASoftDeletedRowAsync()
+        {
+            // given
+            ApprovalSetting overrideApprovalSetting = CreateRandomApprovalSetting();
+
+            // ContentItem, and not by preference:
+            // CK_ApprovalSetting_ContentTypeRequiresContentItem permits a populated ContentType
+            // only on that entity type (design §8.4, §18.6 rule 5).
+            overrideApprovalSetting.EntityType = EntityType.ContentItem;
+            overrideApprovalSetting.ContentType = ContentType.Devotional;
+
+            ApprovalSetting removedOverride =
+                await this.apiBroker.PostApprovalSettingAsync(overrideApprovalSetting);
+
+            await this.apiBroker.DeleteApprovalSettingByIdAsync(removedOverride.Id);
+
+            ApprovalSetting reusedPairApprovalSetting = CreateRandomApprovalSetting();
+            reusedPairApprovalSetting.EntityType = EntityType.ContentItem;
+            reusedPairApprovalSetting.ContentType = ContentType.Devotional;
+
+            try
+            {
+                // when
+                ApprovalSetting actualApprovalSetting =
+                    await this.apiBroker.PostApprovalSettingAsync(reusedPairApprovalSetting);
+
+                // then
+                actualApprovalSetting.EntityType.Should().Be(EntityType.ContentItem);
+                actualApprovalSetting.ContentType.Should().Be(ContentType.Devotional);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(removedOverride.Id);
+
+                await this.apiBroker.RemoveCoreApprovalSettingByIdAsync(
+                    reusedPairApprovalSetting.Id);
+            }
+        }
     }
 }
