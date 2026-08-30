@@ -104,20 +104,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         [Fact]
         public async Task ShouldRetrieveAllOwnApprovalsWhenUserHasNoReviewRoleAsync()
         {
-            // given
+            // given: "their own" means the approvals whose ENTITY this caller authored, and every
+            // Approval.CreatedBy is pinned to the system sentinel — the value the workflow really
+            // writes (§14.6.1). Anchoring the filter back on that column turns this red instead of
+            // quietly returning nothing, which is the whole of the defect this replaced.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext();
             string randomActorUserId = GetRandomString();
 
             Approval ownApproval = CreateRandomApproval();
             ownApproval.IsDeleted = false;
-            ownApproval.CreatedBy = randomActorUserId;
+            ownApproval.CreatedBy = SystemIdentity.UserId;
 
             Approval othersApproval = CreateRandomApproval();
             othersApproval.IsDeleted = false;
+            othersApproval.CreatedBy = SystemIdentity.UserId;
 
             Approval ownDeletedApproval = CreateRandomApproval();
             ownDeletedApproval.IsDeleted = true;
-            ownDeletedApproval.CreatedBy = randomActorUserId;
+            ownDeletedApproval.CreatedBy = SystemIdentity.UserId;
 
             IQueryable<Approval> storageApprovals = new List<Approval>
             {
@@ -139,6 +143,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
                     .ReturnsAsync(randomActorUserId);
 
+            // what the service actually handed the broker, so the assertions below can prove the
+            // soft-deleted row was dropped BEFORE the ownership question was asked
+            IQueryable<Approval> delegatedApprovals = null;
+
+            this.accessBrokerMock.Setup(broker =>
+                broker.FilterApprovalsToEntityAuthorAsync(
+                    It.IsAny<IQueryable<Approval>>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<IQueryable<Approval>, string, CancellationToken>(
+                            (approvals, _, _) => delegatedApprovals = approvals)
+                        .ReturnsAsync(expectedApprovals);
+
             // when
             IQueryable<Approval> actualApprovals =
                 await this.approvalService.RetrieveAllApprovalsAsync(
@@ -146,6 +163,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 
             // then
             actualApprovals.Should().BeEquivalentTo(expectedApprovals);
+
+            // the soft-deleted row never reaches the ownership question — a deleted approval is
+            // not the caller's to see even when they wrote the entity underneath it
+            delegatedApprovals.Should().NotBeNull();
+
+            delegatedApprovals.Should().BeEquivalentTo(new List<Approval>
+            {
+                ownApproval,
+                othersApproval
+            });
 
             this.storageBrokerMock.Verify(broker =>
                 broker.SelectAllApprovalsAsync(It.IsAny<CancellationToken>()),
@@ -155,7 +182,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
                 Times.Once);
 
+            // the ACTOR's id, and the caller's own token — an optional token is the kind of thing
+            // that goes missing without the compiler noticing
+            this.accessBrokerMock.Verify(broker =>
+                broker.FilterApprovalsToEntityAuthorAsync(
+                    It.IsAny<IQueryable<Approval>>(),
+                    randomActorUserId,
+                    TestContext.Current.CancellationToken),
+                        Times.Once);
+
             this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.accessBrokerMock.VerifyNoOtherCalls();
             this.dateTimeBrokerMock.VerifyNoOtherCalls();
             this.storageBrokerMock.VerifyNoOtherCalls();
             this.eventBrokerMock.VerifyNoOtherCalls();

@@ -16,6 +16,7 @@ using FluentAssertions;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests.Exceptions;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Orchestrations.Approvals.Exceptions;
 using Glory2Him.Core.Models.Securities;
 using Moq;
@@ -132,35 +133,34 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// Withdrawal is keyed on the request ROW, so unlike every sibling it does no resolution
-        /// of its own and has no earlier site at which a missing row becomes a not-found. It has
-        /// to be translated at the call site, or the caller is told 400 for an id that simply
-        /// does not exist and the exposer's NotFound branch is unreachable.
+        /// Withdrawal used to need a not-found translated at its own call site: keyed on a request
+        /// ROW it did no resolution, so a missing row surfaced as the foundation's validation
+        /// failure and the caller was told 400 for an id that named nothing.
+        ///
+        /// <para>Re-keyed on the round and the person, it resolves the entity first like every
+        /// sibling, and the not-found arises THERE — from an entity with no approval behind it.
+        /// The exposer's NotFound branch stays reachable, from the site that owns the question,
+        /// and the translation is gone rather than merely moved.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldTranslateAMissingRequestIntoNotFoundOnWithdrawAsync()
+        public async Task ShouldThrowNotFoundOnWithdrawWhenTheEntityHasNoApprovalAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
-            Guid missingId = Guid.NewGuid();
 
-            var foundationNotFound = new ApprovalReviewRequestValidationException(
-                message: "Approval review request validation error occurred, " +
-                    "fix the errors and try again.",
-                innerException: new NotFoundApprovalReviewRequestException(
-                    message: $"Approval review request not found with id: {missingId}."));
-
-            this.approvalReviewRequestServiceMock.Setup(service =>
-                service.RemoveApprovalReviewRequestByIdAsync(
-                    missingId,
-                    It.IsAny<string>(),
+            this.approvalServiceMock.Setup(service =>
+                service.FindApprovalByEntityAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
                     It.IsAny<CancellationToken>()))
-                        .ThrowsAsync(foundationNotFound);
+                        .ReturnsAsync((ApprovalEntityMatch)null);
 
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
                 this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
-                    missingId,
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
                     deletionReason: null,
                     cancellationToken: TestContext.Current.CancellationToken);
 
@@ -170,19 +170,37 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             // then: the exposer maps THIS to 404
             actual.InnerException.Should().BeOfType<NotFoundApprovalOrchestrationException>();
+
+            this.approvalReviewRequestServiceMock.Verify(service =>
+                service.RemoveApprovalReviewRequestByIdAsync(
+                    It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+                Times.Never);
         }
 
         /// <summary>
-        /// Only a not-found is translated. Every other foundation validation failure on the
-        /// withdraw path must keep its own category, or a genuine bad request would be reported
-        /// as a missing row.
+        /// A foundation validation failure on the remove keeps its own category. Without this a
+        /// genuine bad request — an over-long deletion reason, which the foundation caps at 500 —
+        /// would reach the caller wearing the wrong status.
         /// </summary>
         [Fact]
-        public async Task ShouldNotTranslateOtherWithdrawValidationFailuresIntoNotFoundAsync()
+        public async Task ShouldSurfaceOtherWithdrawValidationFailuresAsDependencyValidationAsync()
         {
-            // given: an over-long deletion reason, which the foundation caps at 500
+            // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
-            Guid someId = Guid.NewGuid();
+            Guid approvalId = Guid.NewGuid();
+            Guid requestId = Guid.NewGuid();
+            string requestedUserId = Guid.NewGuid().ToString();
+
+            SetupReviewerScope(
+                approvalId: approvalId,
+                activeRequests: new[]
+                {
+                    new ActiveReviewRequest
+                    {
+                        Id = requestId,
+                        RequestedUserId = requestedUserId,
+                    }
+                });
 
             var foundationInvalid = new ApprovalReviewRequestValidationException(
                 message: "Approval review request validation error occurred, " +
@@ -192,7 +210,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
 
             this.approvalReviewRequestServiceMock.Setup(service =>
                 service.RemoveApprovalReviewRequestByIdAsync(
-                    someId,
+                    requestId,
                     It.IsAny<string>(),
                     It.IsAny<CancellationToken>()))
                         .ThrowsAsync(foundationInvalid);
@@ -200,7 +218,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // when
             ValueTask<ApprovalReviewRequest> withdrawTask =
                 this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
-                    someId,
+                    EntityType.ContentItem,
+                    Guid.NewGuid(),
+                    requestedUserId,
                     deletionReason: null,
                     cancellationToken: TestContext.Current.CancellationToken);
 

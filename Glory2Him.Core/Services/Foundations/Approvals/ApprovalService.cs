@@ -111,7 +111,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
 
                 return await ApplyCollectionReadVisibilityFilterAsync(
                     approvals: allApprovals,
-                    securityContext: envelope.SecurityContext);
+                    securityContext: envelope.SecurityContext,
+                    cancellationToken: cancellationToken);
             });
 
         public ValueTask<Approval> RetrieveApprovalByIdAsync(
@@ -289,7 +290,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // how many approvals exist
         private async ValueTask<IQueryable<Approval>> ApplyCollectionReadVisibilityFilterAsync(
             IQueryable<Approval> approvals,
-            SecurityContext? securityContext)
+            SecurityContext? securityContext,
+            CancellationToken cancellationToken)
         {
             bool isAuthenticated =
                 securityContext is not null && securityContext.IsAuthenticated;
@@ -311,10 +313,19 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             string actorUserId = await this.securityAuditBroker.GetUserIdAsync(
                 securityContext: securityContext!);
 
-            bool includeOwnApprovals = string.IsNullOrWhiteSpace(actorUserId) is false;
-
-            return visibleApprovals.Where(approval =>
-                includeOwnApprovals && approval.CreatedBy == actorUserId);
+            // The ENTITY's author, exactly as the single-row read resolves it, and for the same
+            // reason: Approval.CreatedBy records the SYSTEM on every row (§14.6.1), because the
+            // workflow opens the round itself. Anchored there this filter matched nothing at all
+            // — a submitter holds no review role to fall back on, so they saw an empty list where
+            // §14.7 posture D rule 1 promises them their own.
+            //
+            // Composed by the broker rather than here. The discriminator points at a different
+            // table per value, which is the one question a single-entity foundation service
+            // cannot answer for itself — the same reason the single-row gate delegates.
+            return await this.accessBroker.FilterApprovalsToEntityAuthorAsync(
+                approvals: visibleApprovals,
+                authorUserId: actorUserId,
+                cancellationToken: cancellationToken);
         }
 
         private async ValueTask<Approval> DoAddApprovalAsync(

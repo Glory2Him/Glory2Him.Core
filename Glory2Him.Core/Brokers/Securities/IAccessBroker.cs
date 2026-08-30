@@ -11,10 +11,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using G2H.Security.Client.Models.Foundations.Access;
 using Glory2Him.Core.Models.Enums;
+using Glory2Him.Core.Models.Foundations.Approvals;
 using Glory2Him.Core.Models.Securities;
 
 namespace Glory2Him.Core.Brokers.Securities
@@ -90,6 +92,33 @@ namespace Glory2Him.Core.Brokers.Securities
         ValueTask<string> RetrieveEntityAuthorAsync(
             EntityType entityType,
             Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// <see cref="RetrieveEntityAuthorAsync"/> asked of a whole SET rather than one row:
+        /// narrows an approvals query to those whose entity this actor authored. The collection
+        /// half of §14.7 posture D rule 1's "authenticated callers see their own".
+        ///
+        /// <para><b>Why the query goes in and a query comes out.</b> The single-row gates can
+        /// afford to resolve the entity behind one approval and compare. A collection read cannot:
+        /// <c>EntityType</c> is a discriminator pointing at a different table per value, so the
+        /// caller-side answer would be either a lookup per row or a materialised list of
+        /// everything the actor ever wrote. This composes instead — one correlated
+        /// <c>EXISTS</c> per approvable type, all inside the query the caller was already going
+        /// to run — so nothing is loaded to decide what may be seen, and a prolific author costs
+        /// no more than a new one.</para>
+        ///
+        /// <para>It lives here for the same reason its single-row twin does, and more so: the
+        /// composition needs a queryable per entity table, which is precisely what a single-entity
+        /// foundation service has no way to reach.</para>
+        ///
+        /// <para>A blank or whitespace <paramref name="authorUserId"/> yields an EMPTY query, never
+        /// an unfiltered one. Blank never matches blank on the single-row path either — an
+        /// unresolvable author must not become a skeleton key.</para>
+        /// </summary>
+        ValueTask<IQueryable<Approval>> FilterApprovalsToEntityAuthorAsync(
+            IQueryable<Approval> approvals,
+            string authorUserId,
             CancellationToken cancellationToken = default);
 
         /// <summary>

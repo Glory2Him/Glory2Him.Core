@@ -393,5 +393,137 @@ namespace Glory2Him.WebApp.Controllers.Approvals
                 return InternalServerError(approvalOrchestrationServiceException);
             }
         }
+
+        /// <summary>
+        /// Who has been asked to review this entity and has not yet answered (§7.9). The read
+        /// §7.9 was written around: it opens by saying the request rows exist so a moderation
+        /// surface can show who has been asked, and until this route there was nothing to ask.
+        ///
+        /// <para><b>Pending only.</b> A withdrawn invitation is soft-deleted (rule 5) and an
+        /// answered one is retired (rule 6), so the outstanding set is what the visibility filter
+        /// leaves rather than something this route selects for.</para>
+        ///
+        /// <para>Same posture as the candidates read beside it, and for the same reason: these
+        /// rows name people. §16.7.4 places them under §14.7 posture D, the orchestration admits
+        /// only the requesting tier, and the foundation applies the posture again underneath —
+        /// §14.6 rule 2 makes that duplicate deliberate.</para>
+        ///
+        /// <para>No <c>Conflict</c> or <c>Locked</c> clause — SELECTs only, as with the
+        /// candidates read.</para>
+        /// </summary>
+        [HttpGet("{entityType}/{entityId}/ReviewRequests")]
+        [Authorize]
+        public async ValueTask<ActionResult<IReadOnlyList<ApprovalReviewRequest>>>
+            GetReviewRequestsAsync(
+                EntityType entityType,
+                Guid entityId,
+                CancellationToken cancellationToken)
+        {
+            try
+            {
+                IReadOnlyList<ApprovalReviewRequest> approvalReviewRequests =
+                    await this.approvalOrchestrationService.RetrieveApprovalReviewRequestsAsync(
+                        entityType,
+                        entityId,
+                        cancellationToken);
+
+                return Ok(approvalReviewRequests);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
+        /// Withdraws a pending invitation (§7.9 rule 5).
+        ///
+        /// <para><b>Keyed on the round and the person</b>, matching the POST beside it exactly, so
+        /// withdrawal is that operation's undo rather than a separate addressing scheme. The old
+        /// <c>DELETE /api/ApprovalReviewRequests/{id}</c> is gone with the controller that carried
+        /// it: the row id it needed was only ever visible in the create's response body, and #352
+        /// correctly made that a <c>204</c>, which left the route unreachable from a browser.</para>
+        ///
+        /// <para><b>204 on every success</b>, including nothing to withdraw. Withdrawing an
+        /// invitation already withdrawn, or one a rule 6 retirement has taken, is a stale panel
+        /// rather than a mistake — and the caller refreshes from the round either way. A
+        /// <c>400</c> survives for the one case rule 5 genuinely refuses: an invitation that has
+        /// been ANSWERED and whose row is somehow still live.</para>
+        /// </summary>
+        [HttpDelete("{entityType}/{entityId}/ReviewRequests")]
+        [Authorize]
+        public async ValueTask<ActionResult<ApprovalReviewRequest>> DeleteReviewRequestAsync(
+            EntityType entityType,
+            Guid entityId,
+            [FromQuery][BindRequired] string requestedUserId,
+            [FromQuery] string? deletionReason,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                await this.approvalOrchestrationService.WithdrawApprovalReviewRequestAsync(
+                    entityType,
+                    entityId,
+                    requestedUserId,
+                    deletionReason,
+                    cancellationToken);
+
+                return NoContent();
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is NotFoundApprovalOrchestrationException)
+            {
+                return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
     }
 }

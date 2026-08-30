@@ -159,15 +159,48 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Who has been asked to review this entity and has not yet answered (§7.9) — the read
+        /// §7.9 was written around, and without which its opening promise that "a moderation
+        /// surface can show who has been asked" could not be kept.
+        ///
+        /// <para><b>Pending only, and that falls out rather than being filtered for.</b> A
+        /// withdrawn invitation is soft-deleted by rule 5 and an answered one is retired by rule 6,
+        /// so the foundation's visibility filter — which drops deleted rows — leaves exactly the
+        /// outstanding set.</para>
+        ///
+        /// <para>Same tier as the candidates read, and for the same reason: these rows name people,
+        /// and §16.7.4 places them under §14.7 posture D. The foundation applies its own posture
+        /// underneath, and §14.6 rule 2 makes that duplicate deliberate.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ApprovalReviewRequest>> RetrieveApprovalReviewRequestsAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Withdraws a pending invitation (§7.9 rule 5) — the undo for one sent to the wrong
         /// person. Open to the whole requesting tier rather than to the requester alone, because
         /// a request carries no verdict to protect and the person who sent it may not be around.
+        ///
+        /// <para><b>Keyed on the PERSON, not the row.</b> The pair is already unique
+        /// (<c>UX_ApprovalReviewRequests_ApprovalId_RequestedUserId</c>), and it is how the
+        /// surface thinks — <c>onReviewRequestWithdrawn</c> hands its consumer somebody's account
+        /// id, never a request id. Keying on the row id required a round trip that no longer
+        /// exists: #352 correctly made the create return <c>204</c>, and the id had appeared
+        /// nowhere else, so withdrawal became unreachable from a browser.</para>
+        ///
+        /// <para><b>Idempotent.</b> Nothing outstanding for that person is a no-op, not a
+        /// not-found — withdrawing twice is a stale panel, not a mistake. An invitation that has
+        /// been ANSWERED is still refused (rule 5), which is reachable only where retirement has
+        /// not run: rule 6 ordinarily removes the row the moment its target answers.</para>
         ///
         /// <para>Distinct from the RETIREMENT of rule 6, which happens when the invited person
         /// answers and runs under the system identity; that has no caller-facing verb.</para>
         /// </summary>
         ValueTask<ApprovalReviewRequest> WithdrawApprovalReviewRequestAsync(
-            Guid approvalReviewRequestId,
+            EntityType entityType,
+            Guid entityId,
+            string requestedUserId,
             string? deletionReason = null,
             CancellationToken cancellationToken = default);
     }

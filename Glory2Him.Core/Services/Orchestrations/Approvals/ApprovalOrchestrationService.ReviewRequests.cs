@@ -222,90 +222,104 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 }
             });
 
+        public ValueTask<IReadOnlyList<ApprovalReviewRequest>> RetrieveApprovalReviewRequestsAsync(
+            EntityType entityType,
+            Guid entityId,
+            CancellationToken cancellationToken = default) =>
+            TryCatch<IReadOnlyList<ApprovalReviewRequest>>(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ValidateOnRetrieveApprovalReviewRequests(entityType, entityId);
+
+                ApprovalReviewerScope scope = await ResolveReviewerScopeAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    onSecurityContext: ValidateUserMayRequestApprovalReviews,
+                    cancellationToken: cancellationToken);
+
+                // Through the CALLER-FACING read, not off the scope. The scope's ActiveRequests
+                // are gathered unfiltered because invitability is a fact about storage (16.7.4),
+                // and answering a person from that view would hand them rows their own posture
+                // refuses. It also carries no display name, which is the one thing the surface
+                // renders.
+                //
+                // The foundation's filter drops deleted rows, so what survives is exactly the
+                // OUTSTANDING set: rule 5 soft-deletes a withdrawal and rule 6 retires an answer.
+                // Pending-ness is therefore inherited rather than asserted here, and there is no
+                // second definition of it to drift.
+                IQueryable<ApprovalReviewRequest> allApprovalReviewRequests =
+                    await this.approvalReviewRequestService
+                        .RetrieveAllApprovalReviewRequestsAsync(cancellationToken);
+
+                List<ApprovalReviewRequest> roundApprovalReviewRequests =
+                    allApprovalReviewRequests
+                        .Where(approvalReviewRequest =>
+                            approvalReviewRequest.ApprovalId == scope.ApprovalId)
+                        .ToList();
+
+                // Ordered the way the candidates read is, and in memory for the same reason: a
+                // culture-aware comparison is not a thing the database can be asked for, and the
+                // two surfaces sit beside each other in the picker.
+                return roundApprovalReviewRequests
+                    .OrderBy(
+                        approvalReviewRequest => approvalReviewRequest.RequestedUserDisplayName,
+                        StringComparer.CurrentCultureIgnoreCase)
+                    .ToList();
+            });
+
         public ValueTask<ApprovalReviewRequest> WithdrawApprovalReviewRequestAsync(
-            Guid approvalReviewRequestId,
+            EntityType entityType,
+            Guid entityId,
+            string requestedUserId,
             string? deletionReason = null,
             CancellationToken cancellationToken = default) =>
             TryCatch(async () =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                ValidateOnWithdrawApprovalReviewRequest(approvalReviewRequestId);
 
-                // The envelope captures the ambient caller so the tier gate has something to run
-                // against. The foundation gates again on the same tier (7.9 rule 5) and owns the
-                // pending check, so this is the coarse half of a deliberate pair.
-                var withdrawRequest = new ApprovalReviewRequest { Id = approvalReviewRequestId };
+                ValidateOnWithdrawApprovalReviewRequest(
+                    entityType,
+                    entityId,
+                    requestedUserId);
 
-                EventEnvelope<ApprovalReviewRequest> envelope =
-                    await this.eventEnvelopeBroker.CreateAsync(content: withdrawRequest);
+                ApprovalReviewerScope scope = await ResolveReviewerScopeAsync(
+                    entityType: entityType,
+                    entityId: entityId,
+                    onSecurityContext: ValidateUserMayRequestApprovalReviews,
+                    cancellationToken: cancellationToken);
 
-                ValidateUserMayRequestApprovalReviews(envelope.SecurityContext);
+                // The row is RESOLVED from the pair rather than supplied. That is what removes the
+                // id round trip, and it also removes the not-found translation this operation used
+                // to need: keyed on an id it could be handed one that names nothing, and the
+                // foundation's validation failure had to be re-categorised so the exposer's
+                // NotFound branch was not dead. Resolved from the round, a miss is simply an
+                // invitation that is not outstanding.
+                ActiveReviewRequest standingRequest = scope.ActiveRequests
+                    .FirstOrDefault(request => request.RequestedUserId == requestedUserId);
+
+                // Nothing outstanding is a no-op, not an error — withdrawing an invitation that
+                // was already withdrawn, or that a rule 6 retirement has already taken, is a
+                // stale panel rather than a mistake. Null here becomes the exposer's 204, which
+                // is what the id-keyed route answered for the same case.
+                if (standingRequest is null)
+                {
+                    return null;
+                }
 
                 // Rule 5 stops at the answer. Withdrawing says the invitation was a mistake, and
-                // once it has been ANSWERED that is no longer something anyone gets to say - the
+                // once it has been ANSWERED that is no longer something anyone gets to say — the
                 // verdict stands, and the record of who was asked is part of how it came about.
                 //
-                // Only on the LIVE row. A row already gone is nothing to refuse: rule 6 retires
-                // an invitation the moment its target answers, so the ordinary answered case is
-                // already deleted and the remove below returns it unchanged, exactly as it does
-                // today. This gate is therefore reached only where retirement has not run or did
-                // not succeed - which is the one place a live invitation and a cast vote can
-                // coexist. Reading through the caller-facing read keeps that split honest: it
-                // reports not-found for a retired row, and not-found here means "nothing to
-                // check", not "nothing to remove".
-                ApprovalReviewRequest standingRequest = null;
+                // Reached only where the row is still LIVE, which after rule 6 means retirement
+                // did not run or did not succeed. That is the one place a standing invitation and
+                // a cast vote can coexist, and the only place this gate has anything to refuse.
+                ValidateInvitationHasNotBeenAnswered(scope, requestedUserId);
 
-                try
-                {
-                    standingRequest = await this.approvalReviewRequestService
-                        .RetrieveApprovalReviewRequestByIdAsync(
-                            approvalReviewRequestId,
-                            cancellationToken);
-                }
-                catch (ApprovalReviewRequestValidationException standingReadException)
-                    when (standingReadException.InnerException
-                        is NotFoundApprovalReviewRequestException)
-                {
-                    // Withdrawn already, or never there. The remove decides which, and answers
-                    // the same way it always has.
-                }
-
-                if (standingRequest is not null)
-                {
-                    ApprovalReviewerScope answeringScope = await this.accessBroker
-                        .RetrieveApprovalReviewerScopeByIdAsync(
-                            standingRequest.ApprovalId,
-                            cancellationToken);
-
-                    ValidateInvitationHasNotBeenAnswered(
-                        answeringScope,
-                        standingRequest.RequestedUserId);
-                }
-
-                try
-                {
-                    return await this.approvalReviewRequestService
-                        .RemoveApprovalReviewRequestByIdAsync(
-                            approvalReviewRequestId: approvalReviewRequestId,
-                            deletionReason: deletionReason,
-                            cancellationToken: cancellationToken);
-                }
-
-                // Translated HERE because this operation is keyed on the request ROW rather than
-                // on an entity. Every sibling resolves an approval first and raises its own
-                // not-found at that site; this one deliberately does no lookup — the foundation
-                // owns the pending check — so there is no earlier place for a missing row to
-                // become a not-found. Without this the foundation's validation exception
-                // categorises as a dependency-validation failure and the caller is told 400 for
-                // an id that simply does not exist, leaving the exposer's NotFound branch dead.
-                catch (ApprovalReviewRequestValidationException approvalReviewRequestValidationException)
-                    when (approvalReviewRequestValidationException.InnerException
-                        is NotFoundApprovalReviewRequestException)
-                {
-                    throw new NotFoundApprovalOrchestrationException(
-                        message: "Approval review request not found with id: "
-                            + $"{approvalReviewRequestId}.");
-                }
+                return await this.approvalReviewRequestService
+                    .RemoveApprovalReviewRequestByIdAsync(
+                        approvalReviewRequestId: standingRequest.Id,
+                        deletionReason: deletionReason,
+                        cancellationToken: cancellationToken);
             });
 
         /// <summary>
