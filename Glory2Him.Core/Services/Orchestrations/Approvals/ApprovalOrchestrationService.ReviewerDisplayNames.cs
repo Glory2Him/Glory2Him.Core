@@ -40,11 +40,15 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
     /// </summary>
     internal partial class ApprovalOrchestrationService
     {
-        // Bounded, and refused rather than truncated. A cap is what keeps a resolver from being
-        // walked into the directory dump 16.7.4 exists to prevent, and truncating it silently
-        // would hand a surface a shorter answer than it asked for and let it render blanks it
-        // could not explain. 200 comfortably covers a round's reviewers, invitations and
-        // candidates together, which is the largest thing any one surface holds.
+        // Bounded, and refused rather than truncated: truncating silently would hand a surface a
+        // shorter answer than it asked for and let it render blanks it could not explain. 200
+        // comfortably covers a round's reviewers, invitations and candidates together, which is
+        // the largest thing any one surface holds.
+        //
+        // <b>It bounds a RESPONSE, not a caller.</b> Nothing here counts requests, so a permitted
+        // caller can page through as many batches as it likes - the cap is a shape rule, and the
+        // thing that actually decides how much of the directory is reachable is the tier gate
+        // below. Do not read this constant as the enumeration control; 16.7.4's posture is.
         private const int MaximumReviewerDisplayNameBatch = 200;
 
         public ValueTask<IReadOnlyList<ReviewerDisplayName>> RetrieveReviewerDisplayNamesAsync(
@@ -68,7 +72,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // and a stand-in Approval would describe a row nobody asked for.
                 EventEnvelope<IReadOnlyList<string>> envelope =
                     await this.eventEnvelopeBroker.CreateAsync<IReadOnlyList<string>>(
-                        requestedUserIds);
+                        content: requestedUserIds);
 
                 ValidateUserMayRequestApprovalReviews(envelope.SecurityContext);
 

@@ -935,6 +935,41 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
             isBindRequired.Should().BeTrue();
         }
 
+        /// <summary>
+        /// <c>[FromQuery]</c> is load-bearing on this one parameter and on no other in the
+        /// controller, which is exactly what makes it easy to lose. Every other <c>[FromQuery]</c>
+        /// here decorates a simple type, where <c>[ApiController]</c> would infer the query string
+        /// anyway and the attribute really is redundant — so a reasonable sweep that removed the
+        /// redundant ones would be right everywhere except here. <c>string[]</c> is a COMPLEX type
+        /// to the binder, so without the attribute it infers a request BODY, and a GET has none:
+        /// the endpoint would bind an empty array for every caller and answer 200 with no names.
+        ///
+        /// <para>Nothing else catches it. The five tests above invoke the action as a plain method
+        /// call, so model binding never runs in this suite, and the removal compiles. This asserts
+        /// the attribute directly, the same way the decision's <c>[BindRequired]</c> is asserted
+        /// above and for the same reason — a silent binding change is the failure mode neither a
+        /// compiler nor a green suite reports.</para>
+        /// </summary>
+        [Fact]
+        public void GetReviewerDisplayNamesShouldBindTheUserIdsFromTheQueryString()
+        {
+            // Given
+            MethodInfo methodInfo = typeof(ApprovalsController)
+                .GetMethod(nameof(ApprovalsController.GetReviewerDisplayNamesAsync));
+
+            ParameterInfo userIdsParameter = methodInfo
+                .GetParameters()
+                .Single(parameter => parameter.Name == "userIds");
+
+            // When
+            bool isBoundFromQuery = userIdsParameter
+                .GetCustomAttributes(typeof(FromQueryAttribute), inherit: true)
+                .Any();
+
+            // Then
+            isBoundFromQuery.Should().BeTrue();
+        }
+
         private ValueTask<ActionResult<ApprovalOutcome>> PostSomeDecisionAsync() =>
             this.approvalsController.PostApprovalDecisionAsync(
                 GetRandomEntityType(),
