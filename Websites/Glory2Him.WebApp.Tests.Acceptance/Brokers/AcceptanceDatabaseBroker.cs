@@ -18,7 +18,7 @@ using Microsoft.Extensions.Configuration;
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     /// <summary>
-    /// The three databases this suite runs against, and their whole lifecycle.
+    /// The four databases this suite runs against, and their whole lifecycle.
     ///
     /// <para>The acceptance host boots the real portal, so it touches every store the portal
     /// has: Core's schema, the EventHighway substrate, and Identity. Before this existed the
@@ -82,7 +82,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         {
             CatalogFor("Core"),
             CatalogFor("Events"),
-            CatalogFor("Security")
+            CatalogFor("Security"),
+            CatalogFor("SecurityRehearsal")
         };
 
         // The drop MUST reach the same server the catalogues are created on. Both are derived
@@ -104,6 +105,24 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         /// per-run catalogue only has to let those run, which is the whole of the change on the
         /// creation side.</para>
         /// </summary>
+        /// <summary>
+        /// A FOURTH Identity catalogue, and the host never sees it — it is deliberately absent
+        /// from <see cref="ConnectionStringOverrides"/> below.
+        ///
+        /// <para>It exists because a data migration can only be tested against data, and the
+        /// suite's own Security catalogue is created empty and migrated on the way up, so every
+        /// statement in a rename migration matches zero rows there. A test that needs a
+        /// POPULATED pre-migration store has to build one, and it must not build it in the
+        /// catalogue the running host is reading.</para>
+        ///
+        /// <para>It is listed in <see cref="DatabaseNames"/> so it inherits the same
+        /// create-clean-and-drop lifecycle as the other three rather than growing a second
+        /// one — including the startup drop, which is what makes a rehearsal deterministic
+        /// after a previous run that reused this process id.</para>
+        /// </summary>
+        internal static string SecurityRehearsalConnectionString =>
+            WithCatalog(ConnectionStringTemplate, DatabaseNames[3]);
+
         internal static IDictionary<string, string> ConnectionStringOverrides =>
             new Dictionary<string, string>
             {
