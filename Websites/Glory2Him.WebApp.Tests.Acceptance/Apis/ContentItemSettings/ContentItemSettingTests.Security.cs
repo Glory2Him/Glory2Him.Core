@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Securities;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings;
 using RESTFulSense.Exceptions;
+using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 {
@@ -331,6 +332,106 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 
                 await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
                     duplicateContentItemSetting.Id);
+            }
+        }
+
+        /// <summary>
+        /// The INVERSE of the two conflict tests above, and the point of #326.
+        ///
+        /// <para>Both indexes now carry an <c>IsDeleted</c> term, so removing a setting through
+        /// the API — a SOFT delete — genuinely releases its scope. Without the term the scope was
+        /// trapped: §14.5 hides the deleted row from every caller including <c>Admin</c>, so the
+        /// re-create answered 409 naming nothing anybody could see or move, and the ordinary way
+        /// to remove a setting was the way that destroyed the ability to have one.</para>
+        ///
+        /// <para>This is the default tier, so the incumbent has to be the seeded row — every
+        /// content type's default slot is taken at startup. It is lifted out physically and put
+        /// back byte-for-byte in the teardown: the seed is idempotent on "a row exists for this
+        /// content type" and counts soft-deleted ones, so a test that merely soft-deleted it would
+        /// leave the environment a default short and no restart would notice.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldAllowPostWhenContentTypeDefaultIsHeldOnlyByASoftDeletedRowAsync()
+        {
+            // given
+            CoreContentItemSetting seededDefault =
+                await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Topic);
+
+            await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(seededDefault.Id);
+
+            ContentItemSetting ownDefault = CreateRandomContentItemSetting();
+            ownDefault.ContentType = ContentType.Topic;
+            ownDefault.ContentItemId = null;
+
+            ContentItemSetting removedDefault =
+                await this.apiBroker.PostContentItemSettingAsync(ownDefault);
+
+            await this.apiBroker.DeleteContentItemSettingByIdAsync(removedDefault.Id);
+
+            ContentItemSetting reusedScopeContentItemSetting = CreateRandomContentItemSetting();
+            reusedScopeContentItemSetting.ContentType = ContentType.Topic;
+            reusedScopeContentItemSetting.ContentItemId = null;
+
+            try
+            {
+                // when
+                ContentItemSetting actualContentItemSetting = await this.apiBroker
+                    .PostContentItemSettingAsync(reusedScopeContentItemSetting);
+
+                // then
+                actualContentItemSetting.ContentType.Should().Be(ContentType.Topic);
+                actualContentItemSetting.ContentItemId.Should().BeNull();
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(removedDefault.Id);
+
+                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
+                    reusedScopeContentItemSetting.Id);
+
+                await this.apiBroker.InsertCoreContentItemSettingAsync(seededDefault);
+            }
+        }
+
+        /// <summary>
+        /// The same release, on the second index. Written rather than folded into the test above
+        /// because the two filters are separate strings in the configuration and a fix applied to
+        /// one and missed on the other is exactly the shape of the original defect — and because
+        /// this tier needs no seed juggling at all, a fresh <c>ContentItemId</c> being an
+        /// unlimited supply of free scopes.
+        /// </summary>
+        [Fact]
+        public async Task ShouldAllowPostWhenContentItemOverrideIsHeldOnlyByASoftDeletedRowAsync()
+        {
+            // given
+            Guid contentItemId = Guid.NewGuid();
+
+            ContentItemSetting overrideContentItemSetting = CreateRandomContentItemSetting();
+            overrideContentItemSetting.ContentItemId = contentItemId;
+
+            ContentItemSetting removedOverride = await this.apiBroker
+                .PostContentItemSettingAsync(overrideContentItemSetting);
+
+            await this.apiBroker.DeleteContentItemSettingByIdAsync(removedOverride.Id);
+
+            ContentItemSetting reusedScopeContentItemSetting = CreateRandomContentItemSetting();
+            reusedScopeContentItemSetting.ContentItemId = contentItemId;
+
+            try
+            {
+                // when
+                ContentItemSetting actualContentItemSetting = await this.apiBroker
+                    .PostContentItemSettingAsync(reusedScopeContentItemSetting);
+
+                // then
+                actualContentItemSetting.ContentItemId.Should().Be(contentItemId);
+            }
+            finally
+            {
+                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(removedOverride.Id);
+
+                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
+                    reusedScopeContentItemSetting.Id);
             }
         }
     }
