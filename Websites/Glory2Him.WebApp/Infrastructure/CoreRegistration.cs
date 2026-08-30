@@ -70,9 +70,9 @@ namespace Glory2Him.WebApp.Infrastructure
         /// </remarks>
         public static IServiceCollection AddCoreServices(this IServiceCollection services)
         {
-            // SecurityAuditBroker reads the caller's ClaimsPrincipal off the ambient
-            // HttpContext in its constructor, so it needs the accessor and a per-request
-            // lifetime — a longer-lived instance would freeze the first caller's identity.
+            // Registered for the host's own use (e.g. ASP.NET Core Identity's SignInManager) —
+            // no Core broker reads the ambient HttpContext directly any more. Every broker on
+            // the event path resolves its actor from the envelope's SecurityContext instead.
             services.AddHttpContextAccessor();
 
             // The defaults already name the audit members these entities carry (CreatedBy,
@@ -102,6 +102,10 @@ namespace Glory2Him.WebApp.Infrastructure
 
             services.AddScoped<IStorageBroker, StorageBroker>();
             services.AddScoped<IAccessBroker, AccessBroker>();
+
+            // Left Scoped rather than reclassified to Singleton: it holds nothing but a
+            // stateless SecurityClient and SecurityConfigurations today, but nothing here
+            // guarantees the next constructor added to it stays that way.
             services.AddScoped<ISecurityAuditBroker, SecurityAuditBroker>();
             // The service INTERFACES are public; the implementations are not. Binding the two is
             // only possible from inside Core's friend set, which is the point — the host names
