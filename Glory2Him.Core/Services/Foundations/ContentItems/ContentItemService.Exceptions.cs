@@ -472,7 +472,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 var timeoutContentItemException =
                     new TimeoutContentItemException(
-                        message: "Failed approval timeout error occurred, contact support.",
+                        message: "Failed content item timeout error occurred, contact support.",
                         innerException: timeoutException,
                         data: timeoutException.Data);
 
@@ -504,7 +504,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 var failedStorageContentItemException =
                     new FailedStorageContentItemException(
-                        message: "Failed approval storage error occurred, contact support.",
+                        message: "Failed content item storage error occurred, contact support.",
                         innerException: sqlException,
                         data: sqlException.Data);
 
@@ -515,7 +515,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 var failedContentItemServiceException =
                     new FailedContentItemServiceException(
-                        message: "Failed approval service error occurred, contact support.",
+                        message: "Failed content item service error occurred, contact support.",
                         innerException: exception,
                         data: exception.Data);
 
@@ -539,7 +539,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
                 var timeoutContentItemException =
                     new TimeoutContentItemException(
-                        message: "Failed approval timeout error occurred, contact support.",
+                        message: "Failed content item timeout error occurred, contact support.",
                         innerException: timeoutException,
                         data: timeoutException.Data);
 
@@ -564,7 +564,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 var failedStorageContentItemException =
                     new FailedStorageContentItemException(
-                        message: "Failed approval storage error occurred, contact support.",
+                        message: "Failed content item storage error occurred, contact support.",
                         innerException: sqlException,
                         data: sqlException.Data);
 
@@ -575,7 +575,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             {
                 var failedContentItemServiceException =
                     new FailedContentItemServiceException(
-                        message: "Failed approval service error occurred, contact support.",
+                        message: "Failed content item service error occurred, contact support.",
                         innerException: exception,
                         data: exception.Data);
 

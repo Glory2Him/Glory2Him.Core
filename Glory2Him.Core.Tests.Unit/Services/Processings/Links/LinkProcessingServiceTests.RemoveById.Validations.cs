@@ -250,14 +250,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.LinkReviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.LinkPublisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.LinkReviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.LinkPublishers)]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfActorIsNotOwnerOrAdminAndLogItAsync(
             string? actorRole)
         {
-            // given: only the owner and an Admin may take a link down — the review roles
+            // given: only the owner and an administrator may take a link down — the review roles
             // moderate through the approval workflow, not through deletion
             Guid inputLinkId = Guid.NewGuid();
 

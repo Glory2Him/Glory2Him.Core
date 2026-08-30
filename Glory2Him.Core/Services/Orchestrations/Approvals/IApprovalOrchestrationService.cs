@@ -49,9 +49,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// <c>IsBlocked &amp;&amp; IsBypassAllowedForCurrentUser</c>, and otherwise renders
         /// <c>BlockReasons</c> to say why the button is disabled.</para>
         ///
-        /// <para>Restricted to the moderation tier — <c>Admin</c>, the <c>Publisher</c>
-        /// tier and the <c>Reviewer</c> tier, matched by suffix so the content-type-scoped
-        /// roles of §18.6 qualify too. A <c>Reviewer</c> cannot decide (HR-3), but the
+        /// <para>Restricted to the moderation tier — <c>Administrators</c>, the <c>Publishers</c>
+        /// tier and the <c>Reviewers</c> tier, matched by suffix so the content-type-scoped
+        /// roles of §18.6 qualify too. A reviewer cannot decide (HR-3), but the
         /// verdict is how they see whether their own review completed the round
         /// (§16.7.2). The exposer gates on the same tier; the duplication is deliberate
         /// (§14.6 rule 2).</para>

@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // given
             var requestEnvelope = new EventEnvelope<Reaction>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Content = new Reaction { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
 
             var requestEnvelope = new EventEnvelope<Reaction>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Content = new Reaction { Id = someReactionId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

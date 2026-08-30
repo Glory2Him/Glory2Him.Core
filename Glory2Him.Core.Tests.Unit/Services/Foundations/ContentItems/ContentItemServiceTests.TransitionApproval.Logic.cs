@@ -33,7 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: the fact follows the DECISION, not the verb. A rejection announced on the
             // Approved address would tell every subscriber the row is live.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             ContentItem inputContentItem = CreateRejectionDecision(storageContentItem.Id);
@@ -200,7 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // approve that published Modified would re-enter the handler that caused it. This is
             // issue #111 case 1: assert the published operation explicitly, both ways.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             ContentItem inputContentItem = CreateApprovalDecision(storageContentItem.Id);
@@ -262,7 +262,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // is exactly what the narrow operations exist to prevent — a publisher approving a
             // row would silently overwrite its content in the same write.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
 
@@ -319,7 +319,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // "the caller said so" rather than "the rules were waived", and it is evidence of
             // nothing.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             storageContentItem.IsApprovedByBypass = false;
@@ -356,7 +356,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // bypass. The flag has to travel from the verdict onto the row, or a genuine bypass
             // leaves no trace at all and the field is dead weight.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             storageContentItem.IsApprovedByBypass = false;
@@ -385,7 +385,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // conditions this time must stop claiming they were waived, or the flag accumulates
             // and every bypassed item stays flagged for the rest of its life.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             storageContentItem.IsApprovedByBypass = true;

@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             var requestEnvelope = new EventEnvelope<Link>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Content = new Link { Id = storageLink.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

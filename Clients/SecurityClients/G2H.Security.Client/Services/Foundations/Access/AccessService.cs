@@ -211,7 +211,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             return Permit("Actor is the author of the comment and the round is open.");
         }
 
-        // The one comment operation an Admin may perform on someone else's row, and deliberately
+        // The one comment operation an administrator may perform on someone else's row, and deliberately
         // the only one: resolving records that a comment is settled — that it no longer requires
         // anything before the approval can proceed — which changes no words.
         private static AccessVerdict DecideMayResolveApprovalComment(
@@ -225,13 +225,13 @@ namespace G2H.Security.Client.Services.Foundations.Access
             }
 
             bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
-            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Admin);
+            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Administrators);
 
             if (isAuthor is false && isAdmin is false)
             {
                 return Refuse(
                     AccessDenialReason.NotApprovalCommentAuthor,
-                    "Actor is neither the comment's author nor an Admin resolving on their behalf.");
+                    "Actor is neither the comment's author nor an administrator resolving on their behalf.");
             }
 
             if (request.IsParentApprovalDeleted)
@@ -250,7 +250,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
             return isAuthor
                 ? Permit("Actor is the author of the comment and the round is open.")
-                : Permit("Actor is an Admin resolving on the author's behalf; UpdatedBy records them.");
+                : Permit("Actor is an administrator resolving on the author's behalf; UpdatedBy records them.");
         }
 
         // Order matters and is not arbitrary. Identity comes first, then role, then the rules
@@ -561,27 +561,27 @@ namespace G2H.Security.Client.Services.Foundations.Access
         private static bool HasReviewTier(
             AccessActor actor,
             IReadOnlyList<RoleSubject> roleSubjects) =>
-            actor.Roles.Contains(RoleNames.Reviewer)
+            actor.Roles.Contains(RoleNames.Reviewers)
                 || HasPublisherTier(actor, roleSubjects)
                 || roleSubjects.Any(subject => HasScopedRole(
                     actor,
                     subject,
-                    RoleNames.ReviewerFor,
-                    RoleNames.ReviewerFor));
+                    RoleNames.ReviewersFor,
+                    RoleNames.ReviewersFor));
 
         private static bool HasPublisherTier(
             AccessActor actor,
             IReadOnlyList<RoleSubject> roleSubjects) =>
-            actor.Roles.Contains(RoleNames.Publisher)
-                || actor.Roles.Contains(RoleNames.Admin)
+            actor.Roles.Contains(RoleNames.Publishers)
+                || actor.Roles.Contains(RoleNames.Administrators)
                 || roleSubjects.Any(subject => HasScopedRole(
                     actor,
                     subject,
-                    RoleNames.PublisherFor,
-                    RoleNames.PublisherFor));
+                    RoleNames.PublishersFor,
+                    RoleNames.PublishersFor));
 
-        // The narrow tier widens into the coarse one: ContentItem-Blog-Reviewer ⊂
-        // ContentItem-Reviewer ⊂ Reviewer (§18.6 rule 4). Holding either spelling satisfies the
+        // The narrow tier widens into the coarse one: ContentItem-Blog-Reviewers ⊂
+        // ContentItem-Reviewers ⊂ Reviewers (§18.6 rule 4). Holding either spelling satisfies the
         // check for that content type; the narrow one never satisfies a check for a different one.
         private static bool HasScopedRole(
             AccessActor actor,

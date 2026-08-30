@@ -37,9 +37,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         [Fact]
         public async Task ShouldThrowValidationExceptionOnAddIfTheAccessBrokerRefusesAsync()
         {
-            // given: the caller holds Reviewer, so the row-local review-role gate passes and
+            // given: the caller holds Reviewers, so the row-local review-role gate passes and
             // the cross-entity decision is the only thing left that can refuse the add
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             ApprovalReview inputApprovalReview =
@@ -149,7 +149,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // denial reason names the rule that fired. Both belong in the server-side log and
             // nowhere in what is thrown (§14.5 rule 2), because exception messages and their
             // Data surface outward through a public event address.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             ApprovalReview inputApprovalReview =

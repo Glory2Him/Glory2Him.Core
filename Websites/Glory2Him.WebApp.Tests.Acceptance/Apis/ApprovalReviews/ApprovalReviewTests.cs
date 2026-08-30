@@ -43,7 +43,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
             // of these operations require.
             this.reviewerUserId = this.apiBroker.ActAs(
                 Guid.NewGuid().ToString(),
-                Roles.Reviewer);
+                Roles.Reviewers);
         }
 
         private readonly string reviewerUserId;

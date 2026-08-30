@@ -78,17 +78,17 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         [Fact]
         public async Task ShouldRejectWhenARoleWasAddedAsync()
         {
-            // given: the headline attack — a forged Admin. Signing the security context is what
-            // makes an added role detectable.
+            // given: the headline attack — a forged Administrators. Signing the security context is
+            // what makes an added role detectable.
             IEnvelopeIntegrityBroker broker = BrokerWith(ActiveKey("key-a"));
 
             EnvelopeIntegrity integrity = await broker.SignAsync(
-                Envelope(roles: new[] { "Reviewer" }),
+                Envelope(roles: new[] { "Reviewers" }),
                 EventName,
                 EnvelopeDirection.Request);
 
             EventEnvelope<string> tampered =
-                Envelope(roles: new[] { "Reviewer", "Admin" }, integrity: integrity);
+                Envelope(roles: new[] { "Reviewers", "Administrators" }, integrity: integrity);
 
             // when
             bool isValid =
@@ -389,7 +389,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
                 {
                     SubjectId = "subject-1",
                     IsAuthenticated = true,
-                    Roles = roles ?? new[] { "Reviewer" }
+                    Roles = roles ?? new[] { "Reviewers" }
                 },
                 Metadata = new EventMetadata { EventId = FixedEventId },
                 Integrity = integrity

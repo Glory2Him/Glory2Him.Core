@@ -382,7 +382,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
         // Every endpoint field the general modify pins against storage. Scope sits here with
         // the identity fields now that the state-transition operations have landed: it is not
-        // reclassification, but it has its own Publisher/Admin-gated operation (design §9.7.1
+        // reclassification, but it has its own Publishers/Administrators-gated operation (design §9.7.1
         // rule 6), and leaving it writable on modify would route straight around that gate.
         public static TheoryData<string> PinnedEndpointFields() =>
             new TheoryData<string>

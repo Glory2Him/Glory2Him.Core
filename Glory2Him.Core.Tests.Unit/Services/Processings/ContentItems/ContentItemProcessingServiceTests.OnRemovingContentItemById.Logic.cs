@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             // given: the ContentItemProcessing-RemovingById request path converges on the same do-work
             // as the direct RemoveContentItemByIdAsync — the request payload carries the
             // remove instruction (Id and DeletionReason), the envelope carries the original
-            // caller for the gate and the owner/Admin rule, and the reply is the next
+            // caller for the gate and the owner/Administrators rule, and the reply is the next
             // envelope in the causation chain wrapping the removed entity
             Guid randomContentItemId = Guid.NewGuid();
             string randomDeletionReason = GetRandomString();

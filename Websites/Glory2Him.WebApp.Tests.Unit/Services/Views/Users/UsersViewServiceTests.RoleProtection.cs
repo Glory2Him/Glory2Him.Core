@@ -24,17 +24,17 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
     public partial class UsersViewServiceTests
     {
         [Fact]
-        public async Task ShouldRefuseToRemoveTheLastHolderOfTheCoreAdministratorRole()
+        public async Task ShouldRefuseToRemoveTheLastHolderOfTheAdministratorsRole()
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid(), UserName = "onlyadmin" };
-            GivenUserExists(user, roles: new List<string> { Roles.Admin });
-            GivenUsersInRoleCount(Roles.Admin, count: 1);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators });
+            GivenUsersInRoleCount(Roles.Administrators, count: 1);
 
             // when
             Func<Task> removingRole = async () =>
                 await this.usersViewService.SetUserRoleAsync(
-                    user.Id, Roles.Admin, isInRole: false);
+                    user.Id, Roles.Administrators, isInRole: false);
 
             // then
             await removingRole.Should().ThrowAsync<UsersViewValidationException>();
@@ -45,37 +45,37 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
         }
 
         [Fact]
-        public async Task ShouldAllowRemovingTheCoreAdministratorRoleWhenAnotherHolderRemains()
+        public async Task ShouldAllowRemovingTheAdministratorsRoleWhenAnotherHolderRemains()
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid() };
-            GivenUserExists(user, roles: new List<string> { Roles.Admin });
-            GivenUsersInRoleCount(Roles.Admin, count: 2);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators });
+            GivenUsersInRoleCount(Roles.Administrators, count: 2);
 
             this.identityBrokerMock.Setup(broker =>
-                broker.DeleteUserFromRoleAsync(user, Roles.Admin))
+                broker.DeleteUserFromRoleAsync(user, Roles.Administrators))
                     .ReturnsAsync(IdentityResult.Success);
 
             // when
-            await this.usersViewService.SetUserRoleAsync(user.Id, Roles.Admin, isInRole: false);
+            await this.usersViewService.SetUserRoleAsync(user.Id, Roles.Administrators, isInRole: false);
 
             // then
             this.identityBrokerMock.Verify(broker =>
-                broker.DeleteUserFromRoleAsync(user, Roles.Admin),
+                broker.DeleteUserFromRoleAsync(user, Roles.Administrators),
                     Times.Once);
         }
 
         /// <summary>
-        /// Deleting the account is the other route to the same loss, and it must consider both
-        /// administrator vocabularies — here the account holds only Core's.
+        /// Deleting the account is the other route to the same loss, so it asks the same
+        /// question the demotion path does.
         /// </summary>
         [Fact]
-        public async Task ShouldRefuseToDeleteTheLastHolderOfTheCoreAdministratorRole()
+        public async Task ShouldRefuseToDeleteTheLastHolderOfTheAdministratorsRole()
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid(), UserName = "onlyadmin" };
-            GivenUserExists(user, roles: new List<string> { Roles.Admin });
-            GivenUsersInRoleCount(Roles.Admin, count: 1);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators });
+            GivenUsersInRoleCount(Roles.Administrators, count: 1);
 
             // when
             Func<Task> deletingUser = async () =>
@@ -98,20 +98,20 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
         {
             // given
             var user = new AppUser { Id = Guid.NewGuid() };
-            GivenUserExists(user, roles: new List<string> { Roles.Admin, Roles.TagReviewer });
-            GivenUsersInRoleCount(Roles.Admin, count: 1);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators, Roles.TagReviewers });
+            GivenUsersInRoleCount(Roles.Administrators, count: 1);
 
             this.identityBrokerMock.Setup(broker =>
-                broker.DeleteUserFromRoleAsync(user, Roles.TagReviewer))
+                broker.DeleteUserFromRoleAsync(user, Roles.TagReviewers))
                     .ReturnsAsync(IdentityResult.Success);
 
             // when
             await this.usersViewService.SetUserRoleAsync(
-                user.Id, Roles.TagReviewer, isInRole: false);
+                user.Id, Roles.TagReviewers, isInRole: false);
 
             // then
             this.identityBrokerMock.Verify(broker =>
-                broker.DeleteUserFromRoleAsync(user, Roles.TagReviewer),
+                broker.DeleteUserFromRoleAsync(user, Roles.TagReviewers),
                     Times.Once);
         }
 
@@ -121,21 +121,16 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
         /// was not protected and wave the removal through.
         /// </summary>
         [Theory]
-        [InlineData("admin")]
-        [InlineData("ADMIN")]
         [InlineData("administrators")]
+        [InlineData("ADMINISTRATORS")]
+        [InlineData("AdMiNiStRaToRs")]
         public async Task ShouldRefuseToRemoveTheLastAdministratorWhateverTheCasing(
             string suppliedRoleName)
         {
             // given
-            string canonicalRoleName =
-                suppliedRoleName.Equals(Roles.Admin, StringComparison.OrdinalIgnoreCase)
-                    ? Roles.Admin
-                    : AdministratorsRole;
-
             var user = new AppUser { Id = Guid.NewGuid(), UserName = "onlyadmin" };
-            GivenUserExists(user, roles: new List<string> { canonicalRoleName });
-            GivenUsersInRoleCount(canonicalRoleName, count: 1);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators });
+            GivenUsersInRoleCount(Roles.Administrators, count: 1);
             GivenUsersInRoleCount(suppliedRoleName, count: 1);
 
             // when
@@ -162,13 +157,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
             var user = new AppUser { Id = Guid.NewGuid(), UserName = "realadmin" };
             var disabledAdministrator = new AppUser { Id = Guid.NewGuid(), IsDisabled = true };
 
-            GivenUserExists(user, roles: new List<string> { Roles.Admin });
-            GivenUsersInRole(Roles.Admin, user, disabledAdministrator);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators });
+            GivenUsersInRole(Roles.Administrators, user, disabledAdministrator);
 
             // when
             Func<Task> removingRole = async () =>
                 await this.usersViewService.SetUserRoleAsync(
-                    user.Id, Roles.Admin, isInRole: false);
+                    user.Id, Roles.Administrators, isInRole: false);
 
             // then
             await removingRole.Should().ThrowAsync<UsersViewValidationException>();
@@ -185,8 +180,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
             var user = new AppUser { Id = Guid.NewGuid(), UserName = "realadmin" };
             var lockedOutAdministrator = new AppUser { Id = Guid.NewGuid() };
 
-            GivenUserExists(user, roles: new List<string> { Roles.Admin });
-            GivenUsersInRole(Roles.Admin, user, lockedOutAdministrator);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators });
+            GivenUsersInRole(Roles.Administrators, user, lockedOutAdministrator);
 
             this.identityBrokerMock.Setup(broker =>
                 broker.SelectIsLockedOutAsync(lockedOutAdministrator))
@@ -195,7 +190,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
             // when
             Func<Task> removingRole = async () =>
                 await this.usersViewService.SetUserRoleAsync(
-                    user.Id, Roles.Admin, isInRole: false);
+                    user.Id, Roles.Administrators, isInRole: false);
 
             // then
             await removingRole.Should().ThrowAsync<UsersViewValidationException>();
@@ -212,19 +207,19 @@ namespace Glory2Him.WebApp.Tests.Unit.Services.Views.Users
             var user = new AppUser { Id = Guid.NewGuid() };
             var otherAdministrator = new AppUser { Id = Guid.NewGuid() };
 
-            GivenUserExists(user, roles: new List<string> { Roles.Admin });
-            GivenUsersInRole(Roles.Admin, user, otherAdministrator);
+            GivenUserExists(user, roles: new List<string> { Roles.Administrators });
+            GivenUsersInRole(Roles.Administrators, user, otherAdministrator);
 
             this.identityBrokerMock.Setup(broker =>
-                broker.DeleteUserFromRoleAsync(user, Roles.Admin))
+                broker.DeleteUserFromRoleAsync(user, Roles.Administrators))
                     .ReturnsAsync(IdentityResult.Success);
 
             // when
-            await this.usersViewService.SetUserRoleAsync(user.Id, Roles.Admin, isInRole: false);
+            await this.usersViewService.SetUserRoleAsync(user.Id, Roles.Administrators, isInRole: false);
 
             // then
             this.identityBrokerMock.Verify(broker =>
-                broker.DeleteUserFromRoleAsync(user, Roles.Admin),
+                broker.DeleteUserFromRoleAsync(user, Roles.Administrators),
                     Times.Once);
         }
 

@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
-                CreateAuthenticatedSecurityContext(Roles.Admin));
+                CreateAuthenticatedSecurityContext(Roles.Administrators));
             var cancellationToken = new CancellationToken(canceled: true);
 
             // when
@@ -56,7 +56,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
-                CreateAuthenticatedSecurityContext(Roles.Admin));
+                CreateAuthenticatedSecurityContext(Roles.Administrators));
             var operationCanceledException = new OperationCanceledException();
 
             var timeoutException =
@@ -111,7 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
-                CreateAuthenticatedSecurityContext(Roles.Admin));
+                CreateAuthenticatedSecurityContext(Roles.Administrators));
 
             var expectedApprovalDependencyException = new ApprovalDependencyException(
                 message: "Approval dependency error occurred, contact support.",
@@ -153,7 +153,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
-                CreateAuthenticatedSecurityContext(Roles.Admin));
+                CreateAuthenticatedSecurityContext(Roles.Administrators));
             SqlException sqlException = GetSqlException();
 
             var failedStorageApprovalException = new FailedStorageApprovalException(
@@ -204,7 +204,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
-                CreateAuthenticatedSecurityContext(Roles.Admin));
+                CreateAuthenticatedSecurityContext(Roles.Administrators));
 
             var expectedApprovalDependencyValidationException = new ApprovalDependencyValidationException(
                 message: "Approval dependency validation error occurred, fix the errors and try again.",
@@ -246,7 +246,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             EventEnvelope<Approval> requestEnvelope = CreateRandomApprovalRequestEnvelope(
-                CreateAuthenticatedSecurityContext(Roles.Admin));
+                CreateAuthenticatedSecurityContext(Roles.Administrators));
             var serviceException = new Exception();
 
             var failedApprovalServiceException = new FailedApprovalServiceException(

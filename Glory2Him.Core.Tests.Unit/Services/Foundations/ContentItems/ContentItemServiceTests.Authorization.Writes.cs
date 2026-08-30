@@ -102,12 +102,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovalStateWasChangedAndLogItAsync()
         {
-            // given: the hole this suite exists to close. A Reviewer holds write permission on
+            // given: the hole this suite exists to close. A reviewer holds write permission on
             // the row for content edits, and without these pins the same modify call would let
             // them mark a stranger's draft approved and published — no review role check, no
             // publisher tier, no access decision, no approval conditions.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -162,7 +162,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -198,7 +198,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -403,16 +403,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
                 Times.Once);
         }
 
-        // A Reviewer passes the write gate and may amend content, and must still never move an
+        // A reviewer passes the write gate and may amend content, and must still never move an
         // approval status (design §8.6 HR-3). The carve-out is gated on ownership or the
-        // Publisher tier, not on write permission.
+        // Publishers tier, not on write permission.
 
         [Fact]
         public async Task ShouldThrowValidationExceptionOnModifyIfANonOwnerMovesTheSubmissionStatusAsync()
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -443,7 +443,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             await AssertModifyIsRefusedAsync(invalidContentItem, invalidContentItemException);
         }
 
-        // The Publisher tier may move the submission status on someone else's item — it is the
+        // The Publishers tier may move the submission status on someone else's item — it is the
         // tier the dedicated approve operation itself requires.
 
         [Fact]
@@ -451,7 +451,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemPublisher);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();

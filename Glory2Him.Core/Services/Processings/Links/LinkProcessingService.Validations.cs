@@ -65,9 +65,9 @@ namespace Glory2Him.Core.Services.Processings.Links
                     && currentLink.CreatedBy == actorUserId;
 
             // removing content is a takedown, not a moderation step — the owner may remove
-            // their own link and an Admin may remove anyone's; Reviewers and Publishers
+            // their own link and an administrator may remove anyone's; Reviewers and Publishers
             // moderate through the approval workflow instead
-            bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Admin);
+            bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPermitted is false)
             {
@@ -98,8 +98,8 @@ namespace Glory2Him.Core.Services.Processings.Links
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentLink.CreatedBy == actorUserId;
 
-            // a not-yet-decided link may be corrected in place by a Reviewer, Publisher or
-            // Admin during review; a terminal one belongs to its owner alone, because the
+            // a not-yet-decided link may be corrected in place by a holder of Reviewers, Publishers or
+            // Administrators during review; a terminal one belongs to its owner alone, because the
             // only edit it admits is a fork onto a fresh version (§3.4 rule 16) and a
             // moderator forking someone else's decided row would author a version in
             // their name
@@ -151,14 +151,14 @@ namespace Glory2Him.Core.Services.Processings.Links
 
         // Link has two role tiers, not ContentItem's three: the narrow tier exists only
         // where an entity carries a ContentType, and no entity but ContentItem does
-        // (design §18.6 rule 5). So a Link-Reviewer covers every link there is, and there
+        // (design §18.6 rule 5). So Link-Reviewers covers every link there is, and there
         // is no per-row question to ask of the caller's grants.
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.LinkReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.LinkPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.LinkReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.LinkPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
         {
@@ -189,7 +189,7 @@ namespace Glory2Him.Core.Services.Processings.Links
 
         // Null-check first (a malformed event), then verify the integrity signature against the
         // event name this handler serves and the request direction. The processing service is an
-        // event receiver too: it front-loads the contribution / owner / Admin decision against the
+        // event receiver too: it front-loads the contribution / owner / Administrators decision against the
         // inbound envelope's SecurityContext, so without this check a caller who can put a message
         // on a LinkProcessing address states their own roles and is believed (design §14.6 rule 4).
         // Verification sits in the receiver, not the transport, because a handler is reachable

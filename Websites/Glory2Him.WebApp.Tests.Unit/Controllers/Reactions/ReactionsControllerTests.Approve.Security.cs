@@ -32,9 +32,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Reactions
 
             List<string> expectedAttributeValues = new List<string>
             {
-                Roles.Admin,
-                Roles.Publisher,
-                Roles.ReactionPublisher
+                Roles.Administrators,
+                Roles.Publishers,
+                Roles.ReactionPublishers
             };
 
             // When

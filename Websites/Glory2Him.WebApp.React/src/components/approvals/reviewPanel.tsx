@@ -1,5 +1,6 @@
 import { ReactElement, ReactNode, useEffect, useId, useState } from 'react';
 import { Avatar } from '../coreUI/avatar';
+import { useDismissableMenu } from '../../hooks/useDismissableMenu';
 import { useAuth } from '../securitys/authProvider';
 import {
     ApprovalDecision,
@@ -31,9 +32,9 @@ import './approvals.css';
 export interface ReviewPanelProps {
     // ── Subject ───────────────────────────────────────────────────────────────
     // Names the entity under approval so the vote-tier roles can be composed (§18.6,
-    // capability-last and singular): {entityType}-Reviewer / {entityType}-Publisher, and — only
+    // capability-last and plural): {entityType}-Reviewers / {entityType}-Publishers, and — only
     // when entityType is 'ContentItem' and a contentType is given — the narrower
-    // ContentItem-{contentType}-Reviewer / -Publisher pair. Identifiers are NOT used to fetch
+    // ContentItem-{contentType}-Reviewers / -Publishers pair. Identifiers are NOT used to fetch
     // anything here; the consumer resolves reviews and verdict itself.
     entityType: string;
     contentType?: string;
@@ -124,7 +125,7 @@ export interface ReviewPanelProps {
     // ── Roles ─────────────────────────────────────────────────────────────────
     // Comma-separated overrides. Defaults are composed from entityType/contentType per §18.6;
     // pass these only when a surface needs a different render gate. decisionRoles deliberately
-    // excludes the Reviewer tier: HR-3 — a reviewer may never set an ApprovalStatus.
+    // excludes the Reviewers tier: HR-3 — a reviewer may never set an ApprovalStatus.
     voteRoles?: string;
     decisionRoles?: string;
 
@@ -183,9 +184,9 @@ const parseRoles = (roles: string): ReadonlyArray<string> =>
         .map((role) => role.trim())
         .filter((role) => role.length > 0);
 
-// Both admin vocabularies are honoured deliberately: the portal seeds "Administrators" and the
-// core role enum seeds "Admin" — two surfaces, two names, one tier (SeedData).
-const AdminRoles = 'Admin, Administrators';
+// One name for one tier. "Administrators" used to be the portal's own vocabulary sitting beside
+// a separate core "Admin", so both had to be listed here; #368 collapsed them (SeedData).
+const AdministratorRoles = 'Administrators';
 
 export function ReviewPanel({
     entityType,
@@ -260,34 +261,38 @@ export function ReviewPanel({
     const headingId = useId();
     const outcomeHeadingId = useId();
 
-    const [isVoteMenuOpen, setIsVoteMenuOpen] = useState(false);
-    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    // All three menus are ours rather than Bootstrap's, so dismissal, labelling and focus come
+    // from one shared hook instead of being written out three times — see useDismissableMenu for
+    // why adopting `data-bs-toggle` here was rejected.
+    const voteMenu = useDismissableMenu({ initialFocus: 'container' });
+    const picker = useDismissableMenu();
+    const decisionMenu = useDismissableMenu({ initialFocus: 'container' });
+
     const [candidateFilter, setCandidateFilter] = useState('');
-    const [isDecisionMenuOpen, setIsDecisionMenuOpen] = useState(false);
     const [selectedDecision, setSelectedDecision] = useState<ApprovalDecision | undefined>();
     const [isBypassChecked, setIsBypassChecked] = useState(false);
     const [bypassReason, setBypassReason] = useState('');
 
-    // §18.6 composition, capability LAST and singular — ContentItem-Blog-Reviewer, never
-    // Reviewer-ContentItem-Blog: the services recognise a review role by its "-Reviewer" suffix.
-    // The content-type tier exists only for ContentItem (§18.6 rule 5).
+    // §18.6 composition, capability LAST and plural — ContentItem-Blog-Reviewers, never
+    // Reviewers-ContentItem-Blog: the services recognise a review role by its "-Reviewers"
+    // suffix. The content-type tier exists only for ContentItem (§18.6 rule 5).
     const contentTypedRole = (capability: string): string | undefined =>
         entityType === 'ContentItem' && contentType != null && contentType.length > 0
             ? `${entityType}-${contentType}-${capability}`
             : undefined;
 
     const defaultVoteRoles = [
-        'Reviewer', 'Publisher', ...parseRoles(AdminRoles),
-        `${entityType}-Reviewer`, `${entityType}-Publisher`,
-        contentTypedRole('Reviewer'), contentTypedRole('Publisher')
+        'Reviewers', 'Publishers', ...parseRoles(AdministratorRoles),
+        `${entityType}-Reviewers`, `${entityType}-Publishers`,
+        contentTypedRole('Reviewers'), contentTypedRole('Publishers')
     ].filter((role): role is string => role != null);
 
-    // HR-3: the Reviewer tier may never set an ApprovalStatus — deciding is the Publisher
-    // tier's and Admin's alone, so no -Reviewer role appears here.
+    // HR-3: the Reviewers tier may never set an ApprovalStatus — deciding is the Publishers
+    // tier's and Administrators' alone, so no -Reviewers role appears here.
     const defaultDecisionRoles = [
-        'Publisher', ...parseRoles(AdminRoles),
-        `${entityType}-Publisher`,
-        contentTypedRole('Publisher')
+        'Publishers', ...parseRoles(AdministratorRoles),
+        `${entityType}-Publishers`,
+        contentTypedRole('Publishers')
     ].filter((role): role is string => role != null);
 
     const voteRoleList = voteRoles != null ? parseRoles(voteRoles) : defaultVoteRoles;
@@ -447,7 +452,8 @@ export function ReviewPanel({
     };
 
     const castVote = (vote: ApprovalStatus) => {
-        setIsVoteMenuOpen(false);
+        // Focus goes back to the vote button: the choice is made, and the button now shows it.
+        voteMenu.close();
 
         if (vote !== viewerReview?.vote) {
             onReviewStatusChanged?.(vote);
@@ -455,9 +461,9 @@ export function ReviewPanel({
     };
 
     const togglePicker = () => {
-        const opening = isPickerOpen === false;
+        const opening = picker.isOpen === false;
 
-        setIsPickerOpen(opening);
+        picker.toggle();
         setCandidateFilter('');
 
         if (opening) {
@@ -537,7 +543,9 @@ export function ReviewPanel({
 
     const isAtRequestCap = outstandingRequests.length >= maxReviewerRequests;
     const chooseDecision = (decision: ApprovalDecision) => {
-        setIsDecisionMenuOpen(false);
+        // Back to the trigger, which now reads as the chosen decision — and which sits directly
+        // above the Submit button the user is heading for next.
+        decisionMenu.close();
         setSelectedDecision(decision);
     };
 
@@ -619,17 +627,29 @@ export function ReviewPanel({
         }
 
         return (
-            <div className="dropdown">
+            <div className="dropdown" ref={voteMenu.containerRef}>
                 <button
                     type="button"
+                    id={voteMenu.triggerId}
+                    ref={voteMenu.triggerRef}
                     className={`btn btn-sm dropdown-toggle ${buttonCssClass} mb-0`}
-                    aria-expanded={isVoteMenuOpen}
-                    onClick={() => setIsVoteMenuOpen(!isVoteMenuOpen)}>
+
+                    // NO aria-haspopup, on any of the three, and that is a decision rather than
+                    // an omission — see useDismissableMenu for why. These are disclosures:
+                    // aria-expanded and aria-controls are true of them, and nothing more is.
+                    aria-controls={voteMenu.isOpen ? voteMenu.menuId : undefined}
+                    aria-expanded={voteMenu.isOpen}
+                    onClick={voteMenu.toggle}>
                     {buttonText}
                 </button>
 
-                {isVoteMenuOpen && (
-                    <div className="dropdown-menu dropdown-menu-end show shadow">
+                {voteMenu.isOpen && (
+                    <div
+                        id={voteMenu.menuId}
+                        ref={voteMenu.menuRef}
+                        tabIndex={-1}
+                        aria-labelledby={voteMenu.triggerId}
+                        className="dropdown-menu dropdown-menu-end show shadow">
                         <button
                             type="button"
                             className="dropdown-item"
@@ -811,19 +831,26 @@ export function ReviewPanel({
                 <h4 className="mb-0" id={headingId}>{titleText}</h4>
 
                 {mayRequest && (
-                    <div className="dropdown">
+                    <div className="dropdown" ref={picker.containerRef}>
                         <button
                             type="button"
+                            id={picker.triggerId}
+                            ref={picker.triggerRef}
                             className="btn btn-link p-0 text-body g2h-review-request-cog"
                             title={requestReviewTooltip}
                             aria-label={requestReviewTooltip}
-                            aria-expanded={isPickerOpen}
+                            aria-controls={picker.isOpen ? picker.menuId : undefined}
+                            aria-expanded={picker.isOpen}
                             onClick={togglePicker}>
                             <i className="bi bi-gear-fill" aria-hidden="true"></i>
                         </button>
 
-                        {isPickerOpen && (
-                            <div className="dropdown-menu dropdown-menu-end show shadow p-0 g2h-review-candidate-picker">
+                        {picker.isOpen && (
+                            <div
+                                id={picker.menuId}
+                                ref={picker.menuRef}
+                                aria-labelledby={picker.triggerId}
+                                className="dropdown-menu dropdown-menu-end show shadow p-0 g2h-review-candidate-picker">
                                 <div className="g2h-review-picker-head px-3 pt-3 pb-2">
                                     <p className="fw-bold small mb-2">
                                         {pickerTitleText.replace(
@@ -950,17 +977,25 @@ export function ReviewPanel({
 
             {mayDecide && (
                 <>
-                    <div className="dropdown">
+                    <div className="dropdown" ref={decisionMenu.containerRef}>
                         <button
                             type="button"
+                            id={decisionMenu.triggerId}
+                            ref={decisionMenu.triggerRef}
                             className={`btn w-100 dropdown-toggle d-flex justify-content-between align-items-center ${decisionSelection?.selectionCssClass ?? setStatusCssClass} mb-0`}
-                            aria-expanded={isDecisionMenuOpen}
-                            onClick={() => setIsDecisionMenuOpen(!isDecisionMenuOpen)}>
+                            aria-controls={decisionMenu.isOpen ? decisionMenu.menuId : undefined}
+                            aria-expanded={decisionMenu.isOpen}
+                            onClick={decisionMenu.toggle}>
                             {decisionSelection?.text ?? setStatusText}
                         </button>
 
-                        {isDecisionMenuOpen && (
-                            <div className="dropdown-menu show shadow w-100">
+                        {decisionMenu.isOpen && (
+                            <div
+                                id={decisionMenu.menuId}
+                                ref={decisionMenu.menuRef}
+                                tabIndex={-1}
+                                aria-labelledby={decisionMenu.triggerId}
+                                className="dropdown-menu show shadow w-100">
                                 <button
                                     type="button"
                                     className="dropdown-item"

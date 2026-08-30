@@ -249,7 +249,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldModifyWhenPublisherMovesStatusToSubmittedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReactionPublisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.ReactionPublishers);
             string actorUserId = GetRandomString();
             string ownerUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();

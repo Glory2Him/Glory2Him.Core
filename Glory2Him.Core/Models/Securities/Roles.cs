@@ -19,7 +19,9 @@ namespace Glory2Him.Core.Models.Securities
     /// Global roles apply across all entity types; granular <c>%EntityType%-*</c> roles
     /// grant or block capability only for their own entity type. The global
     /// <see cref="ReadOnly"/> role is the block role — when present it wins over every
-    /// other role and the user cannot contribute anywhere.
+    /// other role and the user cannot contribute anywhere. It is the one capability whose
+    /// name stays singular: it names a state its holder is in, where the others name a
+    /// group of people and take the plural (§18.6).
     ///
     /// <para>This is a <b>typed façade over the convention, not a second copy of it.</b> The
     /// spelling itself lives in <see cref="RoleNames"/> in <c>G2H.Security.Client</c>, because
@@ -32,48 +34,48 @@ namespace Glory2Him.Core.Models.Securities
     public static class Roles
     {
         public const string ReadOnly = RoleNames.ReadOnly;
-        public const string Reviewer = RoleNames.Reviewer;
-        public const string Publisher = RoleNames.Publisher;
-        public const string Admin = RoleNames.Admin;
+        public const string Reviewers = RoleNames.Reviewers;
+        public const string Publishers = RoleNames.Publishers;
+        public const string Administrators = RoleNames.Administrators;
 
         public const string ContentItemReadOnly = "ContentItem-ReadOnly";
-        public const string ContentItemReviewer = "ContentItem-Reviewer";
-        public const string ContentItemPublisher = "ContentItem-Publisher";
+        public const string ContentItemReviewers = "ContentItem-Reviewers";
+        public const string ContentItemPublishers = "ContentItem-Publishers";
 
         public const string TagReadOnly = "Tag-ReadOnly";
-        public const string TagReviewer = "Tag-Reviewer";
-        public const string TagPublisher = "Tag-Publisher";
+        public const string TagReviewers = "Tag-Reviewers";
+        public const string TagPublishers = "Tag-Publishers";
 
         public const string ReactionReadOnly = "Reaction-ReadOnly";
-        public const string ReactionReviewer = "Reaction-Reviewer";
-        public const string ReactionPublisher = "Reaction-Publisher";
+        public const string ReactionReviewers = "Reaction-Reviewers";
+        public const string ReactionPublishers = "Reaction-Publishers";
 
         public const string CommentReadOnly = "Comment-ReadOnly";
-        public const string CommentReviewer = "Comment-Reviewer";
-        public const string CommentPublisher = "Comment-Publisher";
+        public const string CommentReviewers = "Comment-Reviewers";
+        public const string CommentPublishers = "Comment-Publishers";
 
         public const string BibleReferenceReadOnly = "BibleReference-ReadOnly";
-        public const string BibleReferenceReviewer = "BibleReference-Reviewer";
-        public const string BibleReferencePublisher = "BibleReference-Publisher";
+        public const string BibleReferenceReviewers = "BibleReference-Reviewers";
+        public const string BibleReferencePublishers = "BibleReference-Publishers";
 
         public const string LinkReadOnly = "Link-ReadOnly";
-        public const string LinkReviewer = "Link-Reviewer";
-        public const string LinkPublisher = "Link-Publisher";
+        public const string LinkReviewers = "Link-Reviewers";
+        public const string LinkPublishers = "Link-Publishers";
 
         public const string AttachmentReadOnly = "Attachment-ReadOnly";
-        public const string AttachmentReviewer = "Attachment-Reviewer";
-        public const string AttachmentPublisher = "Attachment-Publisher";
+        public const string AttachmentReviewers = "Attachment-Reviewers";
+        public const string AttachmentPublishers = "Attachment-Publishers";
 
         // Association has no scoped roles of its own (design §14.7, §18.6) —
         // authorization is derived from its two endpoint entity types instead.
 
-        // The capability segment of a granular role name. Singular, and always LAST:
-        // `ContentItem-Story-Reviewer`, never `ContentItem-Reviewer-Story`. Three approval
+        // The capability segment of a granular role name. Plural, and always LAST:
+        // `ContentItem-Story-Reviewers`, never `ContentItem-Reviewers-Story`. Three approval
         // services identify a reviewer by suffix match, so a name ending in anything else
         // would not be recognised as a review role at all (design §18.6).
         public const string ReadOnlySuffix = RoleNames.ReadOnlySuffix;
-        public const string ReviewerSuffix = RoleNames.ReviewerSuffix;
-        public const string PublisherSuffix = RoleNames.PublisherSuffix;
+        public const string ReviewersSuffix = RoleNames.ReviewersSuffix;
+        public const string PublishersSuffix = RoleNames.PublishersSuffix;
 
         /// <summary>
         /// The entity-type-scoped block role, for example <c>Tag-ReadOnly</c>.
@@ -87,36 +89,36 @@ namespace Glory2Him.Core.Models.Securities
             RoleNames.ReadOnlyFor(entityType.ToString());
 
         /// <summary>
-        /// The entity-type-scoped review role, for example <c>Tag-Reviewer</c> — the coarse
+        /// The entity-type-scoped review role, for example <c>Tag-Reviewers</c> — the coarse
         /// tier, granting review over every instance of the type.
         /// </summary>
-        public static string ReviewerFor(EntityType entityType) =>
-            RoleNames.ReviewerFor(entityType.ToString());
+        public static string ReviewersFor(EntityType entityType) =>
+            RoleNames.ReviewersFor(entityType.ToString());
 
         /// <summary>
-        /// The entity-type-scoped publish role, for example <c>Tag-Publisher</c>.
+        /// The entity-type-scoped publish role, for example <c>Tag-Publishers</c>.
         /// </summary>
-        public static string PublisherFor(EntityType entityType) =>
-            RoleNames.PublisherFor(entityType.ToString());
+        public static string PublishersFor(EntityType entityType) =>
+            RoleNames.PublishersFor(entityType.ToString());
 
         /// <summary>
         /// The content-type-scoped review role, for example
-        /// <c>ContentItem-Testimony-Reviewer</c> — the narrow tier, so a reviewer can be
+        /// <c>ContentItem-Testimony-Reviewers</c> — the narrow tier, so a reviewer can be
         /// trusted with stories but not testimonies. Only <c>ContentItem</c> has this
         /// granularity; no other entity type carries a content type (design §18.6 rule 5).
         /// </summary>
-        public static string ReviewerFor(EntityType entityType, ContentType contentType) =>
-            RoleNames.ReviewerFor(entityType.ToString(), contentType.ToString());
+        public static string ReviewersFor(EntityType entityType, ContentType contentType) =>
+            RoleNames.ReviewersFor(entityType.ToString(), contentType.ToString());
 
         /// <summary>
         /// The content-type-scoped publish role, for example
-        /// <c>ContentItem-Testimony-Publisher</c>.
+        /// <c>ContentItem-Testimony-Publishers</c>.
         /// </summary>
-        public static string PublisherFor(EntityType entityType, ContentType contentType) =>
-            RoleNames.PublisherFor(entityType.ToString(), contentType.ToString());
+        public static string PublishersFor(EntityType entityType, ContentType contentType) =>
+            RoleNames.PublishersFor(entityType.ToString(), contentType.ToString());
 
         // There is deliberately no ReadOnlyFor(EntityType, ContentType): the block role has
-        // no content-type tier (design §18.6 lists only -Reviewer and -Publisher there), and
+        // no content-type tier (design §18.6 lists only -Reviewers and -Publishers there), and
         // offering the composition would invent a role nothing issues or checks.
     }
 }

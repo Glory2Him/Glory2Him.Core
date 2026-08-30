@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../securitys/authProvider';
@@ -93,7 +93,7 @@ describe('ReviewPanel', () => {
 
         it('should list the viewer first and everyone else alphabetically', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when — Zoe supplied before Adam to prove sorting, viewer's row last in the input
             renderWithAuth(
@@ -112,7 +112,7 @@ describe('ReviewPanel', () => {
 
         it('should synthesize a placeholder vote row for an eligible viewer with no vote', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -128,7 +128,7 @@ describe('ReviewPanel', () => {
 
         it('should not offer a vote to the entity owner', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -170,9 +170,9 @@ describe('ReviewPanel', () => {
         });
 
         it.each([
-            ['ContentItem-Reviewer'],
-            ['ContentItem-Blog-Reviewer'],
-            ['ContentItem-Publisher'],
+            ['ContentItem-Reviewers'],
+            ['ContentItem-Blog-Reviewers'],
+            ['ContentItem-Publishers'],
             ['Administrators']
         ])('should offer a vote to the scoped role %s', (role: string) => {
             // given
@@ -191,7 +191,7 @@ describe('ReviewPanel', () => {
 
         it('should not treat another entity\'s scoped role as eligible here', () => {
             // given
-            signInAs(authState, ['Tag-Reviewer']);
+            signInAs(authState, ['Tag-Reviewers']);
 
             // when
             renderWithAuth(
@@ -203,7 +203,7 @@ describe('ReviewPanel', () => {
 
         it('should raise onReviewStatusChanged when the viewer casts a vote', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -223,7 +223,7 @@ describe('ReviewPanel', () => {
 
         it('should raise onReviewStatusChanged when the viewer changes their vote', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -243,7 +243,7 @@ describe('ReviewPanel', () => {
 
         it('should not raise onReviewStatusChanged when the viewer re-picks their current vote', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -264,7 +264,7 @@ describe('ReviewPanel', () => {
 
         it('should freeze the viewer\'s vote into a badge once the approval is decided', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -280,7 +280,7 @@ describe('ReviewPanel', () => {
 
         it('should render awaiting-review rows for pending review requests', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -297,7 +297,7 @@ describe('ReviewPanel', () => {
 
         it('should not render the viewer among the requested rows', () => {
             // given — the viewer's own row is already the vote dropdown; one person, one row
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -331,9 +331,9 @@ describe('ReviewPanel', () => {
 
     describe('review requests', () => {
         it.each([
-            ['Reviewer'],
-            ['ContentItem-Reviewer'],
-            ['Publisher'],
+            ['Reviewers'],
+            ['ContentItem-Reviewers'],
+            ['Publishers'],
             ['Administrators']
         ])('should show the request cog to %s', (role: string) => {
             // given
@@ -371,7 +371,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the request cog once the approval is decided', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -384,7 +384,7 @@ describe('ReviewPanel', () => {
 
         it('should raise onReviewerLookupRequested and list the candidates when opened', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewerLookupRequested = vi.fn();
 
             renderWithAuth(
@@ -405,7 +405,7 @@ describe('ReviewPanel', () => {
 
         it('should show the loading text in the picker while candidates load', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -422,7 +422,7 @@ describe('ReviewPanel', () => {
 
         it('should filter the candidates by display name and by username', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -453,7 +453,7 @@ describe('ReviewPanel', () => {
         /// task, and closing after each would make the common case four trips through the cog.
         it('should raise onReviewRequested and keep the picker open', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
 
             renderWithAuth(
@@ -477,7 +477,7 @@ describe('ReviewPanel', () => {
         /// is no inline control on the row, so the one route is the one place the rule lives.
         it('should withdraw a request when its Requested row is picked', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequestWithdrawn = vi.fn();
 
             renderWithAuth(
@@ -502,7 +502,7 @@ describe('ReviewPanel', () => {
         /// missing, which is the question the ticks exist to answer.
         it('should list a requested person once, in the Requested section', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -529,7 +529,7 @@ describe('ReviewPanel', () => {
         /// make a search for them come back empty.
         it('should list a voter as ticked and refuse to act on a click', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
             const onReviewRequestWithdrawn = vi.fn();
 
@@ -583,7 +583,7 @@ describe('ReviewPanel', () => {
     describe('outcome', () => {
         it('should show the blocked panel with every reason message when blocked', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -608,7 +608,7 @@ describe('ReviewPanel', () => {
 
         it('should not show the blocked panel when nothing blocks approval', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -643,7 +643,7 @@ describe('ReviewPanel', () => {
     describe('bypass', () => {
         it('should offer the bypass checkbox to a decision-tier viewer the verdict allows', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -658,7 +658,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the bypass checkbox when the verdict does not allow this caller to bypass', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -673,7 +673,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the bypass checkbox when nothing blocks approval', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -688,7 +688,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the bypass checkbox from the reviewer tier even when the verdict allows it', () => {
             // given — HR-3: a reviewer never decides, so they are never offered the waiver either
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -703,7 +703,7 @@ describe('ReviewPanel', () => {
 
         it('should reveal the reason box on tick and clear the reason on untick', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -736,7 +736,7 @@ describe('ReviewPanel', () => {
         /// and painting block reasons over a settled round tells the reader it is still waiting.
         it('should not render block reasons once the round is no longer submitted', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when - a terminal status alongside a verdict that still says blocked
             renderWithAuth(
@@ -758,7 +758,7 @@ describe('ReviewPanel', () => {
 
         it('should reset the bypass tick when the verdict changes underneath it', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const panelWith = (verdict: ApprovalVerdictItem): ReactElement => (
                 <MemoryRouter>
@@ -798,7 +798,7 @@ describe('ReviewPanel', () => {
         /// refuse, which is the one outcome guaranteed to look like a bug.
         it('should clear a bypass approve selection when the bypass is unticked', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -830,7 +830,7 @@ describe('ReviewPanel', () => {
         /// fails the moment the field stops being read.
         it('should refuse approve on the verdict word even when nothing is blocking', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -859,7 +859,7 @@ describe('ReviewPanel', () => {
         /// the publisher read, not against its code.
         it('should reset the bypass tick when a block reason is reworded', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const panelWith = (verdict: ApprovalVerdictItem): ReactElement => (
                 <MemoryRouter>
@@ -906,7 +906,7 @@ describe('ReviewPanel', () => {
         /// it — a bypass reason is free text it only checks for being non-blank.
         it('should reset the bypass tick when the panel moves to another approval', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
             const onApprovalStatusChanged = vi.fn();
 
             const reasonBoxQuery = () =>
@@ -956,11 +956,10 @@ describe('ReviewPanel', () => {
 
     describe('decision', () => {
         it.each([
-            ['Publisher'],
-            ['Admin'],
+            ['Publishers'],
             ['Administrators'],
-            ['ContentItem-Publisher'],
-            ['ContentItem-Blog-Publisher']
+            ['ContentItem-Publishers'],
+            ['ContentItem-Blog-Publishers']
         ])('should show the set-approval-status dropdown to %s', (role: string) => {
             // given
             signInAs(authState, [role]);
@@ -978,8 +977,8 @@ describe('ReviewPanel', () => {
         });
 
         it.each([
-            ['Reviewer'],
-            ['ContentItem-Reviewer'],
+            ['Reviewers'],
+            ['ContentItem-Reviewers'],
             ['Users']
         ])('should hide the set-approval-status dropdown from %s', (role: string) => {
             // given — HR-3: the reviewer tier may never set an ApprovalStatus
@@ -999,7 +998,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the set-approval-status dropdown once the approval is decided', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -1015,7 +1014,7 @@ describe('ReviewPanel', () => {
 
         it('should disable approve while blocked without a bypass, and keep reject enabled', async () => {
             // given — §12.5.3 rule 13: a direct reject is not gated by the conditions
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1033,7 +1032,7 @@ describe('ReviewPanel', () => {
 
         it('should enable approve when the verdict says this caller may approve', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1050,7 +1049,7 @@ describe('ReviewPanel', () => {
 
         it('should enable approve once the bypass is ticked', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1068,7 +1067,7 @@ describe('ReviewPanel', () => {
 
         it('should submit a plain rejection with no bypass recorded', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
             const onApprovalStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -1090,7 +1089,7 @@ describe('ReviewPanel', () => {
 
         it('should hold submit on a bypass approve until a reason is given, then send it', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
             const onApprovalStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -1156,7 +1155,7 @@ describe('ReviewPanel', () => {
         /// would invite a publisher to count an opinion nobody currently holds.
         it('should exclude a dismissed review entirely', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const dismissed: ApprovalReviewItem = {
                 reviewerUserId: 'user-jane',
@@ -1182,7 +1181,7 @@ describe('ReviewPanel', () => {
         /// A withdrawn review keeps its row, and a withdrawn opinion is no opinion.
         it('should exclude a soft-deleted review entirely', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const withdrawn: ApprovalReviewItem = {
                 reviewerUserId: 'user-jane',
@@ -1209,7 +1208,7 @@ describe('ReviewPanel', () => {
         /// than a dropdown labelled with a verdict they can no longer amend.
         it('should offer the vote placeholder to a viewer whose own review was dismissed', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const viewerDismissed: ApprovalReviewItem = {
                 reviewerUserId: ViewerId,
@@ -1232,7 +1231,7 @@ describe('ReviewPanel', () => {
         /// Dismissal is per-review, so one being dismissed must not disturb another.
         it('should keep the standing votes when one review is dismissed', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const janeDismissed: ApprovalReviewItem = {
                 reviewerUserId: 'user-jane',
@@ -1258,7 +1257,7 @@ describe('ReviewPanel', () => {
         /// twice - once as an answer and once as a question.
         it('should drop a request once its target has voted', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const johnRequested: ReviewerCandidateItem = {
                 userId: johnApproved.reviewerUserId,
@@ -1284,7 +1283,7 @@ describe('ReviewPanel', () => {
         /// not the answer has arrived.
         it('should sort requests and votes into one alphabetical list', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const bill: ReviewerCandidateItem = {
                 userId: 'user-bill',
@@ -1309,7 +1308,7 @@ describe('ReviewPanel', () => {
         /// cannot see - so suggestions and their reasons come from the consumer.
         it('should render supplied suggestions with their reason', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const suggested: ReviewerCandidateItem = {
                 userId: 'user-christo',
@@ -1338,7 +1337,7 @@ describe('ReviewPanel', () => {
         /// section: already answered, nothing to do here.
         it('should render a suggested candidate who has already voted as inert', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
 
             const suggested: ReviewerCandidateItem = {
@@ -1372,7 +1371,7 @@ describe('ReviewPanel', () => {
         /// twice in one open picker makes the second row look like a different person.
         it('should not repeat a suggested person under everyone else', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1395,7 +1394,7 @@ describe('ReviewPanel', () => {
         /// somebody who has already answered, with nothing on screen saying why.
         it('should not count an answered request against the cap', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
 
             const votedInvitee: ReviewerCandidateItem = {
@@ -1430,7 +1429,7 @@ describe('ReviewPanel', () => {
         /// error.
         it('should render a requested candidate who has already voted as inert', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequestWithdrawn = vi.fn();
 
             const invitedAndAnswered: ReviewerCandidateItem = {
@@ -1462,7 +1461,7 @@ describe('ReviewPanel', () => {
         /// hand the same person to both collections, and two rows read as two people.
         it('should not repeat a suggested person under requested', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1480,7 +1479,7 @@ describe('ReviewPanel', () => {
 
         it('should name the cap in the picker heading', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1500,7 +1499,7 @@ describe('ReviewPanel', () => {
         /// limit would trap the round with no way to free a slot.
         it('should stop new requests at the cap while leaving withdrawal available', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
             const onReviewRequestWithdrawn = vi.fn();
 
@@ -1527,6 +1526,366 @@ describe('ReviewPanel', () => {
             // and the standing request can still be withdrawn to free the slot
             await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
             expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(mary);
+        });
+    });
+
+    // All three menus are the panel's own rather than Bootstrap's, so none of the dismissal that
+    // `data-bs-toggle` brings for free applies. Opened by keyboard, the only way out used to be
+    // finding the trigger and clicking it a second time.
+    //
+    // Driven through the three of them rather than one, because the whole point of the shared
+    // hook is that they cannot drift apart.
+    describe('menu dismissal and labelling', () => {
+        const openVoteMenu = async (): Promise<HTMLElement> => {
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted} />);
+
+            const trigger = screen.getByRole('button', { name: 'Vote...' });
+            await userEvent.click(trigger);
+
+            return trigger;
+        };
+
+        const openPicker = async (): Promise<HTMLElement> => {
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary, paul]} />);
+
+            const trigger = screen.getByRole('button', { name: 'Request a review' });
+            await userEvent.click(trigger);
+
+            return trigger;
+        };
+
+        const openDecisionMenu = async (): Promise<HTMLElement> => {
+            signInAs(authState, ['Publishers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalVerdict={verdictWith()} />);
+
+            const trigger = screen.getByRole('button', { name: 'Set approval status' });
+            await userEvent.click(trigger);
+
+            return trigger;
+        };
+
+        const menus: Array<[string, () => Promise<HTMLElement>, string]> = [
+            ['the vote menu', openVoteMenu, 'Approved'],
+            ['the reviewer picker', openPicker, 'Mary'],
+            ['the decision menu', openDecisionMenu, 'Approve']
+        ];
+
+        it.each(menus)(
+            'should dismiss %s on Escape and hand focus back to its trigger',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+                expect(screen.getByRole('button', { name: new RegExp(itemName) }))
+                    .toBeInTheDocument();
+
+                // when
+                await userEvent.keyboard('{Escape}');
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+
+                // the whole point: a keyboard user is put back where they were, not stranded
+                expect(trigger).toHaveFocus();
+                expect(trigger).toHaveAttribute('aria-expanded', 'false');
+            });
+
+        it.each(menus)(
+            'should dismiss %s on a click outside it',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+
+                // when: somewhere that is neither the menu nor its trigger.
+                //
+                // fireEvent.mouseDown rather than userEvent.click, and that is the whole
+                // difference between this test working and not. userEvent.click on a
+                // non-focusable <h4> blurs the active element ITSELF, after the hook's effect has
+                // run — so document.activeElement is <body> by the time the assertion below runs
+                // no matter what the hook did. Written with userEvent this test passes even when
+                // the outside-click path is changed to returnFocus: true, i.e. it cannot fail.
+                // mousedown moves no focus, so what is asserted is the hook's behaviour alone.
+                fireEvent.mouseDown(screen.getByRole('heading', { name: 'Approval Reviews' }));
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+
+                // and focus is NOT dragged back — the user chose to go elsewhere, and yanking
+                // it to the trigger would undo their own click
+                expect(trigger).not.toHaveFocus();
+            });
+
+        // The one dismissal route that existed BEFORE this PR, and the invariant the hook's
+        // containerRef exists to protect: the trigger lives inside the container, so its mousedown
+        // is never "outside" and cannot race the toggle into reopening what it just closed. Point
+        // containerRef at the menu instead and this is the test that goes red.
+        it.each(menus)(
+            'should dismiss %s when its own trigger is clicked again',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+
+                // when
+                await userEvent.click(trigger);
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+
+                expect(trigger).toHaveAttribute('aria-expanded', 'false');
+            });
+
+        it.each(menus)(
+            'should label %s by the trigger that opened it',
+            async (_name, open) => {
+                // given
+                const trigger = await open();
+
+                // when
+                const menu = document.querySelector('.dropdown-menu.show');
+
+                // then: without this a screen-reader user landing in one of three menus has no
+                // way to tell which
+                expect(menu).not.toBeNull();
+                expect(trigger.id).not.toBe('');
+                expect(menu).toHaveAttribute('aria-labelledby', trigger.id);
+                expect(trigger).toHaveAttribute('aria-controls', menu?.id);
+
+                // asserted OPEN as well as closed. Pinning only the closed state let a trigger
+                // hard-coded to aria-expanded={false} pass the whole suite.
+                expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+                // NOT a menu, and it must not say it is. aria-haspopup="true" is defined as
+                // synonymous with "menu", which would promise roles and arrow keys none of these
+                // three have — see useDismissableMenu. Absence here is the assertion.
+                expect(trigger).not.toHaveAttribute('aria-haspopup');
+            });
+
+        it.each(menus)(
+            'should drop aria-controls from the %s trigger once it is closed',
+            async (_name, open) => {
+                // given: a trigger pointing aria-controls at an element that is no longer in the
+                // document is a dangling reference, so the attribute has to go with the menu
+                const trigger = await open();
+                expect(trigger).toHaveAttribute('aria-controls');
+
+                // when
+                await userEvent.keyboard('{Escape}');
+
+                // then
+                expect(trigger).not.toHaveAttribute('aria-controls');
+            });
+
+        it('should move focus to the first control in the reviewer picker when it opens', async () => {
+            // given, when: the picker's first control is the filter box, which is also where
+            // somebody opening it wants to be
+            await openPicker();
+
+            // then: WHICH element, not merely "something inside". Asserting containment let a
+            // hook focusing the LAST control pass — landing the picker on its final candidate
+            // row instead of the filter box somebody opened it to type in.
+            expect(screen.getByRole('textbox', { name: /Filter by name/ })).toHaveFocus();
+        });
+
+        it.each([
+            ['the vote menu', openVoteMenu],
+            ['the decision menu', openDecisionMenu]
+        ] as Array<[string, () => Promise<HTMLElement>]>)(
+            'should move focus to the menu container, not the first item, when %s opens',
+            async (_name, open) => {
+                // given, when: focusing the first item would make a stray second Enter on the
+                // trigger fall through to that item's action — casting a vote or picking a
+                // decision with no visible menu the user noticed opening. See #370.
+                await open();
+                const item = open === openVoteMenu
+                    ? screen.getByRole('button', { name: /Approved/ })
+                    : screen.getByRole('button', { name: /Approve this item/ });
+                const menu = item.closest('.dropdown-menu');
+                expect(menu).not.toBeNull();
+
+                // then
+                expect(menu as HTMLElement).toHaveFocus();
+            });
+
+        it('should not cast a vote when Enter is pressed right after the vote menu opens', async () => {
+            // given: a second Enter on the trigger is the habitual response to a menu that opened
+            // below the fold or was otherwise not noticed. Before #370, that Enter landed on the
+            // first item and cast a vote nobody meant to cast.
+            signInAs(authState, ['Reviewers']);
+            const onReviewStatusChanged = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    onReviewStatusChanged={onReviewStatusChanged} />);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Vote...' }));
+
+            // when
+            await userEvent.keyboard('{Enter}');
+
+            // then
+            expect(onReviewStatusChanged).not.toHaveBeenCalled();
+        });
+
+        it('should hand focus back to the trigger after a vote is cast', async () => {
+            // given
+            const trigger = await openVoteMenu();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Approved/ }));
+
+            // then: choosing is not leaving, so focus stays on the control
+            expect(trigger).toHaveFocus();
+        });
+
+        it('should hand focus back to the trigger after a decision is chosen', async () => {
+            // given
+            const trigger = await openDecisionMenu();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Approve this item/ }));
+
+            // then
+            expect(trigger).toHaveFocus();
+        });
+
+        // The picker deliberately stays open after each pick — assigning several reviewers is one
+        // task — so its dismissal must not have quietly turned that into one round trip per name.
+        it('should keep the picker open after a candidate is requested', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+            const onReviewRequested = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary, paul]}
+                    onReviewRequested={onReviewRequested} />);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+
+            // then
+            expect(onReviewRequested).toHaveBeenCalledWith(mary);
+            expect(screen.getByRole('button', { name: /Paul/ })).toBeInTheDocument();
+        });
+
+        // Keyboard activation of a <button> fires keydown/click and no mousedown, so the
+        // cross-menu dismissal that mousedown gives the outside-click test above never runs for
+        // a keyboard user. Without the focusout close, tabbing out of a menu leaves it painted
+        // over the page with aria-expanded still "true".
+        it.each(menus)(
+            'should close %s and drop aria-expanded when focus tabs out of it',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+                expect(screen.getByRole('button', { name: new RegExp(itemName) }))
+                    .toBeInTheDocument();
+
+                // when: focus leaves the container for something outside it entirely. Fired
+                // directly rather than via .focus()/tab, because jsdom does not reliably
+                // populate relatedTarget on the focusout it raises for a plain focus() call —
+                // this is what a real browser sends when Tab carries focus past the menu.
+                const outside = document.createElement('input');
+                document.body.appendChild(outside);
+                const container = trigger.closest('.dropdown') as HTMLElement;
+                fireEvent.focusOut(container, { relatedTarget: outside });
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+                expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+                // and focus is not dragged back — the user has already moved on
+                expect(trigger).not.toHaveFocus();
+
+                document.body.removeChild(outside);
+            });
+
+        it('should not leave a menu open for a later Escape to stale-close after focus moves on', async () => {
+            // given: the picker's filter box is a plain textbox that gets no special treatment
+            // from the hook — it stands in for "the user has since moved to unrelated UI"
+            const trigger = await openPicker();
+            const filterBox = screen.getByRole('textbox', { name: /Filter by name/ });
+            expect(filterBox).toHaveFocus();
+
+            // when: focus leaves the picker entirely for something outside it
+            document.body.focus();
+            const outsideInput = document.createElement('input');
+            document.body.appendChild(outsideInput);
+            outsideInput.focus();
+            await userEvent.type(outsideInput, 'wor');
+
+            // and: Escape now fires — meant for this field/browser autofill, not the picker,
+            // which the fix requires to already be closed and unarmed
+            await userEvent.keyboard('{Escape}');
+
+            // then: the outside field keeps its text and its focus, and the picker did not
+            // reopen or steal focus back to its trigger
+            expect(outsideInput).toHaveValue('wor');
+            expect(outsideInput).toHaveFocus();
+            expect(trigger).not.toHaveFocus();
+
+            document.body.removeChild(outsideInput);
+        });
+
+        // Cross-menu dismissal used to come only from the mousedown listener, which keyboard
+        // activation never fires — so opening a second menu with Enter left the first one open,
+        // and a single Escape then closed both, with the LAST effect to run (hook-declaration
+        // order) winning the focus regardless of which menu the user was actually in.
+        it('should not allow two menus open at once when both are opened via the keyboard', async () => {
+            // given
+            signInAs(authState, ['Reviewers']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary, paul]} />);
+
+            const cog = screen.getByRole('button', { name: 'Request a review' });
+            const voteTrigger = screen.getByRole('button', { name: 'Vote...' });
+
+            // when: keyboard activation, not a click — no mousedown is fired by either
+            cog.focus();
+            await userEvent.keyboard('{Enter}');
+            expect(document.querySelectorAll('.dropdown-menu.show')).toHaveLength(1);
+
+            voteTrigger.focus();
+            await userEvent.keyboard('{Enter}');
+
+            // then: only the second menu is open
+            expect(document.querySelectorAll('.dropdown-menu.show')).toHaveLength(1);
+            expect(cog).toHaveAttribute('aria-expanded', 'false');
+            expect(voteTrigger).toHaveAttribute('aria-expanded', 'true');
+
+            // and a single Escape closes the one actually open, returning focus to IT
+            await userEvent.keyboard('{Escape}');
+
+            expect(document.querySelectorAll('.dropdown-menu.show')).toHaveLength(0);
+            expect(voteTrigger).toHaveFocus();
         });
     });
 });

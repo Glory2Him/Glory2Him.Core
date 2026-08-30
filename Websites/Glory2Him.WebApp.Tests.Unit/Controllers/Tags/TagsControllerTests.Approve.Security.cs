@@ -32,9 +32,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Tags
 
             List<string> expectedAttributeValues = new List<string>
             {
-                Roles.Admin,
-                Roles.Publisher,
-                Roles.TagPublisher
+                Roles.Administrators,
+                Roles.Publishers,
+                Roles.TagPublishers
             };
 
             // When

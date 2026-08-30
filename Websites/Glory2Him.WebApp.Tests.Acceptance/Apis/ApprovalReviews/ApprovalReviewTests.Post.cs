@@ -208,7 +208,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
 
                 // and: the slot the dismissed row held is released, so the SAME reviewer may
                 // file afresh — which is the half the unique index decides
-                this.apiBroker.ActAs(reviewerUserId, Roles.Reviewer);
+                this.apiBroker.ActAs(reviewerUserId, Roles.Reviewers);
                 await this.apiBroker.PostApprovalReviewAsync(refiledReview);
 
                 ApprovalReview actualRefiledReview =

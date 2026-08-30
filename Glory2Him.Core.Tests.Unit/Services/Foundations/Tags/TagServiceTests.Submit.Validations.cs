@@ -212,7 +212,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             string[] roles)
         {
             // given: a caller who neither owns the row nor holds the publisher tier may not
-            // submit it. A Reviewer is included among the role sets: they hold write permission
+            // submit it. A reviewer is included among the role sets: they hold write permission
             // on content, but moving a submission status is never theirs (§8.6 HR-3).
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 

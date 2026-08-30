@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldRetrieveAllCommentsAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             IQueryable<Comment> randomComments = CreateRandomComments();
 
             foreach (Comment comment in randomComments)

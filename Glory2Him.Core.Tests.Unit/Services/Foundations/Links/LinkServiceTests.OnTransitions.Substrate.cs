@@ -170,7 +170,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
 
             var requestEnvelope = new EventEnvelope<Link>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = CreateApprovalDecision(storageLink.Id),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -229,7 +229,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given
             var requestEnvelope = new EventEnvelope<Link>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = CreateApprovalDecision(Guid.NewGuid()),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

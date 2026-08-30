@@ -83,7 +83,7 @@ namespace G2H.Security.Client.Clients.Users
         /// </remarks>
         /// <example>
         /// <code>
-        /// bool isAdmin = await userClient.IsUserInRoleAsync(claimsPrincipal, "Admin");
+        /// bool isAdmin = await userClient.IsUserInRoleAsync(claimsPrincipal, "Administrators");
         /// </code>
         /// </example>
         ValueTask<bool> IsUserInRoleAsync(ClaimsPrincipal claimsPrincipal, string roleName);
@@ -139,7 +139,7 @@ namespace G2H.Security.Client.Clients.Users
         /// IReadOnlyList&lt;string&gt; roles = await userClient.GetUserClaimValuesAsync(User, ClaimTypes.Role);
         /// foreach (var role in roles)
         /// {
-        ///     Console.WriteLine(role); // e.g. "Admin", "Manager"
+        ///     Console.WriteLine(role); // e.g. "Administrators", "Publishers"
         /// }
         /// </code>
         /// </example>

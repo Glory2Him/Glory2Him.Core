@@ -30,12 +30,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         [Fact]
         public async Task ShouldThrowValidationExceptionOnBypassApproveIfTheAccessBrokerRefusesAsync()
         {
-            // given: the caller holds the global Publisher role, so the row-local tier check
+            // given: the caller holds the global Publishers role, so the row-local tier check
             // passes and the cross-entity decision is the ONLY thing left that can refuse. The
             // policy closed the bypass route entirely (DoNotAllowBypassingSettings), which the
             // client reports as BypassNotPermitted — the one refusal nobody outranks, publishers
             // and administrators included.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -123,7 +123,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // nothing about the policy. It has to be recorded BEFORE the throw, because the
             // throw is what discards the verdict; a refused bypass with no log leaves the
             // attempt itself invisible, which is the opposite of why the verb is auditable.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -174,7 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // Exception messages and their Data surface outward through a public event address
             // (§14.5 rule 2), so neither may appear in anything thrown. A refused bypass is the
             // sharpest case: the refusal itself tells a prober the route exists.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -224,7 +224,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: a bypass is only tolerable because it leaves a record, and an unexplained
             // one records nothing worth reading. Refused before storage is touched, so an
             // unexplained bypass never even locates the row it was aimed at.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association decision = CreateApprovalDecision(Guid.NewGuid());
 
@@ -271,7 +271,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // payload comes back from SQL Server as a "contact support" dependency failure
             // naming no field at all — and it comes back AFTER the approve was decided and the
             // fact published, so the row and its audience disagree about what happened.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association decision = CreateApprovalDecision(Guid.NewGuid());
             string overlongReason = GetRandomStringWithLengthOf(501);
@@ -322,7 +322,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // the ordinary approve's, and is built from STORAGE for the same reason — a
             // caller-supplied author or endpoint content type would be self-certification, and a
             // bypass is the last place to accept one.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             storageAssociation.CreatedBy = $"stored-{Guid.NewGuid()}";
@@ -401,7 +401,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             //
             // Draft and Dismissed are absent because they are refused one rule earlier, as
             // targets the transition does not accept at all.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association decision = CreateApprovalDecision(Guid.NewGuid());
             decision.ApprovalStatus = notAnApproval;
@@ -462,7 +462,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // FIRST — an unauthorised caller costs one role comparison instead of four table reads
             // — which is what the VerifyNoOtherCalls on the broker below pins, and what
             // distinguishes this gate from the client-side one.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -542,10 +542,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // workflow is built around, and a Dismissed row is not in a round at all.
             //
             // Approved and Rejected are absent because they no longer fail HERE: they are
-            // transitionable by an Admin through the override, so a Publisher meeting one is
+            // transitionable by an administrator through the override, so a publisher meeting one is
             // refused earlier, at the override gate, and never reaches the access decision this
             // asserts was taken.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateStorageAssociationInStatus(storedStatus);
             Association decision = CreateApprovalDecision(storageAssociation.Id);

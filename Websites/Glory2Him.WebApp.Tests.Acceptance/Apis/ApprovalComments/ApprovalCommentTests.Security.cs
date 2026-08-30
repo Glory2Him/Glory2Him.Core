@@ -90,7 +90,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         /// <summary>
         /// The block tier (design §18.6) takes precedence over every other role. Approval
         /// workflow records carry no entity-scoped block, so only the global one applies — and
-        /// it still refuses a caller who also holds Admin.
+        /// it still refuses a caller who also holds Administrators.
         /// </summary>
         [Fact]
         public async Task ShouldReturnUnauthorizedOnPostIfCallerIsBlockedAsync()
@@ -128,7 +128,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
                 await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
 
             ApprovalComment randomApprovalComment = CreateRandomApprovalComment(randomApproval.Id);
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.ReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.ReadOnly);
 
             try
             {
@@ -149,7 +149,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
-        /// A signed-in contributor is not an Admin. Hard removal admits no owner branch, so the
+        /// A signed-in contributor is not an administrator. Hard removal admits no owner branch, so the
         /// attribute must turn the caller away before the service is reached — the row is still
         /// there afterwards.
         /// </summary>
@@ -189,7 +189,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
-        /// Hard delete is the one write here whose coarse gate is a role list, so a blocked Admin
+        /// Hard delete is the one write here whose coarse gate is a role list, so a blocked administrator
         /// clears the attribute and is stopped by the foundation instead — which is the whole
         /// point of §18.6 precedence: the block tier beats every other role, on the one operation
         /// that destroys the row and its audit trail. Nothing but a request through the real
@@ -202,7 +202,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
             (Approval randomApproval, ApprovalComment randomApprovalComment) =
                 await PostRandomApprovalCommentOnOpenApprovalAsync();
 
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.ReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.ReadOnly);
 
             try
             {
@@ -279,13 +279,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
 
         /// <summary>
         /// Past the attribute, the foundation decides ownership against the STORED row. Modify is
-        /// the author and nobody else — not a Reviewer, who may read the thread without owning
+        /// the author and nobody else — not a reviewer, who may read the thread without owning
         /// the power to rewrite someone else's words.
         /// </summary>
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldReturnUnauthorizedOnPutIfCallerIsNotTheAuthorAsync(string roleName)
         {
             // given
@@ -356,13 +356,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
 
         /// <summary>
         /// Withdrawal matches modify and is deliberately narrower than the read posture: an
-        /// Admin who needs past an unresolved comment resolves it — retracting someone else's
+        /// administrator who needs past an unresolved comment resolves it — retracting someone else's
         /// words is not theirs to do.
         /// </summary>
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldReturnUnauthorizedOnDeleteIfCallerIsNotTheAuthorAsync(string roleName)
         {
             // given
@@ -391,13 +391,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
-        /// Resolve is owner-OR-Admin, and that widening is the whole reason the operation exists
-        /// (§14.7 rule 5). A Reviewer clears neither branch.
+        /// Resolve is owner-OR-Administrators, and that widening is the whole reason the operation exists
+        /// (§14.7 rule 5). A reviewer clears neither branch.
         /// </summary>
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldReturnUnauthorizedOnResolveIfCallerIsNeitherAuthorNorAdminAsync(
             string roleName)
         {
@@ -427,7 +427,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
-        /// The Admin branch of resolve, on a comment written by somebody else — the case modify
+        /// The Administrators branch of resolve, on a comment written by somebody else — the case modify
         /// deliberately cannot express.
         /// </summary>
         [Fact]
@@ -445,7 +445,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
             try
             {
                 // when
-                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin);
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators);
 
                 ApprovalComment resolvedApprovalComment = await this.apiBroker
                     .ResolveApprovalCommentAsync(createdApprovalComment.Id, isResolved: true);
@@ -453,7 +453,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
                 // then
                 resolvedApprovalComment.IsResolved.Should().BeTrue();
 
-                // the Admin settled the flag without touching the author's words or the audit
+                // the Administrators settled the flag without touching the author's words or the audit
                 resolvedApprovalComment.CreatedBy.Should().Be(contributorUserId);
                 resolvedApprovalComment.Comment.Should().Be(createdApprovalComment.Comment);
             }
@@ -503,13 +503,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         /// <summary>
         /// The other side of the same posture: a review role reads a thread it did not write.
         /// Both tiers are exercised — the global roles and an entity-scoped one — because the
-        /// foundation admits any "-Reviewer"/"-Publisher" suffix by the §16.6 convention, and
+        /// foundation admits any "-Reviewers"/"-Publishers" suffix by the §16.6 convention, and
         /// testing only the global names would leave that half of the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.TagReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.TagReviewers)]
         public async Task ShouldAllowReviewRoleToReadAnotherUsersApprovalCommentAsync(string roleName)
         {
             // given

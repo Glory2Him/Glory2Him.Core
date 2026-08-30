@@ -84,7 +84,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         public async Task ShouldBuildTheActorPrincipalFromTheEnvelopeContextAsync()
         {
             // given
-            var roles = new List<string> { Roles.Publisher, "ContentItem-Testimony-Reviewer" };
+            var roles = new List<string> { Roles.Publishers, "ContentItem-Testimony-Reviewers" };
 
             SecurityContext securityContext = CreateSecurityContext(
                 roles: roles,
@@ -139,7 +139,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             bool isAuthenticated)
         {
             // given
-            var roles = new List<string> { Roles.Publisher, "ContentItem-Testimony-Reviewer" };
+            var roles = new List<string> { Roles.Publishers, "ContentItem-Testimony-Reviewers" };
 
             SecurityContext securityContext = CreateSecurityContext(
                 roles: roles,

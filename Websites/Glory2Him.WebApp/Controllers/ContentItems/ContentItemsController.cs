@@ -379,7 +379,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItems
         }
 
         /// <summary>
-        /// Permanent removal. Design §14.6 restricts hard removal to <c>Admin</c>; the attribute
+        /// Permanent removal. Design §14.6 restricts hard removal to <c>Administrators</c>; the attribute
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
 

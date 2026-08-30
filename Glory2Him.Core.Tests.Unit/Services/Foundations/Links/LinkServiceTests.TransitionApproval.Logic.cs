@@ -33,7 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given: the fact follows the DECISION, not the verb. A rejection announced on the
             // Approved address would tell every subscriber the row is live.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             Link inputLink = CreateRejectionDecision(storageLink.Id);
@@ -173,7 +173,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // approve that published Modified would re-enter the handler that caused it. This is
             // issue #111 case 1: assert the published operation explicitly, both ways.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             Link inputLink = CreateApprovalDecision(storageLink.Id);
@@ -205,7 +205,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // pre-act snapshot — excluding only the fields approve owns — catches a stray write
             // on ANY other field, without naming entity-specific columns.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             Link expectedStorageLink = storageLink.DeepClone();
@@ -251,7 +251,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // permitted WITHOUT one, so the saved row must say so — otherwise the flag means
             // "the caller said so" rather than "the rules were waived".
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             storageLink.IsApprovedByBypass = false;
@@ -282,7 +282,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given: the mirror image — the caller claims nothing and the DECISION reports a
             // bypass. The flag has to travel from the verdict onto the row.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             storageLink.IsApprovedByBypass = false;
@@ -309,7 +309,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // merits. A row that met its conditions this time must stop claiming they were
             // waived, or the flag accumulates for the rest of its life.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             storageLink.IsApprovedByBypass = true;

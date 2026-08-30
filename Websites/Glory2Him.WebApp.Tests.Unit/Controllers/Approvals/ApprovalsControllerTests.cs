@@ -827,9 +827,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
         /// <summary>
         /// <b>The empty expected list is the assertion, not a placeholder.</b> §16.7.2 restricts
-        /// both operations to the publisher tier and <c>Admin</c>, and that tier is suffix-matched
-        /// — global <c>Publisher</c>, global <c>Admin</c>, any <c>%EntityType%-Publisher</c>, and
-        /// the content-type-scoped <c>%EntityType%-%ContentType%-Publisher</c> of §18.6 rule 5.
+        /// both operations to the publisher tier and <c>Administrators</c>, and that tier is suffix-matched
+        /// — global <c>Publishers</c>, global <c>Administrators</c>, any <c>%EntityType%-Publishers</c>, and
+        /// the content-type-scoped <c>%EntityType%-%ContentType%-Publishers</c> of §18.6 rule 5.
         /// These routes are generic over <c>EntityType</c> as well, so no fixed
         /// <c>Roles = ...</c> list can express the set, and any partial list would lock out the
         /// content-type tier today and every entity type added later. The tier decision therefore

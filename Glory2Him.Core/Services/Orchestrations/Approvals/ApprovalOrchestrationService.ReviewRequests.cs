@@ -412,9 +412,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         {
             var roleNames = new List<string>
             {
-                Roles.Reviewer,
-                Roles.Publisher,
-                Roles.Admin,
+                Roles.Reviewers,
+                Roles.Publishers,
+                Roles.Administrators,
             };
 
             foreach (RoleSubject roleSubject in roleSubjects ?? Array.Empty<RoleSubject>())
@@ -424,16 +424,16 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                     continue;
                 }
 
-                roleNames.Add(RoleNames.ReviewerFor(roleSubject.EntityType));
-                roleNames.Add(RoleNames.PublisherFor(roleSubject.EntityType));
+                roleNames.Add(RoleNames.ReviewersFor(roleSubject.EntityType));
+                roleNames.Add(RoleNames.PublishersFor(roleSubject.EntityType));
 
                 if (string.IsNullOrWhiteSpace(roleSubject.ContentType) is false)
                 {
                     roleNames.Add(
-                        RoleNames.ReviewerFor(roleSubject.EntityType, roleSubject.ContentType));
+                        RoleNames.ReviewersFor(roleSubject.EntityType, roleSubject.ContentType));
 
                     roleNames.Add(
-                        RoleNames.PublisherFor(roleSubject.EntityType, roleSubject.ContentType));
+                        RoleNames.PublishersFor(roleSubject.EntityType, roleSubject.ContentType));
                 }
             }
 

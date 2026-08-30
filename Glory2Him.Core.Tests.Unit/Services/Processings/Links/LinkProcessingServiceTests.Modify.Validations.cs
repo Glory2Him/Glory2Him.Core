@@ -396,24 +396,24 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         [InlineData(ApprovalStatus.Submitted, null)]
         [InlineData(ApprovalStatus.Dismissed, null)]
         [InlineData(ApprovalStatus.Approved, null)]
-        [InlineData(ApprovalStatus.Approved, Roles.Reviewer)]
-        [InlineData(ApprovalStatus.Approved, Roles.LinkReviewer)]
-        [InlineData(ApprovalStatus.Approved, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Approved, Roles.LinkPublisher)]
-        [InlineData(ApprovalStatus.Approved, Roles.Admin)]
+        [InlineData(ApprovalStatus.Approved, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Approved, Roles.LinkReviewers)]
+        [InlineData(ApprovalStatus.Approved, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Approved, Roles.LinkPublishers)]
+        [InlineData(ApprovalStatus.Approved, Roles.Administrators)]
         [InlineData(ApprovalStatus.Rejected, null)]
-        [InlineData(ApprovalStatus.Rejected, Roles.Reviewer)]
-        [InlineData(ApprovalStatus.Rejected, Roles.LinkReviewer)]
-        [InlineData(ApprovalStatus.Rejected, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Rejected, Roles.LinkPublisher)]
-        [InlineData(ApprovalStatus.Rejected, Roles.Admin)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.LinkReviewers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.LinkPublishers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Administrators)]
         public async Task ShouldThrowValidationExceptionOnModifyIfActorIsNotPermittedAndLogItAsync(
             ApprovalStatus approvalStatus,
             string? actorRole)
         {
             // given: a plain authenticated user never touches someone else's link, and a
             // terminal link — Approved or Rejected — belongs to its owner alone: no role
-            // (Reviewer, Publisher or Admin) may modify it on the owner's behalf, because
+            // (Reviewers, Publishers or Administrators) may modify it on the owner's behalf, because
             // the only edit a terminal row admits is a fork, and a moderator forking
             // someone else's decided row would author a version in their name
             Link randomLink = CreateRandomLink();

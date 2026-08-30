@@ -19,7 +19,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// anyone else. They are one decision with two call sites rather than two decisions.</para>
     ///
     /// <para>Notice what is <b>absent</b>: any role at all. No tier widens this — not
-    /// <c>Reviewer</c>, not <c>Publisher</c>, not <c>Admin</c>. An <c>Admin</c> who needs to get
+    /// <c>Reviewers</c>, not <c>Publishers</c>, not <c>Administrators</c>. An administrator who needs to get
     /// past an unresolved comment resolves it (<see cref="ResolveApprovalCommentRequest"/>) or bypasses
     /// the block; neither route rewrites another person's words. Passing roles in would invite a
     /// future rule to widen the gate here, which is exactly what this decision refuses.</para>

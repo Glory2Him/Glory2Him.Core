@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Models.Events
     ///
     /// <para><c>EventBroker</c> signs an envelope over the live object, serializes it to store
     /// the event, and deserializes it again to hand to a handler — which re-computes the
-    /// signature over the REBUILT object. Publisher and receiver therefore have to agree on
+    /// signature over the REBUILT object. Publishers and receiver therefore have to agree on
     /// every byte, and any property that does not survive the round trip breaks a genuine
     /// envelope's signature. The receiver refuses a fact its own publisher sent, and nothing
     /// else in the system watches for that.</para>

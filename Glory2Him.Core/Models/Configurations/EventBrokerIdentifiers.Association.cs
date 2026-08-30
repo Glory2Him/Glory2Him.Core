@@ -64,7 +64,7 @@ namespace Glory2Him.Core.Models.Configurations
 
         // A fact address with no request address behind it, because an association has no
         // submit verb: a row reaches Submitted on add, or through the §9.2 modify carve-out.
-        // What publishes here is the Admin override re-opening a decided row (§8.6 HR-4), and
+        // What publishes here is the Administrators override re-opening a decided row (§8.6 HR-4), and
         // the approval workflow needs to hear that the round has re-opened — a demoted row that
         // announced nothing would leave every subscriber believing the old verdict still stood.
         public static readonly Guid AssociationSubmittedEventAddressId =
