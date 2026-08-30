@@ -81,7 +81,8 @@ export interface ContentItemPanelProps {
     //
     // In `add` the picker offers the content type DEFAULTS that carry
     // IsAvailableAsGeneralUserContribution — an override belongs to one existing item and can
-    // never be a type somebody contributes under, so it is never a tile.
+    // never be a type somebody contributes under, so it is never a tile. The tiles are ordered by
+    // the rows' own SortOrder, so hand them over in any order.
     //
     // What is read here is the FIELD SHAPING and the type's presentation: hasTitle, hasAuthor,
     // contentTypeName, contentTypeDescription and contentTypeIconCssClass. The facet pairs
@@ -390,9 +391,16 @@ export function ContentItemPanel({
     // contributes under, so it is not a tile however the consumer's collection arrived; and
     // IsAvailableAsGeneralUserContribution is the flag that answers "may this be contributed",
     // which is exactly the question a tile asks.
-    const offerableSettings = activeSettings.filter(
-        (setting) => setting.contentItemId == null
-            && setting.isAvailableAsGeneralUserContribution);
+    //
+    // SORTED BY THE ROW'S OWN SortOrder, ascending. The order the tiles appear in is a
+    // presentation decision the administrator makes on the setting, not an accident of the
+    // order the consumer's read answered with — and this is a pure presentation component, so
+    // it sorts what it is handed rather than trusting the caller to have done it. A tie keeps
+    // the order the rows arrived in, which `sort` guarantees.
+    const offerableSettings = activeSettings
+        .filter((setting) => setting.contentItemId == null
+            && setting.isAvailableAsGeneralUserContribution)
+        .sort((first, second) => first.sortOrder - second.sortOrder);
 
     const contributableSettings =
         offerableSettings.filter((setting) => isBlockedFor(setting.contentType) === false);

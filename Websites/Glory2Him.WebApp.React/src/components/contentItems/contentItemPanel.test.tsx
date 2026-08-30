@@ -52,6 +52,9 @@ const settingFor = (
         contentTypeName,
         contentTypeDescription: `A ${contentTypeName.toLowerCase()}`,
         contentTypeIconCssClass: 'bi-chat-quote',
+        // The seed gives each type the order its enum member is numbered with, so a fixture
+        // that does the same puts the tiles in the order the real picker shows them.
+        sortOrder: contentType,
         hasTitle: true,
         hasAuthor: true,
         isAvailableAsGeneralUserContribution: true,
@@ -250,6 +253,32 @@ describe('ContentItemPanel', () => {
             expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
             expect(screen.queryByLabelText(/Author/)).not.toBeInTheDocument();
             expect(screen.getByLabelText(/Quote/)).toBeInTheDocument();
+        });
+
+        it('should order the tiles by the settings own sortOrder, not by the order handed over', () => {
+            // given: the rows arrive in the reverse of the order they should be offered in
+            signInAs(authState);
+
+            const quote = settingFor(ContentType.Quote, 'Quote', { sortOrder: 0 });
+            const story = settingFor(ContentType.Story, 'Story', { sortOrder: 1 });
+            const testimony = settingFor(ContentType.Testimony, 'Testimony', { sortOrder: 2 });
+
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItemSettingCollection={[testimony, story, quote]} />);
+
+            // then
+            const tiles = screen.getAllByRole('button', { name: /Quote|Story|Testimony/ });
+
+            expect(tiles.map((tile) => tile.textContent?.startsWith('Quote')
+                ? 'Quote'
+                : tile.textContent?.startsWith('Story') ? 'Story' : 'Testimony'))
+                .toEqual(['Quote', 'Story', 'Testimony']);
+
+            // and the type it lands on is the FIRST in that order, not the first row given
+            expect(screen.getByRole('button', { name: /Quote/ }))
+                .toHaveAttribute('aria-pressed', 'true');
         });
 
         it('should say so when no type is on offer', () => {
@@ -906,9 +935,12 @@ describe('ContentItemPanel', () => {
     });
 
     describe('what a hidden field submits', () => {
+        // Ordered BEHIND Story, so the panel opens on the type that has a title to type into -
+        // these tests are about abandoning a typed title, so the title has to exist first.
         const quoteSetting = settingFor(ContentType.Quote, 'Quote', {
             hasTitle: false,
-            hasAuthor: false
+            hasAuthor: false,
+            sortOrder: 2
         });
 
         it('should not post a title typed under a type the reader then abandoned', async () => {
