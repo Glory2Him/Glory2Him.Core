@@ -61,8 +61,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldExcludeDeletedContentItemSettingsOnRetrieveAllAsync()
         {
             // given: a soft-deleted setting drops out of the set for every caller,
-            // including an Admin — the collection read never reveals removed rows
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            // including an administrator — the collection read never reveals removed rows
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting liveContentItemSetting = CreateRandomContentItemSetting();
             liveContentItemSetting.IsDeleted = false;
             ContentItemSetting deletedContentItemSetting = CreateRandomContentItemSetting();
@@ -103,7 +103,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             SecurityContext anonymousSecurityContext)
         {
             // given: settings render the public site, so an anonymous caller sees the
-            // very same non-deleted set an Admin sees
+            // very same non-deleted set an administrator sees
             this.ambientSecurityContext = anonymousSecurityContext;
             ContentItemSetting liveContentItemSetting = CreateRandomContentItemSetting();
             liveContentItemSetting.IsDeleted = false;

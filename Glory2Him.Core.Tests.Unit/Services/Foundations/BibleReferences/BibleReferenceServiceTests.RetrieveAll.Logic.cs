@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldRetrieveAllBibleReferencesAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             IQueryable<BibleReference> randomBibleReferences = CreateRandomBibleReferences();
 
             foreach (BibleReference bibleReference in randomBibleReferences)

@@ -164,17 +164,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         public static TheoryData<string> ReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.Reviewer,
-                Roles.ReactionReviewer,
-                Roles.Publisher,
-                Roles.ReactionPublisher,
-                Roles.Admin
+                Roles.Reviewers,
+                Roles.ReactionReviewers,
+                Roles.Publishers,
+                Roles.ReactionPublishers,
+                Roles.Administrators
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()

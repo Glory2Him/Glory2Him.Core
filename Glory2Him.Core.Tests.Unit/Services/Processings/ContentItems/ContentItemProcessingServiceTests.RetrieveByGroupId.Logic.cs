@@ -213,11 +213,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.ContentItemReviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.ContentItemPublisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ContentItemReviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.ContentItemPublishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldRetrieveAllNonDeletedGroupContentItemsOnRetrieveByGroupIdIfActorHasReviewRoleAsync(
             string reviewRole)
         {

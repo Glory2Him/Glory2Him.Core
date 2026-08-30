@@ -334,7 +334,7 @@ if (!isAuthenticated)
 ### IsUserInRoleAsync
 
 ```csharp
-bool isAdmin = await securityClient.Users.IsUserInRoleAsync(claimsPrincipal, "Admin");
+bool isAdmin = await securityClient.Users.IsUserInRoleAsync(claimsPrincipal, "Administrators");
 
 if (!isAdmin)
     throw new ForbiddenAccessException("Only admins can access this resource.");

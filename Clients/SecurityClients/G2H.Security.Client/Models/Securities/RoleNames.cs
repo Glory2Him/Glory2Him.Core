@@ -27,26 +27,33 @@ namespace G2H.Security.Client.Models.Securities
     /// </summary>
     public static class RoleNames
     {
-        /// <summary>The block role. When present the user cannot contribute anywhere.</summary>
+        /// <summary>
+        /// The block role. When present the user cannot contribute anywhere.
+        ///
+        /// <para>Alone among the capabilities this one stays <b>singular</b>, at every tier.
+        /// The others name a group of people — reviewers, publishers, administrators — and a
+        /// group takes the plural; <c>ReadOnly</c> names the state its holder is in, and has
+        /// no sensible plural. That is a decision, not an oversight.</para>
+        /// </summary>
         public const string ReadOnly = "ReadOnly";
 
-        /// <summary>Global reviewer — may review any entity type.</summary>
-        public const string Reviewer = "Reviewer";
+        /// <summary>Global reviewers — may review any entity type.</summary>
+        public const string Reviewers = "Reviewers";
 
-        /// <summary>Global publisher — may approve and reject any entity type.</summary>
-        public const string Publisher = "Publisher";
+        /// <summary>Global publishers — may approve and reject any entity type.</summary>
+        public const string Publishers = "Publishers";
 
         /// <summary>Full access, including approval settings and bypass.</summary>
-        public const string Admin = "Admin";
+        public const string Administrators = "Administrators";
 
-        // The capability segment of a granular role name. Singular, and always LAST:
-        // `ContentItem-Story-Reviewer`, never `ContentItem-Reviewer-Story`. Eligibility is
+        // The capability segment of a granular role name. Plural, and always LAST:
+        // `ContentItem-Story-Reviewers`, never `ContentItem-Reviewers-Story`. Eligibility is
         // decided by suffix match, so a name ending in anything else would not be recognised
         // as a review role at all and its holder would silently lose every capability the
         // suffix grants.
         public const string ReadOnlySuffix = "-ReadOnly";
-        public const string ReviewerSuffix = "-Reviewer";
-        public const string PublisherSuffix = "-Publisher";
+        public const string ReviewersSuffix = "-Reviewers";
+        public const string PublishersSuffix = "-Publishers";
 
         /// <summary>
         /// The entity-type-scoped block role, for example <c>Tag-ReadOnly</c>.
@@ -55,32 +62,32 @@ namespace G2H.Security.Client.Models.Securities
             $"{entityType}{ReadOnlySuffix}";
 
         /// <summary>
-        /// The entity-type-scoped review role, for example <c>Tag-Reviewer</c> — the coarse
+        /// The entity-type-scoped review role, for example <c>Tag-Reviewers</c> — the coarse
         /// tier, granting review over every instance of the type.
         /// </summary>
-        public static string ReviewerFor(string entityType) =>
-            $"{entityType}{ReviewerSuffix}";
+        public static string ReviewersFor(string entityType) =>
+            $"{entityType}{ReviewersSuffix}";
 
         /// <summary>
-        /// The entity-type-scoped publish role, for example <c>Tag-Publisher</c>.
+        /// The entity-type-scoped publish role, for example <c>Tag-Publishers</c>.
         /// </summary>
-        public static string PublisherFor(string entityType) =>
-            $"{entityType}{PublisherSuffix}";
+        public static string PublishersFor(string entityType) =>
+            $"{entityType}{PublishersSuffix}";
 
         /// <summary>
         /// The content-type-scoped review role, for example
-        /// <c>ContentItem-Testimony-Reviewer</c> — the narrow tier, so a reviewer can be
+        /// <c>ContentItem-Testimony-Reviewers</c> — the narrow tier, so a reviewer can be
         /// trusted with stories but not testimonies.
         /// </summary>
-        public static string ReviewerFor(string entityType, string contentType) =>
-            $"{entityType}-{contentType}{ReviewerSuffix}";
+        public static string ReviewersFor(string entityType, string contentType) =>
+            $"{entityType}-{contentType}{ReviewersSuffix}";
 
         /// <summary>
         /// The content-type-scoped publish role, for example
-        /// <c>ContentItem-Testimony-Publisher</c>.
+        /// <c>ContentItem-Testimony-Publishers</c>.
         /// </summary>
-        public static string PublisherFor(string entityType, string contentType) =>
-            $"{entityType}-{contentType}{PublisherSuffix}";
+        public static string PublishersFor(string entityType, string contentType) =>
+            $"{entityType}-{contentType}{PublishersSuffix}";
 
         // There is deliberately no ReadOnlyFor(entityType, contentType): the block role has no
         // content-type tier, and offering the composition would invent a role nothing issues

@@ -105,11 +105,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
 
             // when
             await this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                new[] { "  Tag-Reviewer  ", "tag-reviewer", "TAG-PUBLISHER", null, "  " },
+                new[] { "  Tag-Reviewers  ", "tag-reviewers", "TAG-PUBLISHERS", null, "  " },
                 TestContext.Current.CancellationToken);
 
             // then
-            capturedRoleNames.Should().BeEquivalentTo(new[] { "TAG-REVIEWER", "TAG-PUBLISHER" });
+            capturedRoleNames.Should().BeEquivalentTo(new[] { "TAG-REVIEWERS", "TAG-PUBLISHERS" });
         }
 
         [Fact]
@@ -130,11 +130,151 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             IReadOnlyList<IdentityUser> members =
                 await this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then
             members.Should().BeEquivalentTo(expectedMembers);
+        }
+
+        public static TheoryData<string[]> UnusableUserIdSets() =>
+            new TheoryData<string[]>
+            {
+                null,
+                new string[0],
+                new[] { null, string.Empty, "   " },
+                new[] { "not-a-guid" },
+                new[] { "00000000-0000-0000-0000-000000000000" },
+            };
+
+        /// <summary>
+        /// The same fail-closed rule the tier read carries, and it matters more here: this read
+        /// applies no role filter at all, so an empty id set reaching the store as "no predicate"
+        /// would be the whole directory. Nothing usable means the broker is never called.
+        ///
+        /// <para>The empty GUID is in the unusable set deliberately - it is what a failed parse
+        /// collapses to, and no account carries it.</para>
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(UnusableUserIdSets))]
+        public async Task ShouldReturnNoUsersWhenNoUsableUserIdsAreGivenAsync(string[] userIds)
+        {
+            // when
+            IReadOnlyList<IdentityUser> resolvedUsers =
+                await this.identityUserService.RetrieveIdentityUsersByIdsAsync(
+                    userIds,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            resolvedUsers.Should().BeEmpty();
+
+            this.identityCoreStorageBrokerMock.Verify(broker =>
+                broker.SelectIdentityUsersByIdsAsync(
+                    It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()),
+                Times.Never);
+
+            this.identityCoreStorageBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Ids are parsed, trimmed and de-duplicated before the read, and an unparseable one is
+        /// DROPPED rather than failing the batch: the ids come off stored rows a caller is
+        /// rendering, and one bad value should cost that row its name, not the whole panel.
+        /// </summary>
+        [Fact]
+        public async Task ShouldParseAndDeduplicateUserIdsBeforeReadingAsync()
+        {
+            // given
+            Guid firstUserId = Guid.NewGuid();
+            Guid secondUserId = Guid.NewGuid();
+            IReadOnlyList<Guid> capturedUserIds = null;
+
+            this.identityCoreStorageBrokerMock.Setup(broker =>
+                broker.SelectIdentityUsersByIdsAsync(
+                    It.IsAny<IReadOnlyList<Guid>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<IReadOnlyList<Guid>, CancellationToken>(
+                            (userIds, token) => capturedUserIds = userIds)
+                        .ReturnsAsync(new List<IdentityUser>());
+
+            // when
+            await this.identityUserService.RetrieveIdentityUsersByIdsAsync(
+                new[]
+                {
+                    $"  {firstUserId}  ",
+                    firstUserId.ToString(),
+                    secondUserId.ToString(),
+                    "not-a-guid",
+                    null,
+                },
+                TestContext.Current.CancellationToken);
+
+            // then
+            capturedUserIds.Should().BeEquivalentTo(new[] { firstUserId, secondUserId });
+        }
+
+        /// <summary>
+        /// Whatever the broker reports comes straight back — INCLUDING a disabled account. This
+        /// read resolves what an id is called, not whether its owner may be asked to do anything,
+        /// and a review recorded by somebody since disabled is still a review the panel renders.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnResolvedUsersIncludingDisabledAccountsAsync()
+        {
+            // given
+            var expectedUsers = new List<IdentityUser>
+            {
+                new IdentityUser
+                {
+                    Id = Guid.NewGuid(),
+                    UserName = "departed",
+                    IsDisabled = true,
+                },
+            };
+
+            this.identityCoreStorageBrokerMock.Setup(broker =>
+                broker.SelectIdentityUsersByIdsAsync(
+                    It.IsAny<IReadOnlyList<Guid>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(expectedUsers);
+
+            // when
+            IReadOnlyList<IdentityUser> resolvedUsers =
+                await this.identityUserService.RetrieveIdentityUsersByIdsAsync(
+                    new[] { Guid.NewGuid().ToString() },
+                    TestContext.Current.CancellationToken);
+
+            // then
+            resolvedUsers.Should().BeEquivalentTo(expectedUsers);
+        }
+
+        [Fact]
+        public async Task ShouldThrowCriticalDependencyExceptionOnSqlErrorWhileResolvingIdsAsync()
+        {
+            // given
+            SqlException sqlException =
+                (SqlException)System.Runtime.CompilerServices.RuntimeHelpers
+                    .GetUninitializedObject(typeof(SqlException));
+
+            this.identityCoreStorageBrokerMock.Setup(broker =>
+                broker.SelectIdentityUsersByIdsAsync(
+                    It.IsAny<IReadOnlyList<Guid>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(sqlException);
+
+            // when
+            ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
+                this.identityUserService.RetrieveIdentityUsersByIdsAsync(
+                    new[] { Guid.NewGuid().ToString() },
+                    TestContext.Current.CancellationToken);
+
+            // then: the same categorisation the tier read gets — both reads share one TryCatch,
+            // and this pins that the new entry point did not slip past it.
+            await Assert.ThrowsAsync<IdentityUserDependencyException>(retrieveTask.AsTask);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogCriticalAsync(It.IsAny<Xeptions.Xeption>()),
+                Times.Once);
         }
 
         [Fact]
@@ -154,7 +294,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then: the security database being unreachable is a CRITICAL dependency failure,
@@ -179,7 +319,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then
@@ -201,7 +341,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     cancellationTokenSource.Token);
 
             // then
@@ -223,7 +363,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then

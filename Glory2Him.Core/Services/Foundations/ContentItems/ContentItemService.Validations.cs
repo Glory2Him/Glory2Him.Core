@@ -77,7 +77,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         // ContentItem is the one entity type with three role tiers rather than two, because
         // it is the only one carrying a ContentType (design §18.6 rule 5). The tiers widen
-        // from narrow to broad — ContentItem-Story-Reviewer ⊂ ContentItem-Reviewer ⊂ Reviewer
+        // from narrow to broad — ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewers
         // — and rule 4 binds both directions: holding ANY of them satisfies a check for that
         // content type, and the narrow role NEVER satisfies a check for a different one. Both
         // halves are load-bearing, so the checks below are always asked about a content type.
@@ -85,20 +85,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // the broad tiers, which cover every content type at once and so need no per-row
         // question asked of them
         private static bool HasBroadReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.ContentItemReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.ContentItemReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // the narrow tier: authority over one content type and never over another
         private static bool HasContentTypeReviewRole(
             SecurityContext securityContext,
             ContentType contentType) =>
             securityContext.Roles.Contains(
-                    Roles.ReviewerFor(EntityType.ContentItem, contentType))
+                    Roles.ReviewersFor(EntityType.ContentItem, contentType))
                 || securityContext.Roles.Contains(
-                    Roles.PublisherFor(EntityType.ContentItem, contentType));
+                    Roles.PublishersFor(EntityType.ContentItem, contentType));
 
         // the moderation roles that may act on and read non-public versions of THIS content
         // type for review and audit (§16.6, §18.6)
@@ -118,15 +118,15 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         // the publisher tier: the roles the dedicated approve operation itself requires, and
         // the only ones besides the owner that may move a submission status through modify.
-        // Strictly narrower than the review tier — a Reviewer is absent by design (§8.6 HR-3).
+        // Strictly narrower than the review tier — a reviewer is absent by design (§8.6 HR-3).
         private static bool HasPublisherRole(
             SecurityContext securityContext,
             ContentType contentType) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Contains(
-                    Roles.PublisherFor(EntityType.ContentItem, contentType));
+                    Roles.PublishersFor(EntityType.ContentItem, contentType));
 
         // row-level write permission: the owner or a review role may write the row — the
         // narrower process rules (approved items fork, only the latest version is amended)
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // performs, so it is returned rather than recomputed - a second GetUserIdAsync would
         // be a wasted call and a second chance for the two answers to disagree.
         //
-        // Note what the carve-out is NOT gated on: write permission. A Reviewer passes the
+        // Note what the carve-out is NOT gated on: write permission. A reviewer passes the
         // check below and may amend content, and must still never move an approval status
         // (§8.6 HR-3).
         private async ValueTask<bool> ValidateUserCanModifyStorageContentItemAsync(
@@ -163,7 +163,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         }
 
         // Approved and Rejected are TERMINAL: the content of a row in either state is immutable
-        // in place, to its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16,
+        // in place, to its owner, to a publisher and to an administrator alike (§3.4 rules 7 and 16,
         // §9.7.4, §12.3.1 shared rule 9). Reviewers reached a verdict on that text, and text
         // that changes underneath a verdict makes the verdict a record of nothing.
         //
@@ -209,7 +209,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         }
 
         // removing content is a takedown, not a moderation step — the owner may remove
-        // their own item and an Admin may remove anyone's; Reviewers and Publishers
+        // their own item and an administrator may remove anyone's; Reviewers and Publishers
         // moderate through the approval workflow instead
         private async ValueTask ValidateUserCanRemoveStorageContentItemAsync(
             ContentItem storageContentItem,
@@ -221,14 +221,14 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageContentItem.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to remove this content item.");
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveContentItem(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -244,7 +244,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     message: "The current user is blocked from contributing content items.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to permanently remove this content item.");
@@ -657,7 +657,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // The one carve-out on modify (design §9.2 rules 4-6): an eligible caller may move the
         // status between Draft and Submitted, because submitting is inseparable from the edit
         // that made the work ready. Everything else about the status stays pinned, and the
-        // caller must have been found eligible before this is reached — a Reviewer holds write
+        // caller must have been found eligible before this is reached — a reviewer holds write
         // permission on the row and must still never move the status (§8.6 HR-3).
         private static dynamic IsNotAPermittedStatusChangeOnModify(
             ApprovalStatus inputStatus,

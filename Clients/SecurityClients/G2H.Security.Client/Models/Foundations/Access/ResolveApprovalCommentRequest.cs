@@ -18,11 +18,11 @@ namespace G2H.Security.Client.Models.Foundations.Access
     /// <para>Separate from <see cref="AmendApprovalCommentRequest"/> because it is a separate operation
     /// with a narrower field scope — it owns <c>IsResolved</c> and nothing else (§9.7.1 rule 3,
     /// §10.2 rule 7, the same reason <c>Submit</c>, <c>Approve</c> and <c>Dismiss</c> exist).
-    /// Splitting it is what keeps the amend gate owner-only while still letting an <c>Admin</c>
+    /// Splitting it is what keeps the amend gate owner-only while still letting an administrator
     /// clear a resolution flag, without a "which fields may I touch here" branch inside amend.
     /// </para>
     ///
-    /// <para>This is the one comment operation an <c>Admin</c> may perform on someone else's row,
+    /// <para>This is the one comment operation an administrator may perform on someone else's row,
     /// and it is deliberately the only one: resolving records that a comment is settled — that it
     /// no longer requires anything before the approval can proceed — which changes no words.
     /// <c>UpdatedBy</c> then carries the admin's identity, so the intervention is visible rather

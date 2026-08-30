@@ -78,7 +78,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             }.AsQueryable();
 
             SecurityContext securityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony));
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: new ContentItem(),
@@ -143,8 +143,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             }.AsQueryable();
 
             SecurityContext securityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony),
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Story));
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony),
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Story));
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: new ContentItem(),

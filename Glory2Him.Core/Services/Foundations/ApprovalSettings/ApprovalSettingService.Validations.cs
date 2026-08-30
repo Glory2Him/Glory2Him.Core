@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
         // an upstream layer already gated the caller
 
         // approval settings are admin policy configuration — every write (add, modify,
-        // remove, hard remove) is Admin only
+        // remove, hard remove) is Administrators only
         private static void ValidateUserIsAllowedToAdministerApprovalSettings(
             SecurityContext securityContext)
         {
@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                     message: "The current user is not authenticated.");
             }
 
-            // the global ReadOnly ban precedes the Admin check, so a banned Admin cannot reach
+            // the global ReadOnly ban precedes the Administrators check, so a banned administrator cannot reach
             // past it — this gate is every approval setting write, hard remove included.
             if (securityContext.Roles.Contains(Roles.ReadOnly))
             {
@@ -45,7 +45,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                     message: "The current user is blocked from administering approval settings.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalSettingException(
                     message: "The current user is not allowed to administer approval settings.");

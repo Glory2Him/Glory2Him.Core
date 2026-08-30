@@ -201,20 +201,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         // The global review roles plus two scoped ones standing in for the §16.6
-        // "%EntityType%-Reviewer"/"%EntityType%-Publisher" convention the foundation recognizes
+        // "%EntityType%-Reviewers"/"%EntityType%-Publishers" convention the foundation recognizes
         // by suffix. All of them may issue AND withdraw an invitation (§7.9 rules 2 and 5).
         public static TheoryData<string> ReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.Reviewer,
-                Roles.Publisher,
-                Roles.Admin,
-                Roles.ContentItemReviewer,
-                Roles.TagPublisher
+                Roles.Reviewers,
+                Roles.Publishers,
+                Roles.Administrators,
+                Roles.ContentItemReviewers,
+                Roles.TagPublishers
             };
 
         public static TheoryData<string[]> NonReviewRoleSets() =>
@@ -322,7 +322,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
             new EventEnvelope<ApprovalReviewRequest>
             {
                 Content = new ApprovalReviewRequest { Id = Guid.NewGuid() },
-                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Reviewer),
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Reviewers),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

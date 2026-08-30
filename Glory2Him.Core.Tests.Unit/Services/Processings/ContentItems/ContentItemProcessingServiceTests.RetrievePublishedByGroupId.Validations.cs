@@ -103,7 +103,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 deletedPublishedContentItem
             }.AsQueryable();
 
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: new ContentItem { GroupId = inputGroupId },

@@ -1,0 +1,33 @@
+/* ── ContentItemPanel ─────────────────────────────────────────────────────── */
+
+/* The panel is a <section> so screen readers get a named region, but the Blogzine theme gives
+   every bare section 3.5rem of top and 2.8rem of bottom padding — page-band spacing, wildly wrong
+   for a panel sitting inside a card or a column. Neutralised here rather than by dropping to a
+   <div>, so the accessible name survives. Bootstrap's p-3/p-lg-4 utilities carry !important, so
+   showBorder still gets its padding back. */
+section.g2h-content-item-panel {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+/* Contributed text is entered in a textarea, so its paragraph breaks are newlines rather than
+   markup. Preserving them is the difference between a testimony and one long run-on line.
+   break-word keeps a pasted URL from widening the whole column. */
+.g2h-content-item-body {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+/* One tile in the type picker. A button rather than a radio because the whole card is the target;
+   aria-pressed carries the selected state that a radio's checked would have. */
+.g2h-content-item-type {
+    cursor: pointer;
+}
+
+/* A type the reader is blocked from contributing (§18.6 ContentItem-{ContentType}-ReadOnly). It
+   stays on the page wearing its reason rather than vanishing — a contributor who holds one narrow
+   block should see WHICH type is closed to them, not a picker that quietly lost an option. */
+.g2h-content-item-type:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}

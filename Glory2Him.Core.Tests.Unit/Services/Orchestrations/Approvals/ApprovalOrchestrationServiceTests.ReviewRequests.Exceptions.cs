@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldCategoriseRequestFoundationValidationAsDependencyValidationAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
@@ -84,7 +84,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldCategoriseRequestUniquenessCollisionAsDependencyValidationAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
@@ -146,7 +146,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldThrowNotFoundOnWithdrawWhenTheEntityHasNoApprovalAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
             this.approvalServiceMock.Setup(service =>
                 service.FindApprovalByEntityAsync(
@@ -186,7 +186,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldSurfaceOtherWithdrawValidationFailuresAsDependencyValidationAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
             Guid requestId = Guid.NewGuid();
             string requestedUserId = Guid.NewGuid().ToString();

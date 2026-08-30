@@ -33,7 +33,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -154,7 +154,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // is exactly what the narrow operations exist to prevent — a reviewer approving a
             // row would silently overwrite its content in the same write.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             storageAssociation.EntityAType = EntityType.ContentItem;
@@ -289,7 +289,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // "the caller said so" rather than "the rules were waived", and it is evidence of
             // nothing.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             storageAssociation.IsApprovedByBypass = false;
@@ -327,7 +327,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // bypass. The flag has to travel from the verdict onto the row, or a genuine bypass
             // leaves no trace at all and the field is dead weight.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             storageAssociation.IsApprovedByBypass = false;
@@ -357,7 +357,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // conditions this time must stop claiming they were waived, or the flag accumulates
             // and every bypassed entity stays flagged for the rest of its life.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             storageAssociation.IsApprovedByBypass = true;

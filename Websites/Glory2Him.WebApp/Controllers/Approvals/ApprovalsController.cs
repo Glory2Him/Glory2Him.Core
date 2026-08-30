@@ -44,14 +44,14 @@ namespace Glory2Him.WebApp.Controllers.Approvals
     /// <para><b>Neither action carries a role list, and that is the codebase rule rather than an
     /// omission.</b> <c>Roles = ...</c> is a <i>fixed</i> list, so it is the right coarse gate only
     /// where the admitted set is closed and enumerable — which is why <c>POST api/Tags/Approve</c>
-    /// can name <c>Admin,Publisher,Tag-Publisher</c> and why hard removal on the two sibling
-    /// approval exposers can name <c>Admin</c>. The set here is neither. §16.7.2 restricts the
-    /// verdict to the <b>moderation tier</b> — <c>Admin</c>, the <c>Publisher</c> tier and the
-    /// <c>Reviewer</c> tier — and each tier is matched by SUFFIX: global <c>Publisher</c> or
-    /// <c>Reviewer</c>, global <c>Admin</c>, or any role ending <c>-Publisher</c> or
-    /// <c>-Reviewer</c>, including the content-type-scoped
-    /// <c>ContentItem-Testimony-Publisher</c> tier of §18.6 rule 5. The two actions do not admit
-    /// the same set: a <c>Reviewer</c> may see the verdict but may never decide (§8.6 HR-3), and
+    /// can name <c>Administrators,Publishers,Tag-Publishers</c> and why hard removal on the two sibling
+    /// approval exposers can name <c>Administrators</c>. The set here is neither. §16.7.2 restricts the
+    /// verdict to the <b>moderation tier</b> — <c>Administrators</c>, the <c>Publishers</c> tier and the
+    /// <c>Reviewers</c> tier — and each tier is matched by SUFFIX: global <c>Publishers</c> or
+    /// <c>Reviewers</c>, global <c>Administrators</c>, or any role ending <c>-Publishers</c> or
+    /// <c>-Reviewers</c>, including the content-type-scoped
+    /// <c>ContentItem-Testimony-Publishers</c> tier of §18.6 rule 5. The two actions do not admit
+    /// the same set: a reviewer may see the verdict but may never decide (§8.6 HR-3), and
     /// refusing the decision is the orchestration's job rather than the attribute's. These routes
     /// are also generic over <c>EntityType</c>, so a fixed list would have to enumerate
     /// every entity type AND every content type, and would silently lock out every future one. The
@@ -281,6 +281,81 @@ namespace Glory2Him.WebApp.Controllers.Approvals
                     is NotFoundApprovalOrchestrationException)
             {
                 return NotFound(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
+        /// What the given account ids are called (§16.7.4) — the review panel's one name
+        /// resolver.
+        ///
+        /// <para><b>The gap it closes.</b> An <c>ApprovalReview</c> row names its reviewer by
+        /// account id, and the only route that named other people was <c>/api/admin/users</c>
+        /// behind the <c>Administrators</c> role. So a <c>Publisher</c> who is not an
+        /// administrator — precisely the tier this panel exists for — could render their own name
+        /// and nobody else's. The candidates read does not close it: it returns who is in scope
+        /// for the round, so a reviewer who has since lost the role is absent from it entirely.
+        /// This read applies no role filter and no disabled filter for exactly that reason.</para>
+        ///
+        /// <para><b>One resolver rather than a projection per read.</b> A display name hung off
+        /// the review read would have answered that surface and left the next to invent its own,
+        /// and three lookups are three chances to render one person under two names.</para>
+        ///
+        /// <para><b>That it is not keyed on a round is a separate choice, and an open one.</b> It
+        /// does not follow from the paragraph above — the surfaces the panel renders all belong to
+        /// the same round — and §16.7.4 records composing this tier gate with an entity gate as
+        /// the better posture, still to be settled.</para>
+        ///
+        /// <para>The ids ride the query string, repeated, for the same reason the invitation's
+        /// <c>requestedUserId</c> does: they are the whole request, and a body would make a plain
+        /// read into a POST. The batch is capped in the orchestration and an oversized one is a
+        /// <c>400</c> rather than a truncated <c>200</c> — though the transport refuses a long
+        /// batch first: repeated ids on the query string exhaust IIS's 2048-character limit at
+        /// roughly 45 ids and Kestrel's 8KB request line at roughly 180, both as a refusal rather
+        /// than a truncation. A caller wanting many names pages.</para>
+        ///
+        /// <para>Bare <c>[Authorize]</c> and the tier decided beneath, matching the candidates
+        /// read: the admitted set is suffix-matched across every entity and content type (§18.6),
+        /// so no fixed <c>Roles = ...</c> list could express it. No <c>Conflict</c> or
+        /// <c>Locked</c> clause — this performs SELECTs only.</para>
+        /// </summary>
+        [HttpGet("ReviewerDisplayNames")]
+        [Authorize]
+        public async ValueTask<ActionResult<IReadOnlyList<ReviewerDisplayName>>>
+            GetReviewerDisplayNamesAsync(
+                [FromQuery] string[] userIds,
+                CancellationToken cancellationToken)
+        {
+            try
+            {
+                IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                    await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                        userIds,
+                        cancellationToken);
+
+                return Ok(reviewerDisplayNames);
             }
             catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
                 when (approvalOrchestrationValidationException.InnerException

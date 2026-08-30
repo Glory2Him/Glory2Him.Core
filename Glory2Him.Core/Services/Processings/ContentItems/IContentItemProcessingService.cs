@@ -35,8 +35,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// <summary>
         /// Modifies an existing content item's content properties (Flow 2), branching on the
         /// current <c>ApprovalStatus</c>: a not-yet-approved item is modified in place on the
-        /// same row and version by its owner or by a <c>Reviewer</c>, <c>Publisher</c> or
-        /// <c>Admin</c>; an <c>Approved</c> item may only be modified by its owner, which forks
+        /// same row and version by its owner or by a holder of <c>Reviewers</c>,
+        /// <c>Publishers</c> or <c>Administrators</c>; an <c>Approved</c> item may only be modified by its owner, which forks
         /// a new version row (<c>Version + 1</c>, new row becomes the latest, previous latest
         /// is demoted). Only the permitted caller fields (<c>Title</c>, <c>Author</c>,
         /// <c>Content</c>, <c>ContentType</c>, <c>PublishDate</c>) are mapped onto the entity
@@ -55,7 +55,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// <summary>
         /// Removes an existing content item (Flow 3 — the soft delete of design §10.4). The
         /// caller must be authenticated, not blocked, and either the item's owner
-        /// (<c>CreatedBy</c>) or an <c>Admin</c>. The control fields (<c>IsDeleted</c>,
+        /// (<c>CreatedBy</c>) or an administrator. The control fields (<c>IsDeleted</c>,
         /// <c>DeletedBy</c>, <c>DeletedWhen</c>, <c>DeletionReason</c>) are set internally by
         /// the foundation service, never accepted from the caller; <c>ApprovalStatus</c> is
         /// deliberately left untouched because deletion is not part of the approval workflow
@@ -76,8 +76,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// contribution gate, so anonymous and even <c>ReadOnly</c>-blocked callers may
         /// read public content. A non-public version (<c>Draft</c>, <c>Submitted</c>,
         /// <c>Rejected</c>, <c>Dismissed</c>, unpublished, or scheduled in the future) is
-        /// readable only by its owner (<c>CreatedBy</c>) or a <c>Reviewer</c>,
-        /// <c>Publisher</c> or <c>Admin</c> (global or ContentItem-scoped) for review and
+        /// readable only by its owner (<c>CreatedBy</c>) or a holder of <c>Reviewers</c>,
+        /// <c>Publishers</c> or <c>Administrators</c> (global or ContentItem-scoped) for review and
         /// audit; every other caller receives not-found — never unauthorized — so an
         /// unprivileged probe cannot tell a non-public version from a missing one. A
         /// soft-deleted row is not found for every caller. Every denial is logged
@@ -95,8 +95,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// surfaces. Soft-deleted rows are excluded for every caller. An anonymous caller
         /// sees only versions that satisfy canonical content visibility (design §14.1:
         /// <c>Approved</c>, <c>IsPublished</c>, and <c>PublishDate</c> null or past); an
-        /// authenticated caller additionally sees their own versions in any state; a
-        /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c> (global or ContentItem-scoped,
+        /// authenticated caller additionally sees their own versions in any state; a holder of
+        /// <c>Reviewers</c>, <c>Publishers</c> or <c>Administrators</c> (global or ContentItem-scoped,
         /// §16.6) sees every non-deleted version for review and audit. Public-facing
         /// surfaces should prefer <see cref="RetrieveAllPublicContentItemsAsync"/>, which
         /// never widens with the caller's privileges. Being a read, no completion fact is
@@ -133,8 +133,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// Retrieves the single latest version (<c>IsLatestVersion</c>) of a content item
         /// group — the edit tip, which may still be an unapproved draft. The read posture
         /// matches <see cref="RetrieveContentItemByIdAsync"/>: a publicly visible latest
-        /// version is readable by anyone; a non-public one only by its owner or a
-        /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c>; every other caller receives
+        /// version is readable by anyone; a non-public one only by its owner or a holder of
+        /// <c>Reviewers</c>, <c>Publishers</c> or <c>Administrators</c>; every other caller receives
         /// not-found — never unauthorized — so an unprivileged probe cannot tell a
         /// non-public tip from a missing group. A group with no non-deleted latest version
         /// is not found for every caller. Every denial is logged server-side with its true
@@ -150,8 +150,8 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
         /// draft is in review (§3.4.1). The read posture matches
         /// <see cref="RetrieveContentItemByIdAsync"/>: when the published row is publicly
         /// visible anyone may read it; a published row scheduled in the future
-        /// (<c>PublishDate</c> not yet passed) is readable only by its owner or a
-        /// <c>Reviewer</c>, <c>Publisher</c> or <c>Admin</c>; everyone else receives
+        /// (<c>PublishDate</c> not yet passed) is readable only by its owner or a holder of
+        /// <c>Reviewers</c>, <c>Publishers</c> or <c>Administrators</c>; everyone else receives
         /// not-found, as does every caller when the group has no non-deleted published row.
         /// Every denial is logged server-side with its true reason before the reason-free
         /// error is thrown (§14.5).

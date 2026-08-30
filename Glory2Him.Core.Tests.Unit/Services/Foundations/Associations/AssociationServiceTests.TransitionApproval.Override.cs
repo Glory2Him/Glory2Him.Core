@@ -26,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 {
     /// <summary>
     /// The two things the widened transition verb added beyond folding the bypass in: the
-    /// <c>Admin</c> override out of a terminal state, and the system identity as a second
+    /// <c>Administrators</c> override out of a terminal state, and the system identity as a second
     /// admissible actor.
     /// </summary>
     public partial class AssociationServiceTests
@@ -38,10 +38,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             ApprovalStatus terminalStatus)
         {
             // given: the publisher tier decides a SUBMITTED row. Moving one back out of a
-            // terminal state is an override, and a state a Publisher could edit out of would not
+            // terminal state is an override, and a state a publisher could edit out of would not
             // be terminal at all (§3.4 rules 7 and 16, §8.6 HR-4).
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateTerminalStorageAssociation(terminalStatus);
             Association inputAssociation = CreateReopenDecision(storageAssociation.Id);
@@ -85,7 +85,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowUnauthorizedOnTransitionIfANonAdminOverridesATerminalRowAsync(
             string[] roles)
         {
-            // given: the owner and the Reviewer are refused the override too, and by the SAME
+            // given: the owner and the Reviewers are refused the override too, and by the SAME
             // gate — it runs before the publisher-tier check, so the message names the override
             // rather than the approve.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
@@ -133,7 +133,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // published, so this is also where the unpublish-on-the-way-out rule is proved: a
             // re-opened row must not stay publicly visible while it waits for a second verdict.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Association storageAssociation = CreateTerminalStorageAssociation(terminalStatus);
             Association inputAssociation = CreateReopenDecision(storageAssociation.Id);
@@ -172,7 +172,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // whatever this demoted — the group simply has no public row until something is
             // approved again.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Association storageAssociation =
                 CreateTerminalStorageAssociation(ApprovalStatus.Approved);
@@ -234,7 +234,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldPermitASystemIdentityToOverrideATerminalRowAsync()
         {
             // given: the previously published sibling a newly approved version demotes is itself
-            // Approved, so no Publisher may touch it and no human is available to. The override
+            // Approved, so no Publishers may touch it and no human is available to. The override
             // is open to the workflow for exactly that write.
             this.ambientSecurityContext = CreateSystemSecurityContext();
 
@@ -300,7 +300,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // would most want — it re-opens and unpublishes a decided row. Admitted here only
             // because the envelope was verified; the sibling demotion that follows a new
             // version's approval is exactly this write, against a row that is itself Approved
-            // and therefore untouchable by any Publisher.
+            // and therefore untouchable by any Publishers.
             var requestEnvelope = new EventEnvelope<Association>
             {
                 SecurityContext = CreateSystemSecurityContext(),

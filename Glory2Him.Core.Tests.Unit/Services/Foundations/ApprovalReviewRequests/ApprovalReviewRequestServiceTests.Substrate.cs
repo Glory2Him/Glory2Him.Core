@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
             var inboundEnvelope = new EventEnvelope<ApprovalReviewRequest>
             {
                 Content = randomApprovalReviewRequest,
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -258,7 +258,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
             var inboundEnvelope = new EventEnvelope<ApprovalReviewRequest>
             {
                 Content = new ApprovalReviewRequest { Id = randomApprovalReviewRequest.Id },
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -305,7 +305,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
             // given
             EventEnvelope<ApprovalReviewRequest> inboundEnvelope =
                 CreateRandomApprovalReviewRequestEnvelope(
-                    CreateAuthenticatedSecurityContext(Roles.Admin));
+                    CreateAuthenticatedSecurityContext(Roles.Administrators));
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectProcessedEventExistsAsync(
@@ -393,7 +393,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
             var inboundEnvelope = new EventEnvelope<ApprovalReviewRequest>
             {
                 Content = new ApprovalReviewRequest { Id = randomApprovalReviewRequest.Id },
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

@@ -13,7 +13,7 @@ describe('ContributionPrompt', () => {
 
         // then
         const submitLink = screen.getByRole('link', { name: /Submit a contribution/ });
-        expect(submitLink).toHaveAttribute('href', '/post/contribute');
+        expect(submitLink).toHaveAttribute('href', '/posts/contribute');
         expect(screen.queryByText(/Login to share/)).not.toBeInTheDocument();
     });
 

@@ -39,7 +39,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — the
     /// contribution gate on writes, owner-or-moderation-role write permission (removal by
-    /// owner or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility
+    /// owner or Administrators, hard removal by Administrators only), and the §14.1/§14.5 read visibility
     /// posture — never assuming an upstream orchestration already gated the caller.
     /// </summary>
     internal partial class BibleReferenceService : IBibleReferenceService

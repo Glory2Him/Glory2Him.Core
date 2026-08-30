@@ -385,7 +385,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
         private static SecurityContext CreateAuthenticatedSecurityContext() =>
             CreateSecurityContext(
-                roles: new List<string> { Roles.Publisher },
+                roles: new List<string> { Roles.Publishers },
                 isAuthenticated: true);
 
         private static ApprovalDecisionQuery CreateApprovalDecisionQuery(

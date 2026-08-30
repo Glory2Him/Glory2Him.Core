@@ -66,7 +66,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
         /// Moves a tag's approval state (design §9.7.1, §8.6). One verb carries every such
         /// move, because they are one act under different authority rather than three
         /// operations: the ordinary <c>Submitted → Approved</c>/<c>Rejected</c> verdict, the
-        /// <c>Admin</c> override that re-opens a terminal row, and the bypass that waives the
+        /// <c>Administrators</c> override that re-opens a terminal row, and the bypass that waives the
         /// §8.5 conditions.
         ///
         /// <para>The caller's copy carries the whole of <c>IApproval</c> as a unit — the target

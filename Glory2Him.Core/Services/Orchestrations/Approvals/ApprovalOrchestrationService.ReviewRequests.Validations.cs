@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -37,12 +38,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
 
             bool isPermitted =
-                securityContext.Roles.Contains(Roles.Admin)
-                    || securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Reviewer)
+                securityContext.Roles.Contains(Roles.Administrators)
+                    || securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.Reviewers)
                     || securityContext.Roles.Any(role =>
-                        role.EndsWith("-Publisher", StringComparison.Ordinal)
-                            || role.EndsWith("-Reviewer", StringComparison.Ordinal));
+                        role.EndsWith("-Publishers", StringComparison.Ordinal)
+                            || role.EndsWith("-Reviewers", StringComparison.Ordinal));
 
             if (isPermitted is false)
             {
@@ -58,6 +59,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 message: "Approval orchestration request is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(entityType), Parameter: nameof(EntityType)),
                 (Rule: IsInvalid(entityId), Parameter: "EntityId"));
+
+        // The resolver's only shape rule, and it is a CEILING rather than a required-ness check.
+        // An empty ask is answered with an empty list - a panel holding no ids should not have to
+        // branch around calling - but an oversized one is refused outright rather than truncated,
+        // because a silently shortened answer would leave the caller rendering blanks it could
+        // not explain.
+        //
+        // It counts ACCOUNTS, which is why it takes parsed ids rather than the caller's strings. A
+        // GUID has several equal spellings, so counting raw text would refuse a caller who asked
+        // about 200 people using 201 spellings of them.
+        private static void ValidateOnRetrieveReviewerDisplayNames(
+            IReadOnlyList<Guid> requestedUserIds)
+        {
+            if (requestedUserIds.Count > MaximumReviewerDisplayNameBatch)
+            {
+                throw new InvalidApprovalOrchestrationException(
+                    message: $"No more than {MaximumReviewerDisplayNameBatch} user ids may be "
+                        + "resolved in one request.");
+            }
+        }
 
         private static void ValidateOnRequestApprovalReview(
             EntityType entityType,
@@ -160,7 +181,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // 7.9 rule 3, the tier half - resolved from the identity store rather than from the
         // caller. An invitation to somebody ineligible is a lie the panel would then render, and
         // one the foundation could not catch: a request row names no entity type, so nothing
-        // downstream can tell a Tag-Reviewer from a Link-Reviewer.
+        // downstream can tell a Tag-Reviewers holder from a Link-Reviewers one.
         private static void ValidateRequestedUserIsInTheReviewTier(
             IdentityUser requestedUser,
             string requestedUserId)

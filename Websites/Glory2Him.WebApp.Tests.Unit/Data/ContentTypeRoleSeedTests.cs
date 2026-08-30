@@ -50,11 +50,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
             foreach (ContentType contentType in Enum.GetValues<ContentType>())
             {
                 seededRoles.Should().Contain(
-                    Roles.ReviewerFor(EntityType.ContentItem, contentType),
+                    Roles.ReviewersFor(EntityType.ContentItem, contentType),
                     because: $"a reviewer must be scopeable to {contentType} alone (18.6 rule 5)");
 
                 seededRoles.Should().Contain(
-                    Roles.PublisherFor(EntityType.ContentItem, contentType),
+                    Roles.PublishersFor(EntityType.ContentItem, contentType),
                     because: $"a publisher must be scopeable to {contentType} alone (18.6 rule 5)");
             }
         }
@@ -63,7 +63,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
         /// ContentItem ONLY. Composing the narrow tier for any other entity type would mint
         /// exactly the roles 14.7 posture A-prime rule 6 exists to refuse - AssociationService
         /// tests the endpoint type as well as the content type so that a
-        /// ContentItem-Testimony-Reviewer can never be matched against a Tag endpoint that
+        /// ContentItem-Testimony-Reviewers can never be matched against a Tag endpoint that
         /// happens to carry Testimony.
         /// </summary>
         [Fact]
@@ -82,11 +82,11 @@ namespace Glory2Him.WebApp.Tests.Unit.Data
                 foreach (ContentType contentType in Enum.GetValues<ContentType>())
                 {
                     seededRoles.Should().NotContain(
-                        Roles.ReviewerFor(entityType, contentType),
+                        Roles.ReviewersFor(entityType, contentType),
                         because: "only ContentItem carries a ContentType (18.6 rule 5)");
 
                     seededRoles.Should().NotContain(
-                        Roles.PublisherFor(entityType, contentType),
+                        Roles.PublishersFor(entityType, contentType),
                         because: "only ContentItem carries a ContentType (18.6 rule 5)");
                 }
             }

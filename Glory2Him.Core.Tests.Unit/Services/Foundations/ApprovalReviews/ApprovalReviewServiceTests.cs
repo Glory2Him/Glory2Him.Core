@@ -259,20 +259,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         // the global review roles plus two scoped ones standing in for the §16.6
-        // "%EntityType%-Reviewer"/"%EntityType%-Publisher" convention the foundation
+        // "%EntityType%-Reviewers"/"%EntityType%-Publishers" convention the foundation
         // recognizes by suffix
         public static TheoryData<string> ReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.Reviewer,
-                Roles.Publisher,
-                Roles.Admin,
-                Roles.ContentItemReviewer,
-                Roles.TagPublisher
+                Roles.Reviewers,
+                Roles.Publishers,
+                Roles.Administrators,
+                Roles.ContentItemReviewers,
+                Roles.TagPublishers
             };
 
         public static TheoryData<string[]> NonReviewRoleSets() =>

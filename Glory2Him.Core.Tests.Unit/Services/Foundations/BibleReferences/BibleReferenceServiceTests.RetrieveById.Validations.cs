@@ -123,9 +123,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfBibleReferenceIsSoftDeletedAndLogItAsync()
         {
-            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // given: even an administrator caller gets not-found for a soft-deleted row —
             // deleted beats privilege
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             BibleReference storageBibleReference = CreateRandomBibleReference();
             storageBibleReference.IsDeleted = true;
             Guid bibleReferenceId = storageBibleReference.Id;

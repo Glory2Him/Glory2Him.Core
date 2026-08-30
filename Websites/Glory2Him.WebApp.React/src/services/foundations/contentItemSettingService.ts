@@ -18,6 +18,16 @@ export const contentItemSettingService = {
         });
     },
 
+    useGetDefaults: () => {
+        const contentItemSettingBroker = new ContentItemSettingBroker();
+
+        return useQuery<ContentItemSetting[]>({
+            queryKey: ["ContentItemSettingsGetDefaults"],
+            queryFn: async () => await contentItemSettingBroker.GetDefaultsAsync(),
+            staleTime: 60 * 1000
+        });
+    },
+
     // The query is part of the key, so changing a filter or turning a page is a separate cache
     // entry rather than a refetch of the same one. The previous page stays on screen while the
     // next one loads, which keeps the table from collapsing to a spinner on every keystroke.
@@ -63,6 +73,12 @@ export const contentItemSettingService = {
                 // general users, and IsAvailableAsGeneralUserContribution is editable here.
                 queryClient.invalidateQueries({
                     queryKey: ["ContentItemSettingsGetAvailableForContribution"]
+                });
+
+                // The post page reads the same rows for a type's name, icon and field shaping,
+                // every one of which is editable here.
+                queryClient.invalidateQueries({
+                    queryKey: ["ContentItemSettingsGetDefaults"]
                 });
             }
         });

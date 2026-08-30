@@ -30,6 +30,18 @@ class ContentItemSettingBroker {
         return result.data as ContentItemSetting[];
     }
 
+    // Every per-content-type DEFAULT row, whether or not it is open to general contribution: a
+    // page that RENDERS an item needs its type's name, icon and field shaping regardless of who
+    // may contribute one. The reads are [AllowAnonymous] (the effective settings drive rendering
+    // for signed-out readers too), so this is safe on a public page.
+    async GetDefaultsAsync(): Promise<ContentItemSetting[]> {
+        const filter = 'contentItemId eq null';
+        const url = `${this.relativeContentItemSettingsUrl}?$filter=${encodeURIComponent(filter)}`;
+        const result = await this.apiBroker.GetAsync(url);
+
+        return result.data as ContentItemSetting[];
+    }
+
     // The admin list. Searching, filtering, ordering and paging all run server-side through
     // [EnableQuery] — the host caps a collection read at OData:PageSize rows, so a client that
     // paged in memory would silently stop at that cap once the overrides outgrow it.

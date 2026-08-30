@@ -122,9 +122,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfApprovalReviewIsSoftDeletedAndLogItAsync()
         {
-            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // given: even an administrator caller gets not-found for a soft-deleted row —
             // deleted beats privilege
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.IsDeleted = true;
             Guid approvalReviewId = storageApprovalReview.Id;

@@ -34,7 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldRequestApprovalReviewAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             Guid invitedId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
@@ -86,7 +86,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldReturnTheStandingRequestWhenTheUserIsAlreadyInvitedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             Guid invitedId = Guid.NewGuid();
             Guid standingRequestId = Guid.NewGuid();
@@ -140,7 +140,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldThrowOnRequestIfTheInvitedUserOwnsTheEntityAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             Guid ownerId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId, entityCreatedBy: ownerId.ToString());
@@ -176,7 +176,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldThrowOnRequestIfTheInvitedUserIsNotInTheReviewTierAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId);
 
@@ -221,7 +221,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldThrowOnRequestIfTheRoundIsNotOpenAsync(ApprovalStatus status)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             SetupReviewerScope(approvalId: approvalId, approvalStatus: status);
 
@@ -261,7 +261,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldDissolveTheRequestQuietlyIfTheInvitedUserHasAlreadyReviewedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             Guid reviewedId = Guid.NewGuid();
 
@@ -333,7 +333,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         {
             // given: two rows on this round and one on another, so a read that forgot to filter
             // by ApprovalId is distinguishable from one that did
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
             Guid otherApprovalId = Guid.NewGuid();
 
@@ -416,7 +416,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldWithdrawApprovalReviewRequestAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
             Guid requestId = Guid.NewGuid();
             Guid entityId = Guid.NewGuid();
@@ -474,7 +474,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldRefuseToWithdrawARequestItsTargetHasAlreadyAnsweredAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid requestId = Guid.NewGuid();
             Guid approvalId = Guid.NewGuid();
             Guid answeredById = Guid.NewGuid();
@@ -528,7 +528,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         {
             // given: a round with an invitation out to somebody ELSE, so the miss is specific to
             // the person asked for rather than an empty round answering everything
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
 
             SetupReviewerScope(
@@ -600,7 +600,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldReturnTheWinningRequestWhenTwoInvitationsRaceAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             Guid invitedId = Guid.NewGuid();
             Guid winningRequestId = Guid.NewGuid();

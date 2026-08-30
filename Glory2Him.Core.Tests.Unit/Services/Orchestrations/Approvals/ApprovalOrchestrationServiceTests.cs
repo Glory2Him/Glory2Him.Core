@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // The publisher tier by default, because that is who reaches the verdict at all.
             // Tests about the gate override it explicitly.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<Approval>()))
@@ -93,6 +93,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     .Returns((ApprovalReviewRequest content) =>
                         new ValueTask<EventEnvelope<ApprovalReviewRequest>>(
                             new EventEnvelope<ApprovalReviewRequest>
+                            {
+                                Content = content,
+                                SecurityContext = this.ambientSecurityContext,
+                                Metadata = new EventMetadata { EventId = Guid.NewGuid() }
+                            }));
+
+            // The name resolver reads no approval, so it mints its envelope over the id list
+            // itself - there is no entity to hang one off, and the envelope is wanted for its
+            // security context alone.
+            this.eventEnvelopeBrokerMock.Setup(broker =>
+                broker.CreateAsync(It.IsAny<IReadOnlyList<string>>()))
+                    .Returns((IReadOnlyList<string> content) =>
+                        new ValueTask<EventEnvelope<IReadOnlyList<string>>>(
+                            new EventEnvelope<IReadOnlyList<string>>
                             {
                                 Content = content,
                                 SecurityContext = this.ambientSecurityContext,

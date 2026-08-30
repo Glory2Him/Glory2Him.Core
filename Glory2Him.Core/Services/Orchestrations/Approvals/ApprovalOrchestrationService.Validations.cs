@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // what an ERROR may reveal to an unprivileged probe; this is a deliberate answer to the
         // party the policy is addressed to, and the tier gate is what keeps those distinct.
         //
-        // A Reviewer is admitted: they cannot decide (HR-3) but the verdict is how they see
+        // A reviewer is admitted: they cannot decide (HR-3) but the verdict is how they see
         // whether their own review completed the round, and they can already read the reviews
         // and comments individually.
         private static void ValidateUserMaySeeApprovalVerdict(SecurityContext securityContext)
@@ -172,12 +172,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
 
             bool isPermitted =
-                securityContext.Roles.Contains(Roles.Admin)
-                    || securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Reviewer)
+                securityContext.Roles.Contains(Roles.Administrators)
+                    || securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.Reviewers)
                     || securityContext.Roles.Any(role =>
-                        role.EndsWith("-Publisher", StringComparison.Ordinal)
-                            || role.EndsWith("-Reviewer", StringComparison.Ordinal));
+                        role.EndsWith("-Publishers", StringComparison.Ordinal)
+                            || role.EndsWith("-Reviewers", StringComparison.Ordinal));
 
             if (isPermitted is false)
             {

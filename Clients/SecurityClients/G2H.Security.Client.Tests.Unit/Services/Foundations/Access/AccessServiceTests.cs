@@ -175,7 +175,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             new RecordReviewRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(
-                    roles: new List<string> { RoleNames.Reviewer }),
+                    roles: new List<string> { RoleNames.Reviewers }),
 
                 RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
                 EntityCreatedBy = entityCreatedBy ?? GetRandomString(),
@@ -191,7 +191,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             new AmendApprovalRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(
-                    roles: new List<string> { RoleNames.Reviewer }),
+                    roles: new List<string> { RoleNames.Reviewers }),
 
                 RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
 
@@ -219,7 +219,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             return new DecideApprovalRequest
             {
                 Actor = actor ?? CreateRandomAccessActor(
-                    roles: new List<string> { RoleNames.Publisher }),
+                    roles: new List<string> { RoleNames.Publishers }),
 
                 Decision = decision,
                 RoleSubjects = roleSubjects ?? new List<RoleSubject>(),
