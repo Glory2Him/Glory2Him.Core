@@ -7,6 +7,7 @@ import { JournalMasonry } from '../pages/journalMasonry';
 import { PostDetail } from '../pages/postDetail';
 import { PostGrid } from '../pages/postGrid';
 import { PostList } from '../pages/postList';
+import { Posts } from '../pages/posts';
 import { PostSingle } from '../pages/postSingle';
 import { Tag } from '../pages/tag';
 
@@ -27,6 +28,10 @@ export const publicPostRoutes: RouteObject[] = [
     // the parameter one for the reader's sake — React Router ranks a static segment above a
     // dynamic one whatever the order — so /posts/contribute is the form and /posts/{id} is an
     // item.
+    // The collection itself: every contribution, searched and scrolled. Declared before
+    // its two members for the reader's sake - React Router ranks a static segment above a
+    // dynamic one whatever the order.
+    { path: 'posts', element: <Posts /> },
     { path: 'posts/contribute', element: <Contribute /> },
     { path: 'posts/:contentItemId', element: <PostDetail /> },
 

@@ -176,6 +176,30 @@ describe('ContentItemSearchPanel', () => {
             expect(screen.getByText(devotionalItem.content)).toBeInTheDocument();
         });
 
+        // A story's author and its contributor are two different people, so the row credits the
+        // author on its own line rather than folding them together in the byline.
+        it('should credit the author of the words on a row that carries one', () => {
+            renderPanel(
+                <ContentItemSearchPanel
+                    contentItemCollection={[{ ...devotionalItem, author: 'Miriam Vale' }]}
+                    contentItemSettingCollection={defaultSettings} />);
+
+            expect(screen.getByText('by Miriam Vale')).toBeInTheDocument();
+        });
+
+        it('should credit no author on a type whose setting carries none', () => {
+            const noAuthor = [
+                settingFor(ContentType.Devotional, 'Devotional', { hasAuthor: false })
+            ];
+
+            renderPanel(
+                <ContentItemSearchPanel
+                    contentItemCollection={[{ ...devotionalItem, author: 'Miriam Vale' }]}
+                    contentItemSettingCollection={noAuthor} />);
+
+            expect(screen.queryByText('by Miriam Vale')).not.toBeInTheDocument();
+        });
+
         it('should name the card by the setting rather than by the enum member', () => {
             renderPanel(
                 <ContentItemSearchPanel

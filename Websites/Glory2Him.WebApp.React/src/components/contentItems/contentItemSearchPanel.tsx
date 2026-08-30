@@ -510,6 +510,15 @@ export function ContentItemSearchPanel({
                             {renderStatusBadge(item)}
                         </h3>
 
+                        {/* The author of the WORDS, when the type carries one. Its own line
+                            rather than a place in the byline below, which names the contributor
+                            — on a story those are two different people, and running them
+                            together would credit the wrong one. */}
+                        {(item.author ?? '').length > 0
+                            && settingFor(item)?.hasAuthor !== false && (
+                                <p className="small mb-2">{authorByText} {item.author}</p>
+                            )}
+
                         <p className="card-text g2h-content-item-excerpt">
                             {(item.excerpt ?? '').length > 0 ? item.excerpt : item.content}
                         </p>
