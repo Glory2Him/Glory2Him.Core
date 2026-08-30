@@ -1757,5 +1757,101 @@ describe('ReviewPanel', () => {
             expect(onReviewRequested).toHaveBeenCalledWith(mary);
             expect(screen.getByRole('button', { name: /Paul/ })).toBeInTheDocument();
         });
+
+        // Keyboard activation of a <button> fires keydown/click and no mousedown, so the
+        // cross-menu dismissal that mousedown gives the outside-click test above never runs for
+        // a keyboard user. Without the focusout close, tabbing out of a menu leaves it painted
+        // over the page with aria-expanded still "true".
+        it.each(menus)(
+            'should close %s and drop aria-expanded when focus tabs out of it',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+                expect(screen.getByRole('button', { name: new RegExp(itemName) }))
+                    .toBeInTheDocument();
+
+                // when: focus leaves the container for something outside it entirely. Fired
+                // directly rather than via .focus()/tab, because jsdom does not reliably
+                // populate relatedTarget on the focusout it raises for a plain focus() call —
+                // this is what a real browser sends when Tab carries focus past the menu.
+                const outside = document.createElement('input');
+                document.body.appendChild(outside);
+                const container = trigger.closest('.dropdown') as HTMLElement;
+                fireEvent.focusOut(container, { relatedTarget: outside });
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+                expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+                // and focus is not dragged back — the user has already moved on
+                expect(trigger).not.toHaveFocus();
+
+                document.body.removeChild(outside);
+            });
+
+        it('should not leave a menu open for a later Escape to stale-close after focus moves on', async () => {
+            // given: the picker's filter box is a plain textbox that gets no special treatment
+            // from the hook — it stands in for "the user has since moved to unrelated UI"
+            const trigger = await openPicker();
+            const filterBox = screen.getByRole('textbox', { name: /Filter by name/ });
+            expect(filterBox).toHaveFocus();
+
+            // when: focus leaves the picker entirely for something outside it
+            document.body.focus();
+            const outsideInput = document.createElement('input');
+            document.body.appendChild(outsideInput);
+            outsideInput.focus();
+            await userEvent.type(outsideInput, 'wor');
+
+            // and: Escape now fires — meant for this field/browser autofill, not the picker,
+            // which the fix requires to already be closed and unarmed
+            await userEvent.keyboard('{Escape}');
+
+            // then: the outside field keeps its text and its focus, and the picker did not
+            // reopen or steal focus back to its trigger
+            expect(outsideInput).toHaveValue('wor');
+            expect(outsideInput).toHaveFocus();
+            expect(trigger).not.toHaveFocus();
+
+            document.body.removeChild(outsideInput);
+        });
+
+        // Cross-menu dismissal used to come only from the mousedown listener, which keyboard
+        // activation never fires — so opening a second menu with Enter left the first one open,
+        // and a single Escape then closed both, with the LAST effect to run (hook-declaration
+        // order) winning the focus regardless of which menu the user was actually in.
+        it('should not allow two menus open at once when both are opened via the keyboard', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary, paul]} />);
+
+            const cog = screen.getByRole('button', { name: 'Request a review' });
+            const voteTrigger = screen.getByRole('button', { name: 'Vote...' });
+
+            // when: keyboard activation, not a click — no mousedown is fired by either
+            cog.focus();
+            await userEvent.keyboard('{Enter}');
+            expect(document.querySelectorAll('.dropdown-menu.show')).toHaveLength(1);
+
+            voteTrigger.focus();
+            await userEvent.keyboard('{Enter}');
+
+            // then: only the second menu is open
+            expect(document.querySelectorAll('.dropdown-menu.show')).toHaveLength(1);
+            expect(cog).toHaveAttribute('aria-expanded', 'false');
+            expect(voteTrigger).toHaveAttribute('aria-expanded', 'true');
+
+            // and a single Escape closes the one actually open, returning focus to IT
+            await userEvent.keyboard('{Escape}');
+
+            expect(document.querySelectorAll('.dropdown-menu.show')).toHaveLength(0);
+            expect(voteTrigger).toHaveFocus();
+        });
     });
 });
