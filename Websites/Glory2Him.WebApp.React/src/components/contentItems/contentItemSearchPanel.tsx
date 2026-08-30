@@ -419,20 +419,24 @@ export function ContentItemSearchPanel({
     // THE QUOTE RENDER. The quote itself is the card's heading — there is no title on a quote, and
     // showing the words whole is what makes reacting in place fair.
     //
-    // No stretched-link, unlike the theme's own hero card: this one carries its own buttons, and a
-    // link covering the whole card would swallow every one of them.
+    // A card-body IN NORMAL FLOW rather than the theme's absolutely positioned card-img-overlay,
+    // and neither is an accident. The overlay only has a height where a .card-grid ancestor gives
+    // the card one, which a scrolling list does not — and even given one, a long quote would
+    // overflow a fixed height rather than grow the card. This body sets the card's height from its
+    // own content and lifts itself over the gradient the theme draws behind it.
+    //
+    // No stretched-link either, unlike the theme's own hero card: this one carries its own
+    // buttons, and a link covering the whole card would swallow every one of them.
     const renderQuoteCard = (item: ContentItemSearchItem) => (
         <article
             key={item.id}
-            className="card card-overlay-bottom card-grid-lg card-bg-scale mb-4"
+            className="card card-overlay-bottom card-bg-scale g2h-content-item-hero mb-4"
             style={{
                 backgroundImage:
-                    (item.imageUrl ?? '').length > 0 ? `url(${item.imageUrl})` : undefined,
-                backgroundPosition: 'center center',
-                backgroundSize: 'cover'
+                    (item.imageUrl ?? '').length > 0 ? `url(${item.imageUrl})` : undefined
             }}>
 
-            <div className="card-img-overlay d-flex align-items-center p-3 p-sm-4">
+            <div className="card-body d-flex flex-column justify-content-end p-3 p-sm-4">
                 <div className="w-100 mt-auto">
                     <span className={`badge ${contentTypeBadgeCssClasses[item.contentType]} mb-2`}>
                         <i
@@ -448,8 +452,12 @@ export function ContentItemSearchPanel({
                             {item.content}
                         </Link>
 
+                        {/* text-white rather than the theme's text-white-force, which colours
+                            DESCENDANTS (`.text-white-force *`) and so does nothing to the element
+                            carrying it. The h6 class sets its own heading colour, which is what
+                            has to be beaten here. */}
                         {(item.author ?? '').length > 0 && (
-                            <span className="d-block h6 mt-2 text-white-force">
+                            <span className="d-block h6 mt-2 text-white">
                                 — {item.author}
                             </span>
                         )}
@@ -636,8 +644,19 @@ export function ContentItemSearchPanel({
 
                     {/* The sentinel is rendered whenever there is more, even where the observer
                         cannot be built — it costs nothing, and rendering it conditionally on
-                        support would mean two different trees to reason about. */}
-                    {hasMore && <div ref={sentinelRef} aria-hidden="true"></div>}
+                        support would mean two different trees to reason about.
+
+                        IT CARRIES A HEIGHT, and that is the whole point of the class. A bare
+                        <div> here is zero-area, and an observer over a zero-area target is
+                        unreliable — engines differ on whether an empty intersection rectangle
+                        counts as intersecting at all, which is a list that silently stops
+                        loading rather than an error anyone would see. One pixel is enough. */}
+                    {hasMore && (
+                        <div
+                            ref={sentinelRef}
+                            className="g2h-content-item-sentinel"
+                            aria-hidden="true"></div>
+                    )}
 
                     {isLoadingMore && (
                         <div className="text-center py-3" role="status">

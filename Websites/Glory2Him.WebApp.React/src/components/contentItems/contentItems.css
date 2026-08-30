@@ -87,3 +87,36 @@ section.g2h-content-item-search-panel {
     border-color: var(--bs-primary);
     box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
 }
+
+/* The quote card. Its height comes from a card-body in NORMAL FLOW rather than from the theme's
+   .card-grid .card-grid-lg pair, which sets a fixed 560px and only under a .card-grid ancestor —
+   a scrolling list has neither, so the card collapsed to nothing. A minimum keeps a one-line
+   quote from reading as a strip, and a long one simply grows the card. */
+.g2h-content-item-hero {
+    min-height: 18rem;
+    background-color: var(--bs-dark);
+    background-position: center center;
+    background-size: cover;
+}
+
+@media (max-width: 767.98px) {
+    .g2h-content-item-hero {
+        min-height: 14rem;
+    }
+}
+
+/* The theme draws its bottom gradient as an absolutely positioned ::before at z-index 1, and gives
+   only .card-img-overlay a z-index above it. A body in normal flow has to lift itself, or the
+   quote sits behind the very gradient that makes it readable. */
+.g2h-content-item-hero > .card-body {
+    position: relative;
+    z-index: 2;
+}
+
+/* The infinite-scroll sentinel. A pixel tall rather than nothing at all: an IntersectionObserver
+   over a zero-area target is unreliable — engines disagree on whether an empty intersection
+   rectangle counts — and the failure is a list that quietly stops loading rather than anything
+   anyone would see. */
+.g2h-content-item-sentinel {
+    height: 1px;
+}
