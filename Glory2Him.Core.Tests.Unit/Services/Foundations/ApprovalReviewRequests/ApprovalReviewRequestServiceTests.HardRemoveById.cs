@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldHardRemoveApprovalReviewRequestByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalReviewRequest randomApprovalReviewRequest = CreateRandomApprovalReviewRequest();
             Guid inputApprovalReviewRequestId = randomApprovalReviewRequest.Id;
             ApprovalReviewRequest storageApprovalReviewRequest = randomApprovalReviewRequest;
@@ -87,7 +87,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         }
 
         /// <summary>
-        /// Hard removal destroys the row and its audit trail, so it is <c>Admin</c>-only —
+        /// Hard removal destroys the row and its audit trail, so it is <c>Administrators</c>-only —
         /// deliberately narrower than withdrawal, which the whole review tier may perform (§7.9
         /// rule 5). Withdrawal is reversible bookkeeping; this is not.
         /// </summary>
@@ -142,7 +142,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowNotFoundExceptionOnHardRemoveIfRequestDoesNotExistAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalReviewRequestId = Guid.NewGuid();
             ApprovalReviewRequest noApprovalReviewRequest = null;
 
@@ -233,7 +233,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowValidationExceptionOnHardRemoveIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid invalidApprovalReviewRequestId = Guid.Empty;
 
             var invalidApprovalReviewRequestException =
@@ -278,7 +278,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldHardRemoveAnAlreadyWithdrawnApprovalReviewRequestAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalReviewRequest randomApprovalReviewRequest = CreateRandomApprovalReviewRequest();
             randomApprovalReviewRequest.IsDeleted = true;
             Guid inputApprovalReviewRequestId = randomApprovalReviewRequest.Id;

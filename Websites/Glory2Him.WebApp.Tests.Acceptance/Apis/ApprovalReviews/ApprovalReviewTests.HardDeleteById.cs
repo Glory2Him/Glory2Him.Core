@@ -21,7 +21,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
 {
     /// <summary>
     /// Permanent removal, the one operation with a fixed enumerable tier in the attribute. It
-    /// destroys the row rather than retaining it, which is why it is <c>Admin</c> alone and why
+    /// destroys the row rather than retaining it, which is why it is <c>Administrators</c> alone and why
     /// §7.7 records it as a route rather than endorsing it.
     /// </summary>
     public partial class ApprovalReviewApiTests
@@ -35,7 +35,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
 
             try
             {
-                // when: the seeded administrator carries the real Admin role
+                // when: the seeded administrator carries the real Administrators role
                 this.apiBroker.ActAsSeededAdministrator();
 
                 ApprovalReview hardDeletedReview =
@@ -58,7 +58,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
         }
 
         /// <summary>
-        /// The global block role wins over <c>Admin</c>. A caller carrying both is refused, so a
+        /// The global block role wins over <c>Administrators</c>. A caller carrying both is refused, so a
         /// blocked administrator cannot destroy a verdict — the same precedence the comment
         /// exposer asserts, and the reason the block is checked before any tier.
         /// </summary>
@@ -74,7 +74,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 // when
                 this.apiBroker.ActAs(
                     Guid.NewGuid().ToString(),
-                    Roles.Admin,
+                    Roles.Administrators,
                     Roles.ReadOnly);
 
                 var hardDeleteTask =

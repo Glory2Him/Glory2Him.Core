@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         public async Task ShouldRetrieveAllTagsAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             IQueryable<Tag> randomTags = CreateRandomTags();
 
             foreach (Tag tag in randomTags)

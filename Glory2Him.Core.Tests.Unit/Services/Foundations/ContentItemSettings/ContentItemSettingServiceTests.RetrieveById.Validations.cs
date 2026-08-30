@@ -123,9 +123,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRetrieveByIdIfContentItemSettingIsSoftDeletedAndLogItAsync()
         {
-            // given: even an Admin caller gets not-found for a soft-deleted row —
+            // given: even an administrator caller gets not-found for a soft-deleted row —
             // deleted beats privilege
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
             storageContentItemSetting.IsDeleted = true;
             Guid contentItemSettingId = storageContentItemSetting.Id;
@@ -189,7 +189,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             SecurityContext anonymousSecurityContext)
         {
             // given: the deleted row is the only denial a reader can meet, and it reads
-            // the same to an anonymous caller as it does to an Admin
+            // the same to an anonymous caller as it does to an administrator
             this.ambientSecurityContext = anonymousSecurityContext;
             ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
             storageContentItemSetting.IsDeleted = true;

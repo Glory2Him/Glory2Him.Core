@@ -102,7 +102,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldRetrieveReviewerCandidatesExcludingOnlyTheEntityOwnerAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid approvalId = Guid.NewGuid();
             Guid ownerId = Guid.NewGuid();
             Guid reviewedId = Guid.NewGuid();
@@ -162,7 +162,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldComposeTheReviewTierRoleNamesFromTheApprovalSubjectsAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             IEnumerable<string> capturedRoleNames = null;
 
@@ -185,13 +185,13 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // then
             capturedRoleNames.Should().BeEquivalentTo(new[]
             {
-                "Reviewer",
-                "Publisher",
-                "Admin",
-                "ContentItem-Reviewer",
-                "ContentItem-Publisher",
-                "ContentItem-Blog-Reviewer",
-                "ContentItem-Blog-Publisher",
+                "Reviewers",
+                "Publishers",
+                "Administrators",
+                "ContentItem-Reviewers",
+                "ContentItem-Publishers",
+                "ContentItem-Blog-Reviewers",
+                "ContentItem-Blog-Publishers",
             });
         }
 
@@ -199,7 +199,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldNotComposeContentTypeRolesWhenTheSubjectCarriesNoContentTypeAsync()
         {
             // given: 18.6 rule 5 gives the narrow tier to ContentItem alone
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalId = Guid.NewGuid();
             IEnumerable<string> capturedRoleNames = null;
 

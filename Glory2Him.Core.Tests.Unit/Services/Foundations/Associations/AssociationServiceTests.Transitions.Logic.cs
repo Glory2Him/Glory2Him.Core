@@ -126,7 +126,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             //
             // Without this, deleting any one of the four copies leaves the suite green.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             string actorUserId = GetRandomString();
 
@@ -249,7 +249,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // score must leave the row saying a human set it — otherwise a retraction sweeping
             // the model's batch would sweep up the human's correction too.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             string actorUserId = GetRandomString();
 

@@ -30,7 +30,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
             this.apiBroker = apiBroker;
 
             // The acting caller is shared client state, so it is reset here rather than left to
-            // whichever test ran last. Every write on this exposer is Admin-only (§14.7 posture
+            // whichever test ran last. Every write on this exposer is Administrators-only (§14.7 posture
             // C), and the seeded administrator is the only caller who holds it.
             this.apiBroker.ActAsSeededAdministrator();
         }

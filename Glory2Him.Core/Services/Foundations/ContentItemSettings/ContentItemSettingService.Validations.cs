@@ -28,7 +28,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         // an upstream layer already gated the caller
 
         // content item settings are administrator-authored display configuration — a
-        // single Admin gate covers Add, Modify and Remove
+        // single Administrators gate covers Add, Modify and Remove
         private static void ValidateUserIsAllowedToAdministerContentItemSettings(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                     message: "The current user is not authenticated.");
             }
 
-            // the global ReadOnly ban precedes the Admin check, so a banned Admin cannot reach
+            // the global ReadOnly ban precedes the Administrators check, so a banned administrator cannot reach
             // past it — this gate is every content item setting write, hard remove included.
             if (securityContext.Roles.Contains(Roles.ReadOnly))
             {
@@ -52,7 +52,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only, same as
+        // a hard remove destroys the row and its audit trail — Administrators only, same as
         // every other content item setting write
         private static void ValidateUserCanHardRemoveContentItemSetting(SecurityContext securityContext) =>
             ValidateUserIsAllowedToAdministerContentItemSettings(securityContext);
@@ -60,7 +60,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         // the only role that may write settings — there is no read counterpart: settings
         // drive anonymous page rendering, so every non-deleted row is public (§14.1)
         private static bool HasAdminRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Administrators);
 
         private async ValueTask ValidateOnAddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,

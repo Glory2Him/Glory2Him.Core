@@ -26,7 +26,7 @@ using Moq;
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
 {
     /// <summary>
-    /// The three things the widened transition verb added: the <c>Admin</c> override out of a
+    /// The three things the widened transition verb added: the <c>Administrators</c> override out of a
     /// terminal state, the system identity as a second admissible actor, and the bypass pair
     /// carried as a request and written from the verdict.
     /// </summary>
@@ -39,10 +39,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             ApprovalStatus terminalStatus)
         {
             // given: the publisher tier decides a SUBMITTED row. Moving one back out of a
-            // terminal state is an override, and a state a Publisher could edit out of would not
+            // terminal state is an override, and a state a publisher could edit out of would not
             // be terminal at all (§3.4 rules 7 and 16, §8.6 HR-4).
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Tag storageTag = CreateTerminalStorageTag(terminalStatus);
             Tag inputTag = CreateReopenDecision(storageTag.Id);
@@ -88,7 +88,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         public async Task ShouldThrowUnauthorizedOnTransitionIfANonPublisherOverridesATerminalRowAsync(
             string[] roles)
         {
-            // given: the owner and the Reviewer are refused the override too, and by the SAME
+            // given: the owner and the Reviewers are refused the override too, and by the SAME
             // gate — it runs before the publisher-tier check, so the message names the override
             // rather than the approve.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // published, so this is also where the unpublish-on-the-way-out rule is proved:
             // a re-opened row must not stay publicly visible while it waits for a second verdict.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Tag storageTag = CreateTerminalStorageTag(terminalStatus);
             Tag inputTag = CreateReopenDecision(storageTag.Id);
@@ -174,7 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // whatever this demoted — the group simply has no public row until something is
             // approved again.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Tag storageTag = CreateTerminalStorageTag(ApprovalStatus.Approved);
             Tag inputTag = CreateRejectionDecision(storageTag.Id);
@@ -234,7 +234,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         public async Task ShouldPermitASystemIdentityToOverrideATerminalRowAsync()
         {
             // given: the previously published sibling a newly approved version demotes is itself
-            // Approved, so no Publisher may touch it and no human is available to. The override
+            // Approved, so no Publishers may touch it and no human is available to. The override
             // is open to the workflow for exactly that write.
             this.ambientSecurityContext = CreateSystemSecurityContext();
 
@@ -298,7 +298,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // would most want — it re-opens and unpublishes a decided row. Admitted here only
             // because the envelope was verified; the sibling demotion that follows a new
             // version's approval is exactly this write, against a row that is itself Approved
-            // and therefore untouchable by any Publisher.
+            // and therefore untouchable by any Publishers.
             var requestEnvelope = new EventEnvelope<Tag>
             {
                 SecurityContext = CreateSystemSecurityContext(),
@@ -369,7 +369,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // "what was published without meeting its conditions" answers with rows that met
             // them.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Tag storageTag = CreateApprovableStorageTag();
 
@@ -395,7 +395,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // given: the reason's VALUE is necessarily the caller's own words — no decision can
             // say why a human chose to override — but its RETENTION is the decision's call.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Tag storageTag = CreateApprovableStorageTag();
             string inputBypassReason = GetRandomString();
@@ -422,7 +422,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // given: the request has to reach the decision, or DoNotAllowBypassingSettings has
             // nothing to refuse and the waiver is never actually evaluated.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Tag storageTag = CreateApprovableStorageTag();
             string inputBypassReason = GetRandomString();
@@ -451,7 +451,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // one records nothing worth reading. Refused BEFORE any policy is read, so it is
             // refused under every policy — including one that would have permitted the waiver.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Tag inputTag = CreateBypassApprovalRequest(
                 tagId: Guid.NewGuid(),
@@ -505,7 +505,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // than granting it and re-opening decides nothing, so neither has anything to waive
             // (§9.7.5). Admitting one would stamp IsApprovedByBypass on a rejection.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Tag inputTag = CreateBypassApprovalRequest(
                 tagId: Guid.NewGuid(),
@@ -550,11 +550,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         [Fact]
         public async Task ShouldThrowUnauthorizedOnTransitionIfTheDecisionRefusesABypassForAnAdminAsync()
         {
-            // given: DoNotAllowBypassingSettings closes the route to EVERYONE, Admin included.
+            // given: DoNotAllowBypassingSettings closes the route to EVERYONE, Administrators included.
             // The setting lives on another entity, so the refusal comes back on the verdict —
             // which is the point of asking rather than deciding locally.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Tag storageTag = CreateApprovableStorageTag();
 

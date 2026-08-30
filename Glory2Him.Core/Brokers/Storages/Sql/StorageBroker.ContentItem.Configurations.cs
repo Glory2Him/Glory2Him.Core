@@ -138,11 +138,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                 .IsUnique()
                 .IsDescending(true, true);
 
-            // Exactly one latest per GroupId (enforced with filtered unique index)
-            model.HasIndex(e => new { e.GroupId, e.IsPublished })
-                 .IsUnique()
-                 .HasFilter($"[{nameof(ContentItem.IsPublished)}] = 1")
-                 .HasDatabaseName("IX_ContentItem_IsPublished");
+            AddPublishedSlotIndex(model, "IX_ContentItem_IsPublished");
 
             // §14.2 — additional recommended indexes
             model.HasIndex(contentItem => contentItem.ContentType)

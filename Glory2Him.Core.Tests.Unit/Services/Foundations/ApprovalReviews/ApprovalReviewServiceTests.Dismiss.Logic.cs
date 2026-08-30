@@ -34,7 +34,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // leave every other field exactly as stored — the reviewer's verdict, comment and
             // provenance are not the dismissal's to touch.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.StatusId = ApprovalStatus.Approved;
@@ -152,7 +152,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // reviewer amending their verdict — publishing Modified would re-enter §8.8's
             // machinery (design §9.7.1).
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.StatusId = ApprovalStatus.Approved;

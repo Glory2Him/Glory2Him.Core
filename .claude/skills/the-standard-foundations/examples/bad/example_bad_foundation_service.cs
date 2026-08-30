@@ -43,7 +43,7 @@ internal class StudentService : IStudentService
     {
         // ❌ VIOLATION ts-foundations-011: the envelope's signature is never verified.
         //    Anyone who can put a message on this address declares their own SecurityContext
-        //    — including Roles = [Admin] — and is believed.
+        //    — including Roles = [Administrators] — and is believed.
 
         // ❌ VIOLATION ts-foundations-014: no ProcessedEvents check, so a replayed or
         //    duplicated delivery inserts the student twice; and no record afterwards, so

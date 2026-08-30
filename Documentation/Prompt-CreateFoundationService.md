@@ -4,11 +4,15 @@ You MUST follow strict TDD Red → Green practices, repository standards, and th
 Commit history is critical and will be reviewed.
 Core Rules
 Repository Compliance
-	• Follow the skills in this repository exactly.
+	• Follow the skills in this repository exactly — `the-standard-foundations` is authoritative for shape; this prompt is the process that walks you through building it.
 	• Follow the repository templates exactly.
 	• Adhere to The Standard architecture and repository conventions.
 	• Use the existing Foundation Service patterns already present in the repo.
 	• Reuse repository implementations and conventions wherever possible.
+Identity Rules
+	• Identity is signed envelope data, never an ambient accessor. Every audit and user-id call takes the `SecurityContext` explicitly off the inbound envelope — `ApplyAddAuditValuesAsync(entity, securityContext)`, `GetUserIdAsync(securityContext)` — never the parameterless overload.
+	• The foundation enforces its own security (design §14.6). Do not assume an exposer or an upstream orchestration already gated the caller — every write path runs its own gate inside `DoXAsync`.
+	• A caller who may not see a row is told not-found, never unauthorized. An authorization error would confirm the row exists; log the true denial reason server-side only.
 Testing Rules
 	• Anything that can be tested MUST be tested.
 	• Follow strict TDD Red → Green practices.
@@ -27,8 +31,8 @@ Progression Rules
 	• Never continue automatically.
 	• Stop at every review checkpoint.
 	• Wait for me to:
-		○ request corrections, OR
-		○ reply with PROCEED
+		• request corrections, OR
+		• reply with PROCEED
 	• Never move to the next phase without approval.
 	• Never move to the next CRUD operation without approval.
 
@@ -39,6 +43,7 @@ You MUST NOT move to another CRUD operation until the current CRUD operation has
 	1. Logic tests
 	2. Validation tests
 	3. Exception tests
+	4. Event-path tests (skip for RetrieveAll — see below)
 
 CRUD Order
 Complete CRUD operations in this exact order:
@@ -47,7 +52,28 @@ Complete CRUD operations in this exact order:
 	3. RetrieveById
 	4. Modify
 	5. RemoveById
+	6. HardRemoveById
 Do not change this order.
+
+Event Path: Where It Fits
+Per `the-standard-foundations` (ts-foundations-013), every operation with a request address —
+Adding, Modifying, RemovingById, HardRemovingById, RetrievingById — is reachable both directly
+and through the event substrate, and both paths converge on the SAME private `DoXAsync`.
+`RetrieveAll{Entity}sAsync` is the deliberate exception: it has no address, no handler, and no
+`DoXAsync`; it mints an envelope only to capture the caller for the visibility filter and does
+its work inline. Do not add event-path tests or an `OnRetrievingAll` handler for it.
+
+Because both paths run through the same `DoXAsync`, the event path is not a separate phase of
+work at the end — it is the fourth slice of each operation, exercising the same logic through
+`OnXingAsync` plus the guards that only the event path needs:
+	• the envelope's integrity signature is verified in the receiver before its context is trusted
+	• a mutating handler checks `ProcessedEvents` before acting and replies `null` on a duplicate
+	• `DoXAsync` records both the inbound request id and the outbound fact id
+	• a read-only handler (`OnRetrievingByIdAsync`) skips the dedup bookkeeping — naturally idempotent
+	• failures are categorized and always rethrown, never swallowed, so the substrate can retry
+Keep the event-path slice for an operation immediately after that operation's exception tests,
+before moving to the next CRUD operation — never batch all five operations' event paths into one
+pass at the end.
 
 Execution Process
 For every single test, follow this exact sequence.
@@ -72,7 +98,7 @@ Wait for:
 Do not continue automatically.
 Step 5 — FAIL commit
 After approval, create a local commit:
-%testname% -> FAIL
+%testname% → FAIL
 
 Phase 2 — GREEN
 Step 6 — Implement minimum production code
@@ -97,13 +123,13 @@ Wait for:
 Do not continue automatically.
 Step 10 — PASS commit
 After approval, create a local commit:
-%testname% -> PASS
+%testname% → PASS
 Step 11 — Continue
 Repeat this process for the next required test in sequence.
 
 Logic Phase Rules
 For each CRUD operation:
-Start with the logic test phase.
+Start with the logic test phase, driving the direct (non-event) path only.
 Rules:
 	• Create exactly ONE logic test at a time
 	• Implement only the minimum logic required
@@ -112,6 +138,8 @@ Rules:
 	• No exception handling
 	• No dependency exception handling
 	• No service exception handling
+	• Audit and user-id calls use the `SecurityContext` overload from the start — never add the
+	  ambient overload and migrate later
 You MUST NOT:
 	• add TryCatch
 	• add validations
@@ -124,11 +152,15 @@ Stop and explain why before proceeding.
 Validation Phase Rules
 Only begin validation tests after the CRUD operation logic test has completed successfully.
 Validation tests must be completed one at a time and in this exact order:
-	1. Null validation
-	2. Required field validation (if applicable, all in one test, check storage broker fluent configuration)
-	3. Maximum length validation (if applicable, all in one test, check storage broker fluent configuration as well as length restrictions from indexes)
-	4. Minimum length validation (if applicable, all in one test, check storage broker fluent configuration)
-	5. Audit field tests (SameAs, NotSameAs, NotRecent)
+	1. Security gate tests — authenticated → global ban (e.g. ReadOnly) → the specific permission,
+	   in that order, driven from the envelope's `SecurityContext`; a denied read must be proven to
+	   answer not-found, never unauthorized (skip this step for RetrieveAll, which has no address
+	   and applies a visibility filter instead of a gate)
+	2. Null validation
+	3. Required field validation (if applicable, all in one test, check storage broker fluent configuration)
+	4. Maximum length validation (if applicable, all in one test, check storage broker fluent configuration as well as length restrictions from indexes)
+	5. Minimum length validation (if applicable, all in one test, check storage broker fluent configuration)
+	6. Audit field tests (SameAs, NotSameAs, NotRecent)
 Rules:
 	• Implement only the validation required for the current test
 	• TryCatch may ONLY be added during this phase
@@ -150,36 +182,67 @@ Rules:
 	• Do not add unrelated exception handling
 	• Do not implement exception handling for future CRUD operations
 
+Event-Path Phase Rules
+Only begin event-path tests after all exception tests for the CRUD operation are complete.
+Skip this phase entirely for RetrieveAll.
+Event-path tests must be completed one at a time and in this exact order:
+	1. Envelope integrity verification test (`VerifyAsync` → false is proven refused)
+	2. Malformed envelope test (null envelope, content, or metadata is proven refused)
+	3. Duplicate request test — mutating operations only: `ProcessedEvents` already contains the
+	   inbound event id, the handler replies `null`, and nothing is written (skip for
+	   `RetrievingById`, which is naturally idempotent and carries no dedup bookkeeping)
+	4. Delegation test — the handler drives the same `DoXAsync` the direct path uses, and on
+	   success returns the reply envelope built from `CreateNextAsync`
+	5. `ProcessedEvents` dual-record test — mutating operations only: both the inbound request id
+	   and the outbound fact id are recorded (skip for `RetrievingById`)
+	6. `TryCatchSubstrate` exception tests, mirroring the direct path's exception taxonomy, proving
+	   failures are rethrown rather than swallowed and that an exception already categorized by a
+	   nested call passes through unwrapped
+Rules:
+	• Implement only the minimum handler code required for the current test
+	• Do not re-implement operation logic in the handler — it must call the existing `DoXAsync`
+	• Do not skip the `ProcessedEvents` check or either half of the dual record for a mutating operation
+	• Do not implement event-path tests for future CRUD operations
+
 Vertical Slice Rule
 You MUST complete all phases for a CRUD operation before moving to the next CRUD operation.
 Correct sequence example:
 	1. Add logic
 	2. Add validations
 	3. Add exceptions
-	4. Retrieve logic
-	5. Retrieve validations
-	6. Retrieve exceptions
-	7. Modify logic
-	8. Modify validations
-	9. Modify exceptions
-	10. Remove logic
-	11. Remove validations
-	OperationCanceledException when operationCanceledException.CancellationToken.IsCancellationRequested is false
-	12. OperationCanceledException
-	13. Remove exceptions
+	4. Add event path
+	5. RetrieveAll logic
+	6. RetrieveAll validations
+	7. RetrieveAll exceptions
+	8. RetrieveById logic
+	9. RetrieveById validations
+	10. RetrieveById exceptions
+	11. RetrieveById event path
+	12. Modify logic
+	13. Modify validations
+	14. Modify exceptions
+	15. Modify event path
+	16. RemoveById logic
+	17. RemoveById validations
+	18. RemoveById exceptions
+	19. RemoveById event path
+	20. HardRemoveById logic
+	21. HardRemoveById validations
+	22. HardRemoveById exceptions
+	23. HardRemoveById event path
 Incorrect sequence example:
 	1. Add logic
 	2. Retrieve logic
 	3. Modify logic
 	4. Remove logic
-This is forbidden.
+This is forbidden — so is finishing all five operations' direct paths before starting any event path.
 
 Commit Rules
 Stop for a review checkpoint before every commit.
 Every failing state requires a FAIL commit:
-%testname% -> FAIL
+%testname% → FAIL
 Every passing state requires a PASS commit:
-%testname% -> PASS
+%testname% → PASS
 Commits must reflect actual TDD progression.
 Do not squash steps.
 Do not skip commits.
@@ -190,6 +253,6 @@ If uncertain:
 STOP AND ASK.
 Begin by:
 	1. Identifying the correct Foundation Service template from the repository skills.
-	2. Creating ONE failing logic test only for the first CRUD operation (Insert).
+	2. Creating ONE failing logic test only for the first CRUD operation (Add).
 	3. Running the test and verifying it fails for the expected reason.
 	4. Stopping for review.

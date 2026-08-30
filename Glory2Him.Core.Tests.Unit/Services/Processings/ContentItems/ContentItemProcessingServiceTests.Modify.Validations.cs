@@ -416,23 +416,23 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         [InlineData(ApprovalStatus.Rejected, null)]
         [InlineData(ApprovalStatus.Dismissed, null)]
         [InlineData(ApprovalStatus.Approved, null)]
-        [InlineData(ApprovalStatus.Approved, Roles.Reviewer)]
-        [InlineData(ApprovalStatus.Approved, Roles.ContentItemReviewer)]
-        [InlineData(ApprovalStatus.Approved, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Approved, Roles.ContentItemPublisher)]
-        [InlineData(ApprovalStatus.Approved, Roles.Admin)]
-        [InlineData(ApprovalStatus.Rejected, Roles.Reviewer)]
-        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemReviewer)]
-        [InlineData(ApprovalStatus.Rejected, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemPublisher)]
-        [InlineData(ApprovalStatus.Rejected, Roles.Admin)]
+        [InlineData(ApprovalStatus.Approved, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Approved, Roles.ContentItemReviewers)]
+        [InlineData(ApprovalStatus.Approved, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Approved, Roles.ContentItemPublishers)]
+        [InlineData(ApprovalStatus.Approved, Roles.Administrators)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemReviewers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.ContentItemPublishers)]
+        [InlineData(ApprovalStatus.Rejected, Roles.Administrators)]
         public async Task ShouldThrowValidationExceptionOnModifyIfActorIsNotPermittedAndLogItAsync(
             ApprovalStatus approvalStatus,
             string? actorRole)
         {
             // given: a plain authenticated user never touches someone else's item, and a
             // terminal item — Approved or Rejected — belongs to its owner alone: no role
-            // (Reviewer, Publisher or Admin) may modify it on the owner's behalf, because
+            // (Reviewers, Publishers or Administrators) may modify it on the owner's behalf, because
             // the only edit a terminal row admits is a fork, and a moderator forking
             // someone else's decided row would author a version in their name
             ContentItem randomContentItem = CreateRandomContentItem();

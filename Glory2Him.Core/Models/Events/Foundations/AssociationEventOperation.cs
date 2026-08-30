@@ -57,7 +57,7 @@ namespace Glory2Him.Core.Models.Events.Foundations
         // opposite of what happened - the fact name is the contract they key on.
         //
         // Submitted is a fact with no request address behind it: an association has no submit
-        // verb, and what publishes here is the Admin override re-opening a decided row
+        // verb, and what publishes here is the Administrators override re-opening a decided row
         // (§8.6 HR-4). A bypass approval has no fact of its own and never did - it IS an
         // approval to every subscriber, and the waiver travels on the row (IsApprovedByBypass
         // and ApprovedByBypassReason). A second approval address would split the audience for

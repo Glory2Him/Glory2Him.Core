@@ -69,7 +69,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
                 PublishDate = null,
             };
 
-        // The Admin override's target: a terminal row re-opened for a second round. Publication
+        // The Administrators override's target: a terminal row re-opened for a second round. Publication
         // is not asked for — the validation refuses a published non-approved row, and the
         // do-work derives it off regardless.
         private static Link CreateReopenDecision(Guid linkId) =>

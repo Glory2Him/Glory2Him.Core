@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             var invalidEnvelope = new EventEnvelope<ContentItemSetting>
             {
                 Content = new ContentItemSetting { Id = Guid.NewGuid() },
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = null!
             };
 
@@ -117,7 +117,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             var invalidEnvelope = new EventEnvelope<ContentItemSetting>
             {
                 Content = null!,
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

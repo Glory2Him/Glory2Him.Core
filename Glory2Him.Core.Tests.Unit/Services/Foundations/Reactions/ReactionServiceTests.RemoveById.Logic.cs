@@ -259,7 +259,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldRemoveSomeoneElsesReactionByIdWhenUserIsAdminAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             Reaction randomReaction = CreateRandomReaction();
             randomReaction.IsDeleted = false;

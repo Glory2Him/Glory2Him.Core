@@ -88,7 +88,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 // when
                 this.apiBroker.ActAs(
                     Guid.NewGuid().ToString(),
-                    Roles.Reviewer,
+                    Roles.Reviewers,
                     Roles.ReadOnly);
 
                 var postTask = this.apiBroker.PostApprovalReviewAsync(randomReview).AsTask();

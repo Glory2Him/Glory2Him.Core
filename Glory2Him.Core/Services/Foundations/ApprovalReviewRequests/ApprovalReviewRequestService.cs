@@ -47,7 +47,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
     /// security itself and never assumes an upstream layer gated the caller, so the ROW-LOCAL
     /// half is enforced below: a requester must be authenticated, unblocked and hold a
     /// review-tier role (§7.9 rule 2); withdrawal is open to that same tier rather than to the
-    /// requester alone (rule 5); hard removal is <c>Admin</c>-only; and reads are never public.
+    /// requester alone (rule 5); hard removal is <c>Administrators</c>-only; and reads are never public.
     /// The CROSS-ENTITY half — that the invited person satisfies the review tier for the entity
     /// and does not own it (rule 3), that the round is still <c>Submitted</c> (rule 7), and the
     /// idempotent dismiss of a duplicate (rule 4) — needs the parent <c>Approval</c> and the

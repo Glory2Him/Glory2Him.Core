@@ -537,7 +537,7 @@ namespace Glory2Him.Core.Brokers.Securities
 
                     // BOTH endpoints, and holding a role for either is enough (§14.7 posture A′
                     // rule 2). An association has no scoped roles of its own — Roles.cs issues no
-                    // "Association-Reviewer" — so composing a subject from Association would ask
+                    // "Association-Reviewers" — so composing a subject from Association would ask
                     // for a role nobody can hold, which is what the row below falls back to when
                     // the association is missing, deliberately.
                     return association is null
@@ -565,7 +565,7 @@ namespace Glory2Him.Core.Brokers.Securities
                     //
                     // The SUBJECT is not fail-closed, and must not be read as though it were.
                     // It is the entity type's own name, and Roles.cs issues a
-                    // "{Entity}-Reviewer"/"{Entity}-Publisher" pair for every type it supports —
+                    // "{Entity}-Reviewers"/"{Entity}-Publishers" pair for every type it supports —
                     // so a new member whose roles were seeded but whose traversal case was
                     // forgotten lands here and its scoped role holders still clear the tier, with
                     // a blank author underneath. Association is the sole type with no scoped roles

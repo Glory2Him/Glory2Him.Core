@@ -99,11 +99,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsUnique()
                  .HasDatabaseName("UX_Links_GroupId_Version");
 
-            // Exactly one published version per group
-            model.HasIndex(link => new { link.GroupId, link.IsPublished })
-                 .IsUnique()
-                 .HasFilter($"[{nameof(Link.IsPublished)}] = 1")
-                 .HasDatabaseName("UX_Links_GroupId_IsPublished");
+            AddPublishedSlotIndex(model, "UX_Links_GroupId_IsPublished");
         }
     }
 }

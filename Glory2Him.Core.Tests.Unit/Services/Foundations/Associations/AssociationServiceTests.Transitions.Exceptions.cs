@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: a storage failure on the load every transition performs
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.Admin, Roles.Publisher, Roles.Reviewer);
+                Roles.Administrators, Roles.Publishers, Roles.Reviewers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             SqlException sqlException = GetSqlException();
@@ -68,7 +68,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.Admin, Roles.Publisher, Roles.Reviewer);
+                Roles.Administrators, Roles.Publishers, Roles.Reviewers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             var serviceException = new Exception();
@@ -101,7 +101,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // not a caller cancellation — the two are distinguished by whether the token that
             // surfaced is the one the caller handed in
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.Admin, Roles.Publisher, Roles.Reviewer);
+                Roles.Administrators, Roles.Publishers, Roles.Reviewers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
 
@@ -132,7 +132,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: a token the caller already cancelled. Every transition checks it before
             // doing anything, so nothing is read and nothing is written.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.Admin, Roles.Publisher, Roles.Reviewer);
+                Roles.Administrators, Roles.Publishers, Roles.Reviewers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
 

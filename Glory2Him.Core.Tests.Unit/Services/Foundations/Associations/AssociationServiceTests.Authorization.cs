@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // which is precisely what Tag-ReadOnly is meant to prevent.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
                 Roles.TagReadOnly,
-                Roles.BibleReferenceReviewer);
+                Roles.BibleReferenceReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -175,7 +175,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // is for.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
                 Roles.TagReadOnly,
-                Roles.Reviewer);
+                Roles.Reviewers);
 
             string randomActorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
@@ -214,16 +214,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             new TheoryData<string, EntityType, ContentType?>
             {
                 // coarse tier, matching on the A endpoint
-                { Roles.TagReviewer, EntityType.Tag, null },
-                { Roles.TagPublisher, EntityType.Tag, null },
+                { Roles.TagReviewers, EntityType.Tag, null },
+                { Roles.TagPublishers, EntityType.Tag, null },
 
                 // coarse tier, matching on the B endpoint (ContentItem is always B here,
                 // because Tag sorts above ContentItem ordinally)
-                { Roles.ContentItemReviewer, EntityType.Tag, null },
+                { Roles.ContentItemReviewers, EntityType.Tag, null },
 
                 // narrow tier — the content type on the ContentItem endpoint
-                { "ContentItem-Testimony-Reviewer", EntityType.Tag, ContentType.Testimony },
-                { "ContentItem-Testimony-Publisher", EntityType.Tag, ContentType.Testimony }
+                { "ContentItem-Testimony-Reviewers", EntityType.Tag, ContentType.Testimony },
+                { "ContentItem-Testimony-Publishers", EntityType.Tag, ContentType.Testimony }
             };
 
         [Theory]
@@ -277,7 +277,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: a reviewer trusted with stories, looking at a testimony. The whole
             // point of the narrow tier is that it does NOT widen to the entity type.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext("ContentItem-Story-Reviewer");
+                CreateAuthenticatedSecurityContext("ContentItem-Story-Reviewers");
 
             string randomActorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
@@ -325,7 +325,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: a reviewer for an entity type that appears on neither endpoint
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.CommentReviewer);
+                CreateAuthenticatedSecurityContext(Roles.CommentReviewers);
 
             string randomActorUserId = GetRandomString();
             Association storageAssociation = CreateRandomAssociation();
@@ -377,7 +377,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // reviewable sets are resolved in memory first. A coarse Tag reviewer must see
             // every non-public tag association and nothing else that is non-public.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.TagReviewer);
+                CreateAuthenticatedSecurityContext(Roles.TagReviewers);
 
             string randomActorUserId = GetRandomString();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
@@ -422,7 +422,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: the narrow tier has to survive the trip into the expression tree too —
             // a reviewer for testimonies sees testimonies, not stories
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewer");
+                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewers");
 
             string randomActorUserId = GetRandomString();
 
@@ -502,16 +502,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             new TheoryData<string, EntityType, ContentType?>
             {
                 // endpoint A, coarse tier
-                { Roles.TagReviewer, EntityType.Tag, null },
-                { Roles.TagPublisher, EntityType.Tag, null },
+                { Roles.TagReviewers, EntityType.Tag, null },
+                { Roles.TagPublishers, EntityType.Tag, null },
 
                 // endpoint B, coarse tier — B is always the ContentItem here
-                { Roles.ContentItemReviewer, EntityType.Tag, null },
-                { Roles.ContentItemPublisher, EntityType.Tag, null },
+                { Roles.ContentItemReviewers, EntityType.Tag, null },
+                { Roles.ContentItemPublishers, EntityType.Tag, null },
 
                 // narrow tier, both capabilities
-                { "ContentItem-Testimony-Reviewer", EntityType.Tag, ContentType.Testimony },
-                { "ContentItem-Testimony-Publisher", EntityType.Tag, ContentType.Testimony }
+                { "ContentItem-Testimony-Reviewers", EntityType.Tag, ContentType.Testimony },
+                { "ContentItem-Testimony-Publishers", EntityType.Tag, ContentType.Testimony }
             };
 
         [Theory]
@@ -573,8 +573,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         }
 
         [Theory]
-        [InlineData("ContentItem-Testimony-Reviewer")]
-        [InlineData("ContentItem-Testimony-Publisher")]
+        [InlineData("ContentItem-Testimony-Reviewers")]
+        [InlineData("ContentItem-Testimony-Publishers")]
         public async Task ShouldMatchTheNarrowTierOnTheAEndpointAsync(string narrowRole)
         {
             // given: a CANONICAL row with the ContentItem on the A side.
@@ -637,7 +637,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // is canonically ordered with the ContentItem on A, which is what production
             // stores, and is the only thing that clause matches.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewer");
+                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewers");
 
             string randomActorUserId = GetRandomString();
 
@@ -701,12 +701,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             //
             // This matters because the two read paths would otherwise disagree. The single
             // read composes the role from BOTH halves of the endpoint — for a Tag endpoint it
-            // asks for "Tag-Testimony-Reviewer", which is never granted, and denies. If the
+            // asks for "Tag-Testimony-Reviewers", which is never granted, and denies. If the
             // collection filter matched on the content type alone it would hand the same row
-            // to a ContentItem-Testimony-Reviewer. The bulk path must not be the more
+            // to a ContentItem-Testimony-Reviewers. The bulk path must not be the more
             // permissive of the two, so the filter tests the endpoint type as well.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewer");
+                CreateAuthenticatedSecurityContext("ContentItem-Testimony-Reviewers");
 
             string randomActorUserId = GetRandomString();
 

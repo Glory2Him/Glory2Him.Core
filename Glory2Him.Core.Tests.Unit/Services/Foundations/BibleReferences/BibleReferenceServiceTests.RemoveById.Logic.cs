@@ -259,7 +259,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldRemoveSomeoneElsesBibleReferenceByIdWhenUserIsAdminAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomBibleReference();
             randomBibleReference.IsDeleted = false;

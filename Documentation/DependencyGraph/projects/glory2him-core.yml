@@ -2679,7 +2679,7 @@ components:
     name: ApprovalSettingService
     layer: foundation
     col: 5
-    description: "Foundation CRUD for ApprovalSetting. Admin-gated settings entity — reads are storage-only with denial logging. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
+    description: "Foundation CRUD for ApprovalSetting. Administrators-gated settings entity — reads are storage-only with denial logging. The On*Async substrate handlers are wired by EventSubscriptionRegistration to the entity's request events; after the ProcessedEvents dedupe check they delegate to the same Do*Async path as the public methods (dual ProcessedEvents record: inbound + outbound envelope)."
     methods:
       - AddApprovalSettingAsync
       - RetrieveAllApprovalSettingsAsync

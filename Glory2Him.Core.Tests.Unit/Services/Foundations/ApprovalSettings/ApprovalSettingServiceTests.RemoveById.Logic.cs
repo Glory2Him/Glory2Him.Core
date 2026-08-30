@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldRemoveApprovalSettingByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
             randomApprovalSetting.IsDeleted = false;
             ApprovalSetting storageApprovalSetting = randomApprovalSetting;
@@ -114,7 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldRemoveApprovalSettingByIdWithDeletionReasonAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string someDeletionReason = GetRandomString();
             ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
             randomApprovalSetting.IsDeleted = false;
@@ -200,7 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldReturnEarlyOnRemoveByIdIfAlreadyDeletedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalSetting alreadyDeletedApprovalSetting = CreateRandomApprovalSetting();
             alreadyDeletedApprovalSetting.IsDeleted = true;
             Guid someApprovalSettingId = alreadyDeletedApprovalSetting.Id;
