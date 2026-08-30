@@ -38,6 +38,16 @@ namespace Glory2Him.WebApp.Data.Migrations
     /// both. Only where <c>Administrators</c> is somehow absent is <c>Admin</c> renamed into
     /// it instead, so no membership is ever dropped on the floor.</para>
     /// </summary>
+    /// <para>ROLLING THE APP BACK NEEDS THIS MIGRATION ROLLED BACK FIRST, and that is not the
+    /// usual app-only rollback. The previous build's <c>SeedData</c> mints the singular names it
+    /// knows, and <c>EnsureRoleAsync</c> creates any it cannot find — so an old build started
+    /// against a migrated store re-creates <c>Reviewer</c>, <c>Tag-Reviewer</c> and the rest as
+    /// EMPTY rows while every holder stays on the plural row, which is the silent
+    /// loss-of-capability this migration exists to prevent, arrived at from the other side. It
+    /// then cannot be repaired by migrating either way: the <c>NOT EXISTS</c> guards below read a
+    /// re-seeded target as "already done" and skip, in <c>Up</c> and <c>Down</c> alike. So a
+    /// rollback runs <c>dotnet ef database update AddUserProfileFields</c> BEFORE the old build
+    /// starts, not after.</para>
     /// <inheritdoc />
     public partial class PluraliseRoleNamesAndCollapseAdmin : Migration
     {
@@ -126,9 +136,14 @@ namespace Glory2Him.WebApp.Data.Migrations
             RenameRole(migrationBuilder, from: "Publishers", to: "Publisher");
         }
 
-        // The NOT EXISTS guard is what makes every rename here re-runnable and collision-safe: a
-        // target name already present means the rename has happened, and Identity's unique index
-        // on NormalizedName would fail the statement rather than quietly skip it.
+        // The NOT EXISTS guard is what makes every rename here re-runnable and collision-safe:
+        // Identity's unique index on NormalizedName would fail the statement rather than quietly
+        // skip it, so the guard is what lets this be re-applied at all.
+        //
+        // It cannot tell "the rename has already happened" from "something else minted the target
+        // name while the source row is still populated" — the state an app-only rollback creates.
+        // See the rollback note on the class: that state is not reachable from here in either
+        // direction, and the guard is why.
         private static void RenameRole(MigrationBuilder migrationBuilder, string from, string to) =>
             migrationBuilder.Sql(
                 $@"UPDATE [AspNetRoles]

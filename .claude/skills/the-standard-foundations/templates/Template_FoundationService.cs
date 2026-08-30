@@ -1014,7 +1014,7 @@ namespace {Namespace}.Services.Foundations.{Entity}s
         }
 
         // hard removal is a separate gate from the ordinary write: it destroys the audit
-        // trail, so it is Admin-only even where ordinary writes are wider
+        // trail, so it is Administrators-only even where ordinary writes are wider
         private static void ValidateUserIsAllowedToHardRemove{Entity}(
             SecurityContext securityContext)
         {

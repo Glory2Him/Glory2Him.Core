@@ -320,9 +320,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         [Fact]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsAdminButNotOwnerAndLogItAsync()
         {
-            // given: the Administrators escape is closed. This used to assert the opposite — that an
-            // Administrators could retract anyone's review — and that is withdrawn (§14.7 rule 5). An
-            // Administrators who needs past a review bypasses the block rather than deleting it.
+            // given: the administrator escape is closed. This used to assert the opposite — that an
+            // administrator could retract anyone's review — and that is withdrawn (§14.7 rule 5). An
+            // administrator who needs past a review bypasses the block rather than deleting it.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();

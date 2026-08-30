@@ -147,7 +147,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             CancellationToken cancellationToken)
         {
             // stamps UpdatedBy with the ACTING user, which is the whole audit story when an
-            // Administrators settles a comment on the author's behalf: CreatedBy still names who wrote
+            // administrator settles a comment on the author's behalf: CreatedBy still names who wrote
             // it, UpdatedBy names who declared it settled
             approvalComment = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(

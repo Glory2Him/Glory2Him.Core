@@ -64,9 +64,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         private const string TestConnectionStringKey = "Glory2HimAcceptanceConnectionString";
 
         /// <summary>
-        /// One template, three catalogues. The integration suite carries a key per store because
+        /// One template, every catalogue. The integration suite carries a key per store because
         /// its two stores could in principle sit on different servers; here they cannot — the
-        /// portal boots all three from one <c>appsettings.json</c> against one LocalDB instance —
+        /// portal boots them all from one <c>appsettings.json</c> against one LocalDB instance —
         /// so a single template is both simpler and impossible to diverge. Pointing the suite at
         /// another server is one edit.
         /// </summary>
@@ -94,18 +94,6 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             WithCatalog(ConnectionStringTemplate, "master");
 
         /// <summary>
-        /// The resolved per-run connection strings, keyed by the PRODUCTION configuration keys
-        /// the portal actually reads. <see cref="TestWebApplicationFactory"/> layers these over
-        /// the host's configuration in memory — never through the ambient environment, which is
-        /// what keeps the test key and the production keys from meeting.
-        ///
-        /// <para>Nothing here creates a schema. Core's is built by <c>Database.Migrate()</c> in
-        /// <c>Program.InitializeCoreAsync</c>, Identity's by <c>Database.MigrateAsync()</c> in
-        /// <c>SeedData.SeedAsync</c>, and EventHighway builds its own store on first use — so a
-        /// per-run catalogue only has to let those run, which is the whole of the change on the
-        /// creation side.</para>
-        /// </summary>
-        /// <summary>
         /// A FOURTH Identity catalogue, and the host never sees it — it is deliberately absent
         /// from <see cref="ConnectionStringOverrides"/> below.
         ///
@@ -123,6 +111,18 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         internal static string SecurityRehearsalConnectionString =>
             WithCatalog(ConnectionStringTemplate, DatabaseNames[3]);
 
+        /// <summary>
+        /// The resolved per-run connection strings, keyed by the PRODUCTION configuration keys
+        /// the portal actually reads. <see cref="TestWebApplicationFactory"/> layers these over
+        /// the host's configuration in memory — never through the ambient environment, which is
+        /// what keeps the test key and the production keys from meeting.
+        ///
+        /// <para>Nothing here creates a schema. Core's is built by <c>Database.Migrate()</c> in
+        /// <c>Program.InitializeCoreAsync</c>, Identity's by <c>Database.MigrateAsync()</c> in
+        /// <c>SeedData.MigrateAsync</c>, and EventHighway builds its own store on first use — so
+        /// a per-run catalogue only has to let those run, which is the whole of the change on the
+        /// creation side.</para>
+        /// </summary>
         internal static IDictionary<string, string> ConnectionStringOverrides =>
             new Dictionary<string, string>
             {
@@ -137,7 +137,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             };
 
         /// <summary>
-        /// Drops all three catalogues.
+        /// Drops every catalogue in <see cref="DatabaseNames"/>.
         ///
         /// <para>Called twice per run, and the two calls differ in exactly one way.</para>
         ///

@@ -97,8 +97,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         //
         // It also narrows the role check above rather than repeating it: HasReviewRole matches
         // ANY "-Reviewers" suffix because the review row names no entity type, so a Tag-Reviewers
-        // holder
-        // passes it for a Link's approval. The broker resolves the entity behind the approval, so
+        // holder passes it for a Link's approval. The broker resolves the entity behind the approval, so
         // the tier is finally checked against the thing actually being reviewed.
         private async ValueTask ValidateUserMayRecordApprovalReviewAsync(
             Guid approvalId,

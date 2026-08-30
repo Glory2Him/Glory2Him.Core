@@ -356,7 +356,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
 
         /// <summary>
         /// Withdrawal matches modify and is deliberately narrower than the read posture: an
-        /// Administrators who needs past an unresolved comment resolves it — retracting someone else's
+        /// administrator who needs past an unresolved comment resolves it — retracting someone else's
         /// words is not theirs to do.
         /// </summary>
         [Theory]

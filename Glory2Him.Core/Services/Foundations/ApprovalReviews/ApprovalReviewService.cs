@@ -429,7 +429,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             // ApprovalId comes from STORAGE. Remove takes only an id, so there is no payload to
             // mistrust here, but reading it from the row keeps this identical to modify.
             //
-            // Deliberately NOT applied to hard remove: that is Admin-only maintenance which
+            // Deliberately NOT applied to hard remove: that is Administrators-only maintenance which
             // destroys the row outright, and locking it to an open round would leave a closed
             // round's rows permanently unclearable.
             await ValidateUserMayRecordApprovalReviewAsync(
@@ -444,7 +444,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
             // review precisely as evidence that a verdict once applied to superseded content, so
             // soft-deleting one destroys the record the dismissal exists to keep.
             //
-            // Hard remove is deliberately still exempt: it is Admin-only maintenance whose whole
+            // Hard remove is deliberately still exempt: it is Administrators-only maintenance whose whole
             // purpose is to destroy the row.
             ValidateStorageApprovalReviewIsNotDismissed(maybeApprovalReview);
 

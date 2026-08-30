@@ -449,7 +449,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             // The seam is not only the automatic path. RecordApprovalDecisionAsync relays a
             // DELIBERATE human decision through it (Decisions.cs:108) and sets
             // IsApprovedByBypass from that decision's own verdict — which is true whenever an
-            // Administrators legitimately bypass-approves. A guard keyed on isSystemIdentity therefore
+            // administrator legitimately bypass-approves. A guard keyed on isSystemIdentity therefore
             // refuses the one case a bypass is FOR.
             //
             // What actually protects the pair is that every call site derives it from a verdict

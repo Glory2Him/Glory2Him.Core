@@ -95,9 +95,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         };
 
         private readonly Dictionary<Guid, List<string>> rolesByUser = new();
-        private readonly Dictionary<string, int> roleMemberCounts = new();
+        private readonly Dictionary<string, string> normalizedNamesByName = new();
 
-        internal IReadOnlyDictionary<string, int> MigratedRoleMemberCounts => this.roleMemberCounts;
+        /// <summary>
+        /// Every surviving role, keyed by <c>Name</c> and valued by its <c>NormalizedName</c>.
+        ///
+        /// <para>Both halves are carried because Identity resolves a role through
+        /// <c>NormalizedName</c> and displays <c>Name</c>: a migration that rewrote only one of
+        /// them would leave a row that looks renamed in the admin UI and matches nothing at the
+        /// gate, or the reverse. Asserting on <c>Name</c> alone cannot see that.</para>
+        /// </summary>
+        internal IReadOnlyDictionary<string, string> MigratedRoles => this.normalizedNamesByName;
 
         internal int MigratedAdminRoleClaimCount { get; private set; }
 
@@ -213,8 +221,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
 
             foreach (AppRole role in roles)
             {
-                this.roleMemberCounts[role.Name] =
-                    memberships.Count(membership => membership.RoleId == role.Id);
+                this.normalizedNamesByName[role.Name] = role.NormalizedName;
             }
 
             foreach (IdentityUserRole<Guid> membership in memberships)
@@ -232,6 +239,10 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             // Counted by the claim's own value rather than by joining to a role that should no
             // longer exist: the assertion is that the Admin row's claim went with it, and a join
             // to a missing row would return zero whether the claim was deleted or orphaned.
+            //
+            // This cannot distinguish the migration's explicit DELETE from the cascade Identity
+            // configures on AspNetRoleClaims, and it is not meant to — what it pins is the END
+            // state, that dropping the role leaves no claim addressing it behind.
             this.MigratedAdminRoleClaimCount =
                 await securityDbContext.RoleClaims
                     .AsNoTracking()

@@ -98,7 +98,7 @@ namespace Glory2Him.Core.Services.Processings.Links
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && currentLink.CreatedBy == actorUserId;
 
-            // a not-yet-decided link may be corrected in place by a reviewer, Publishers or
+            // a not-yet-decided link may be corrected in place by a holder of Reviewers, Publishers or
             // Administrators during review; a terminal one belongs to its owner alone, because the
             // only edit it admits is a fork onto a fresh version (§3.4 rule 16) and a
             // moderator forking someone else's decided row would author a version in

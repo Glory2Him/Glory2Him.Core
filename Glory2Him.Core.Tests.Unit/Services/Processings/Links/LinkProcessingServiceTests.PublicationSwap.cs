@@ -1250,7 +1250,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
             };
 
         // The approval command arrives on the workflow's verified envelope, carrying the
-        // system identity the Admin-gated unpublish is admitted by.
+        // system identity the Administrators-gated unpublish is admitted by.
         private static EventEnvelope<Link> CreatePublicationSwapEnvelope(Link command) =>
             new EventEnvelope<Link>
             {

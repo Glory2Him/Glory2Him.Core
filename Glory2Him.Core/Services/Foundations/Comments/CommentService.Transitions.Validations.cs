@@ -78,8 +78,8 @@ namespace Glory2Him.Core.Services.Foundations.Comments
 
         // Submitting is the owner-or-publisher act of §9.2. It is deliberately the SAME set the
         // modify carve-out admits (design §9.2 rules 4-6): a dedicated status-only verb must
-        // not be narrower than the identical transition reached through a content edit. A
-        // Reviewers is absent by design — HasPublisherRole excludes the review tier (§8.6 HR-3),
+        // not be narrower than the identical transition reached through a content edit. The
+        // Reviewers tier is absent by design — HasPublisherRole excludes it (§8.6 HR-3),
         // and a reviewer moves an outcome only through the approval workflow, never by hand.
         private async ValueTask ValidateUserCanSubmitStorageCommentAsync(
             Comment storageComment,

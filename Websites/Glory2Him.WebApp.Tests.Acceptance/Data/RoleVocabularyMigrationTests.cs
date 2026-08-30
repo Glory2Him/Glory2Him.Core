@@ -95,7 +95,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         public void ShouldRenameEachRoleInPlace(string oldRoleName, string newRoleName)
         {
             // given, when
-            IReadOnlyDictionary<string, int> actualRoles = this.rehearsal.MigratedRoleMemberCounts;
+            IReadOnlyDictionary<string, string> actualRoles = this.rehearsal.MigratedRoles;
 
             // then
             actualRoles.Should().ContainKey(newRoleName,
@@ -104,6 +104,11 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             actualRoles.Should().NotContainKey(oldRoleName,
                 because: $"'{oldRoleName}' names a capability no gate composes any more, and a "
                     + "row nothing checks is a grant an administrator can still hand out");
+
+            actualRoles[newRoleName].Should().Be(newRoleName.ToUpperInvariant(),
+                because: "Identity resolves a role through NormalizedName and shows Name, so a "
+                    + "rename that moved only one of them would leave a row that reads correctly "
+                    + "in the admin UI and matches nothing at the gate");
         }
 
         [Theory]
@@ -111,7 +116,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         public void ShouldLeaveTheBlockRoleSingular(string roleName)
         {
             // given, when
-            IReadOnlyDictionary<string, int> actualRoles = this.rehearsal.MigratedRoleMemberCounts;
+            IReadOnlyDictionary<string, string> actualRoles = this.rehearsal.MigratedRoles;
 
             // then
             actualRoles.Should().ContainKey(roleName,
@@ -185,7 +190,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         public void ShouldDropTheAdminRoleAndEverythingHangingOffIt()
         {
             // given, when
-            IReadOnlyDictionary<string, int> actualRoles = this.rehearsal.MigratedRoleMemberCounts;
+            IReadOnlyDictionary<string, string> actualRoles = this.rehearsal.MigratedRoles;
 
             // then
             actualRoles.Should().NotContainKey("Admin",
@@ -193,8 +198,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
                     + "administrator grant a name that opens nothing");
 
             this.rehearsal.MigratedAdminRoleClaimCount.Should().Be(0,
-                because: "a claim on a dropped role is unreachable state, and leaving it "
-                    + "behind would block the drop on the foreign key besides");
+                because: "a claim addressing a role that no longer exists is unreachable state, "
+                    + "whether the migration deleted it or the cascade did");
         }
 
         /// <summary>
@@ -207,12 +212,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         {
             // given, when
             IReadOnlyList<string> actualSurvivingSingularRoles =
-                this.rehearsal.MigratedRoleMemberCounts.Keys
+                this.rehearsal.MigratedRoles.Keys
                     .Where(IsSingularCapabilityName)
                     .OrderBy(roleName => roleName)
                     .ToList();
 
             // then
+            this.rehearsal.MigratedRoles.Should().NotBeEmpty(
+                because: "a sweep over an empty rehearsal passes without proving anything");
+
             actualSurvivingSingularRoles.Should().BeEmpty(
                 because: "every capability is plural after #368, and a singular row that "
                     + "survives still holds whatever memberships it had — its holders keep a "

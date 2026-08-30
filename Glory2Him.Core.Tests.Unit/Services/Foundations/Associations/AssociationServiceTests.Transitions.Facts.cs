@@ -58,7 +58,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association anchorAssociation = CreateAnchorAssociation(sortOrder: 200);
 
             // the sorter and the scorer must not be the caller: sort requires the owner or an
-            // Administrators (satisfied by Administrators), and set-confidence REFUSES the owner outright
+            // administrator (satisfied by Administrators), and set-confidence REFUSES the owner outright
             foreach (Association association in new[]
                 {
                     submittableAssociation, approvableAssociation,

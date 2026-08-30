@@ -508,7 +508,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: the sharp edge of this gate. The publisher tier decides approvals — but
             // the row being unpublished is itself Approved, and §8.6 HR-4 bars a publisher
             // from moving an approved row, the same reason the status override is
-            // Admin-gated. Widening this verb to the publisher tier would hand a publisher an
+            // Administrators-gated. Widening this verb to the publisher tier would hand a publisher an
             // indirect route to demote content an administrator approved.
             this.ambientSecurityContext =
                 CreateAuthenticatedSecurityContext(publisherRole);

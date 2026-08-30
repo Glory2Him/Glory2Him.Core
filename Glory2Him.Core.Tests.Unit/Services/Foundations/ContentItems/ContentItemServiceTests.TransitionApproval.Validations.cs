@@ -370,7 +370,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: the row-local publisher-tier check is what makes an unauthorised caller
             // cost one role comparison instead of a table read, and it is where HR-3 lands — a
-            // Reviewers is refused before the access decision is ever asked.
+            // reviewer is refused before the access decision is ever asked.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(roles);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
