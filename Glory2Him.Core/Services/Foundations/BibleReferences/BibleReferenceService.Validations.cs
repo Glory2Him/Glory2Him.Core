@@ -201,6 +201,12 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                 (Rule: IsGreaterThan(bibleReference.UpdatedBy, 255),
                     Parameter: nameof(BibleReference.UpdatedBy)),
 
+                // Unlike Scripture, ScriptureHtml is parsed on every write (SanitizeScriptureHtml),
+                // so an application-level cap bounds how much markup that parse ever has to handle
+                // regardless of the column's own nvarchar(max) storage limit.
+                (Rule: IsGreaterThan(bibleReference.ScriptureHtml, 50_000),
+                    Parameter: nameof(BibleReference.ScriptureHtml)),
+
                 (Rule: IsNotSame(
                         firstDate: bibleReference.UpdatedWhen,
                         secondDate: bibleReference.CreatedWhen,
@@ -267,6 +273,9 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
 
                 (Rule: IsGreaterThan(bibleReference.UpdatedBy, 255),
                     Parameter: nameof(BibleReference.UpdatedBy)),
+
+                (Rule: IsGreaterThan(bibleReference.ScriptureHtml, 50_000),
+                    Parameter: nameof(BibleReference.ScriptureHtml)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,

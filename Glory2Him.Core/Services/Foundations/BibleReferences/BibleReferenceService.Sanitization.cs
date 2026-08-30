@@ -10,86 +10,85 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using Ganss.Xss;
 
 namespace Glory2Him.Core.Services.Foundations.BibleReferences
 {
     internal partial class BibleReferenceService
     {
+        // Parser-backed (AngleSharp), not regex-based: HTML is not a regular language, and a
+        // hand-rolled tag-matching regex either fails closed only for syntax it anticipated (a
+        // security bug — malformed/unanticipated tag syntax then ships untouched) or risks
+        // catastrophic backtracking on adversarial input. A real parser tokenizes the actual DOM
+        // it will be rendered as, so the allow-list can't be bypassed by markup the parser didn't
+        // expect, and HTML5 parsing is defined to always terminate in roughly linear time.
+        //
         // The small, stable class vocabulary a Bible provider's renderer emits (design/#347):
         // red-letter (words of Jesus) is "wj", deity names are "nd", poetry indentation is
         // "q1"/"q2", and italics are "it". Anything outside this vocabulary is not scripture
         // formatting, so it is dropped rather than escaped or stored verbatim — ScriptureHtml
         // renders straight into UI, and a general-purpose HTML column is a latent XSS surface.
-        private static readonly HashSet<string> AllowedScriptureHtmlTags =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "p", "span" };
+        private static readonly HtmlSanitizer ScriptureHtmlSanitizer = CreateScriptureHtmlSanitizer();
 
-        private static readonly HashSet<string> AllowedScriptureHtmlClasses =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "wj", "nd", "q1", "q2", "it" };
+        private static HtmlSanitizer CreateScriptureHtmlSanitizer()
+        {
+            var sanitizer = new HtmlSanitizer
+            {
+                // A disallowed wrapper (e.g. unrecognized markup from a provider) drops the tag
+                // but keeps its text — scripture words are never silently lost because of an
+                // unanticipated wrapper. Script/style are the one exception (below): their body is
+                // code/CSS, not scripture text, so it is discarded along with the tag.
+                KeepChildNodes = true
+            };
 
-        private static readonly Regex ScriptureHtmlEmbedPattern = new Regex(
-            @"<(script|style)\b[^>]*>.*?</\1\s*>",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            sanitizer.AllowedTags.Clear();
+            sanitizer.AllowedTags.Add("p");
+            sanitizer.AllowedTags.Add("span");
 
-        private static readonly Regex ScriptureHtmlCommentPattern = new Regex(
-            @"<!--.*?-->",
-            RegexOptions.Compiled | RegexOptions.Singleline);
+            sanitizer.AllowedAttributes.Clear();
+            sanitizer.AllowedAttributes.Add("class");
 
-        private static readonly Regex ScriptureHtmlTagPattern = new Regex(
-            @"<\s*(/?)\s*([a-zA-Z][a-zA-Z0-9]*)((?:\s+[a-zA-Z][-a-zA-Z0-9]*(?:\s*=\s*(?:""[^""]*""|'[^']*'|[^\s>]+))?)*)\s*/?\s*>",
-            RegexOptions.Compiled);
+            sanitizer.AllowedClasses.Clear();
+            sanitizer.AllowedClasses.Add("wj");
+            sanitizer.AllowedClasses.Add("nd");
+            sanitizer.AllowedClasses.Add("q1");
+            sanitizer.AllowedClasses.Add("q2");
+            sanitizer.AllowedClasses.Add("it");
 
-        private static readonly Regex ScriptureHtmlClassAttributePattern = new Regex(
-            @"class\s*=\s*(?:""([^""]*)""|'([^']*)')",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+            // No URIs, inline styles, or CSS at-rules are ever legitimate in this vocabulary.
+            sanitizer.AllowedSchemes.Clear();
+            sanitizer.AllowedCssProperties.Clear();
+            sanitizer.AllowedAtRules.Clear();
+            sanitizer.UriAttributes.Clear();
+
+            // KeepChildNodes preserves a disallowed tag's text, which for <script>/<style> would
+            // otherwise leak their raw code/CSS body into the sanitized output as visible text.
+            // Clearing the element before removal empties that text too, so nothing survives.
+            sanitizer.RemovingTag += (_, args) =>
+            {
+                string tagName = args.Tag.TagName;
+
+                if (string.Equals(tagName, "script", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(tagName, "style", StringComparison.OrdinalIgnoreCase))
+                {
+                    args.Tag.TextContent = string.Empty;
+                }
+            };
+
+            return sanitizer;
+        }
 
         // Presentation-only, sanitized on write: stored verbatim only where it already matches
-        // the allow-list above, everything else is dropped while its inner text is kept. Plain
-        // text carrying no markup — the common case for a translation with no red-letter edition,
-        // and every value the filler-driven tests draw — has no '<' and returns unchanged.
+        // the allow-list above. Plain text carrying no markup — the common case for a translation
+        // with no red-letter edition — round-trips unchanged.
         private static string? SanitizeScriptureHtml(string? scriptureHtml)
         {
-            if (string.IsNullOrEmpty(scriptureHtml) || scriptureHtml.Contains('<') is false)
+            if (string.IsNullOrEmpty(scriptureHtml))
             {
                 return scriptureHtml;
             }
 
-            string withoutEmbeds = ScriptureHtmlEmbedPattern.Replace(scriptureHtml, string.Empty);
-            string withoutComments = ScriptureHtmlCommentPattern.Replace(withoutEmbeds, string.Empty);
-
-            return ScriptureHtmlTagPattern.Replace(withoutComments, SanitizeScriptureHtmlTagMatch);
-        }
-
-        private static string SanitizeScriptureHtmlTagMatch(Match match)
-        {
-            bool isClosingTag = match.Groups[1].Value == "/";
-            string tagName = match.Groups[2].Value;
-
-            if (AllowedScriptureHtmlTags.Contains(tagName) is false)
-            {
-                return string.Empty;
-            }
-
-            if (isClosingTag)
-            {
-                return $"</{tagName.ToLowerInvariant()}>";
-            }
-
-            string attributes = match.Groups[3].Value;
-            Match classMatch = ScriptureHtmlClassAttributePattern.Match(attributes);
-
-            string allowedClass = classMatch.Success
-                ? (classMatch.Groups[1].Success ? classMatch.Groups[1].Value : classMatch.Groups[2].Value)
-                : string.Empty;
-
-            bool hasAllowedClass =
-                string.IsNullOrEmpty(allowedClass) is false
-                    && AllowedScriptureHtmlClasses.Contains(allowedClass);
-
-            return hasAllowedClass
-                ? $"<{tagName.ToLowerInvariant()} class=\"{allowedClass.ToLowerInvariant()}\">"
-                : $"<{tagName.ToLowerInvariant()}>";
+            return ScriptureHtmlSanitizer.Sanitize(scriptureHtml);
         }
     }
 }
