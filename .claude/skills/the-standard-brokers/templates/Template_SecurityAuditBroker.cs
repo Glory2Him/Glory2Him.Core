@@ -2,6 +2,9 @@
 // skill: the-standard-brokers
 // type: template
 // source-section: "1. Brokers"
+// companion: Template_SecurityContextPrincipalFactory.cs — the SecurityAuditBroker
+//   implementation below calls SecurityContextPrincipalFactory.Create, which that
+//   companion template scaffolds into the same {Namespace}.Brokers.Securities namespace.
 // ---
 
 // ISecurityAuditBroker.cs — interface
@@ -56,7 +59,7 @@ namespace {Namespace}.Brokers.Securities
             string? deletionReason = null);
 
         /// <summary>
-        /// Ensures that audit values other than the ones being modified (e.g., created by/date)
+        /// Ensures that audit values (e.g., created by/date) other than the ones being modified
         /// remain unchanged during modification, copying them from the stored version of the
         /// entity to the current one.
         /// </summary>
@@ -78,10 +81,6 @@ namespace {Namespace}.Brokers.Securities
 }
 
 // SecurityAuditBroker.cs — implementation
-//
-// Also emits Template_SecurityContextPrincipalFactory.cs — SecurityAuditBroker.Create* calls
-// below depend on the SecurityContextPrincipalFactory that template scaffolds into the same
-// {Namespace}.Brokers.Securities namespace.
 using System.Threading.Tasks;
 using {Namespace}.Models.Events;
 using {Namespace}.Security.Client.Clients;
@@ -155,7 +154,7 @@ namespace {Namespace}.Brokers.Securities
                 deletionReason);
 
         /// <summary>
-        /// Ensures that audit values other than the ones being modified (e.g., created by/date)
+        /// Ensures that audit values (e.g., created by/date) other than the ones being modified
         /// remain unchanged during modify operations.
         /// </summary>
         /// <typeparam name="T">The type of the entity.</typeparam>

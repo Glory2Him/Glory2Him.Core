@@ -38,7 +38,7 @@ namespace Glory2Him.Core.Brokers.Securities
         }
 
         /// <summary>
-        /// Ensures that audit values other than the ones being modified (e.g., created by/date)
+        /// Ensures that audit values (e.g., created by/date) other than the ones being modified
         /// remain unchanged during modify operations.
         /// </summary>
         /// <typeparam name="T">The type of the entity.</typeparam>

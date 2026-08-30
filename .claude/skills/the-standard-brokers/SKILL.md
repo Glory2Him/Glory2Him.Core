@@ -2,7 +2,7 @@
 name: the-standard-brokers
 version: 0.1.0
 standard-version: v2.50.0
-applies-to: ["*Broker*.cs"]
+applies-to: ["*Broker*.cs", "*PrincipalFactory*.cs"]
 depends-on: ["the-standard-core"]
 ---
 
@@ -13,7 +13,7 @@ depends-on: ["the-standard-core"]
 0.0/ Where: The infrastructure layer of any Standard-compliant system.
 0.1/ Who: Engineers implementing or reviewing broker classes.
 0.2/ What: Enforces broker design, naming, language, abstraction, and SPAL rules.
-0.3/ Applies to: *Broker*.cs
+0.3/ Applies to: *Broker*.cs, *PrincipalFactory*.cs (shared broker helper types scaffolded as companions)
 0.4/ Version: v2.50.0
 0.5/ Depends on: the-standard-core
 

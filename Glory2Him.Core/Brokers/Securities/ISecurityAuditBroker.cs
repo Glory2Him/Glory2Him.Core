@@ -21,7 +21,7 @@ namespace Glory2Him.Core.Brokers.Securities
     internal interface ISecurityAuditBroker
     {
         /// <summary>
-        /// Ensures that audit values other than the ones being modified (e.g., created by/date)
+        /// Ensures that audit values (e.g., created by/date) other than the ones being modified
         /// remain unchanged during modification, copying them from the stored version of the
         /// entity to the current one.
         /// </summary>

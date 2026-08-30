@@ -1143,7 +1143,7 @@ The answer is a **policy broker**, not a cross-entity read — and it extends th
    What the change does cost is the risk of an *ungathered* input, and that risk is real: a pure function cannot fetch what it was not given, so a missing list reads as **empty**, and empty is the permissive answer to every question asked of one. An ungathered comment list makes "all comments are resolved" vacuously true; an ungathered review list makes a rejection invisible. Both fail *open*, and both would pass any test written against them. This is closed structurally rather than by discipline: every section of every request is `required`, so a forgotten gather is a compile error at the call site.
 3. Foundation services reach it through an **`IAccessBroker`** in `Brokers/Securities/`, alongside `ISecurityBroker` and `ISecurityAuditBroker`. The service still calls one storage broker for its own entity; the policy broker is a dependency like any other, so the service stays single-entity.
 4. **The broker returns a verdict, not settings.** If it handed back an `ApprovalSetting`, the decision logic would be re-implemented in every foundation service and would drift. One question, one answer, one place.
-5. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path. `SecurityAuditBroker` already takes the actor as an explicit `SecurityContext` argument on every call for exactly this reason — the lesson is taken rather than repeated.
+5. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path. `SecurityAuditBroker` already takes the actor as an explicit `SecurityContext` argument wherever an actor applies, for exactly this reason — the lesson is taken rather than repeated.
 
    Note what this does *not* settle: it makes the envelope the single identity source, not an authenticated one. On the direct path that context is built from the real principal; on the event path it is deserialized and unverified (§14.6 rule 4). One source is still the right answer — two would disagree in the permissive direction — but the source is only as trustworthy as the path it arrived on.
 
@@ -3000,9 +3000,11 @@ lifetime a security control rather than a performance choice for it.
 
 Two brokers sit in that chain:
 
-1. `SecurityAuditBroker` takes the actor as an explicit `SecurityContext` argument on every call
-   (via `SecurityContextPrincipalFactory`) rather than capturing a principal in its constructor —
-   it stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps. Its registration stays
+1. `SecurityAuditBroker` takes the actor as an explicit `SecurityContext` argument on the calls
+   that need one (via `SecurityContextPrincipalFactory`) rather than capturing a principal in its
+   constructor — it stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps that way. The
+   one member that needs no actor at all, `EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync`,
+   only copies fields between two entity instances. Its registration stays
    `Scoped` regardless, as a deliberate security margin rather than a strict requirement: it holds
    no per-request state today, but a future constructor addition that captured one would
    reintroduce the hazard described below, and a `Scoped` lifetime keeps that margin in place
