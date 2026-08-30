@@ -47,6 +47,18 @@ namespace Glory2Him.Core.Models.Foundations.ContentItemSettings
         public string? ContentTypeIconCssClass { get; set; } = string.Empty;
 
         /// <summary>
+        /// The position this content type takes wherever the types are presented as a list —
+        /// the contribute page's type picker above all. Lower sorts first; ties fall back to
+        /// whatever order the rows arrived in.
+        ///
+        /// <para>The default of 1000 sits past every curated value the seed writes, so a row
+        /// added without a considered order lands after the types somebody chose the order of
+        /// rather than in front of them. Must be zero or greater — the foundation rejects a
+        /// negative, which no surface reading this could mean anything by.</para>
+        /// </summary>
+        public int SortOrder { get; set; } = 1000;
+
+        /// <summary>
         /// Optional identifier for a specific content item.
         /// If left blank, this setting applies as the default for the content type.
         /// When provided, it overrides the default.

@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -52,6 +52,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings
         public string ContentTypeName { get; set; }
         public string ContentTypeDescription { get; set; }
         public string ContentTypeIconCssClass { get; set; }
+
+        // Where this type sits in the contribute page's type selector — lower first. Defaults to
+        // 1000 on the entity and in the column, past every value the seed curates, so a row
+        // written without one lands after the ordered types. The foundation rejects a negative on
+        // both write paths, which is the only shape rule this member carries.
+        public int SortOrder { get; set; }
 
         // The policy itself (§6.5). Each pair is "may this association type exist" and "should
         // it be rendered", which are separate questions: a page can keep its comments while
