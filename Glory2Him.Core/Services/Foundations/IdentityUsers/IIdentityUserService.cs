@@ -46,5 +46,24 @@ namespace Glory2Him.Core.Services.Foundations.IdentityUsers
         ValueTask<IReadOnlyList<IdentityUser>> RetrieveIdentityUsersInRolesAsync(
             IEnumerable<string> roleNames,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The accounts carrying the given ids. This is the RESOLUTION half of the same question:
+        /// the read above asks who holds a role, this one asks what an id already held is called.
+        ///
+        /// <para><b>It applies no role filter and no disabled filter</b>, and neither omission is
+        /// an oversight. Every id handed here comes off a row somebody already stored — a review,
+        /// an invitation — so the account is part of the record whatever has happened to it since.
+        /// Filtering by the review tier is what left a reviewer who lost their role with no name
+        /// at all (§16.7.4), and a disabled account's past review still renders.</para>
+        ///
+        /// <para>Ids that are not usable GUIDs, and ids naming no account, are simply dropped: a
+        /// caller asking about a person who no longer exists gets a shorter list, not a fault.
+        /// An empty or null set returns no users rather than everybody — the same fail-closed
+        /// reading the roles read takes, for the same reason.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<IdentityUser>> RetrieveIdentityUsersByIdsAsync(
+            IEnumerable<string> userIds,
+            CancellationToken cancellationToken = default);
     }
 }

@@ -72,6 +72,35 @@ namespace Glory2Him.Core.Services.Foundations.IdentityUsers
                     cancellationToken: cancellationToken);
             });
 
+        public ValueTask<IReadOnlyList<IdentityUser>> RetrieveIdentityUsersByIdsAsync(
+            IEnumerable<string> userIds,
+            CancellationToken cancellationToken = default) =>
+            TryCatch(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                List<Guid> parsedUserIds = (userIds ?? Enumerable.Empty<string>())
+                    .Where(userId => string.IsNullOrWhiteSpace(userId) is false)
+                    .Select(userId =>
+                        Guid.TryParse(userId.Trim(), out Guid parsedUserId)
+                            ? parsedUserId
+                            : Guid.Empty)
+                    .Where(parsedUserId => parsedUserId != Guid.Empty)
+                    .Distinct()
+                    .ToList();
+
+                // Fail closed, matching the roles read. An unparseable id is a caller bug, and
+                // the empty set that a page of them collapses to must never be read as "all".
+                if (parsedUserIds.Count == 0)
+                {
+                    return Array.Empty<IdentityUser>();
+                }
+
+                return await this.identityCoreStorageBroker.SelectIdentityUsersByIdsAsync(
+                    userIds: parsedUserIds,
+                    cancellationToken: cancellationToken);
+            });
+
         private delegate ValueTask<IReadOnlyList<IdentityUser>> ReturningIdentityUsersFunction();
 
         private async ValueTask<IReadOnlyList<IdentityUser>> TryCatch(

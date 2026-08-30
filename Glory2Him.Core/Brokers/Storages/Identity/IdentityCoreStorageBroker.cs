@@ -115,5 +115,18 @@ namespace Glory2Him.Core.Brokers.Storages.Identity
                         && memberUserIds.Contains(identityUser.Id))
                 .ToListAsync(cancellationToken);
         }
+
+        // No IsDisabled term and no role join, and both omissions are the point. This read
+        // resolves what an account id is CALLED, not whether its owner may be asked to do
+        // anything, so a reviewer who has since been disabled or has lost the review role still
+        // has a name - which is the whole reason the read exists.
+        public async ValueTask<List<IdentityUser>> SelectIdentityUsersByIdsAsync(
+            IReadOnlyList<Guid> userIds,
+            CancellationToken cancellationToken = default)
+        {
+            return await IdentityUsers
+                .Where(identityUser => userIds.Contains(identityUser.Id))
+                .ToListAsync(cancellationToken);
+        }
     }
 }

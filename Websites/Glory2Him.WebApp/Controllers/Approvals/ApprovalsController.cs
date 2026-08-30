@@ -308,6 +308,74 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         }
 
         /// <summary>
+        /// What the given account ids are called (§16.7.4) — the review panel's one name
+        /// resolver.
+        ///
+        /// <para><b>The gap it closes.</b> An <c>ApprovalReview</c> row names its reviewer by
+        /// account id, and the only route that named other people was <c>/api/admin/users</c>
+        /// behind the <c>Administrators</c> role. So a <c>Publisher</c> who is not an
+        /// administrator — precisely the tier this panel exists for — could render their own name
+        /// and nobody else's. The candidates read does not close it: it returns who is in scope
+        /// for the round, so a reviewer who has since lost the role is absent from it entirely.
+        /// This read applies no role filter and no disabled filter for exactly that reason.</para>
+        ///
+        /// <para><b>Not keyed on a round</b>, and that is what makes it answer every surface at
+        /// once — reviewers, invited people and candidates are all just ids a surface is holding.
+        /// A display-name projection per read would have answered one of them and left the next
+        /// to invent its own.</para>
+        ///
+        /// <para>The ids ride the query string, repeated, for the same reason the invitation's
+        /// <c>requestedUserId</c> does: they are the whole request, and a body would make a plain
+        /// read into a POST. The batch is capped in the orchestration and an oversized one is a
+        /// <c>400</c> rather than a truncated <c>200</c>.</para>
+        ///
+        /// <para>Bare <c>[Authorize]</c> and the tier decided beneath, matching the candidates
+        /// read: the admitted set is suffix-matched across every entity and content type (§18.6),
+        /// so no fixed <c>Roles = ...</c> list could express it. No <c>Conflict</c> or
+        /// <c>Locked</c> clause — this performs SELECTs only.</para>
+        /// </summary>
+        [HttpGet("ReviewerDisplayNames")]
+        [Authorize]
+        public async ValueTask<ActionResult<IReadOnlyList<ReviewerDisplayName>>>
+            GetReviewerDisplayNamesAsync(
+                [FromQuery] string[] userIds,
+                CancellationToken cancellationToken)
+        {
+            try
+            {
+                IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                    await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                        userIds,
+                        cancellationToken);
+
+                return Ok(reviewerDisplayNames);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+                when (approvalOrchestrationValidationException.InnerException
+                    is UnauthorizedApprovalOrchestrationException)
+            {
+                return Unauthorized(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationValidationException approvalOrchestrationValidationException)
+            {
+                return BadRequest(approvalOrchestrationValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyValidationException
+                approvalOrchestrationDependencyValidationException)
+            {
+                return BadRequest(approvalOrchestrationDependencyValidationException.InnerException);
+            }
+            catch (ApprovalOrchestrationDependencyException approvalOrchestrationDependencyException)
+            {
+                return FailedDependency(approvalOrchestrationDependencyException.InnerException);
+            }
+            catch (ApprovalOrchestrationServiceException approvalOrchestrationServiceException)
+            {
+                return InternalServerError(approvalOrchestrationServiceException);
+            }
+        }
+
+        /// <summary>
         /// Invites somebody to review this entity (§7.9).
         ///
         /// <para><b>204 on every success.</b> Rule 4 dissolves both duplicate shapes — a person

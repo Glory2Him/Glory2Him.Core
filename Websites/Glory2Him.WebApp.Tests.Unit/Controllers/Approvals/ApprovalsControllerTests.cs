@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -810,6 +810,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 nameof(ApprovalsController.GetApprovalVerdictAsync),
                 nameof(ApprovalsController.PostApprovalDecisionAsync),
                 nameof(ApprovalsController.GetReviewerCandidatesAsync),
+                nameof(ApprovalsController.GetReviewerDisplayNamesAsync),
                 nameof(ApprovalsController.PostReviewRequestAsync),
                 nameof(ApprovalsController.GetReviewRequestsAsync),
                 nameof(ApprovalsController.DeleteReviewRequestAsync)
@@ -840,6 +841,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewerDisplayNamesAsync))]
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewRequestsAsync))]
         [InlineData(nameof(ApprovalsController.DeleteReviewRequestAsync))]
@@ -886,6 +888,7 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [InlineData(nameof(ApprovalsController.GetApprovalVerdictAsync))]
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewerDisplayNamesAsync))]
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewRequestsAsync))]
         [InlineData(nameof(ApprovalsController.DeleteReviewRequestAsync))]
@@ -1153,6 +1156,224 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
                 service.RetrieveApprovalReviewRequestsAsync(
                     randomEntityType,
                     randomEntityId,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The panel's one name resolver. An <c>ApprovalReview</c> row names its reviewer by
+        /// account id, and until this route the only thing that named other people was
+        /// <c>/api/admin/users</c> behind <c>Administrators</c> — so a <c>Publisher</c> who is not
+        /// an administrator could render their own name and nobody else's.
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnDisplayNamesOnGetReviewerDisplayNamesAsync()
+        {
+            // given
+            string[] randomUserIds = new[]
+            {
+                Guid.NewGuid().ToString(),
+                Guid.NewGuid().ToString(),
+            };
+
+            IReadOnlyList<ReviewerDisplayName> randomReviewerDisplayNames =
+                new List<ReviewerDisplayName>
+                {
+                    new ReviewerDisplayName
+                    {
+                        UserId = randomUserIds[0],
+                        DisplayName = GetRandomString(),
+                    },
+                    new ReviewerDisplayName
+                    {
+                        UserId = randomUserIds[1],
+                        DisplayName = GetRandomString(),
+                    },
+                };
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(randomReviewerDisplayNames);
+
+            // when
+            ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
+                await this.approvalsController.GetReviewerDisplayNamesAsync(
+                    randomUserIds,
+                    default);
+
+            // then
+            actualActionResult.Result.Should().BeOfType<OkObjectResult>();
+
+            ((OkObjectResult)actualActionResult.Result).Value
+                .Should().BeSameAs(randomReviewerDisplayNames);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    randomUserIds,
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Covers both refusals a caller can reach here: the tier gate (§16.7.4 — this is a
+        /// user-enumeration surface, so only the requesting tier may resolve names) and the batch
+        /// cap, which is refused rather than truncated.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnGetReviewerDisplayNamesIfValidationErrorAsync(
+            Xeption validationException)
+        {
+            // given
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
+                    expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
+                await this.approvalsController.GetReviewerDisplayNamesAsync(
+                    new[] { Guid.NewGuid().ToString() },
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnGetReviewerDisplayNamesIfRefusedAsync()
+        {
+            // given
+            var unauthorizedException = new UnauthorizedApprovalOrchestrationException(
+                message: GetRandomString());
+
+            var validationException = new ApprovalOrchestrationValidationException(
+                message: GetRandomString(),
+                innerException: unauthorizedException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
+                    expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
+                await this.approvalsController.GetReviewerDisplayNamesAsync(
+                    new[] { Guid.NewGuid().ToString() },
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task
+            ShouldReturnFailedDependencyOnGetReviewerDisplayNamesIfDependencyErrorAsync(
+                Xeption dependencyException)
+        {
+            // given
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
+                    expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
+                await this.approvalsController.GetReviewerDisplayNamesAsync(
+                    new[] { Guid.NewGuid().ToString() },
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task
+            ShouldReturnInternalServerErrorOnGetReviewerDisplayNamesIfServerErrorAsync(
+                Xeption serverException)
+        {
+            // given
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ReviewerDisplayName>>(
+                    expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<IReadOnlyList<ReviewerDisplayName>> actualActionResult =
+                await this.approvalsController.GetReviewerDisplayNamesAsync(
+                    new[] { Guid.NewGuid().ToString() },
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveReviewerDisplayNamesAsync(
+                    It.IsAny<IEnumerable<string>>(),
                     It.IsAny<CancellationToken>()),
                         Times.Once);
 
