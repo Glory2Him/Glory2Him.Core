@@ -70,9 +70,12 @@ namespace Glory2Him.WebApp.Infrastructure
         /// </remarks>
         public static IServiceCollection AddCoreServices(this IServiceCollection services)
         {
-            // Registered for the host's own use (e.g. ASP.NET Core Identity's SignInManager) —
-            // no Core broker reads the ambient HttpContext directly any more. Every broker on
-            // the event path resolves its actor from the envelope's SecurityContext instead.
+            // SecurityAuditBroker no longer reads the ambient HttpContext — it resolves its
+            // actor from the envelope's SecurityContext instead — but the accessor is still
+            // needed: EventEnvelopeBroker's EventEnvelopeClient resolves a SecurityBroker that
+            // reads httpContextAccessor.HttpContext?.User in ITS constructor (see the comment
+            // below), and the host's own services (e.g. ASP.NET Core Identity's SignInManager)
+            // depend on it too.
             services.AddHttpContextAccessor();
 
             // The defaults already name the audit members these entities carry (CreatedBy,

@@ -63,7 +63,7 @@ namespace {Namespace}.Brokers.Securities
         /// <param name="entity">The modified entity.</param>
         /// <param name="storageEntity">The original stored entity with correct creation audit values.</param>
         /// <returns>A task containing the entity with preserved creation audit values.</returns>
-        ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity);
 
@@ -155,11 +155,11 @@ namespace {Namespace}.Brokers.Securities
         /// <param name="entity">The entity being modified.</param>
         /// <param name="storageEntity">The original stored entity used to preserve original audit values.</param>
         /// <returns>The entity with original add audit values retained.</returns>
-        public ValueTask<T> EnsureAddAuditValuesRemainsUnchangedOnModifyAsync<T>(
+        public ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity) =>
                 this.securityClient.Audits
-                    .EnsureAddAuditValuesRemainsUnchangedOnModifyAsync(entity, storageEntity, securityConfigurations);
+                    .EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(entity, storageEntity, securityConfigurations);
 
         /// <summary>
         /// Resolves the acting user id from an event envelope's <see cref="SecurityContext"/>.

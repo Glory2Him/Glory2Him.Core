@@ -36,12 +36,13 @@ namespace Glory2Him.Core.Brokers.Securities
         }
 
         /// <summary>
-        /// Ensures that add audit values (e.g., created by/date) remain unchanged during modify operations.
+        /// Ensures that audit values other than the ones being modified (e.g., created by/date)
+        /// remain unchanged during modify operations.
         /// </summary>
         /// <typeparam name="T">The type of the entity.</typeparam>
         /// <param name="entity">The entity being modified.</param>
         /// <param name="storageEntity">The original stored entity used to preserve original audit values.</param>
-        /// <returns>The entity with original add audit values retained.</returns>
+        /// <returns>The entity with original other audit values retained.</returns>
         public ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity) =>
