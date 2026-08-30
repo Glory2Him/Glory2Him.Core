@@ -17,6 +17,7 @@ const BibleReferenceAssociationPanelDoc = lazyNamed(() => import('../pages/sampl
 const TagAssociationPanelDoc = lazyNamed(() => import('../pages/samplePages/components/tagAssociationPanelDoc'), 'TagAssociationPanelDoc');
 const ReviewPanelDoc = lazyNamed(() => import('../pages/samplePages/components/reviewPanelDoc'), 'ReviewPanelDoc');
 const ContentItemDetailPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemDetailPanelDoc'), 'ContentItemDetailPanelDoc');
+const ContentItemSearchPanelDoc = lazyNamed(() => import('../pages/samplePages/components/contentItemSearchPanelDoc'), 'ContentItemSearchPanelDoc');
 const BibleReferenceFullChapterSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferenceFullChapterSample'), 'BibleReferenceFullChapterSample');
 const BibleReferencePartialSample = lazyNamed(() => import('../pages/samplePages/bibleReferences/bibleReferencePartialSample'), 'BibleReferencePartialSample');
 const DashboardSample = lazyNamed(() => import('../pages/samplePages/dashboardSample'), 'DashboardSample');
@@ -94,6 +95,10 @@ export const samplePagesRoutes: RouteObject[] = [
             {
                 path: 'SamplePages/Components/Content-Item-Detail-Panel',
                 element: secured(<ContentItemDetailPanelDoc />),
+            },
+            {
+                path: 'SamplePages/Components/Content-Item-Search-Panel',
+                element: secured(<ContentItemSearchPanelDoc />),
             },
             {
                 path: 'SamplePages/Icons/UnicodeEmoji',

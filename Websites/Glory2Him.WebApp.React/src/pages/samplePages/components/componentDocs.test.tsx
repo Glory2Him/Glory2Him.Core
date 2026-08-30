@@ -1,7 +1,9 @@
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
 import { ContentItemDetailPanelDoc } from './contentItemDetailPanelDoc';
+import { ContentItemSearchPanelDoc } from './contentItemSearchPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
 import { ReviewPanelDoc } from './reviewPanelDoc';
 import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
@@ -229,6 +231,81 @@ describe('Component reference pages', () => {
             // takedown and loses the amendment
             expect(screen.getAllByRole('button', { name: /Edit/ })).toHaveLength(1);
             expect(screen.getAllByRole('button', { name: /Delete/ })).toHaveLength(2);
+        });
+    });
+
+    describe('ContentItemSearchPanelDoc', () => {
+        it('should document the component and name its source', () => {
+            // when
+            renderWithAuth(<ContentItemSearchPanelDoc />);
+
+            // then
+            expect(screen.getByRole('heading', { name: 'Content Item Search Panel', level: 1 }))
+                .toBeInTheDocument();
+
+            expect(screen.getByText('src/components/contentItems/contentItemSearchPanel.tsx'))
+                .toBeInTheDocument();
+
+            expect(screen.getByRole('heading',
+                { name: 'It does not know what is behind the collection' })).toBeInTheDocument();
+
+            expect(screen.getByRole('heading', { name: 'Props' })).toBeInTheDocument();
+        });
+
+        it('should run the demos rather than picture them', () => {
+            // when
+            renderWithAuth(<ContentItemSearchPanelDoc />);
+
+            // then: a quote shown whole, and a row showing its excerpt instead of its content
+            expect(screen.getAllByText('Character is what you are in the dark.').length)
+                .toBeGreaterThan(0);
+
+            // More than one demo on the page renders the same testimony, so the excerpt is
+            // asserted as present rather than as unique.
+            expect(screen.getAllByText(
+                'Busy is a very good place to hide, until a waiting room takes it away.').length)
+                .toBeGreaterThan(0);
+        });
+
+        // §6.4 resolution running per card, on one collection: the second quote's item-level
+        // override carries limitReactionsToLoveOnly, so it offers one option where the first
+        // offers three.
+        it('should narrow the reactions on the item its override belongs to', () => {
+            // when
+            renderWithAuth(<ContentItemSearchPanelDoc />);
+
+            // then
+            expect(screen.getAllByRole('button', { name: 'Love' })).toHaveLength(2);
+            expect(screen.getAllByRole('button', { name: 'Amen' })).toHaveLength(1);
+        });
+
+        it('should react for real rather than describing the event', async () => {
+            // given
+            renderWithAuth(<ContentItemSearchPanelDoc />);
+
+            // when
+            await userEvent.click(screen.getAllByRole('button', { name: 'Amen' })[0]);
+
+            // then
+            expect(screen.getByText('onReacted(quote-1, Amen)')).toBeInTheDocument();
+
+            expect(screen.getAllByRole('button', { name: 'Amen' })[0])
+                .toHaveAttribute('aria-pressed', 'true');
+        });
+
+        // #318: a tag filter would be a control that does nothing.
+        it('should offer no tag box in the advanced options', async () => {
+            // given
+            renderWithAuth(<ContentItemSearchPanelDoc />);
+
+            // when
+            await userEvent.click(
+                screen.getByRole('button', { name: 'Advanced search options' }));
+
+            // then
+            expect(screen.getByLabelText('Category')).toBeInTheDocument();
+            expect(screen.getByLabelText('Author')).toBeInTheDocument();
+            expect(screen.queryByLabelText(/tag/i)).not.toBeInTheDocument();
         });
     });
 
