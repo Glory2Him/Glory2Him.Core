@@ -228,6 +228,107 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
+        /// The cap counts ACCOUNTS, not spellings. A GUID has several equal string forms - case,
+        /// braces, hyphens - so counting the caller's raw text would refuse somebody who asked
+        /// about 200 people using 201 spellings of them, which is a request the resolver can
+        /// answer perfectly well.
+        ///
+        /// <para>201 strings go in, naming 200 distinct accounts. It must succeed, and the
+        /// identity store must be asked for 200 canonical ids.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldCountAccountsRatherThanSpellingsAgainstTheCapAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+
+            List<Guid> distinctUserIds = Enumerable.Range(0, 200)
+                .Select(_ => Guid.NewGuid())
+                .ToList();
+
+            // 201 strings for 200 accounts: the first id spelled twice, once braced and uppercased.
+            var spellings = new List<string>(
+                distinctUserIds.Select(userId => userId.ToString()))
+                {
+                    distinctUserIds[0].ToString("B").ToUpperInvariant(),
+                };
+
+            IEnumerable<string> capturedUserIds = null;
+
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<IEnumerable<string>, CancellationToken>(
+                            (userIds, token) => capturedUserIds = userIds)
+                        .ReturnsAsync(new List<IdentityUser>());
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    spellings,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Should().BeEmpty();
+
+            capturedUserIds.Should().BeEquivalentTo(
+                distinctUserIds.Select(userId => userId.ToString()));
+        }
+
+        /// <summary>
+        /// Unparseable ids fall out before the count as well. They can never name an account, so
+        /// charging them against a ceiling that exists to bound a query would refuse work nobody
+        /// asked for.
+        /// </summary>
+        [Fact]
+        public async Task ShouldNotCountUnusableIdsAgainstTheCapAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            Guid realUserId = Guid.NewGuid();
+
+            var mostlyRubbish = new List<string> { realUserId.ToString() };
+
+            mostlyRubbish.AddRange(
+                Enumerable.Range(0, 300).Select(index => $"not-a-guid-{index}"));
+
+            SetupResolvedIdentityUsers(CreateIdentityUser(realUserId, preferredName: "Real"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    mostlyRubbish,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Single().UserId.Should().Be(realUserId.ToString());
+        }
+
+        /// <summary>
+        /// Whatever spelling the caller used, the echoed id comes back canonical and matches the
+        /// account it resolved - which is what lets a surface join the answer onto rows it already
+        /// holds without normalising anything itself.
+        /// </summary>
+        [Fact]
+        public async Task ShouldEchoTheCanonicalIdWhateverSpellingWasSentAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            Guid userId = Guid.NewGuid();
+            SetupResolvedIdentityUsers(CreateIdentityUser(userId, preferredName: "Someone"));
+
+            // when
+            IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
+                await this.approvalOrchestrationService.RetrieveReviewerDisplayNamesAsync(
+                    new[] { userId.ToString("B").ToUpperInvariant() },
+                    TestContext.Current.CancellationToken);
+
+            // then
+            reviewerDisplayNames.Single().UserId.Should().Be(userId.ToString());
+        }
+
+        /// <summary>
         /// Asking about nobody is answered with nobody. A panel holding no ids should not have to
         /// branch around calling, and the foundation fails closed beneath this anyway - an empty
         /// set must never be read as "everybody".

@@ -157,9 +157,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         ///
         /// <para>A <b>user-enumeration surface</b>, so §16.7.4's posture governs it rather than
         /// being re-derived: the requesting tier (§7.9 rule 2) and nobody else, an account id and
-        /// a display name and nothing else. It is bounded as well — a batch of more than 200 ids
-        /// is refused rather than truncated, so the resolver cannot be walked into a directory
-        /// dump and a caller is never quietly told less than it asked for.</para>
+        /// a display name and nothing else. It is bounded as well — a batch naming more than 200
+        /// distinct ACCOUNTS is refused rather than truncated, so a caller is never quietly told
+        /// less than it asked for. The count is taken after the ids are parsed, because a GUID has
+        /// several equal spellings and counting raw text would refuse a caller who asked about 200
+        /// people using 201 spellings of them. The id echoed back is canonical for the same
+        /// reason: a surface joins on it whatever form it holds ids in.</para>
         /// </summary>
         ValueTask<IReadOnlyList<ReviewerDisplayName>> RetrieveReviewerDisplayNamesAsync(
             IEnumerable<string> userIds,

@@ -58,13 +58,32 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                List<string> requestedUserIds = (userIds ?? Enumerable.Empty<string>())
+                // PARSED before it is counted, and that ordering is the rule rather than an
+                // implementation detail. A GUID has several equal spellings - case, braces,
+                // hyphens - so counting the raw strings would let one account arrive as two and
+                // refuse a caller who asked about 200 people using 201 spellings. The cap counts
+                // ACCOUNTS. Canonicalising here also makes the UserId echoed back in the answer
+                // identical to what the caller sent, so a surface can join on it whatever form it
+                // holds ids in.
+                //
+                // Unparseable ids fall out before the count too. They can never name an account,
+                // so charging them against a ceiling that exists to bound a query would refuse
+                // work nobody asked for.
+                List<Guid> requestedUserIds = (userIds ?? Enumerable.Empty<string>())
                     .Where(userId => string.IsNullOrWhiteSpace(userId) is false)
-                    .Select(userId => userId.Trim())
-                    .Distinct(StringComparer.Ordinal)
+                    .Select(userId =>
+                        Guid.TryParse(userId.Trim(), out Guid parsedUserId)
+                            ? parsedUserId
+                            : Guid.Empty)
+                    .Where(parsedUserId => parsedUserId != Guid.Empty)
+                    .Distinct()
                     .ToList();
 
                 ValidateOnRetrieveReviewerDisplayNames(requestedUserIds);
+
+                List<string> canonicalUserIds = requestedUserIds
+                    .Select(requestedUserId => requestedUserId.ToString())
+                    .ToList();
 
                 // The envelope is minted for its SECURITY CONTEXT alone - this operation reads no
                 // approval, so there is no entity to hang one off. Its content is the id list
@@ -72,7 +91,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // and a stand-in Approval would describe a row nobody asked for.
                 EventEnvelope<IReadOnlyList<string>> envelope =
                     await this.eventEnvelopeBroker.CreateAsync<IReadOnlyList<string>>(
-                        content: requestedUserIds);
+                        content: canonicalUserIds);
 
                 ValidateUserMayRequestApprovalReviews(envelope.SecurityContext);
 
@@ -82,7 +101,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // what left a reviewer who had lost their role with no name at all.
                 IReadOnlyList<IdentityUser> resolvedUsers =
                     await this.identityUserService.RetrieveIdentityUsersByIdsAsync(
-                        userIds: requestedUserIds,
+                        userIds: canonicalUserIds,
                         cancellationToken: cancellationToken);
 
                 // Ids naming nobody are simply absent. A caller asking about somebody whose

@@ -64,10 +64,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         // An empty ask is answered with an empty list - a panel holding no ids should not have to
         // branch around calling - but an oversized one is refused outright rather than truncated,
         // because a silently shortened answer would leave the caller rendering blanks it could
-        // not explain, and an uncapped batch is how a name resolver becomes the directory dump
-        // 16.7.4 exists to prevent.
+        // not explain.
+        //
+        // It counts ACCOUNTS, which is why it takes parsed ids rather than the caller's strings. A
+        // GUID has several equal spellings, so counting raw text would refuse a caller who asked
+        // about 200 people using 201 spellings of them.
         private static void ValidateOnRetrieveReviewerDisplayNames(
-            IReadOnlyList<string> requestedUserIds)
+            IReadOnlyList<Guid> requestedUserIds)
         {
             if (requestedUserIds.Count > MaximumReviewerDisplayNameBatch)
             {
