@@ -122,6 +122,7 @@ namespace Glory2Him.WebApp.Services.Views.Profiles
                 Id = user.Id,
                 UserName = user.UserName ?? string.Empty,
                 Email = user.Email ?? string.Empty,
+                DisplayName = user.DisplayName,
                 HasProfileImage = user.ProfileImage is { Length: > 0 },
                 ImageVersion = ComputeVersion(user.ProfileImage),
             };
