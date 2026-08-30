@@ -139,7 +139,18 @@ namespace Glory2Him.WebApp.Data
             return coreRoleNames.ToArray();
         }
 
-        public static async Task SeedAsync(IServiceProvider serviceProvider)
+        /// <summary>
+        /// Brings the Identity schema and its DATA up to the running code's expectations.
+        /// Separated from <see cref="SeedAsync"/> because the two have different failure
+        /// consequences and therefore belong on different sides of the startup guard —
+        /// <c>Program.cs</c> explains which and why.
+        ///
+        /// <para>In short: seeding a missing role only ever ADDS a row, so a failed seed leaves
+        /// a site that is short a grant and self-heals on the next start. A failed migration
+        /// leaves the role rows spelling a vocabulary the deployed code no longer reads, and no
+        /// number of restarts fixes that on its own.</para>
+        /// </summary>
+        public static async Task MigrateAsync(IServiceProvider serviceProvider)
         {
             using IServiceScope scope = serviceProvider.CreateScope();
             IServiceProvider services = scope.ServiceProvider;
@@ -147,6 +158,12 @@ namespace Glory2Him.WebApp.Data
             var securityDbContext = services.GetRequiredService<SecurityDbContext>();
             await securityDbContext.Database.MigrateAsync();
             await DisableAutoCloseForLocalDbAsync(securityDbContext);
+        }
+
+        public static async Task SeedAsync(IServiceProvider serviceProvider)
+        {
+            using IServiceScope scope = serviceProvider.CreateScope();
+            IServiceProvider services = scope.ServiceProvider;
 
             var roleManager = services.GetRequiredService<RoleManager<AppRole>>();
             var userManager = services.GetRequiredService<UserManager<AppUser>>();
