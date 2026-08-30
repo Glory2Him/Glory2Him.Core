@@ -89,6 +89,29 @@ vi.mock('../services/foundations/contentItemSettingService', () => ({
     }
 }));
 
+// The byline's second read. Mocked with a resolved contributor by default so the byline is
+// present in every test below rather than being a special case, and captured so the page can be
+// held to asking for the account the ITEM names rather than for the reader who is signed in.
+let requestedContributorId = '';
+
+vi.mock('../services/foundations/contributorService', () => ({
+    contributorService: {
+        useGetContributorById: (userId: string) => {
+            requestedContributorId = userId;
+
+            return {
+                data: {
+                    userId,
+                    displayName: 'Louis Ferguson',
+                    imageUrl: null
+                },
+                isLoading: false,
+                isError: false
+            };
+        }
+    }
+}));
+
 // signInAs mints userId 'user-1', so this row belongs to the reader in every test below — the
 // hardest case for "editing is disabled here", since the owner is the one account that could
 // otherwise amend it at any status.
@@ -158,16 +181,56 @@ describe('PostDetail', () => {
         expect(screen.queryByLabelText(/Title/)).not.toBeInTheDocument();
     });
 
-    it('should give the page its own heading rather than starting at the panel', () => {
+    it('should head the document with the item, exactly once', () => {
         // when
         renderPage();
 
-        // then: one h1 naming the item, and the panel does not repeat it underneath
+        // then: the PANEL renders it, as an h1, so the title sits under the type chip where the
+        // design puts it - and the page adds nothing of its own on top of it
         expect(screen.getByRole('heading',
             { name: 'He kept me through the night shift', level: 1 })).toBeInTheDocument();
 
         expect(screen.getAllByRole('heading', { name: 'He kept me through the night shift' }))
             .toHaveLength(1);
+    });
+
+    it('should name the contributor the item records, not the reader looking at it', () => {
+        // given: a reader who is not the contributor
+        signInAs(authState);
+        contentItem = { ...ownedItem, createdBy: 'somebody-else' };
+
+        // when
+        renderPage();
+
+        // then
+        expect(requestedContributorId).toBe('somebody-else');
+        expect(screen.getByText('Submitted by')).toBeInTheDocument();
+        expect(screen.getByText('Louis Ferguson')).toBeInTheDocument();
+    });
+
+    it('should say how long the contribution takes to read', () => {
+        // given: 400 words, at the 200-per-minute the reading time is computed against
+        contentItem = {
+            ...ownedItem,
+            content: Array.from({ length: 400 }, () => 'word').join(' ')
+        };
+
+        // when
+        renderPage();
+
+        // then
+        expect(screen.getByText(/2 min read/)).toBeInTheDocument();
+    });
+
+    it('should claim no engagement figures it has no source for', () => {
+        // when
+        renderPage();
+
+        // then: there is no comment, reaction or view client in this app yet, and a zero would
+        // assert an empty conversation rather than an absent one
+        expect(screen.queryByText(/reaction/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/comment/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/View/)).not.toBeInTheDocument();
     });
 
     it('should fall back to the content type name for a type that carries no title', () => {
