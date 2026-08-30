@@ -494,7 +494,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                         It.Is<Approval>(approval => approval.IsApprovedByBypass),
                         It.IsAny<CancellationToken>()),
                 Times.Once,
-                failMessage: "an Admin bypass-approval is relayed through this seam, so the "
+                failMessage: "an administrator bypass-approval is relayed through this seam, so the "
                     + "system identity must not be treated as proof that no waiver applies");
         }
 

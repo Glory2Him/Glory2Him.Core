@@ -1149,7 +1149,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         {
             // given: a review is the reviewer's own verdict — a peer reviewer records their own
             // review instead of amending someone else's, and NO role widens that. This used to
-            // run only as a plain reviewer, which is refused by the withdrawn owner-or-Admin
+            // run only as a plain reviewer, which is refused by the withdrawn owner-or-Administrators
             // predicate just as it is by the owner-only one — so the narrowing that is the point
             // of this branch was not pinned by anything. Administrators is the member that matters here:
             // restoring "|| Roles.Contains(Roles.Administrators)" now fails this theory.

@@ -391,7 +391,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         }
 
         /// <summary>
-        /// Resolve is owner-OR-Admin, and that widening is the whole reason the operation exists
+        /// Resolve is owner-OR-Administrators, and that widening is the whole reason the operation exists
         /// (§14.7 rule 5). A reviewer clears neither branch.
         /// </summary>
         [Theory]

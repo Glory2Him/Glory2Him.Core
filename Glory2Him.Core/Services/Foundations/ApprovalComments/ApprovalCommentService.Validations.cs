@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // foundation cannot tell a Tag-Reviewers holder's comment thread from a Link-Reviewers
         // holder's.
         // This gates the two READ paths only. It reaches no write gate: add carries the
-        // contribution gate, modify and remove are owner-only, resolve is owner-or-Admin, and
+        // contribution gate, modify and remove are owner-only, resolve is owner-or-Administrators, and
         // hard remove is Administrators-only — none consults this.
         //
         // Narrowing a scoped reviewer to the approvals of their own entity type was

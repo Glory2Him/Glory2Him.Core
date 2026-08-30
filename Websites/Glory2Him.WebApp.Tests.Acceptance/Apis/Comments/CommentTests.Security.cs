@@ -241,7 +241,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         }
 
         /// <summary>
-        /// Removal is owner-or-Admin, deliberately narrower than modify: a reviewer holds write
+        /// Removal is owner-or-Administrators, deliberately narrower than modify: a reviewer holds write
         /// permission on someone else's comment but may not delete it.
         /// </summary>
         [Fact]

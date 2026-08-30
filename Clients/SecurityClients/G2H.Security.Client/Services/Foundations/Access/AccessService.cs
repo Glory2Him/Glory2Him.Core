@@ -231,7 +231,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             {
                 return Refuse(
                     AccessDenialReason.NotApprovalCommentAuthor,
-                    "Actor is neither the comment's author nor an Admin resolving on their behalf.");
+                    "Actor is neither the comment's author nor an administrator resolving on their behalf.");
             }
 
             if (request.IsParentApprovalDeleted)
@@ -250,7 +250,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
 
             return isAuthor
                 ? Permit("Actor is the author of the comment and the round is open.")
-                : Permit("Actor is an Admin resolving on the author's behalf; UpdatedBy records them.");
+                : Permit("Actor is an administrator resolving on the author's behalf; UpdatedBy records them.");
         }
 
         // Order matters and is not arbitrary. Identity comes first, then role, then the rules

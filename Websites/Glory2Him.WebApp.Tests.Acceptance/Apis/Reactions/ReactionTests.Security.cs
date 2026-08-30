@@ -241,7 +241,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         }
 
         /// <summary>
-        /// Removal is owner-or-Admin, deliberately narrower than modify: a reviewer holds write
+        /// Removal is owner-or-Administrators, deliberately narrower than modify: a reviewer holds write
         /// permission on someone else's reaction but may not delete it.
         /// </summary>
         [Fact]
