@@ -17,10 +17,11 @@ using Glory2Him.Core.Models.Foundations.IdentityUsers;
 namespace Glory2Him.Core.Services.Foundations.IdentityUsers
 {
     /// <summary>
-    /// The read-only foundation over the identity store (§12.7.1). It answers exactly one kind of
-    /// question — WHO holds a given set of role names — because that is the only thing the
-    /// approval workflow needs from the security database and every extra member would widen a
-    /// cross-component read surface for no caller.
+    /// The read-only foundation over the identity store (§12.7.1). It answers two questions and
+    /// no others — WHO holds a given set of role names, and what an account id already held is
+    /// CALLED — because those are the only things the approval workflow needs from the security
+    /// database. Every further member would widen a cross-component read surface for no caller,
+    /// so a third one has to be argued for rather than added.
     ///
     /// <para><b>It applies no policy.</b> Composing which role names constitute the review tier
     /// for an entity is §18.6's rule and belongs to the caller that knows the entity type; this
@@ -45,6 +46,25 @@ namespace Glory2Him.Core.Services.Foundations.IdentityUsers
         /// </summary>
         ValueTask<IReadOnlyList<IdentityUser>> RetrieveIdentityUsersInRolesAsync(
             IEnumerable<string> roleNames,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The accounts carrying the given ids. This is the RESOLUTION half of the same question:
+        /// the read above asks who holds a role, this one asks what an id already held is called.
+        ///
+        /// <para><b>It applies no role filter and no disabled filter</b>, and neither omission is
+        /// an oversight. Every id handed here comes off a row somebody already stored — a review,
+        /// an invitation — so the account is part of the record whatever has happened to it since.
+        /// Filtering by the review tier is what left a reviewer who lost their role with no name
+        /// at all (§16.7.4), and a disabled account's past review still renders.</para>
+        ///
+        /// <para>Ids that are not usable GUIDs, and ids naming no account, are simply dropped: a
+        /// caller asking about a person who no longer exists gets a shorter list, not a fault.
+        /// An empty or null set returns no users rather than everybody — the same fail-closed
+        /// reading the roles read takes, for the same reason.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<IdentityUser>> RetrieveIdentityUsersByIdsAsync(
+            IEnumerable<string> userIds,
             CancellationToken cancellationToken = default);
     }
 }
