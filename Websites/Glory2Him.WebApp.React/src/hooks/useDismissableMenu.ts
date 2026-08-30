@@ -49,8 +49,8 @@ export interface DismissableMenu {
     close: (options?: { returnFocus?: boolean }) => void;
 }
 
-// Enough to find the first thing worth landing on. The picker's is its filter box, which is
-// also where somebody opening it wants to be; the two dropdowns' is their first item.
+// Enough to find the first thing worth landing on, for consumers using initialFocus: "first".
+// The picker's is its filter box, which is also where somebody opening it wants to be.
 const focusableSelector = [
     "input:not([disabled])",
     "button:not([disabled])",
@@ -60,7 +60,17 @@ const focusableSelector = [
     "[tabindex]:not([tabindex='-1'])"
 ].join(",");
 
-export const useDismissableMenu = (): DismissableMenu => {
+export interface DismissableMenuOptions {
+    // "first" (default) focuses the first focusable control inside the menu, which is right for
+    // the picker: its first control is the filter box the user came to type in. "container"
+    // focuses the menu div itself instead, for menus whose first control is an action rather
+    // than a field — the vote and decision dropdowns — so a stray second Enter on the trigger
+    // does not fall through to that action. See #370.
+    initialFocus?: "first" | "container";
+}
+
+export const useDismissableMenu = (options?: DismissableMenuOptions): DismissableMenu => {
+    const initialFocus = options?.initialFocus ?? "first";
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -108,22 +118,51 @@ export const useDismissableMenu = (): DismissableMenu => {
             }
         };
 
+        // The one change that retires all three keyboard-dismissal gaps at once: a menu cannot
+        // be stale-open after Tab, two cannot be open together (opening the second necessarily
+        // moves focus out of the first), and Escape is only ever armed while focus is genuinely
+        // inside. Bootstrap 5's own `clearMenus` does exactly this.
+        //
+        // relatedTarget is null when focus leaves the document entirely (alt-tab, devtools) —
+        // guarded so a menu does not close from underneath the user in that case.
+        const onFocusOut = (event: FocusEvent) => {
+            const container = containerRef.current;
+            const nextFocus = event.relatedTarget as Node | null;
+
+            if (nextFocus === null) {
+                return;
+            }
+
+            if (container != null && container.contains(nextFocus) === false) {
+                close({ returnFocus: false });
+            }
+        };
+
         // mousedown rather than click: a click that starts inside and ends outside is a drag,
         // not a dismissal, and the panel's picker rows are wide enough for that to happen.
         document.addEventListener("mousedown", onPointerDown);
         document.addEventListener("keydown", onKeyDown);
+        containerRef.current?.addEventListener("focusout", onFocusOut);
+
+        const container = containerRef.current;
 
         return () => {
             document.removeEventListener("mousedown", onPointerDown);
             document.removeEventListener("keydown", onKeyDown);
+            container?.removeEventListener("focusout", onFocusOut);
         };
     }, [isOpen, close]);
 
     useEffect(() => {
         if (isOpen) {
             wasOpen.current = true;
-            const firstFocusable = menuRef.current?.querySelector<HTMLElement>(focusableSelector);
-            firstFocusable?.focus();
+
+            if (initialFocus === "container") {
+                menuRef.current?.focus();
+            } else {
+                const firstFocusable = menuRef.current?.querySelector<HTMLElement>(focusableSelector);
+                firstFocusable?.focus();
+            }
 
             return;
         }
@@ -134,7 +173,7 @@ export const useDismissableMenu = (): DismissableMenu => {
 
         wasOpen.current = false;
         shouldReturnFocus.current = false;
-    }, [isOpen]);
+    }, [isOpen, initialFocus]);
 
     return {
         isOpen,

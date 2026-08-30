@@ -1013,6 +1013,11 @@ Recommended properties:
 | `RequireReviewCommentResolutionBeforeApprovals` | Whether every `ApprovalComment` on the approval must be **settled** before approval can be granted. Only comments that ask for something ever hold it shut — an informational comment is created settled (§7.8). It gates the `Approval` entity only — it never affects an individual `ApprovalReview`'s own verdict. |
 | `BlockOnZeroApprovalScore` | Whether an entity whose `IConfidence.ConfidenceScore` is `0` is blocked from approval. Defaults to `false`. Applies to both automatic approval and the manual approve action; a publisher or administrator may still bypass it (§12.5.3 business rule 11) or correct the score first (§9.7.1 rule 5). |
 | `DoNotAllowBypassingSettings` | When `true`, the bypass action is unavailable — the approval conditions cannot be bypassed by anyone, including `Administrators`. |
+| `IsAIApprovalInteractionsAllowed` | Whether an AI reviewer (§8.6.2) may interact with this approval at all. Gates the two settings below — `false` means no AI action of any kind is offered or performed. |
+| `IsAIApprovalCommentAllowed` | Whether the AI reviewer may submit an `ApprovalComment` under its system identity. Requires `IsAIApprovalInteractionsAllowed = true`. |
+| `IsAIApprovalReviewAllowed` | Whether the AI reviewer may submit an `ApprovalReview` under its system identity. Requires **both** `IsAIApprovalInteractionsAllowed = true` and `IsAIApprovalCommentAllowed = true` — the AI must never cast a vote without a comment justifying it. |
+| `AIApprovalConfidenceRejectionThreshold` | `IConfidence.ConfidenceScore` value below which the AI reviewer files a `Rejected` `ApprovalReview`. Same 0–1 scale as `ConfidenceScore`. |
+| `AIApprovalConfidenceApprovalThreshold` | `ConfidenceScore` value above which the AI reviewer files an `Approved` `ApprovalReview`. Between the two thresholds, the AI files an `ApprovalComment` only — no review — and a human decides. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from policy resolution. |
 | `CreatedBy` | User who created the setting. |
 | `CreatedWhen` | Creation timestamp. |
@@ -1204,6 +1209,30 @@ Three consequences follow, and all are load-bearing:
 
    The obligation it created is **discharged** for the seven entities that have a foundation service, and stands only for `Attachment`, which has none. An approve operation added there must call `IAccessBroker`, and a review of that work should check for the call before anything else.
 3. **The last-editor question is settled.** It was implemented once against `UpdatedBy` and withdrawn; the clause was then rewritten rather than a column added, and what replaced it rides on `IAccessClient` (consequence 2) instead of becoming a third mechanism. Nothing further is owed here.
+
+### 8.6.2 AI Reviewer ("Berean") — Proposed, Not Yet Implemented
+
+**Everything in this section is a design proposal.** Unlike §8.6/§8.6.1 above, nothing here is a hard rule or a built mechanism yet — it is recorded so the shape is agreed before code, in line with the practice of settling design here first (§8.6.1's own history is the cautionary example of the alternative). Treat every "would"/"is proposed to" as exactly that.
+
+**Purpose.** Offer an automated first pass on an approval, driven by whatever `IConfidence` classification the entity already produces, surfaced through a reviewer identity — **Berean**, after Acts 17:11, "they examined the Scriptures every day to see if what Paul said was true" — rather than a generic "AI" label. Berean acts under a **system identity** (`SecurityContext.IsSystemIdentity = true`, the same concept `SecurityAuditBroker` already stamps `CreatedBy` from elsewhere in this document), not a granted role.
+
+**Settings and gating.** The three booleans in §8.2 form a strict chain: `IsAIApprovalReviewAllowed` requires `IsAIApprovalCommentAllowed`, which requires `IsAIApprovalInteractionsAllowed`. Berean may never file a review without a comment justifying it, and may never act at all with the top-level switch off. All three resolve through the normal §8.4 tiering (`(EntityType, ContentType)`), so AI participation can be enabled per content type exactly like every other approval policy.
+
+**Confidence is a single-direction scale, not a score-plus-direction pair.** High `ConfidenceScore` means agree/approve; low means disagree/reject. Given the resolved `AIApprovalConfidenceRejectionThreshold` and `AIApprovalConfidenceApprovalThreshold`:
+
+1. `ConfidenceScore < AIApprovalConfidenceRejectionThreshold` → Berean files an `ApprovalReview` of `Rejected`, with an `ApprovalComment` stating why, both under its system identity.
+2. `ConfidenceScore > AIApprovalConfidenceApprovalThreshold` → Berean files an `ApprovalReview` of `Approved`, with an `ApprovalComment` stating why.
+3. Otherwise (the band between the two thresholds) → Berean files an `ApprovalComment` only. No `ApprovalReview` is written; a human reviewer decides.
+
+**Reviewer-suggestion UI.** When the `ApprovalSetting` resolved for an entity has `IsAIApprovalInteractionsAllowed = true`, Berean is offered as the top suggestion in the reviewer-request UI (ahead of human suggestions), mirroring GitHub's Copilot-reviewer suggestion. With the setting `false`, Berean is not offered at all — the same fail-closed posture as every other setting in §8.4.
+
+**Trigger event.** Requesting Berean as a reviewer publishes an event — working name `OnAIReviewerAssigned` — that an AI-review process subscribes to, calling the classification library and then filing the comment/review as above. The exact address and tense need a pass against the §14 event-naming conventions before this is built (assigning a reviewer and kicking off an automated pipeline reads as an orchestration/workflow fact, not a foundation CRUD one — the naming register should reflect that), and are not settled by this section.
+
+**Explicitly open, not decided by anything above:**
+
+1. **Whether a Berean `ApprovalReview` counts toward `RequiredNumberOfApprovals`** the same as a human vote, or is advisory-only and excluded from the §8.5 threshold count entirely. §8.6's HR-1–HR-4 were built around human `Reviewer`/`Publisher` tiers; letting an automated identity satisfy an approval quorum is a materially bigger governance decision than letting it comment, and needs its own explicit ruling — this section does not make one.
+2. **Idempotency.** Event redelivery must not cause Berean to file a duplicate review or comment. Whatever mechanism handles this should follow the existing `ProcessedEvent` dedup pattern on the event path rather than inventing a second one.
+3. **Where the classification call lives** — inline in the event handler, or a dedicated orchestration — and which `IConfidence` implementation backs it. Not decided.
 
 ### 8.7 Rejection Rules
 
