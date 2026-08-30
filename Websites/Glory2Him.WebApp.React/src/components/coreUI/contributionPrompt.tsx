@@ -29,7 +29,7 @@ export function ContributionPrompt({
     body = 'A story, a testimony, or a verse that carried you through — if it might encourage '
         + 'someone else, we would love to read it.',
     linkText = 'Submit a contribution',
-    href = '/post/contribute',
+    href = '/posts/contribute',
     iconCssClass = 'bi-pencil-square',
     iconSizePx = 36,
     cssClass = 'mb-4',

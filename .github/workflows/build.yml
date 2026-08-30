@@ -59,6 +59,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         }
       shell: pwsh
+    - name: Verify the model matches the migrations
+      run: >-
+        # A configuration change with no migration behind it leaves the snapshot and the
+
+        # history describing a different schema from the model. Nothing else in the build
+
+        # notices — the code compiles and every test passes against the model — and the
+
+        # drift only surfaces when Database.Migrate() runs somewhere real.
+
+        dotnet tool install --global dotnet-ef --version 10.0.10 `
+          || dotnet tool update --global dotnet-ef --version 10.0.10
+        dotnet ef migrations has-pending-model-changes `
+          --project Glory2Him.Core/Glory2Him.Core.csproj `
+          --context Glory2Him.Core.Brokers.Storages.Sql.StorageBroker
+
+        if ($LASTEXITCODE -ne 0) { throw "the model has changes no migration carries" }
+      shell: pwsh
     - name: Verify migration script applies under sqlcmd defaults
       run: >-
         # Regression guard for the QUOTED_IDENTIFIER fix: the generated script must

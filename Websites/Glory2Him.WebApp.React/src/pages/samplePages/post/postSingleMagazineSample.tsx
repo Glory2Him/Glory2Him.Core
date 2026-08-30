@@ -223,7 +223,7 @@ export const PostSingleMagazineSample = () => {
                                 {/* No rule either side of this one — the panel's own border already
                                     separates it. */}
                                 <ContributionPrompt
-                                    href="/post/contribute"
+                                    href="/posts/contribute"
                                     cssClass="mt-4 mb-4"
                                     isAuthenticated={true}
                                     loginHref="/Account/Login" />

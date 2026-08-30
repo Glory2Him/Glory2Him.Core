@@ -4,6 +4,7 @@ using Glory2Him.Core.Brokers.Storages.Sql;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Glory2Him.Core.Migrations
 {
     [DbContext(typeof(StorageBroker))]
-    partial class StorageBrokerModelSnapshot : ModelSnapshot
+    [Migration("20260830122844_FilterPublishedSlotIndexesOnLiveRows")]
+    partial class FilterPublishedSlotIndexesOnLiveRows
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -304,12 +307,12 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("EntityType")
                         .IsUnique()
                         .HasDatabaseName("UX_ApprovalSettings_EntityTypeDefault")
-                        .HasFilter("[ContentType] IS NULL AND [IsDeleted] = 0");
+                        .HasFilter("[ContentType] IS NULL");
 
                     b.HasIndex("EntityType", "ContentType")
                         .IsUnique()
                         .HasDatabaseName("UX_ApprovalSettings_EntityTypeContentType")
-                        .HasFilter("[ContentType] IS NOT NULL AND [IsDeleted] = 0");
+                        .HasFilter("[ContentType] IS NOT NULL");
 
                     b.ToTable("ApprovalSettings", null, t =>
                         {
@@ -949,12 +952,12 @@ namespace Glory2Him.Core.Migrations
                     b.HasIndex("ContentItemId")
                         .IsUnique()
                         .HasDatabaseName("UX_ContentItemSettings_OverridePerEntity")
-                        .HasFilter("[ContentItemId] IS NOT NULL AND [IsDeleted] = 0");
+                        .HasFilter("[ContentItemId] IS NOT NULL");
 
                     b.HasIndex("ContentType")
                         .IsUnique()
                         .HasDatabaseName("UX_ContentItemSettings_DefaultPerType")
-                        .HasFilter("[ContentItemId] IS NULL AND [IsDeleted] = 0");
+                        .HasFilter("[ContentItemId] IS NULL");
 
                     b.ToTable("ContentItemSettings", (string)null);
                 });

@@ -168,10 +168,12 @@ namespace Glory2Him.Core.Services.Processings.Links
             // breaks; the write flow needs a gated probe instead (#291, design §14.6).
             //
             // The group is still resolved from the STORED row: a caller-supplied GroupId would
-            // let one group's approval unpublish another group's live row. The probe is
-            // UNFILTERED on the incumbent side, because a tombstone that kept IsPublished still
-            // holds the slot and skipping it leaves the group permanently unpublishable
-            // (§9.7.7 rule 7).
+            // let one group's approval unpublish another group's live row. The probe stays
+            // UNFILTERED on the incumbent side. The slot index no longer counts deleted rows
+            // (§3.4.1), so a tombstone cannot block the promote any more — but it can still be
+            // CARRYING IsPublished, and a row claiming to be the group's published version
+            // while invisible to every read is exactly what §9.7.6 rule 1 forbids. Clearing it
+            // here keeps the flag and the index telling the same story (§9.7.7 rule 7).
             Guid? incumbentId =
                 await this.linkService.FindPublishedSiblingLinkIdAsync(
                     linkId: linkId,
