@@ -1788,6 +1788,10 @@ public enum AuthenticationType
 
 `SecurityContext` should be built from the `ClaimsPrincipal` provided by ASP.NET Core Identity and OpenIddict (see section 16). A `securityContextFactory` at the entry point is responsible for this normalization. The rest of the application must not depend on `ClaimsPrincipal` directly.
 
+**`Username` is the account's login name, never its email address.** It is read from the username claim — `ClaimTypes.Name`, where ASP.NET Core Identity puts `UserName` — and nothing that names the caller falls back to `Email` to fill it. The reason is that this field does not stay in memory: the envelope carrying it is signed (§14.6 rule 4) and then serialised whole into the stored event, so whatever `Username` holds is written into every event that caller ever causes. **That makes the rule forward-only.** The signature binds the payload, so an email already written into a stored event cannot be scrubbed without destroying the integrity proof the event path depends on; correcting the field corrects new events, and existing ones are a retention question rather than an edit. The same reasoning bars any other personal data from the security context — it is an authorisation record, not a profile.
+
+`Username` is carried for diagnostics and for a human-readable actor on the event path. **No rule is ever decided on it.** Authorisation compares `SubjectId`, and audit stamps `CreatedBy`/`UpdatedBy` from the subject claim (§14.6.1) — two accounts can share a display name, so a rule matching on a name is a privilege escalation.
+
 #### 10.7.1 Authentication Flow Examples
 
 **OpenID Connect user login:**

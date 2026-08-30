@@ -18,6 +18,7 @@ namespace G2H.EventEnvelope.Client.Models.Securities
     {
         public EventUser(
             string userId,
+            string userName,
             string givenName,
             string surname,
             string displayName,
@@ -27,6 +28,7 @@ namespace G2H.EventEnvelope.Client.Models.Securities
             IEnumerable<Claim> claims)
         {
             UserId = userId;
+            UserName = userName;
             GivenName = givenName;
             Surname = surname;
             DisplayName = displayName;
@@ -37,6 +39,11 @@ namespace G2H.EventEnvelope.Client.Models.Securities
         }
 
         public string UserId { get; private set; } = string.Empty;
+
+        // The account's login name, NOT its email. This is what an envelope's security context
+        // names the caller by, and an envelope is signed and stored verbatim, so an email put
+        // here would be written into every event the caller ever causes.
+        public string UserName { get; private set; } = string.Empty;
         public string GivenName { get; private set; } = string.Empty;
         public string Surname { get; private set; } = string.Empty;
         public string DisplayName { get; private set; } = string.Empty;
