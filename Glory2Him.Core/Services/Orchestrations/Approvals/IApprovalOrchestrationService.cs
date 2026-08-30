@@ -140,6 +140,36 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// What the given account ids are CALLED (§16.7.4) — the one name resolver every review
+        /// surface asks, rather than a display-name projection per surface.
+        ///
+        /// <para><b>The gap it closes.</b> <c>ApprovalReview</c> carries <c>CreatedBy</c>, which
+        /// is an account id, and the only route that named other people was
+        /// <c>/api/admin/users</c> behind the <c>Administrators</c> role. So a <c>Publisher</c>
+        /// who is not an administrator — precisely the tier the review panel exists for — could
+        /// render their own name and nobody else's. The candidates read does not close it either:
+        /// it returns who is in scope for the round, so somebody who reviewed and then lost the
+        /// role vanishes from it entirely.</para>
+        ///
+        /// <para><b>No role filter and no disabled filter.</b> Every id a caller sends comes off a
+        /// row it has already been given, so the account belongs to the record whatever has
+        /// happened to it since. Ids naming nobody come back absent rather than as an error.</para>
+        ///
+        /// <para>A <b>user-enumeration surface</b>, so §16.7.4's posture governs it rather than
+        /// being re-derived: the requesting tier (§7.9 rule 2) and nobody else, an account id and
+        /// a display name and nothing else. It is bounded as well — a batch naming more than 200
+        /// distinct ACCOUNTS is refused rather than truncated, so a caller is never quietly told
+        /// less than it asked for. The count is taken after the ids are parsed, because a GUID has
+        /// several equal spellings and counting raw text would refuse a caller who asked about 200
+        /// people using 201 spellings of them. The id echoed back is read off the resolved row, so
+        /// it is always canonical whatever was sent — a caller holding ids in another spelling
+        /// normalises its own side to join on the answer.</para>
+        /// </summary>
+        ValueTask<IReadOnlyList<ReviewerDisplayName>> RetrieveReviewerDisplayNamesAsync(
+            IEnumerable<string> userIds,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Invites somebody to review this entity (§7.9). Refuses unless the round is
         /// <c>Submitted</c> (rule 7), the invited person holds a review-tier role for the entity
         /// and does not own it (rule 3), and the caller is in the requesting tier (rule 2).

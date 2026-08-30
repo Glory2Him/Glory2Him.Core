@@ -10,6 +10,7 @@
 // ────────────────────────────────────────────────────────────────────────────────
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Glory2Him.Core.Models.Enums;
 using Glory2Him.Core.Models.Events;
@@ -58,6 +59,26 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 message: "Approval orchestration request is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(entityType), Parameter: nameof(EntityType)),
                 (Rule: IsInvalid(entityId), Parameter: "EntityId"));
+
+        // The resolver's only shape rule, and it is a CEILING rather than a required-ness check.
+        // An empty ask is answered with an empty list - a panel holding no ids should not have to
+        // branch around calling - but an oversized one is refused outright rather than truncated,
+        // because a silently shortened answer would leave the caller rendering blanks it could
+        // not explain.
+        //
+        // It counts ACCOUNTS, which is why it takes parsed ids rather than the caller's strings. A
+        // GUID has several equal spellings, so counting raw text would refuse a caller who asked
+        // about 200 people using 201 spellings of them.
+        private static void ValidateOnRetrieveReviewerDisplayNames(
+            IReadOnlyList<Guid> requestedUserIds)
+        {
+            if (requestedUserIds.Count > MaximumReviewerDisplayNameBatch)
+            {
+                throw new InvalidApprovalOrchestrationException(
+                    message: $"No more than {MaximumReviewerDisplayNameBatch} user ids may be "
+                        + "resolved in one request.");
+            }
+        }
 
         private static void ValidateOnRequestApprovalReview(
             EntityType entityType,
