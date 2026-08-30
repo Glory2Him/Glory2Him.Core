@@ -340,7 +340,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         ///
         /// <para>Both indexes now carry an <c>IsDeleted</c> term, so removing a setting through
         /// the API — a SOFT delete — genuinely releases its scope. Without the term the scope was
-        /// trapped: §14.5 hides the deleted row from every caller including <c>Admin</c>, so the
+        /// trapped: §14.5 hides the deleted row from every caller including
+        /// <c>Administrators</c>, so the
         /// re-create answered 409 naming nothing anybody could see or move, and the ordinary way
         /// to remove a setting was the way that destroyed the ability to have one.</para>
         ///

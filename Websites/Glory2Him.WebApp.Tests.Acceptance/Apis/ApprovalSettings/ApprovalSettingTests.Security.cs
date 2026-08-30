@@ -359,7 +359,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         ///
         /// <para>Both indexes now carry an <c>IsDeleted</c> term, so removing a policy through the
         /// API — a SOFT delete — genuinely releases its scope. Without the term the scope was
-        /// trapped: §14.5 hides the deleted row from every caller including <c>Admin</c>, so the
+        /// trapped: §14.5 hides the deleted row from every caller including
+        /// <c>Administrators</c>, so the
         /// re-create answered 409 naming nothing anybody could see or move, and with eight
         /// <c>EntityType</c> members holding one default slot each, the ability to have a default
         /// for that entity type was destroyed permanently.</para>

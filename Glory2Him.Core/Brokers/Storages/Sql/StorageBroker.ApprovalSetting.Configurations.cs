@@ -118,11 +118,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // unique-index semantics, so this needs two filtered indexes rather than one:
 
             // Both carry an IsDeleted term, and it is load-bearing rather than tidy. §8.4
-            // resolution skips soft-deleted rows at every tier and §14.5 hides them from every
-            // caller including Admin, so a deleted row occupying a scope would be invisible and
-            // immovable — and the API's delete is a SOFT delete, which made the ordinary way to
-            // remove a policy the way that trapped its scope forever. There are eight EntityType
-            // members with one default slot each; a trapped one could never be re-created.
+            // resolution skips soft-deleted rows at every tier and §14.5 rule 3 hides them from
+            // every caller including Administrators, so a deleted row occupying a scope would be
+            // invisible and immovable — and the API's delete is a SOFT delete, which made the
+            // ordinary way to remove a policy the way that trapped its scope forever. There are
+            // eight EntityType members with one default slot each; a trapped one could never be
+            // re-created.
 
             // 1) at most one LIVE entity-type-level default (ContentType IS NULL)
             model.HasIndex(approvalSetting => approvalSetting.EntityType)
