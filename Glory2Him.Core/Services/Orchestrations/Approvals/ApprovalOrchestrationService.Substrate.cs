@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         //
         // Both comment resolution addresses are wired, and that is not belt-and-braces:
         // IsResolved has two writers by design (§14.7 rule 5) — the owner through the general
-        // modify, the owner or an Admin through the resolve transition — and which one carried a
+        // modify, the owner or an administrator through the resolve transition — and which one carried a
         // change depends on nothing more than which control was clicked.
 
         // The one workflow-record fact that also RETIRES something. A review being recorded is
@@ -328,7 +328,7 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 approvalId: envelope?.Content?.ApprovalId ?? Guid.Empty,
                 cancellationToken: cancellationToken);
 
-        // The owner or an Admin flipping it through the resolve transition — writer two of two.
+        // The owner or an administrator flipping it through the resolve transition — writer two of two.
         public ValueTask<EventEnvelope<ApprovalComment>?> OnApprovalCommentResolvedAsync(
             EventEnvelope<ApprovalComment> envelope,
             CancellationToken cancellationToken = default) =>

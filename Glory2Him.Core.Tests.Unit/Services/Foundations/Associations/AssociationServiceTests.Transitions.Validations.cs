@@ -50,7 +50,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // these values can be set — so the set it accepts has to be closed. Draft is reached
             // once, at creation, and Dismissed belongs to a withdrawal step. Submitted is NOT
             // here: it is what an override re-opens a terminal row to.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association decision = CreateApprovalDecision(Guid.NewGuid());
             decision.ApprovalStatus = notATransitionTarget;
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: publication is a consequence of approval, so a rejected row cannot be
             // published in the same write
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association decision = CreateRejectionDecision(Guid.NewGuid());
             decision.IsPublished = true;
@@ -88,7 +88,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnApproveIfPublishDateWithoutPublicationAsync()
         {
             // given: a publish date on an unpublished row is a date nothing reads
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association decision = CreateRejectionDecision(Guid.NewGuid());
             decision.PublishDate = GetRandomDateTimeOffset();
@@ -111,7 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: only a row actually in review can be decided. Approving a Draft would skip
             // the submission the whole workflow is built around.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateStorageAssociationInStatus(storedStatus);
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -157,7 +157,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnApproveIfAssociationIsNotFoundAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Association decision = CreateApprovalDecision(Guid.NewGuid());
 
             this.storageBrokerMock.Setup(broker =>
@@ -186,10 +186,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnTransitionIfCallerIsGloballyReadOnlyAsync(
             string transitionName)
         {
-            // given: the global veto sits ABOVE every role, so even an Admin holding it is
+            // given: the global veto sits ABOVE every role, so even an administrator holding it is
             // refused — and refused before storage is read at all
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.Admin, Roles.Publisher, Roles.Reviewer, Roles.ReadOnly);
+                Roles.Administrators, Roles.Publishers, Roles.Reviewers, Roles.ReadOnly);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             SetupStorageRead(storageAssociation);
@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             string actorUserId = GetRandomString();
 
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher, Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Publishers, Roles.Administrators);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();
             storageAssociation.CreatedBy = actorUserId;
@@ -246,7 +246,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: a score attributed to a model with no batch behind it cannot be retracted
             // by a sweep over that batch
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association decision = CreateConfidenceDecision(Guid.NewGuid());
             decision.SourceBatchId = null;
@@ -264,8 +264,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         {
             // given: this restriction is load-bearing, not policy. A scope change does not
             // re-open approval, and the stated reason it need not is that only the people who
-            // would be re-approving it can make one. A Reviewer is deliberately not enough.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            // would be re-approving it can make one. A reviewer is deliberately not enough.
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();
             SetupStorageRead(storageAssociation);
@@ -291,7 +291,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: a scope toggle recomputes the effective id, which moves the row's position
             // in UX_Associations_Pair and can land it on a key another row already holds.
             // "Just toggle a flag" reads like it cannot fail, and it can.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();
             storageAssociation.EntityAScope = Scope.ThisVersionOnly;
@@ -334,7 +334,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnSortIfTheAnchorIsTheAssociationItselfAsync()
         {
             // given: positioning a row relative to itself is a no-op the caller did not mean
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid associationId = Guid.NewGuid();
 
             // when / then
@@ -352,7 +352,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldThrowValidationExceptionOnSortIfTheAnchorHasNoSortOrderAsync()
         {
             // given: an unpositioned anchor gives nothing to position relative to
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Association storageAssociation = CreateSubmittableStorageAssociation();
             Association anchorAssociation = CreateRandomAssociation();

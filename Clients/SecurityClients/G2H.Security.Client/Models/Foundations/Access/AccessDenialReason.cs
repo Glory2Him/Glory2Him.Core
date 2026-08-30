@@ -126,7 +126,7 @@ namespace G2H.Security.Client.Models.Foundations.Access
 
         /// <summary>
         /// The actor did not write the comment. Comments are owned by whoever submitted them: no
-        /// role amends another person's words. An <c>Admin</c> who needs past an outstanding one
+        /// role amends another person's words. An administrator who needs past an outstanding one
         /// settles it through the resolve operation, or bypasses the block — never by editing it.
         /// </summary>
         NotApprovalCommentAuthor = 19,

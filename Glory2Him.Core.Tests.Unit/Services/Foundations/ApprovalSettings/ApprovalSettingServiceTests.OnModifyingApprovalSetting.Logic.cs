@@ -45,7 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             var requestEnvelope = new EventEnvelope<ApprovalSetting>
             {
                 Content = inputApprovalSetting,
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -157,7 +157,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             var requestEnvelope = new EventEnvelope<ApprovalSetting>
             {
                 Content = new ApprovalSetting { Id = Guid.NewGuid() },
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

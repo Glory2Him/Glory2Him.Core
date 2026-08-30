@@ -280,15 +280,15 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.ContentItemReviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.ContentItemPublisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ContentItemReviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.ContentItemPublishers)]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfActorIsNotPermittedAndLogItAsync(
             string? actorRole)
         {
             // given: removing someone else's content is a takedown, reserved for the
-            // owner and an Admin — a Reviewer or Publisher moderates through the approval
+            // owner and an administrator — a reviewer or Publishers moderates through the approval
             // workflow instead and never removes the row
             Guid randomContentItemId = Guid.NewGuid();
             Guid inputContentItemId = randomContentItemId;

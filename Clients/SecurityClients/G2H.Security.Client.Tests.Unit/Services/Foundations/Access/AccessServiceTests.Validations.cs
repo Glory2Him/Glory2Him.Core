@@ -291,7 +291,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             var invalidDecideApprovalRequest = new DecideApprovalRequest
             {
                 Actor = CreateRandomAccessActor(
-                    roles: new List<string> { RoleNames.Publisher }),
+                    roles: new List<string> { RoleNames.Publishers }),
 
                 Decision = ApprovalDecision.Approve,
                 RoleSubjects = new List<RoleSubject>(),
@@ -463,7 +463,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             // given
             var requestWithoutRoleSubjects = new AmendApprovalRequest
             {
-                Actor = CreateRandomAccessActor(roles: new List<string> { RoleNames.Reviewer }),
+                Actor = CreateRandomAccessActor(roles: new List<string> { RoleNames.Reviewers }),
                 RoleSubjects = null!,
                 EntityCreatedBy = GetRandomString(),
             };
@@ -499,7 +499,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             var requestWithNoSubjects = new AmendApprovalRequest
             {
                 Actor = CreateRandomAccessActor(
-                    roles: new List<string> { RoleNames.ReviewerFor("ContentItem") }),
+                    roles: new List<string> { RoleNames.ReviewersFor("ContentItem") }),
 
                 RoleSubjects = new List<RoleSubject>(),
                 EntityCreatedBy = GetRandomString(),

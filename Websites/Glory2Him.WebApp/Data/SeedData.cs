@@ -19,25 +19,28 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Glory2Him.WebApp.Data
 {
-    // Idempotent first-run seed: creates the Administrators and Users roles and the default
-    // admin/user accounts (Spec Section 6.3). Default credentials are intentionally weak for
+    // Idempotent first-run seed: creates the Users role, Core's own role set (Administrators
+    // among them) and the default admin/user accounts (Spec Section 6.3). Default credentials are intentionally weak for
     // first-run/demo; production must enforce a strong password policy and force-change.
     public static class SeedData
     {
-        private const string AdministratorsRole = "Administrators";
         private const string UsersRole = "Users";
 
         // Glory2Him.Core decides authorization against role NAMES it owns, compared by exact
-        // ordinal equality — never by suffix. The portal's own "Administrators" is a different
-        // vocabulary and satisfies none of them, so until these rows exist and somebody holds
-        // them the moderation tier is unreachable: approve and hard delete answer 403 at the
+        // ordinal equality — never by suffix, so until these rows exist and somebody holds them
+        // the moderation tier is unreachable: approve and hard delete answer 403 at the
         // attribute, and a moderator can neither modify another user's tag nor see non-public
         // rows. Referenced from Core rather than re-spelled here so the two cannot drift.
         //
-        // Reviewer and Tag-Reviewer appear in no [Authorize(Roles = ...)] list — the gates they
+        // "Administrators" IS ONE OF THESE NAMES NOW. It used to be the portal's own vocabulary,
+        // seeded here beside a separate Core "Admin" and satisfying none of Core's checks — the
+        // two-vocabulary split of issue #193, closed out by #368. One row now opens both
+        // surfaces, which is why it is no longer minted separately below: CoreRoles carries it.
+        //
+        // Reviewers and Tag-Reviewers appear in no [Authorize(Roles = ...)] list — the gates they
         // satisfy are owner-OR-review-role and cannot be written as a fixed list — but they are
         // what makes a reviewer's write and read reach past their own rows (§14.7 posture A).
-        // Both tiers are provisioned: HasReviewRole tests the global Reviewer as well as the
+        // Both tiers are provisioned: HasReviewRole tests the global Reviewers as well as the
         // entity-scoped one, so seeding only the scoped role would leave half the rule dead.
         //
         // DERIVED FROM THE ENUM RATHER THAN LISTED. Until the exposers arrived this was a hand
@@ -48,7 +51,7 @@ namespace Glory2Him.WebApp.Data
         //
         // Deriving is correct here rather than the kind of inference §7.5.1 rule 1 forbids.
         // That rule bans discovering a row's PUBLICATION MODEL from its runtime shape, where
-        // the shape is not the source of truth. Here the enum IS the source: Roles.ReviewerFor
+        // the shape is not the source of truth. Here the enum IS the source: Roles.ReviewersFor
         // composes the name from entityType.ToString(), so the set of entity types and the set
         // of scoped role names are the same fact, and writing them out twice is what lets them
         // disagree.
@@ -61,7 +64,7 @@ namespace Glory2Him.WebApp.Data
         // Association is excluded, and its absence is a rule rather than an oversight: it "has
         // no scoped roles of its own (design §14.7, §18.6) — authorization is derived from its
         // two endpoint entity types instead", which Roles.cs states at the point where the
-        // Association-* constants would otherwise sit. Seeding Association-Reviewer would mint a
+        // Association-* constants would otherwise sit. Seeding Association-Reviewers would mint a
         // role no gate in the codebase ever asks for, and hand an administrator a grant that
         // silently does nothing.
         //
@@ -79,9 +82,9 @@ namespace Glory2Him.WebApp.Data
         {
             var coreRoleNames = new List<string>
             {
-                Roles.Admin,
-                Roles.Reviewer,
-                Roles.Publisher,
+                Roles.Administrators,
+                Roles.Reviewers,
+                Roles.Publishers,
 
                 // The block tier (design §18.6): "assigned to users who misbehave, takes
                 // precedence over every other role". The foundation tests for these on every
@@ -95,22 +98,22 @@ namespace Glory2Him.WebApp.Data
             foreach (EntityType entityType in ScopedRoleEntityTypes())
             {
                 coreRoleNames.Add(Roles.ReadOnlyFor(entityType));
-                coreRoleNames.Add(Roles.ReviewerFor(entityType));
-                coreRoleNames.Add(Roles.PublisherFor(entityType));
+                coreRoleNames.Add(Roles.ReviewersFor(entityType));
+                coreRoleNames.Add(Roles.PublishersFor(entityType));
             }
 
             // The NARROW tier of §18.6 rule 5 — "trusted with stories but not testimonies".
             // ContentItem ONLY, because it is the one entity type that carries a ContentType.
             // Composing it for any other type would mint exactly the roles §14.7 posture A′
             // rule 6 exists to refuse: AssociationService tests the endpoint type as well as
-            // the content type so a ContentItem-Testimony-Reviewer can never be matched
+            // the content type so a ContentItem-Testimony-Reviewers can never be matched
             // against a Tag endpoint that happens to carry Testimony.
             //
             // EVERY member is seeded, Series and Topic included, and that is a decision rather
             // than a foreach nobody thought about. They are ContentType members on ContentItem,
             // and §18.6 rule 5 scopes the tier to the entity type, not to a chosen subset of its
             // content types. Withholding them would protect nothing — the coarse
-            // ContentItem-Reviewer still admits somebody to a Series either way — it would only
+            // ContentItem-Reviewers still admits somebody to a Series either way — it would only
             // remove an administrator's ability to scope a person narrowly. A role that exists
             // and is assigned to nobody grants nothing, which is the same argument Attachment
             // above is seeded on.
@@ -125,8 +128,8 @@ namespace Glory2Him.WebApp.Data
             // replaced by a hand-written list.
             foreach (ContentType contentType in Enum.GetValues<ContentType>())
             {
-                coreRoleNames.Add(Roles.ReviewerFor(EntityType.ContentItem, contentType));
-                coreRoleNames.Add(Roles.PublisherFor(EntityType.ContentItem, contentType));
+                coreRoleNames.Add(Roles.ReviewersFor(EntityType.ContentItem, contentType));
+                coreRoleNames.Add(Roles.PublishersFor(EntityType.ContentItem, contentType));
             }
 
             // Attachment is included even though it has no service yet (§12.4 entry 3). The
@@ -136,7 +139,18 @@ namespace Glory2Him.WebApp.Data
             return coreRoleNames.ToArray();
         }
 
-        public static async Task SeedAsync(IServiceProvider serviceProvider)
+        /// <summary>
+        /// Brings the Identity schema and its DATA up to the running code's expectations.
+        /// Separated from <see cref="SeedAsync"/> because the two have different failure
+        /// consequences and therefore belong on different sides of the startup guard —
+        /// <c>Program.cs</c> explains which and why.
+        ///
+        /// <para>In short: seeding a missing role only ever ADDS a row, so a failed seed leaves
+        /// a site that is short a grant and self-heals on the next start. A failed migration
+        /// leaves the role rows spelling a vocabulary the deployed code no longer reads, and no
+        /// number of restarts fixes that on its own.</para>
+        /// </summary>
+        public static async Task MigrateAsync(IServiceProvider serviceProvider)
         {
             using IServiceScope scope = serviceProvider.CreateScope();
             IServiceProvider services = scope.ServiceProvider;
@@ -144,11 +158,16 @@ namespace Glory2Him.WebApp.Data
             var securityDbContext = services.GetRequiredService<SecurityDbContext>();
             await securityDbContext.Database.MigrateAsync();
             await DisableAutoCloseForLocalDbAsync(securityDbContext);
+        }
+
+        public static async Task SeedAsync(IServiceProvider serviceProvider)
+        {
+            using IServiceScope scope = serviceProvider.CreateScope();
+            IServiceProvider services = scope.ServiceProvider;
 
             var roleManager = services.GetRequiredService<RoleManager<AppRole>>();
             var userManager = services.GetRequiredService<UserManager<AppUser>>();
 
-            await EnsureRoleAsync(roleManager, AdministratorsRole);
             await EnsureRoleAsync(roleManager, UsersRole);
 
             foreach (string coreRole in CoreRoles)
@@ -160,7 +179,7 @@ namespace Glory2Him.WebApp.Data
                 userManager,
                 userName: "admin",
                 password: "admin",
-                roleNames: AdministratorRoleNames(),
+                roleNames: new[] { Roles.Administrators },
                 email: "admin@g2h.org",
                 name: "Admin",
                 surname: "User");
@@ -178,18 +197,12 @@ namespace Glory2Him.WebApp.Data
                 userManager,
                 userName: "cjdutoit",
                 password: "P@ssword!",
-                roleNames: AdministratorRoleNames(),
+                roleNames: new[] { Roles.Administrators },
                 email: "christo@dutoit.co.uk",
                 name: "Christo",
                 surname: "du Toit",
                 dateOfBirth: new DateOnly(1977, 10, 8));
         }
-
-        // A site administrator holds the portal's own role AND Core's, because the two govern
-        // different surfaces: "Administrators" opens /api/admin, Roles.Admin opens the tag
-        // moderation tier. Granting only the first is the state issue #193 describes.
-        private static string[] AdministratorRoleNames() =>
-            new[] { AdministratorsRole, Roles.Admin };
 
         // LocalDB creates databases with AUTO_CLOSE ON (inherited from the model database), which
         // cold-starts the database on every connection and can surface as a transient 0x89c5010a on

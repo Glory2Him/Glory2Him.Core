@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         public async Task ShouldHardRemoveTagByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Tag randomTag = CreateRandomTag();
             Tag storageTag = randomTag;
             Tag expectedTag = storageTag.DeepClone();

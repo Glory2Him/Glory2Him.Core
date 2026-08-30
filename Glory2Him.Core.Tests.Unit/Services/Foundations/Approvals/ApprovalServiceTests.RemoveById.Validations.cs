@@ -250,7 +250,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given: a review role is not enough to retract someone else's approval,
             // and the gate runs before the already-deleted short-circuit
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             string randomActorUserId = GetRandomString();
             Approval storageApproval = CreateRandomApproval();
             storageApproval.IsDeleted = true;

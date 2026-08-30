@@ -32,18 +32,18 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         // there is no narrow content-type grant to resolve here (rule 5). What has to be
         // pinned instead is the boundary in the other direction — a role scoped to some
         // other entity type must buy nothing at all over links, and the shape of these
-        // names (a shared `-Reviewer` suffix) is exactly what makes a sloppy suffix match
+        // names (a shared `-Reviewers` suffix) is exactly what makes a sloppy suffix match
         // leak across types.
 
         public static TheoryData<string> OtherEntityTypeReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.ReviewerFor(EntityType.ContentItem),
-                Roles.PublisherFor(EntityType.ContentItem),
-                Roles.ReviewerFor(EntityType.Tag),
-                Roles.ReviewerFor(EntityType.Comment),
-                Roles.ReviewerFor(EntityType.Attachment),
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony)
+                Roles.ReviewersFor(EntityType.ContentItem),
+                Roles.PublishersFor(EntityType.ContentItem),
+                Roles.ReviewersFor(EntityType.Tag),
+                Roles.ReviewersFor(EntityType.Comment),
+                Roles.ReviewersFor(EntityType.Attachment),
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony)
             };
 
         [Theory]

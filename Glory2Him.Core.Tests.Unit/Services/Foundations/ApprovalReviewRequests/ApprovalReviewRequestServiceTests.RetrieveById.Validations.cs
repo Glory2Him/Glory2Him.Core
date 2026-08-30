@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowNotFoundExceptionOnRetrieveByIdIfRequestDoesNotExistAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid someApprovalReviewRequestId = Guid.NewGuid();
             ApprovalReviewRequest noApprovalReviewRequest = null;
 
@@ -119,7 +119,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowNotFoundExceptionOnRetrieveByIdIfRequestIsWithdrawnAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             ApprovalReviewRequest randomApprovalReviewRequest = CreateRandomApprovalReviewRequest();
             randomApprovalReviewRequest.IsDeleted = true;
             Guid inputApprovalReviewRequestId = randomApprovalReviewRequest.Id;

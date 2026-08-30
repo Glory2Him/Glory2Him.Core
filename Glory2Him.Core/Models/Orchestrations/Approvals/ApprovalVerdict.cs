@@ -25,7 +25,7 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     /// caller can be shown why the button is disabled instead of discovering it by pressing
     /// it.</para>
     ///
-    /// <para>Exposed to the <c>Publisher</c> tier and <c>Admin</c> only. §14.5's denial posture
+    /// <para>Exposed to the <c>Publishers</c> tier and <c>Administrators</c> only. §14.5's denial posture
     /// constrains what an ERROR may reveal, so an unprivileged probe cannot distinguish a
     /// non-public entity from a missing one; it does not constrain what the party the policy is
     /// addressed to may be told deliberately. An approver can already read the entity, its

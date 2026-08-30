@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldHardRemoveLinkByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Link randomLink = CreateRandomLink();
             Link storageLink = randomLink;
             Link expectedLink = storageLink.DeepClone();

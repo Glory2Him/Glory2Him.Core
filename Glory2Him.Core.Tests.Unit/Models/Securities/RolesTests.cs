@@ -27,19 +27,19 @@ namespace Glory2Him.Core.Tests.Unit.Models.Securities
             HandWrittenRoleNames = new()
             {
                 [EntityType.ContentItem] =
-                    (Roles.ContentItemReadOnly, Roles.ContentItemReviewer, Roles.ContentItemPublisher),
+                    (Roles.ContentItemReadOnly, Roles.ContentItemReviewers, Roles.ContentItemPublishers),
                 [EntityType.Tag] =
-                    (Roles.TagReadOnly, Roles.TagReviewer, Roles.TagPublisher),
+                    (Roles.TagReadOnly, Roles.TagReviewers, Roles.TagPublishers),
                 [EntityType.Reaction] =
-                    (Roles.ReactionReadOnly, Roles.ReactionReviewer, Roles.ReactionPublisher),
+                    (Roles.ReactionReadOnly, Roles.ReactionReviewers, Roles.ReactionPublishers),
                 [EntityType.Comment] =
-                    (Roles.CommentReadOnly, Roles.CommentReviewer, Roles.CommentPublisher),
+                    (Roles.CommentReadOnly, Roles.CommentReviewers, Roles.CommentPublishers),
                 [EntityType.BibleReference] =
-                    (Roles.BibleReferenceReadOnly, Roles.BibleReferenceReviewer, Roles.BibleReferencePublisher),
+                    (Roles.BibleReferenceReadOnly, Roles.BibleReferenceReviewers, Roles.BibleReferencePublishers),
                 [EntityType.Link] =
-                    (Roles.LinkReadOnly, Roles.LinkReviewer, Roles.LinkPublisher),
+                    (Roles.LinkReadOnly, Roles.LinkReviewers, Roles.LinkPublishers),
                 [EntityType.Attachment] =
-                    (Roles.AttachmentReadOnly, Roles.AttachmentReviewer, Roles.AttachmentPublisher)
+                    (Roles.AttachmentReadOnly, Roles.AttachmentReviewers, Roles.AttachmentPublishers)
             };
 
         [Fact]
@@ -52,8 +52,8 @@ namespace Glory2Him.Core.Tests.Unit.Models.Securities
             {
                 // when
                 string readOnly = Roles.ReadOnlyFor(entityType);
-                string reviewer = Roles.ReviewerFor(entityType);
-                string publisher = Roles.PublisherFor(entityType);
+                string reviewer = Roles.ReviewersFor(entityType);
+                string publisher = Roles.PublishersFor(entityType);
 
                 // then
                 readOnly.Should().NotBeNullOrWhiteSpace();
@@ -61,8 +61,8 @@ namespace Glory2Him.Core.Tests.Unit.Models.Securities
                 publisher.Should().NotBeNullOrWhiteSpace();
 
                 readOnly.Should().Be($"{entityType}-ReadOnly");
-                reviewer.Should().Be($"{entityType}-Reviewer");
-                publisher.Should().Be($"{entityType}-Publisher");
+                reviewer.Should().Be($"{entityType}-Reviewers");
+                publisher.Should().Be($"{entityType}-Publishers");
             }
         }
 
@@ -76,8 +76,8 @@ namespace Glory2Him.Core.Tests.Unit.Models.Securities
             {
                 // when / then
                 Roles.ReadOnlyFor(entityType).Should().Be(expected.ReadOnly);
-                Roles.ReviewerFor(entityType).Should().Be(expected.Reviewer);
-                Roles.PublisherFor(entityType).Should().Be(expected.Publisher);
+                Roles.ReviewersFor(entityType).Should().Be(expected.Reviewer);
+                Roles.PublishersFor(entityType).Should().Be(expected.Publisher);
             }
         }
 
@@ -103,38 +103,38 @@ namespace Glory2Him.Core.Tests.Unit.Models.Securities
         }
 
         [Theory]
-        [InlineData(EntityType.ContentItem, ContentType.Testimony, "ContentItem-Testimony-Reviewer")]
-        [InlineData(EntityType.ContentItem, ContentType.Story, "ContentItem-Story-Reviewer")]
-        [InlineData(EntityType.ContentItem, ContentType.BlogPost, "ContentItem-BlogPost-Reviewer")]
+        [InlineData(EntityType.ContentItem, ContentType.Testimony, "ContentItem-Testimony-Reviewers")]
+        [InlineData(EntityType.ContentItem, ContentType.Story, "ContentItem-Story-Reviewers")]
+        [InlineData(EntityType.ContentItem, ContentType.BlogPost, "ContentItem-BlogPost-Reviewers")]
         public void ShouldComposeTheNarrowReviewerRoleWithTheCapabilityLast(
             EntityType entityType,
             ContentType contentType,
             string expectedRoleName)
         {
             // when
-            string actualRoleName = Roles.ReviewerFor(entityType, contentType);
+            string actualRoleName = Roles.ReviewersFor(entityType, contentType);
 
             // then: capability LAST. Three approval services identify a reviewer by suffix
             // match, so a name ending in the content type would not be recognised as a
             // review role at all (design §18.6).
             actualRoleName.Should().Be(expectedRoleName);
-            actualRoleName.Should().EndWith(Roles.ReviewerSuffix);
+            actualRoleName.Should().EndWith(Roles.ReviewersSuffix);
         }
 
         [Theory]
-        [InlineData(EntityType.ContentItem, ContentType.Testimony, "ContentItem-Testimony-Publisher")]
-        [InlineData(EntityType.ContentItem, ContentType.Quote, "ContentItem-Quote-Publisher")]
+        [InlineData(EntityType.ContentItem, ContentType.Testimony, "ContentItem-Testimony-Publishers")]
+        [InlineData(EntityType.ContentItem, ContentType.Quote, "ContentItem-Quote-Publishers")]
         public void ShouldComposeTheNarrowPublisherRoleWithTheCapabilityLast(
             EntityType entityType,
             ContentType contentType,
             string expectedRoleName)
         {
             // when
-            string actualRoleName = Roles.PublisherFor(entityType, contentType);
+            string actualRoleName = Roles.PublishersFor(entityType, contentType);
 
             // then
             actualRoleName.Should().Be(expectedRoleName);
-            actualRoleName.Should().EndWith(Roles.PublisherSuffix);
+            actualRoleName.Should().EndWith(Roles.PublishersSuffix);
         }
 
         [Fact]
@@ -146,15 +146,15 @@ namespace Glory2Him.Core.Tests.Unit.Models.Securities
 
             foreach (EntityType entityType in Enum.GetValues<EntityType>())
             {
-                coarseRoleNames.Add(Roles.ReviewerFor(entityType));
-                coarseRoleNames.Add(Roles.PublisherFor(entityType));
+                coarseRoleNames.Add(Roles.ReviewersFor(entityType));
+                coarseRoleNames.Add(Roles.PublishersFor(entityType));
             }
 
             foreach (ContentType contentType in Enum.GetValues<ContentType>())
             {
                 // when
-                string narrowReviewer = Roles.ReviewerFor(EntityType.ContentItem, contentType);
-                string narrowPublisher = Roles.PublisherFor(EntityType.ContentItem, contentType);
+                string narrowReviewer = Roles.ReviewersFor(EntityType.ContentItem, contentType);
+                string narrowPublisher = Roles.PublishersFor(EntityType.ContentItem, contentType);
 
                 // then
                 coarseRoleNames.Should().NotContain(narrowReviewer);

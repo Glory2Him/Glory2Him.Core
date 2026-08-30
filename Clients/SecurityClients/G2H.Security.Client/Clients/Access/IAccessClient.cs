@@ -71,7 +71,7 @@ namespace G2H.Security.Client.Clients.Access
         /// round.
         ///
         /// <para>Serves editing and soft-deleting alike, because both ask the same question. No
-        /// role widens it: an <c>Admin</c> gets past an unresolved comment by resolving it or by
+        /// role widens it: an administrator gets past an unresolved comment by resolving it or by
         /// bypassing the block, never by rewriting it.</para>
         /// </summary>
         ValueTask<AccessVerdict> MayAmendApprovalCommentAsync(
@@ -79,7 +79,7 @@ namespace G2H.Security.Client.Clients.Access
 
         /// <summary>
         /// Decides whether an actor may mark a comment resolved or unresolved — the author, or an
-        /// <c>Admin</c> acting on their behalf, while the round is open.
+        /// administrator acting on their behalf, while the round is open.
         ///
         /// <para>Separate from <see cref="MayAmendApprovalCommentAsync"/> because
         /// <c>IsResolved</c> is a narrower field scope with a wider audience, and answering both

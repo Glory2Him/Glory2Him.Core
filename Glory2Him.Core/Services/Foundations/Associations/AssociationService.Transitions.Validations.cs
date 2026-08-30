@@ -155,9 +155,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         //
         // Two hard rules meet here (design §8.6):
         //
-        // HR-3 — a Reviewer may NEVER set an approval status. A reviewer's instrument is the
+        // HR-3 — a reviewer may NEVER set an approval status. A reviewer's instrument is the
         // ApprovalReview record; they move the outcome only indirectly, through automatic
-        // approval. %EntityType%-Reviewer is not a weaker %EntityType%-Publisher, it is a
+        // approval. %EntityType%-Reviewers is not a weaker %EntityType%-Publishers, it is a
         // different job, so the review-role helper is deliberately NOT used here.
         //
         // HR-2 — no one approves their own content unless AllowSelfApproval permits it. That
@@ -192,8 +192,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     || storageAssociation.ApprovalStatus == ApprovalStatus.Rejected;
 
             // §8.6 HR-4. Moving a row OUT of a terminal state is an override, and it is what
-            // keeps "terminal" meaningful: a state that the owner or a Publisher could edit out
-            // of would not be terminal at all (§3.4 rules 7, 16). It is gated to Admin — and to
+            // keeps "terminal" meaningful: a state that the owner or a publisher could edit out
+            // of would not be terminal at all (§3.4 rules 7, 16). It is gated to Administrators — and to
             // the workflow, below — and to nobody else.
             //
             // Run row-local and FIRST, so an unauthorised override costs one role comparison
@@ -201,7 +201,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // can only ever make this stricter (§8.6.1).
             if (isOverride
                 && isSystemIdentity is false
-                && securityContext.Roles.Contains(Roles.Admin) is false)
+                && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to transition " +
@@ -212,7 +212,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // second admissible actor exists at all (§8.6 regardless-rule 1): the reviewer whose
             // own review fires an automatic approval is the one party barred from deciding it,
             // and the previously published sibling a newly approved version demotes is itself
-            // Approved, so no Publisher may touch it either.
+            // Approved, so no Publishers may touch it either.
             //
             // The bypass pair is CARRIED, not decided. The workflow reaches here as the
             // messenger of a decision a human already made and was authorised for on the
@@ -239,7 +239,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // Re-opening a row to Submitted decides nothing — it returns the row to review
             // rather than granting or withholding approval — so there is no approval decision to
             // ask for, and ApprovalDecision has no member that would honestly express one. The
-            // Admin gate above is the whole authority for it.
+            // Administrators gate above is the whole authority for it.
             if (association.ApprovalStatus == ApprovalStatus.Submitted)
             {
                 return NoDecisionVerdict();
@@ -286,7 +286,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     // the row comes back on the verdict: asking here and writing from the answer
                     // is what stops a genuine waiver being un-recorded by the party it is
                     // evidence about. DoNotAllowBypassingSettings is resolved inside the
-                    // decision and closes this route to everyone, Admin included.
+                    // decision and closes this route to everyone, Administrators included.
                     IsBypassRequested = association.IsApprovedByBypass,
                     BypassReason = association.ApprovedByBypassReason,
 
@@ -357,7 +357,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // Returns the verdict for the same reason the approve one does, and here it matters
         // more: IsApprovedByBypass and ApprovedByBypassReason are written from it, and the
         // decision may permit WITHOUT waiving anything when the conditions turn out to be met.
-        // The Publisher tier: a global Publisher or Admin, or a scoped publisher matching AT
+        // The Publishers tier: a global publisher or Administrators, or a scoped publisher matching AT
         // LEAST ONE endpoint — the same one-endpoint-is-enough reasoning as the review roles
         // (§14.7 posture A′ rule 2), because the pairing is the thing being decided and a
         // publisher trusted with one end can see both. Reviewer-tier roles are excluded at
@@ -365,8 +365,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private static bool HasPublisherRoleForAssociation(
             SecurityContext securityContext,
             Association association) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || HasEndpointPublisherRole(
                     securityContext,
                     association.EntityAType,
@@ -381,7 +381,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EntityType entityType,
             ContentType? contentType)
         {
-            if (securityContext.Roles.Contains(Roles.PublisherFor(entityType)))
+            if (securityContext.Roles.Contains(Roles.PublishersFor(entityType)))
             {
                 return true;
             }
@@ -392,11 +392,11 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
 
             return securityContext.Roles.Contains(
-                Roles.PublisherFor(entityType, contentType.Value));
+                Roles.PublishersFor(entityType, contentType.Value));
         }
 
         // Sorting arranges someone's own list — an author ordering the posts inside their own
-        // series should not need to fetch a reviewer. An Admin may also reorder, because a
+        // series should not need to fetch a reviewer. An administrator may also reorder, because a
         // takedown-adjacent tidy-up is an administrative act.
         private async ValueTask ValidateUserCanSortStorageAssociationAsync(
             Association storageAssociation,
@@ -408,7 +408,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageAssociation.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to sort " +
@@ -438,8 +438,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
 
             bool isPublisherOrAdmin =
-                securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Admin);
+                securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPublisherOrAdmin is false)
             {
@@ -449,7 +449,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
         }
 
-        // Publisher or Admin only, and that restriction is LOAD-BEARING rather than a policy
+        // Publishers or Administrators only, and that restriction is LOAD-BEARING rather than a policy
         // preference: a scope change does not re-open approval, and the stated reason it need
         // not is that only the people who would be re-approving it can make one. Widen this
         // gate and the no-reapproval rule loses its justification.
@@ -457,8 +457,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             SecurityContext securityContext)
         {
             bool isPublisherOrAdmin =
-                securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Admin);
+                securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPublisherOrAdmin is false)
             {

@@ -149,11 +149,60 @@ app.MapGet("/Profile-Image/{userId:guid}", async (
 app.MapFallback("/api/{**unmatchedApiPath}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 
-// A seed failure (e.g. a transient LocalDB cold-start error) is retried a few times so it can
-// self-heal in-process; after the final attempt it is logged but must not stop the app from
-// serving (the seed is idempotent and also re-runs on the next start).
+// Both steps retry, because the failure they were written for is a transient LocalDB
+// cold-start that clears on its own. They differ in what happens after the last attempt, and
+// the difference is the point.
 const int maxSeedAttempts = 5;
 
+// THE MIGRATION IS A PRECONDITION FOR SERVING, and this is a change from when it sat inside the
+// seed's swallow. It was safe there while the seed only ever ADDED rows: a role that failed to
+// appear was a missing grant, the site was otherwise correct, and the next start fixed it.
+//
+// Since #368 a migration also RENAMES the role rows. If it does not run, AspNetRoles still says
+// Reviewer / Publisher / Tag-Reviewer while every gate in the deployed code composes Reviewers /
+// Publishers / Tag-Reviewers, and the two never meet: no exception, no failed request, just
+// every reviewer and publisher on the site silently holding a row nothing asks for. The seed
+// cannot repair it either — it aborts at the same statement, so the plural rows are never minted
+// and an administrator has no name to grant. Worst of all it is invisible from the one surface
+// an administrator would check, because /api/admin is gated on "Administrators", whose row
+// predates the migration and still resolves.
+//
+// A site that cannot speak its own authorization vocabulary must not answer requests. So the
+// last attempt's exception is left to propagate and stop the host, where a log line saying
+// "continuing" would have been read by nobody until somebody asked why approvals were refusing
+// everyone.
+for (int migrationAttempt = 1; migrationAttempt <= maxSeedAttempts; migrationAttempt++)
+{
+    try
+    {
+        await SeedData.MigrateAsync(app.Services);
+        break;
+    }
+    catch (Exception migrationException) when (migrationAttempt < maxSeedAttempts)
+    {
+        app.Logger.LogWarning(
+            migrationException,
+            "Identity migration attempt {Attempt}/{MaxAttempts} failed; retrying.",
+            migrationAttempt,
+            maxSeedAttempts);
+
+        await Task.Delay(TimeSpan.FromSeconds(2));
+    }
+    catch (Exception migrationException)
+    {
+        app.Logger.LogCritical(
+            migrationException,
+            "Identity migration failed after {MaxAttempts} attempts; refusing to serve, because "
+                + "the role rows would not spell the vocabulary this build authorizes against.",
+            maxSeedAttempts);
+
+        throw;
+    }
+}
+
+// The seed itself keeps the original posture, and for the original reason: every step of it is
+// idempotent and additive, so a failure leaves the site short a row rather than wrong about one,
+// and the next start re-runs it.
 for (int seedAttempt = 1; seedAttempt <= maxSeedAttempts; seedAttempt++)
 {
     try

@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             var requestEnvelope = new EventEnvelope<Comment>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Content = new Comment { Id = storageComment.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

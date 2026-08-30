@@ -28,9 +28,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // §14.6): an exposer may bind to either service directly, so no layer may assume
         // an upstream layer already gated the caller
 
-        // §16.6 spells an entity-scoped role "{Entity}-Reviewer" / "{Entity}-Publisher"
-        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
-        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
+        // §16.6 spells an entity-scoped role "{Entity}-Reviewers" / "{Entity}-Publishers"
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewersSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublishersSuffix;
 
         // commenting on a review thread is a conversation, not a moderation step: a reviewer
         // raises a point or records their thinking, the submitter responds on their own
@@ -52,14 +52,15 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             }
         }
 
-        // the review roles that may act on and read approval workflow records (Reviewer,
-        // Publisher, Admin). Approval comments carry no entity-scoped roles of their own, so
-        // by the §16.6 convention any "{Entity}-Reviewer"/"{Entity}-Publisher" role counts:
+        // the review roles that may act on and read approval workflow records (Reviewers,
+        // Publishers, Administrators). Approval comments carry no entity-scoped roles of their own, so
+        // by the §16.6 convention any "{Entity}-Reviewers"/"{Entity}-Publishers" role counts:
         // the comment row alone does not say which entity type the approval targets, so the
-        // foundation cannot tell a Tag-Reviewer's comment thread from a Link-Reviewer's.
+        // foundation cannot tell a Tag-Reviewers holder's comment thread from a Link-Reviewers
+        // holder's.
         // This gates the two READ paths only. It reaches no write gate: add carries the
-        // contribution gate, modify and remove are owner-only, resolve is owner-or-Admin, and
-        // hard remove is Admin-only — none consults this.
+        // contribution gate, modify and remove are owner-only, resolve is owner-or-Administrators, and
+        // hard remove is Administrators-only — none consults this.
         //
         // Narrowing a scoped reviewer to the approvals of their own entity type was
         // once called an orchestration concern; that is withdrawn (§12.3.1 leaves no
@@ -67,9 +68,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // IAccessBroker). Narrowing the READS is a separate question and is still open —
         // §14.7's "Known gap" paragraph records it.
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
@@ -160,7 +161,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
             // Owner only. This replaces "the author may edit their own comment and a review role
             // may write it too — reviewers flip IsResolved on a submitter's comment": that model is
-            // withdrawn (§14.7 rule 5). IsResolved now has its own operation, which an Admin may
+            // withdrawn (§14.7 rule 5). IsResolved now has its own operation, which an administrator may
             // use on someone else's row; the wording itself belongs to whoever wrote it.
             if (isOwner is false)
             {
@@ -180,7 +181,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalComment.CreatedBy == actorUserId;
 
-            // Owner only, matching modify. An Admin who needs past an unresolved comment resolves
+            // Owner only, matching modify. An administrator who needs past an unresolved comment resolves
             // it or bypasses the block; withdrawing someone else's words is neither.
             if (isOwner is false)
             {
@@ -189,7 +190,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveApprovalComment(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -204,7 +205,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     message: "The current user is blocked from contributing approval comments.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalCommentException(
                     message: "The current user is not allowed to permanently remove this approval comment.");
@@ -362,7 +363,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 // IsResolved is deliberately NOT pinned. Modify is owner-only, and the owner may
                 // settle (or re-open) their own comment here as readily as through the resolve
                 // transition — pinning it would leave them unable to change a field that is
-                // theirs. What Resolve adds is the Admin route (§14.7 rule 5), not exclusivity
+                // theirs. What Resolve adds is the Administrators route (§14.7 rule 5), not exclusivity
                 // over the field.
                 //
                 // The two paths publish different facts, and that costs nothing PROVIDED the

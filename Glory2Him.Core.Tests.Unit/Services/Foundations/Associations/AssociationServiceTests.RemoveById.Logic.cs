@@ -261,7 +261,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldRemoveSomeoneElsesAssociationByIdWhenUserIsAdminAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             Association randomAssociation = CreateRandomAssociation();
             randomAssociation.IsDeleted = false;

@@ -434,7 +434,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
@@ -1274,12 +1274,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
             string role)
         {
-            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An Admin in
+            // given: terminal means terminal for EVERY role (§3.4 rules 7 and 16). An administrator in
             // particular used to have an in-place carve-out here; it is withdrawn, because a state
             // one role can edit out of is not terminal. The override verb is the only route, and
             // it changes status without touching content.

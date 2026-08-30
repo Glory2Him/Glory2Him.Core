@@ -18,7 +18,7 @@ using Microsoft.Extensions.Configuration;
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     /// <summary>
-    /// The three databases this suite runs against, and their whole lifecycle.
+    /// The five databases this suite runs against, and their whole lifecycle.
     ///
     /// <para>The acceptance host boots the real portal, so it touches every store the portal
     /// has: Core's schema, the EventHighway substrate, and Identity. Before this existed the
@@ -64,9 +64,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         private const string TestConnectionStringKey = "Glory2HimAcceptanceConnectionString";
 
         /// <summary>
-        /// One template, three catalogues. The integration suite carries a key per store because
+        /// One template, every catalogue. The integration suite carries a key per store because
         /// its two stores could in principle sit on different servers; here they cannot — the
-        /// portal boots all three from one <c>appsettings.json</c> against one LocalDB instance —
+        /// portal boots them all from one <c>appsettings.json</c> against one LocalDB instance —
         /// so a single template is both simpler and impossible to diverge. Pointing the suite at
         /// another server is one edit.
         /// </summary>
@@ -82,7 +82,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         {
             CatalogFor("Core"),
             CatalogFor("Events"),
-            CatalogFor("Security")
+            CatalogFor("Security"),
+            CatalogFor("SecurityRehearsal"),
+            CatalogFor("SecurityFallbackRehearsal")
         };
 
         // The drop MUST reach the same server the catalogues are created on. Both are derived
@@ -93,6 +95,34 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             WithCatalog(ConnectionStringTemplate, "master");
 
         /// <summary>
+        /// A FOURTH Identity catalogue, and the host never sees it — it is deliberately absent
+        /// from <see cref="ConnectionStringOverrides"/> below.
+        ///
+        /// <para>It exists because a data migration can only be tested against data, and the
+        /// suite's own Security catalogue is created empty and migrated on the way up, so every
+        /// statement in a rename migration matches zero rows there. A test that needs a
+        /// POPULATED pre-migration store has to build one, and it must not build it in the
+        /// catalogue the running host is reading.</para>
+        ///
+        /// <para>It is listed in <see cref="DatabaseNames"/> so it inherits the same
+        /// create-clean-and-drop lifecycle as every other catalogue rather than growing a second
+        /// one — including the startup drop, which is what makes a rehearsal deterministic
+        /// after a previous run that reused this process id.</para>
+        /// </summary>
+        internal static string SecurityRehearsalConnectionString =>
+            WithCatalog(ConnectionStringTemplate, DatabaseNames[3]);
+
+        /// <summary>
+        /// A FIFTH, for the one branch the rehearsal above cannot reach from its own arrangement.
+        ///
+        /// <para>The rename migration takes a different path when <c>Administrators</c> does not
+        /// already exist — it renames <c>Admin</c> into it rather than merging and dropping — and
+        /// a single store cannot be in both states at once. Two pre-states, two catalogues.</para>
+        /// </summary>
+        internal static string SecurityFallbackRehearsalConnectionString =>
+            WithCatalog(ConnectionStringTemplate, DatabaseNames[4]);
+
+        /// <summary>
         /// The resolved per-run connection strings, keyed by the PRODUCTION configuration keys
         /// the portal actually reads. <see cref="TestWebApplicationFactory"/> layers these over
         /// the host's configuration in memory — never through the ambient environment, which is
@@ -100,8 +130,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         ///
         /// <para>Nothing here creates a schema. Core's is built by <c>Database.Migrate()</c> in
         /// <c>Program.InitializeCoreAsync</c>, Identity's by <c>Database.MigrateAsync()</c> in
-        /// <c>SeedData.SeedAsync</c>, and EventHighway builds its own store on first use — so a
-        /// per-run catalogue only has to let those run, which is the whole of the change on the
+        /// <c>SeedData.MigrateAsync</c>, and EventHighway builds its own store on first use — so
+        /// a per-run catalogue only has to let those run, which is the whole of the change on the
         /// creation side.</para>
         /// </summary>
         internal static IDictionary<string, string> ConnectionStringOverrides =>
@@ -118,7 +148,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             };
 
         /// <summary>
-        /// Drops all three catalogues.
+        /// Drops every catalogue in <see cref="DatabaseNames"/>.
         ///
         /// <para>Called twice per run, and the two calls differ in exactly one way.</para>
         ///

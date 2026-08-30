@@ -45,7 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // and the outcome goes out on Approved, because a bypass approval IS an approval to
             // every subscriber and the waiver travels on the row rather than in the fact's name.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
 
@@ -197,7 +197,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // The stored row already carries an earlier bypass, so a build that simply never
             // writes the pair fails this too rather than passing on the stale value.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             storageAssociation.IsApprovedByBypass = true;
@@ -241,7 +241,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // the difference between an incident and a launch-day override. The verdict knows;
             // it was simply discarded.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);
@@ -274,7 +274,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // or the audit trail gains an entry for an event that never happened — the same
             // failure as losing one, pointing the other way.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association inputAssociation = CreateApprovalDecision(storageAssociation.Id);

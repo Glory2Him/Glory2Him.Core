@@ -94,7 +94,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         // One verb for every approval-state move, because they are one act under different
         // authority rather than three operations: the ordinary Submitted -> Approved/Rejected
-        // verdict, the Admin override that re-opens a terminal row (§8.6 HR-4), and the bypass
+        // verdict, the Administrators override that re-opens a terminal row (§8.6 HR-4), and the bypass
         // that approves OVER unmet conditions (§12.4.4 rule 11).
         //
         // The bypass was previously its own verb, on the reasoning that a flag would make every
@@ -122,7 +122,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // Nullable on purpose: null means "leave this endpoint alone". Scope.AllVersions is
         // 0, so a non-nullable parameter cannot tell an omitted value from a deliberate one —
         // and the value it would default to is the WIDENING one, on the operation whose
-        // Publisher/Admin gate exists precisely because widening reach is consequential.
+        // Publishers/Administrators gate exists precisely because widening reach is consequential.
         ValueTask<Association> SetAssociationScopeAsync(
             Guid associationId,
             Scope? entityAScope,

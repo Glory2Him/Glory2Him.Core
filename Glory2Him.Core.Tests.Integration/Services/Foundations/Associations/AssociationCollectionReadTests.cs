@@ -56,8 +56,8 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // expression tree
             this.broker.ActAs(
                 actorUserId: Guid.NewGuid().ToString(),
-                Roles.TagReviewer,
-                "ContentItem-Testimony-Reviewer");
+                Roles.TagReviewers,
+                "ContentItem-Testimony-Reviewers");
 
             // when
             IQueryable<Association> query =
@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // to match on both sides. This seeds one row reachable through the B side and one
             // that is not reachable at all.
             string actorUserId = Guid.NewGuid().ToString();
-            this.broker.ActAs(actorUserId, Roles.TagReviewer);
+            this.broker.ActAs(actorUserId, Roles.TagReviewers);
 
             Association reachableAssociation = CreateAssociation(
                 entityAType: EntityType.ContentItem,
@@ -175,7 +175,7 @@ namespace Glory2Him.Core.Tests.Integration.Services.Foundations.Associations
             // dereferenced inside the expression tree — the construct most likely to fail
             // translation. A reviewer for testimonies must see testimonies and not stories.
             string actorUserId = Guid.NewGuid().ToString();
-            this.broker.ActAs(actorUserId, "ContentItem-Testimony-Reviewer");
+            this.broker.ActAs(actorUserId, "ContentItem-Testimony-Reviewers");
 
             Association testimonyAssociation = CreateAssociation(
                 entityAType: EntityType.ContentItem,

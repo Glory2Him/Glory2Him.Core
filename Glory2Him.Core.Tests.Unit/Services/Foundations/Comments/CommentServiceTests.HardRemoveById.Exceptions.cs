@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             Xeption expectedInnerException)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someCommentId = Guid.NewGuid();
 
             var expectedCommentDependencyException = new CommentDependencyException(
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someCommentId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
@@ -164,7 +164,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldThrowCriticalDependencyExceptionOnHardRemoveByIdIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someCommentId = Guid.NewGuid();
             SqlException sqlException = GetSqlException();
 
@@ -219,7 +219,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldThrowDependencyValidationExceptionOnHardRemoveByIdIfDbUpdateConcurrencyExceptionOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someCommentId = Guid.NewGuid();
             Comment someComment = CreateRandomComment();
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
@@ -287,7 +287,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldThrowServiceExceptionOnHardRemoveByIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someCommentId = Guid.NewGuid();
             var serviceException = new Exception();
 

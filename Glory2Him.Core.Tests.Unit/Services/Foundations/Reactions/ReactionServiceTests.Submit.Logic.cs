@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             Reaction storageReaction = CreateSubmittableStorageReaction();
 
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))

@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldRetrieveAllApprovalCommentsAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             IQueryable<ApprovalComment> randomApprovalComments = CreateRandomApprovalComments();
 
             foreach (ApprovalComment approvalComment in randomApprovalComments)
