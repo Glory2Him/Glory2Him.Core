@@ -1,4 +1,4 @@
-﻿// ────────────────────────────────────────────────────────────────────────────────
+// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -99,16 +99,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsUnique()
                  .HasDatabaseName("UX_Attachments_GroupId_Version");
 
-            // Exactly one published version per group. The IsDeleted term is not redundant
-            // against the unpublish-on-remove mandate (§9.7.6 rule 1): without it a soft-deleted
-            // published row keeps holding its group's slot, so no later version could ever be
-            // published and the failure would name a row the caller cannot see (§5.6.4 rule 4).
-            model.HasIndex(attachment => new { attachment.GroupId, attachment.IsPublished })
-                 .IsUnique()
-                 .HasFilter(
-                    $"[{nameof(Attachment.IsPublished)}] = 1 "
-                        + $"AND [{nameof(Attachment.IsDeleted)}] = 0")
-                 .HasDatabaseName("UX_Attachments_GroupId_IsPublished");
+            AddPublishedSlotIndex(model, "UX_Attachments_GroupId_IsPublished");
 
             // Hash index for deduplication lookups
             model.HasIndex(attachment => attachment.Hash)
