@@ -39,8 +39,12 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 {
     /// <summary>
     /// Kept in one file rather than split into the per-operation partials the sibling exposer
-    /// suites use, because this controller has two actions and the split would produce six files
-    /// of three tests each.
+    /// suites use. That began as an argument from size — two actions, and the split would have
+    /// produced six files of three tests each — which no longer holds now the controller carries
+    /// six actions. What keeps it together is the three security theories at the foot of the
+    /// file: they enumerate every action by name, and a reader checking that a new endpoint was
+    /// added to all three should not have to open a second file to see the tests it was added
+    /// alongside.
     /// </summary>
     public class ApprovalsControllerTests : RESTFulController
     {
@@ -883,6 +887,8 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         [InlineData(nameof(ApprovalsController.PostApprovalDecisionAsync))]
         [InlineData(nameof(ApprovalsController.GetReviewerCandidatesAsync))]
         [InlineData(nameof(ApprovalsController.PostReviewRequestAsync))]
+        [InlineData(nameof(ApprovalsController.GetReviewRequestsAsync))]
+        [InlineData(nameof(ApprovalsController.DeleteReviewRequestAsync))]
         public void ActionShouldNotAllowAnonymous(string actionName)
         {
             // Given
@@ -1229,6 +1235,491 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
 
             // then
             actualActionResult.Result.Should().BeOfType<NoContentResult>();
+        }
+
+        // The status-code contract for the two review-request actions, ported from the suite that
+        // died with ApprovalReviewRequestsController when the withdraw was re-keyed onto the round.
+        //
+        // Worth its own block rather than folding into the happy-path tests above, because THREE
+        // of these five refusals arrive as the SAME outer type — the orchestration funnels
+        // Unauthorized, NotFound and Invalid alike through CreateAndLogValidationExceptionAsync —
+        // and only the `when (... .InnerException is ...)` filters tell them apart. Nothing about
+        // that discrimination is visible to the compiler: replacing a `NotFound(...)` body with a
+        // `BadRequest(...)`, or narrowing a filter to a type the orchestration never throws, ships
+        // silently and answers 400 where §17.5 promises 404 or 401.
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnGetReviewRequestsIfApprovalDoesNotExistAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
+                    expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<IReadOnlyList<ApprovalReviewRequest>> actualActionResult =
+                await this.approvalsController.GetReviewRequestsAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The service-side half of the tier gate. The controller's bare <c>[Authorize]</c>
+        /// establishes only that a caller is authenticated, so this 401 is what an authenticated
+        /// caller below the requesting tier actually receives — and these rows name people, so
+        /// answering 400 would be the wrong signal on a user-enumeration surface (§16.7.4).
+        /// </summary>
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnGetReviewRequestsIfOutsideTheTierAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var unauthorizedApprovalOrchestrationException =
+                new UnauthorizedApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: unauthorizedApprovalOrchestrationException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
+                    expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<IReadOnlyList<ApprovalReviewRequest>> actualActionResult =
+                await this.approvalsController.GetReviewRequestsAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnGetReviewRequestsIfValidationErrorOccurredAsync(
+            Xeption validationException)
+        {
+            // given
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
+                    expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<IReadOnlyList<ApprovalReviewRequest>> actualActionResult =
+                await this.approvalsController.GetReviewRequestsAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldReturnFailedDependencyOnGetReviewRequestsIfDependencyErrorAsync(
+            Xeption dependencyException)
+        {
+            // given
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
+                    expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<IReadOnlyList<ApprovalReviewRequest>> actualActionResult =
+                await this.approvalsController.GetReviewRequestsAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task ShouldReturnInternalServerErrorOnGetReviewRequestsIfServerErrorAsync(
+            Xeption serverException)
+        {
+            // given
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<IReadOnlyList<ApprovalReviewRequest>>(
+                    expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<IReadOnlyList<ApprovalReviewRequest>> actualActionResult =
+                await this.approvalsController.GetReviewRequestsAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.RetrieveApprovalReviewRequestsAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnNotFoundOnDeleteReviewRequestIfApprovalDoesNotExistAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var notFoundApprovalOrchestrationException =
+                new NotFoundApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: notFoundApprovalOrchestrationException);
+
+            NotFoundObjectResult expectedNotFoundObjectResult =
+                NotFound(notFoundApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalReviewRequest>(expectedNotFoundObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.DeleteReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    deletionReason: null,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Fact]
+        public async Task ShouldReturnUnauthorizedOnDeleteReviewRequestIfOutsideTheTierAsync()
+        {
+            // given
+            string someMessage = GetRandomString();
+
+            var unauthorizedApprovalOrchestrationException =
+                new UnauthorizedApprovalOrchestrationException(
+                    message: someMessage);
+
+            var approvalOrchestrationValidationException =
+                new ApprovalOrchestrationValidationException(
+                    message: someMessage,
+                    innerException: unauthorizedApprovalOrchestrationException);
+
+            UnauthorizedObjectResult expectedUnauthorizedObjectResult =
+                Unauthorized(unauthorizedApprovalOrchestrationException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalReviewRequest>(expectedUnauthorizedObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(approvalOrchestrationValidationException);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.DeleteReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    deletionReason: null,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// Covers the refusal a moderator can reach by ordinary use: §7.9 rule 5 refuses to
+        /// withdraw an invitation its target has already ANSWERED, which the orchestration raises
+        /// as an <c>InvalidApprovalOrchestrationException</c> and which must surface as a 400
+        /// rather than being mistaken for a missing round.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(ValidationExceptions))]
+        public async Task ShouldReturnBadRequestOnDeleteReviewRequestIfValidationErrorAsync(
+            Xeption validationException)
+        {
+            // given
+            BadRequestObjectResult expectedBadRequestObjectResult =
+                BadRequest(validationException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalReviewRequest>(expectedBadRequestObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(validationException);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.DeleteReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    deletionReason: null,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(DependencyExceptions))]
+        public async Task ShouldReturnFailedDependencyOnDeleteReviewRequestIfDependencyErrorAsync(
+            Xeption dependencyException)
+        {
+            // given
+            FailedDependencyObjectResult expectedFailedDependencyObjectResult =
+                FailedDependency(dependencyException.InnerException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalReviewRequest>(expectedFailedDependencyObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(dependencyException);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.DeleteReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    deletionReason: null,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
+        }
+
+        [Theory]
+        [MemberData(nameof(ServerExceptions))]
+        public async Task ShouldReturnInternalServerErrorOnDeleteReviewRequestIfServerErrorAsync(
+            Xeption serverException)
+        {
+            // given
+            InternalServerErrorObjectResult expectedInternalServerErrorObjectResult =
+                InternalServerError(serverException);
+
+            var expectedActionResult =
+                new ActionResult<ApprovalReviewRequest>(
+                    expectedInternalServerErrorObjectResult);
+
+            this.approvalOrchestrationServiceMock.Setup(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(serverException);
+
+            // when
+            ActionResult<ApprovalReviewRequest> actualActionResult =
+                await this.approvalsController.DeleteReviewRequestAsync(
+                    GetRandomEntityType(),
+                    Guid.NewGuid(),
+                    Guid.NewGuid().ToString(),
+                    deletionReason: null,
+                    default);
+
+            // then
+            actualActionResult.ShouldBeEquivalentTo(expectedActionResult);
+
+            this.approvalOrchestrationServiceMock.Verify(service =>
+                service.WithdrawApprovalReviewRequestAsync(
+                    It.IsAny<EntityType>(),
+                    It.IsAny<Guid>(),
+                    It.IsAny<string>(),
+                    It.IsAny<string>(),
+                    It.IsAny<CancellationToken>()),
+                        Times.Once);
+
+            this.approvalOrchestrationServiceMock.VerifyNoOtherCalls();
         }
     }
 }
