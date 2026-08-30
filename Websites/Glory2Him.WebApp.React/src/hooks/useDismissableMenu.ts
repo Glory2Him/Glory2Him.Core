@@ -108,14 +108,38 @@ export const useDismissableMenu = (): DismissableMenu => {
             }
         };
 
+        // The one change that retires all three keyboard-dismissal gaps at once: a menu cannot
+        // be stale-open after Tab, two cannot be open together (opening the second necessarily
+        // moves focus out of the first), and Escape is only ever armed while focus is genuinely
+        // inside. Bootstrap 5's own `clearMenus` does exactly this.
+        //
+        // relatedTarget is null when focus leaves the document entirely (alt-tab, devtools) —
+        // guarded so a menu does not close from underneath the user in that case.
+        const onFocusOut = (event: FocusEvent) => {
+            const container = containerRef.current;
+            const nextFocus = event.relatedTarget as Node | null;
+
+            if (nextFocus === null) {
+                return;
+            }
+
+            if (container != null && container.contains(nextFocus) === false) {
+                close({ returnFocus: false });
+            }
+        };
+
         // mousedown rather than click: a click that starts inside and ends outside is a drag,
         // not a dismissal, and the panel's picker rows are wide enough for that to happen.
         document.addEventListener("mousedown", onPointerDown);
         document.addEventListener("keydown", onKeyDown);
+        containerRef.current?.addEventListener("focusout", onFocusOut);
+
+        const container = containerRef.current;
 
         return () => {
             document.removeEventListener("mousedown", onPointerDown);
             document.removeEventListener("keydown", onKeyDown);
+            container?.removeEventListener("focusout", onFocusOut);
         };
     }, [isOpen, close]);
 
