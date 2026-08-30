@@ -45,9 +45,21 @@ namespace Glory2Him.Core.Models.Foundations.BibleReferences
         public string Translation { get; set; } = string.Empty;
 
         /// <summary>
-        /// Optional scripture text for the referenced passage.
+        /// Optional scripture text for the referenced passage. Canonical plain-text
+        /// rendition (no markup) — safe for search, exports, and any text-only surface.
+        /// Rich formatting lives in <see cref="ScriptureHtml"/>.
         /// </summary>
         public string? Scripture { get; set; }
+
+        /// <summary>
+        /// Optional normalized presentation HTML for the referenced passage, preserving
+        /// rich scripture formatting such as red-letter (words of Jesus, span class "wj"),
+        /// deity names ("nd"), and poetry indentation ("q1"/"q2"). Presentation-only and
+        /// sanitized on write; <see cref="Scripture"/> remains the canonical plain text.
+        /// Null when the source provider supplied no rich formatting — consumers fall
+        /// back to <see cref="Scripture"/>.
+        /// </summary>
+        public string? ScriptureHtml { get; set; }
 
         /// <summary>
         /// User identifier for who created the Bible reference.
