@@ -763,6 +763,36 @@ describe('ContentItemPanel', () => {
             expect(screen.getByLabelText(/^Story/)).not.toHaveAttribute('aria-describedby');
         });
 
+        it('should list two unplaced fields sharing one message without colliding', () => {
+            // given: the server's messages are shared literals, so two fields carrying the same
+            // sentence is the norm - React treats same-keyed siblings as undefined behaviour
+            signInAs(authState);
+
+            const quoteSetting = settingFor(ContentType.Quote, 'Quote', {
+                hasTitle: false,
+                hasAuthor: false
+            });
+
+            const consoleError = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+            // when
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItemSettingCollection={[quoteSetting]}
+                    validationIssues={{
+                        Title: ['Text is required'],
+                        Author: ['Text is required']
+                    }} />);
+
+            // then: both are listed, and React raised no key warning
+            expect(screen.getAllByText('Text is required')).toHaveLength(2);
+
+            expect(consoleError.mock.calls.map((call) => String(call[0])).join(' '))
+                .not.toMatch(/same key/i);
+
+            consoleError.mockRestore();
+        });
+
         it('should carry the readback into the edit surface too', () => {
             // given
             signInAs(authState);
@@ -926,6 +956,99 @@ describe('ContentItemPanel', () => {
 
             // then
             expect(screen.getByLabelText(/Title/)).toHaveValue('A story title');
+        });
+
+        it('should not post a permission note the reader has just withdrawn', async () => {
+            // given: the note is hidden by the reader's OWN answer, not by policy - so unlike a
+            // title it drops rather than being carried, in both directions
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItemSettingCollection={settings}
+                    onAdded={onAdded} />);
+
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.PermissionGranted));
+
+            await userEvent.type(
+                screen.getByLabelText('Permission details'), 'Emailed by the author');
+
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The story itself');
+
+            // when: they change their mind and claim it as their own
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.Owned));
+
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then: a permission claim must not be filed against an Owned item
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                shareabilityBasis: ShareabilityBasis.Owned,
+                sharePermission: ''
+            }));
+        });
+
+        it('should drop a stored permission note when an amendment withdraws the basis', async () => {
+            // given
+            signInAs(authState);
+            const onModified = vi.fn();
+
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItem={itemWith({
+                        shareabilityBasis: ShareabilityBasis.PermissionGranted,
+                        sharePermission: 'Emailed by the author'
+                    })}
+                    mode="edit"
+                    isEditingAllowed
+                    onModified={onModified}
+                    contentItemSettingCollection={settings} />);
+
+            // when
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.Owned));
+
+            await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+            // then
+            expect(onModified).toHaveBeenCalledWith(expect.objectContaining({
+                shareabilityBasis: ShareabilityBasis.Owned,
+                sharePermission: ''
+            }));
+        });
+
+        it('should keep the note when the basis still says permission was granted', async () => {
+            // given
+            signInAs(authState);
+            const onAdded = vi.fn();
+
+            renderWithAuth(
+                <ContentItemPanel
+                    contentItemSettingCollection={settings}
+                    onAdded={onAdded} />);
+
+            await userEvent.selectOptions(
+                screen.getByLabelText(/How are you permitted to share this\?/),
+                String(ShareabilityBasis.PermissionGranted));
+
+            await userEvent.type(
+                screen.getByLabelText('Permission details'), 'Emailed by the author');
+
+            await userEvent.type(screen.getByLabelText(/^Story/), 'The story itself');
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
+
+            // then
+            expect(onAdded).toHaveBeenCalledWith(expect.objectContaining({
+                shareabilityBasis: ShareabilityBasis.PermissionGranted,
+                sharePermission: 'Emailed by the author'
+            }));
         });
 
         it('should still carry a hidden field that was already on the row', async () => {

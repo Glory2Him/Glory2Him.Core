@@ -63,9 +63,28 @@ const testimonySetting: ContentItemSetting = {
     deletionReason: null
 };
 
+// An override for THIS item, and a quote whose type carries no title at all - the page's heading
+// has to resolve both exactly as the panel does.
+const testimonyOverride: ContentItemSetting = {
+    ...testimonySetting,
+    id: '22222222-2222-2222-2222-222222222222',
+    contentItemId: 'content-item-1',
+    contentTypeName: 'A Testimony, Retitled'
+};
+
+const quoteSetting: ContentItemSetting = {
+    ...testimonySetting,
+    id: '33333333-3333-3333-3333-333333333333',
+    contentType: ContentType.Quote,
+    contentTypeName: 'Quote',
+    hasTitle: false
+};
+
+let contentItemSettings: ContentItemSetting[] = [];
+
 vi.mock('../services/foundations/contentItemSettingService', () => ({
     contentItemSettingService: {
-        useGetDefaults: () => ({ data: [testimonySetting], isLoading: false, isError: false })
+        useGetDefaults: () => ({ data: contentItemSettings, isLoading: false, isError: false })
     }
 }));
 
@@ -112,6 +131,7 @@ describe('PostDetail', () => {
     beforeEach(() => {
         signOut(authState);
         contentItem = ownedItem;
+        contentItemSettings = [testimonySetting, quoteSetting];
         isLoading = false;
         isError = false;
     });
@@ -157,6 +177,44 @@ describe('PostDetail', () => {
         renderPage();
 
         // then
+        expect(screen.getByRole('heading', { name: 'Testimony', level: 1 })).toBeInTheDocument();
+    });
+
+    it('should not shout a title the panel deliberately hides', () => {
+        // given: a type whose effective setting carries no title, on a row that still has one -
+        // the panel hides it, so the page must not promote it to the h1
+        contentItem = { ...ownedItem, contentType: ContentType.Quote, title: 'A stored title' };
+
+        // when
+        renderPage();
+
+        // then
+        expect(screen.queryByRole('heading', { name: 'A stored title' })).not.toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Quote', level: 1 })).toBeInTheDocument();
+    });
+
+    it('should prefer an item override when naming the page', () => {
+        // given
+        contentItemSettings = [testimonySetting, testimonyOverride];
+        contentItem = { ...ownedItem, title: null };
+
+        // when
+        renderPage();
+
+        // then: the override for THIS item wins over the content type default
+        expect(screen.getByRole('heading', { name: 'A Testimony, Retitled', level: 1 }))
+            .toBeInTheDocument();
+    });
+
+    it('should name the type rather than a literal before the settings arrive', () => {
+        // given
+        contentItemSettings = [];
+        contentItem = { ...ownedItem, title: null };
+
+        // when
+        renderPage();
+
+        // then: the fixed enum label, never "Contribution"
         expect(screen.getByRole('heading', { name: 'Testimony', level: 1 })).toBeInTheDocument();
     });
 

@@ -5,6 +5,11 @@ import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
 import { toContentItemFormItem } from '../services/views/contentItems/toContentItemFormItem';
+
+import {
+    contentTypeNameOf,
+    resolveContentItemSetting
+} from '../services/views/contentItems/resolveContentItemSetting';
 import { useDocumentTitle } from './useDocumentTitle';
 
 // One content item, read. Where a contribution lands after it is submitted, and the permanent
@@ -32,15 +37,30 @@ export function PostDetail() {
         () => contentItem == null ? undefined : toContentItemFormItem(contentItem),
         [contentItem]);
 
-    // What the page is called, on screen and in the tab. The item's title where it has one; the
-    // content type's own name where the type does not carry titles at all.
+    // What the page is called, on screen and in the tab.
+    //
+    // It asks the SAME resolver the panel does, against the same rows - an earlier copy of this
+    // logic here drifted immediately, losing the soft-delete filter and the override, and naming
+    // a literal when the settings had not arrived. It also has to obey the same hasTitle rule the
+    // panel's read surface does: a type whose effective setting carries no title must not have
+    // one shouted as the h1 while the panel below deliberately hides it.
+    const pageHeadingSetting = useMemo(
+        () => contentItem == null
+            ? undefined
+            : resolveContentItemSetting(
+                contentItemSettings ?? [], contentItem.contentType, contentItem.id),
+        [contentItemSettings, contentItem]);
+
+    const showsTitle =
+        pageHeadingSetting?.hasTitle ?? (contentItem?.title ?? '').length > 0;
+
     const pageHeading =
-        (contentItem?.title ?? '').length > 0
-            ? contentItem?.title ?? ''
-            : contentItemSettings?.find(
-                (setting) => setting.contentType === contentItem?.contentType
-                    && setting.contentItemId == null)?.contentTypeName
-            ?? 'Contribution';
+        contentItem == null
+            ? ''
+            : showsTitle && (contentItem.title ?? '').length > 0
+                ? contentItem.title ?? ''
+                : contentTypeNameOf(
+                    contentItemSettings ?? [], contentItem.contentType, contentItem.id);
 
     useDocumentTitle(
         contentItem == null ? 'Glory 2 Him' : `${pageHeading} — Glory 2 Him`);
@@ -66,10 +86,12 @@ export function PostDetail() {
                             </>
                         ) : (
                             <>
-                                {/* The page's own heading, so the document has an h1 and does not
-                                    start its outline at the panel's h3. The panel is told not to
-                                    repeat the title underneath it. A type whose setting carries no
-                                    title falls back to the type's name, which is never empty. */}
+                                {/* The page's own heading, so the document has an h1 and does
+                                    not start its outline at the panel's h3. The panel is told not
+                                    to repeat the title underneath it. A type whose effective
+                                    setting carries no title falls back to that type's name, which
+                                    is never empty - contentTypeNameOf ends at the fixed enum
+                                    label. */}
                                 <h1 className="h2 mb-4">{pageHeading}</h1>
 
                                 <div className="card card-body border p-4 p-lg-5">

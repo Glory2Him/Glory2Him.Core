@@ -3,11 +3,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { ConfirmDialog } from '../coreUI/confirmDialog';
 import { useAuth } from '../securitys/authProvider';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
+import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
 import {
-    ContentType,
-    contentTypeLabels
-} from '../../models/foundations/contentItemSettings/contentType';
+    contentTypeNameOf,
+    resolveContentItemSetting
+} from '../../services/views/contentItems/resolveContentItemSetting';
 
 import {
     ApprovalStatus,
@@ -375,35 +376,14 @@ export function ContentItemPanel({
     const activeSettings =
         contentItemSettingCollection.filter((setting) => setting.isDeleted !== true);
 
-    // THE EFFECTIVE SETTING, resolved as §6.4 and §12.5.2 rules 1-2 require: an item-level
-    // override takes FULL precedence over the content type default, and the default applies when
-    // there is no override. The override is matched on the ITEM as well as the type — a
-    // consumer handing over a mixed collection must not have one item's override applied to
-    // another's — which is also why `add` can only ever resolve a default: an override cannot
-    // exist for an item that does not exist yet.
-    //
-    // Falling through to `undefined` is deliberate. When neither a matching override nor a
-    // default is present the panel shapes itself from the item it was handed instead of adopting
-    // a policy row that was written for somebody else.
-    const settingFor = (contentType: ContentType | null): ContentItemSetting | undefined => {
-        if (contentType == null) {
-            return undefined;
-        }
-
-        const candidates = activeSettings.filter((setting) => setting.contentType === contentType);
-        const itemId = contentItem?.id;
-
-        const override = itemId == null
-            ? undefined
-            : candidates.find((setting) => setting.contentItemId === itemId);
-
-        return override ?? candidates.find((setting) => setting.contentItemId == null);
-    };
+    // §6.4 / §12.5.2 rules 1-2 resolution, shared with the page above so the two cannot drift.
+    // `add` passes no item id and so can only ever resolve a default, which is right: an override
+    // cannot exist for an item that does not exist yet.
+    const settingFor = (contentType: ContentType | null): ContentItemSetting | undefined =>
+        resolveContentItemSetting(contentItemSettingCollection, contentType, contentItem?.id);
 
     const typeNameOf = (contentType: ContentType | null): string =>
-        contentType == null
-            ? ''
-            : settingFor(contentType)?.contentTypeName ?? contentTypeLabels[contentType] ?? '';
+        contentTypeNameOf(contentItemSettingCollection, contentType, contentItem?.id);
 
     // What the picker may offer: the content type DEFAULTS, and only those open to a general
     // contribution. An override belongs to one existing item and can never be a type somebody
@@ -503,7 +483,8 @@ export function ContentItemPanel({
 
         return (
             <div className="invalid-feedback" id={issuesId(fieldName)}>
-                {messages.map((message) => <div key={message}>{message}</div>)}
+                {messages.map((message, index) =>
+                    <div key={`${fieldName}-${index}`}>{message}</div>)}
             </div>
         );
     };
@@ -536,7 +517,14 @@ export function ContentItemPanel({
         author: hasAuthorField ? draft.author : contentItem?.author ?? '',
         content: draft.content,
         shareabilityBasis: draft.shareabilityBasis,
-        sharePermission: draft.sharePermission
+
+        // SharePermission is hidden by the reader's OWN answer rather than by policy, which is
+        // why it drops to empty in both directions instead of falling back to the stored value.
+        // A note saying "permission granted by the author" stored against an item the contributor
+        // has just declared Owned is a provenance claim they withdrew - the server correlates
+        // nothing (it length-checks and no more), so keeping it would file a contradiction that
+        // no read surface ever shows again.
+        sharePermission: hasSharePermissionField ? draft.sharePermission : ''
     });
 
     const submitAdd = () => {
@@ -567,6 +555,12 @@ export function ContentItemPanel({
 
     const hasTitleField = activeSetting?.hasTitle ?? (contentItem?.title ?? '').length > 0;
     const hasAuthorField = activeSetting?.hasAuthor ?? (contentItem?.author ?? '').length > 0;
+
+    // Not a setting-driven flag like the two above: this one follows the basis the reader has
+    // selected right now, and it drives the field, the placement of its messages and what is
+    // submitted, so all three agree by construction.
+    const hasSharePermissionField =
+        draft.shareabilityBasis === ShareabilityBasis.PermissionGranted;
     const selectedTypeName = typeNameOf(selectedContentType);
 
     const contentLabel = contentLabelText.length > 0
@@ -585,15 +579,17 @@ export function ContentItemPanel({
         ...(hasAuthorField ? ['Author'] : []),
         'Content',
         'ShareabilityBasis',
-        ...(draft.shareabilityBasis === ShareabilityBasis.PermissionGranted
-            ? ['SharePermission']
-            : [])
+        ...(hasSharePermissionField ? ['SharePermission'] : [])
     ];
 
+    // Keyed on the FIELD as well as the message: the server's messages are shared literals
+    // ("Text is required" for every text field), so two unplaced fields colliding on one key is
+    // the norm rather than an edge case, and React treats same-keyed siblings as undefined.
     const unplacedIssues = issueEntries
         .filter(([key]) =>
             placedFieldNames.some((field) => field.toLowerCase() === key.toLowerCase()) === false)
-        .flatMap(([, messages]) => messages);
+        .flatMap(([field, messages]) =>
+            messages.map((message, index) => ({ id: `${field}-${index}`, message })));
 
     const renderValidationSummary = (): ReactNode =>
         unplacedIssues.length === 0 ? null : (
@@ -601,7 +597,7 @@ export function ContentItemPanel({
                 <p className="mb-1">{validationSummaryText}</p>
 
                 <ul className="mb-0 ps-3">
-                    {unplacedIssues.map((message) => <li key={message}>{message}</li>)}
+                    {unplacedIssues.map((issue) => <li key={issue.id}>{issue.message}</li>)}
                 </ul>
             </div>
         );
@@ -762,7 +758,7 @@ export function ContentItemPanel({
                 {renderFieldIssues('ShareabilityBasis')}
             </div>
 
-            {draft.shareabilityBasis === ShareabilityBasis.PermissionGranted && (
+            {hasSharePermissionField && (
                 <div className="mb-4">
                     <label className="form-label" htmlFor={`${fieldId}-share-permission`}>
                         {sharePermissionLabelText}

@@ -328,7 +328,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     {
         name: 'blockRoles',
         type: 'string',
-        defaultValue: 'ReadOnly, {EntityType}-ReadOnly, {EntityType}-{ContentType}-ReadOnly',
+        defaultValue: 'ReadOnly, ContentItem-ReadOnly, ContentItem-{ContentType}-ReadOnly',
         description: 'Asked FIRST on every gate and outranking every grant, [OWNER] included '
             + '(#366). The narrow tier lands on the picker, so one blocked type disables its '
             + 'tile and leaves the rest of the form live.'
@@ -596,6 +596,16 @@ export function ContentItemPanelDoc() {
                     Story before submitting and what was typed is still there. Where no row
                     resolves at all there is no flag to obey &mdash; the panel then shows
                     whichever of the two the item actually carries.
+                </p>
+
+                <p className="small text-body-secondary">
+                    <strong><code>sharePermission</code> is the exception, and drops rather than
+                    persisting.</strong> It is hidden by the contributor&rsquo;s own answer to a
+                    question in front of them, not by a setting they never chose &mdash; so a note
+                    reading <em>permission granted by the author</em>, left on an item they have
+                    just declared <code>Owned</code>, is a claim they withdrew. Nothing correlates
+                    the two server-side and no read surface shows it once the basis has moved, so
+                    keeping it would file a contradiction nobody can see or clear.
                 </p>
             </DocSection>
 
