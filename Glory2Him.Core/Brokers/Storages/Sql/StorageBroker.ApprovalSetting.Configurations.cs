@@ -117,16 +117,27 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // per-content-type tier. NULL/NULL is not distinct in SQL Server's default
             // unique-index semantics, so this needs two filtered indexes rather than one:
 
-            // 1) at most one entity-type-level default (ContentType IS NULL)
+            // Both carry an IsDeleted term, and it is load-bearing rather than tidy. §8.4
+            // resolution skips soft-deleted rows at every tier and §14.5 hides them from every
+            // caller including Admin, so a deleted row occupying a scope would be invisible and
+            // immovable — and the API's delete is a SOFT delete, which made the ordinary way to
+            // remove a policy the way that trapped its scope forever. There are eight EntityType
+            // members with one default slot each; a trapped one could never be re-created.
+
+            // 1) at most one LIVE entity-type-level default (ContentType IS NULL)
             model.HasIndex(approvalSetting => approvalSetting.EntityType)
                  .IsUnique()
-                 .HasFilter($"[{nameof(ApprovalSetting.ContentType)}] IS NULL")
+                 .HasFilter(
+                     $"[{nameof(ApprovalSetting.ContentType)}] IS NULL AND " +
+                     $"[{nameof(ApprovalSetting.IsDeleted)}] = 0")
                  .HasDatabaseName("UX_ApprovalSettings_EntityTypeDefault");
 
-            // 2) at most one row per (EntityType, ContentType) when ContentType is populated
+            // 2) at most one LIVE row per (EntityType, ContentType) when ContentType is populated
             model.HasIndex(approvalSetting => new { approvalSetting.EntityType, approvalSetting.ContentType })
                  .IsUnique()
-                 .HasFilter($"[{nameof(ApprovalSetting.ContentType)}] IS NOT NULL")
+                 .HasFilter(
+                     $"[{nameof(ApprovalSetting.ContentType)}] IS NOT NULL AND " +
+                     $"[{nameof(ApprovalSetting.IsDeleted)}] = 0")
                  .HasDatabaseName("UX_ApprovalSettings_EntityTypeContentType");
         }
     }
