@@ -78,7 +78,11 @@ namespace Glory2Him.Core.Tests.Integration.Brokers
     {
         // Every database this fixture is willing to create or drop starts with this. The guard
         // below refuses to touch anything else, because a drop here is unrecoverable.
-        private const string TestDatabasePrefix = "Glory2HimEventHighwayIntegration_";
+        //
+        // Named Glory2Him.Events_Integration_<process id>, matching the per-tier layout issue
+        // #351 settled on for all three stores (Core, Events, Security) across both the
+        // acceptance and integration tiers.
+        private const string TestDatabasePrefix = "Glory2Him.Events_Integration_";
 
         // A TEST-ONLY key, for the same reason AssociationQueryBroker uses one: the production
         // key is EventHighwayConnectionString, and any host or CI job that configures Core
