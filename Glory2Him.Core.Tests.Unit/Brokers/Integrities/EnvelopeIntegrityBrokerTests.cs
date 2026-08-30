@@ -365,15 +365,26 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Integrities
         }
 
         [Fact]
-        public void ShouldStartWhenNoKeyIsConfiguredAtAll()
+        public void ShouldRefuseToConstructWhenNoKeyIsConfiguredAtAll()
         {
-            // given: the host's own shipped state. An unconfigured host is a deliberate posture,
-            // not an error — it fails closed at the point of signing, and turning that into a
-            // boot crash would stop a site that publishes nothing.
+            // given: this used to assert the opposite, on the reasoning that an unconfigured host
+            // fails closed at the point of signing and a boot crash would stop a site that
+            // publishes nothing. Both halves were wrong. Signing is reached AFTER the write has
+            // committed — every foundation service inserts, then mints and signs the fact — so
+            // the deferred throw strands the row it was refusing, and on ContentItem the global
+            // duplicate probe then refuses every retry of that content forever (#392). And no
+            // host publishes nothing: §14.6 requires a fact per completed write, so an
+            // unconfigured host is one where every write is a landmine, not a read-only site.
+            //
+            // The throw lands at CONSTRUCTION, not at boot. Measured against the portal: it
+            // still starts and the SPA still serves, because InitializeCoreAsync logs the
+            // failure rather than halting — what changes is that every Core endpoint answers
+            // 500 on the first resolve of anything that signs, which is before any write.
             Action buildBroker = () => BrokerWith();
 
             // then
-            buildBroker.Should().NotThrow();
+            buildBroker.Should().Throw<InvalidOperationException>()
+                .WithMessage("*EventEnvelopeSigning*");
         }
 
         // ── helpers ──────────────────────────────────────────────────────────────
