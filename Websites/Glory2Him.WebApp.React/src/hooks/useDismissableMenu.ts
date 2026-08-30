@@ -49,8 +49,8 @@ export interface DismissableMenu {
     close: (options?: { returnFocus?: boolean }) => void;
 }
 
-// Enough to find the first thing worth landing on. The picker's is its filter box, which is
-// also where somebody opening it wants to be; the two dropdowns' is their first item.
+// Enough to find the first thing worth landing on, for consumers using initialFocus: "first".
+// The picker's is its filter box, which is also where somebody opening it wants to be.
 const focusableSelector = [
     "input:not([disabled])",
     "button:not([disabled])",
@@ -60,7 +60,17 @@ const focusableSelector = [
     "[tabindex]:not([tabindex='-1'])"
 ].join(",");
 
-export const useDismissableMenu = (): DismissableMenu => {
+export interface DismissableMenuOptions {
+    // "first" (default) focuses the first focusable control inside the menu, which is right for
+    // the picker: its first control is the filter box the user came to type in. "container"
+    // focuses the menu div itself instead, for menus whose first control is an action rather
+    // than a field — the vote and decision dropdowns — so a stray second Enter on the trigger
+    // does not fall through to that action. See #370.
+    initialFocus?: "first" | "container";
+}
+
+export const useDismissableMenu = (options?: DismissableMenuOptions): DismissableMenu => {
+    const initialFocus = options?.initialFocus ?? "first";
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -122,8 +132,13 @@ export const useDismissableMenu = (): DismissableMenu => {
     useEffect(() => {
         if (isOpen) {
             wasOpen.current = true;
-            const firstFocusable = menuRef.current?.querySelector<HTMLElement>(focusableSelector);
-            firstFocusable?.focus();
+
+            if (initialFocus === "container") {
+                menuRef.current?.focus();
+            } else {
+                const firstFocusable = menuRef.current?.querySelector<HTMLElement>(focusableSelector);
+                firstFocusable?.focus();
+            }
 
             return;
         }
@@ -134,7 +149,7 @@ export const useDismissableMenu = (): DismissableMenu => {
 
         wasOpen.current = false;
         shouldReturnFocus.current = false;
-    }, [isOpen]);
+    }, [isOpen, initialFocus]);
 
     return {
         isOpen,

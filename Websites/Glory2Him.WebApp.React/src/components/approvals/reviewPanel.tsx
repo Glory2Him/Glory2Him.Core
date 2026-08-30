@@ -264,9 +264,9 @@ export function ReviewPanel({
     // All three menus are ours rather than Bootstrap's, so dismissal, labelling and focus come
     // from one shared hook instead of being written out three times — see useDismissableMenu for
     // why adopting `data-bs-toggle` here was rejected.
-    const voteMenu = useDismissableMenu();
+    const voteMenu = useDismissableMenu({ initialFocus: 'container' });
     const picker = useDismissableMenu();
-    const decisionMenu = useDismissableMenu();
+    const decisionMenu = useDismissableMenu({ initialFocus: 'container' });
 
     const [candidateFilter, setCandidateFilter] = useState('');
     const [selectedDecision, setSelectedDecision] = useState<ApprovalDecision | undefined>();
@@ -647,6 +647,7 @@ export function ReviewPanel({
                     <div
                         id={voteMenu.menuId}
                         ref={voteMenu.menuRef}
+                        tabIndex={-1}
                         aria-labelledby={voteMenu.triggerId}
                         className="dropdown-menu dropdown-menu-end show shadow">
                         <button
@@ -992,6 +993,7 @@ export function ReviewPanel({
                             <div
                                 id={decisionMenu.menuId}
                                 ref={decisionMenu.menuRef}
+                                tabIndex={-1}
                                 aria-labelledby={decisionMenu.triggerId}
                                 className="dropdown-menu show shadow w-100">
                                 <button
