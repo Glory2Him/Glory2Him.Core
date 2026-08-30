@@ -16,6 +16,20 @@ import { RefObject, useCallback, useEffect, useId, useRef, useState } from "reac
 // So this is the shared home the behaviour lives in, once, rather than three times. It is the
 // first such hook here; the next component that needs an in-app menu should use it rather than
 // grow a fourth copy.
+//
+// WHAT THIS DELIBERATELY DOES NOT CLAIM. Consumers get `triggerId`/`menuId` for aria-controls
+// and aria-labelledby, and `isOpen` for aria-expanded — all three are simply true of a
+// disclosure. They do NOT get aria-haspopup, and a trigger using this hook must not add one.
+// ARIA 1.1/1.2 define aria-haspopup="true" as synonymous with "menu", so asserting it promises
+// assistive technology a role=menu with menuitem children and arrow-key navigation. None of
+// that is here: the popups are role-less divs of plain buttons, and the reviewer picker is not
+// even menu-SHAPED — it is a filter box over multi-select toggles, where this hook lands focus
+// in the text field and the advertised Down-Arrow does nothing. Bootstrap 5 dropped
+// aria-haspopup from its own dropdowns for exactly this reason.
+//
+// The honest options are a truthful disclosure (what this is) or the full menu pattern — roles,
+// roving tabindex, Up/Down/Home/End, close-on-Tab. Announcing the second while implementing the
+// first is the one thing worse than either.
 export interface DismissableMenu {
     isOpen: boolean;
 

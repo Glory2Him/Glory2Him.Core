@@ -633,7 +633,10 @@ export function ReviewPanel({
                     id={voteMenu.triggerId}
                     ref={voteMenu.triggerRef}
                     className={`btn btn-sm dropdown-toggle ${buttonCssClass} mb-0`}
-                    aria-haspopup="true"
+
+                    // NO aria-haspopup, on any of the three, and that is a decision rather than
+                    // an omission — see useDismissableMenu for why. These are disclosures:
+                    // aria-expanded and aria-controls are true of them, and nothing more is.
                     aria-controls={voteMenu.isOpen ? voteMenu.menuId : undefined}
                     aria-expanded={voteMenu.isOpen}
                     onClick={voteMenu.toggle}>
@@ -835,7 +838,6 @@ export function ReviewPanel({
                             className="btn btn-link p-0 text-body g2h-review-request-cog"
                             title={requestReviewTooltip}
                             aria-label={requestReviewTooltip}
-                            aria-haspopup="true"
                             aria-controls={picker.isOpen ? picker.menuId : undefined}
                             aria-expanded={picker.isOpen}
                             onClick={togglePicker}>
@@ -980,7 +982,6 @@ export function ReviewPanel({
                             id={decisionMenu.triggerId}
                             ref={decisionMenu.triggerRef}
                             className={`btn w-100 dropdown-toggle d-flex justify-content-between align-items-center ${decisionSelection?.selectionCssClass ?? setStatusCssClass} mb-0`}
-                            aria-haspopup="true"
                             aria-controls={decisionMenu.isOpen ? decisionMenu.menuId : undefined}
                             aria-expanded={decisionMenu.isOpen}
                             onClick={decisionMenu.toggle}>
