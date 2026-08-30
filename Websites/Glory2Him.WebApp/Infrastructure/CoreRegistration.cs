@@ -72,10 +72,15 @@ namespace Glory2Him.WebApp.Infrastructure
         {
             // SecurityAuditBroker no longer reads the ambient HttpContext — it resolves its
             // actor from the envelope's SecurityContext instead — but the accessor is still
-            // needed: EventEnvelopeBroker's EventEnvelopeClient resolves a SecurityBroker that
-            // reads httpContextAccessor.HttpContext?.User in ITS constructor (see the comment
-            // below), and the host's own services (e.g. ASP.NET Core Identity's SignInManager)
-            // depend on it too.
+            // needed. EventEnvelopeBroker's EventEnvelopeClient builds its OWN separate internal
+            // DI container (see the comment below) with its own IHttpContextAccessor
+            // registration, so it never resolves THIS registration directly; it works only
+            // because Microsoft.AspNetCore.Http.HttpContextAccessor keeps its value in a
+            // process-wide static AsyncLocal that every instance of that concrete type reads,
+            // and that field is populated per request from whichever IHttpContextAccessor this
+            // app's own root provider hands the framework — which is this registration. Removing
+            // it would leave that static field forever unpopulated. The host's own services
+            // (e.g. ASP.NET Core Identity's SignInManager) depend on it too.
             services.AddHttpContextAccessor();
 
             // The defaults already name the audit members these entities carry (CreatedBy,
@@ -106,9 +111,16 @@ namespace Glory2Him.WebApp.Infrastructure
             services.AddScoped<IStorageBroker, StorageBroker>();
             services.AddScoped<IAccessBroker, AccessBroker>();
 
-            // Left Scoped rather than reclassified to Singleton: it holds nothing but a
-            // stateless SecurityClient and SecurityConfigurations today, but nothing here
-            // guarantees the next constructor added to it stays that way.
+            // Security-sensitive, unlike the stateless brokers above: left Scoped rather than
+            // promoted to Singleton even though it holds nothing today but a self-constructed
+            // SecurityClient and the singleton SecurityConfigurations. HashBroker,
+            // EnvelopeIntegrityBroker, EventBroker, DateTimeBroker and IdentifierBroker carry no
+            // per-caller identity even in principle, so a future stateful constructor is not a
+            // security concern for them; this broker's entire job is attributing actions to
+            // actors, so the same mistake here would misattribute every CreatedBy/UpdatedBy in
+            // the process. The accepted cost of that margin: SecurityClient's constructor builds
+            // its own small internal DI container, so this rebuilds it once per scope rather than
+            // once per process.
             services.AddScoped<ISecurityAuditBroker, SecurityAuditBroker>();
             // The service INTERFACES are public; the implementations are not. Binding the two is
             // only possible from inside Core's friend set, which is the point — the host names

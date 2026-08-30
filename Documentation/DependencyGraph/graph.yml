@@ -94,7 +94,6 @@ roots:
   - STC.EFCoreClient
   - STC.StorageBroker
   - EEC.Client
-  - EEC.SecurityAuditBroker
   - EXT.EventHighway
   - EXT.Identity
   - EXT.SecurityDb

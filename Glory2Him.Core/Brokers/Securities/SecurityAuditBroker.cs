@@ -18,7 +18,9 @@ using Glory2Him.Core.Models.Events;
 namespace Glory2Him.Core.Brokers.Securities
 {
     /// <summary>
-    /// Provides security-related functionalities such as user authentication, claim verification, and role checks.
+    /// Stamps and verifies audit metadata (CreatedBy/UpdatedBy/DeletedBy and their timestamps)
+    /// on entities, and resolves the acting user id — all from the actor carried on an event
+    /// envelope's <see cref="SecurityContext"/> rather than an ambient principal.
     /// </summary>
     internal class SecurityAuditBroker : ISecurityAuditBroker
     {

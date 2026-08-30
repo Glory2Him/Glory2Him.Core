@@ -202,7 +202,7 @@ components:
     name: SecurityAuditBroker
     layer: broker
     col: 6
-    description: "Wraps G2H.Security.Client's AuditClient (ISecurityClient.Audits); each method also has a SecurityContext overload used during event replay."
+    description: "Wraps G2H.Security.Client's AuditClient (ISecurityClient.Audits); every method takes the actor as a SecurityContext argument, resolved via SecurityContextPrincipalFactory rather than an ambient principal."
     methods:
       - ApplyAddAuditValuesAsync
       - ApplyModifyAuditValuesAsync

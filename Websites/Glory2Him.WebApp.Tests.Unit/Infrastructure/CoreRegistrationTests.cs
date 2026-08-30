@@ -27,12 +27,15 @@ namespace Glory2Him.WebApp.Tests.Unit.Infrastructure
 {
     public class CoreRegistrationTests
     {
-        // Every one of these captures the caller's identity or a DbContext, so a longer lifetime
-        // would serve one request's user or connection to the next. EventEnvelopeBroker is the
-        // subtle one: it builds an EventEnvelopeClient in its constructor, that client resolves
-        // its service graph once, and the SecurityBroker underneath reads HttpContext.User in ITS
+        // Most of these capture the caller's identity or a DbContext, so a longer lifetime would
+        // serve one request's user or connection to the next. EventEnvelopeBroker is the subtle
+        // one: it builds an EventEnvelopeClient in its constructor, that client resolves its
+        // service graph once, and the SecurityBroker underneath reads HttpContext.User in ITS
         // constructor — so a singleton stamps every envelope in the process, and therefore every
         // audit field, with whichever principal happened to be current when it was first built.
+        // ISecurityAuditBroker no longer captures anything per-request (see CoreRegistration's
+        // own comment on its registration) but stays Scoped deliberately, as a security margin
+        // rather than a requirement.
         [Theory]
         [InlineData(typeof(IEventEnvelopeBroker))]
         [InlineData(typeof(ISecurityAuditBroker))]

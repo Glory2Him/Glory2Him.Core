@@ -2992,15 +2992,21 @@ The media surface carries its own security rules: upload constraints — refused
 ### 14.6.1 Dependency Lifetimes Are a Security Control
 
 Every rule in §14.6 is evaluated against a `SecurityContext` derived from the caller's
-`ClaimsPrincipal`, and every audit field is stamped from the same subject (§8.6.1). **The brokers
-that resolve that principal read it in their constructor, not per call.** Their registered
-lifetime therefore decides *whose* identity the rules run against, which makes DI lifetime a
-security control rather than a performance choice.
+`ClaimsPrincipal`, and every audit field is stamped from the same subject (§8.6.1). **One broker
+in that chain still resolves that principal in its constructor, not per call; the other now takes
+it as an explicit per-call argument.** Where a broker still captures it in its constructor, that
+broker's registered lifetime decides *whose* identity the rules run against, which makes DI
+lifetime a security control rather than a performance choice for it.
 
 Two brokers sit in that chain:
 
-1. `SecurityAuditBroker` assigns `httpContextAccessor.HttpContext?.User` to a field in its
-   constructor. It stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps.
+1. `SecurityAuditBroker` takes the actor as an explicit `SecurityContext` argument on every call
+   (via `SecurityContextPrincipalFactory`) rather than capturing a principal in its constructor —
+   it stamps `CreatedBy`, `UpdatedBy`, `DeletedBy` and their timestamps. Its registration stays
+   `Scoped` regardless, as a deliberate security margin rather than a strict requirement: it holds
+   no per-request state today, but a future constructor addition that captured one would
+   reintroduce the hazard described below, and a `Scoped` lifetime keeps that margin in place
+   should that happen (`CoreRegistration.AddCoreServices`).
 
    **RULE — the audit columns name the actor, and the system is an actor.** They are resolved from
    `SecurityContext.SubjectId`, so whatever that holds is what the row says happened. An act the
@@ -3030,12 +3036,13 @@ Two brokers sit in that chain:
    principal it captured for the lifetime of the client. It supplies the `SecurityContext` on every envelope, which is what the foundation
    authorises against.
 
-**Registering either as a singleton freezes the first principal the process ever saw.** The
-failure is silent and total: the service keeps enforcing every rule correctly, but against the
-wrong subject. Every subsequent caller's row is authored by that first user; ownership checks,
-the §8.6.1 `actor == CreatedBy` comparisons, the no-self-approval rule (HR-2) and the whole audit
-trail are all decided for someone who is not the caller. Nothing throws, and no test that
-excludes the audit fields from its assertions will notice.
+**Registering a broker that still captures ambient identity in its constructor — `EventEnvelopeBroker`'s
+chain today — as a singleton freezes the first principal the process ever saw.** The failure is
+silent and total: the service keeps enforcing every rule correctly, but against the wrong subject.
+Every subsequent caller's row is authored by that first user; ownership checks, the §8.6.1
+`actor == CreatedBy` comparisons, the no-self-approval rule (HR-2) and the whole audit trail are
+all decided for someone who is not the caller. Nothing throws, and no test that excludes the audit
+fields from its assertions will notice.
 
 **The rule:** any broker in the identity chain — and any service that composes one — is `Scoped`
 or `Transient`, never `Singleton`. A longer-lived consumer of a scoped identity broker is the
