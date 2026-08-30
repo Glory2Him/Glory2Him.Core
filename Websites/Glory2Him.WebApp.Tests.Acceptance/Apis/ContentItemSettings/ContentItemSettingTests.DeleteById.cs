@@ -14,6 +14,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings;
+using Glory2Him.Core.Models.Enums;
+using RESTFulSense.Exceptions;
+using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 {
@@ -43,6 +46,39 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             {
                 await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(inputContentItemSetting.Id);
             }
+        }
+
+        /// <summary>
+        /// The floor under the default scope (§12.5.2 business rule 5). Every content type must
+        /// always have a live default, so the delete endpoint refuses one outright rather than
+        /// leaving the type with no resolvable setting at all.
+        ///
+        /// <para>400 rather than 404: the row is there and every caller may read it — settings are
+        /// public — so the answer names the rule instead of pretending the row is missing.</para>
+        ///
+        /// <para>No arrangement and no teardown, and that is the assertion. The row under test is
+        /// the SEEDED default, chosen precisely because a passing run leaves it exactly where it
+        /// was; a regression that let the delete through would strip a content type of its default
+        /// for every test that followed.</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldRefuseDeleteOfADefaultContentItemSettingAsync()
+        {
+            // given
+            CoreContentItemSetting seededDefault =
+                await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Quote);
+
+            // when
+            var deleteTask =
+                this.apiBroker.DeleteContentItemSettingByIdAsync(seededDefault.Id).AsTask();
+
+            // then
+            await Assert.ThrowsAsync<HttpResponseBadRequestException>(() => deleteTask);
+
+            CoreContentItemSetting stillLiveDefault =
+                await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Quote);
+
+            stillLiveDefault.Id.Should().Be(seededDefault.Id);
         }
     }
 }

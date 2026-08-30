@@ -31,11 +31,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     /// ordinary reason every suite has one — the row itself must not outlive the test, or the
     /// collection reads see it.</para>
     ///
-    /// <para>The insert arrangement below exists for exactly one case, and not to arrange ordinary
-    /// rows: the host seeds one default per content type at startup, so a test that needs a
-    /// default slot free has to take the seeded incumbent out and put it back exactly as it was.
-    /// Everything else this suite needs is created through the endpoint under test — this exposer
-    /// has no approval round to open, <c>ContentItemSetting</c> carrying no
+    /// <para>The insert arrangement below exists for the default tier alone, and not to arrange
+    /// ordinary rows: the host seeds one default per content type at startup, so a test that needs
+    /// a default slot free has to take the seeded incumbent out and put it back exactly as it was
+    /// — and since #387 the API refuses to remove a default at all, so a soft-deleted one can only
+    /// be arranged here. Everything else this suite needs is created through the endpoint under
+    /// test — this exposer has no approval round to open, <c>ContentItemSetting</c> carrying no
     /// <c>ApprovalStatus</c> at all.</para>
     /// </summary>
     public partial class ApiBroker
@@ -80,10 +81,14 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         }
 
         /// <summary>
-        /// Puts a row back exactly as it was, audit fields and id included — the other half of a
-        /// test that has to free a seeded default's slot to write to it. The seed is idempotent on
-        /// "a row exists for this content type", counting soft-deleted ones, so a restart would not
-        /// replace what such a test removed.
+        /// Writes a row beneath HTTP, audit fields and id included. Two callers, and they are
+        /// opposite halves of the same test: it puts the seeded default back exactly as it was
+        /// after freeing its slot, and it arranges the soft-deleted predecessor that the delete
+        /// endpoint will no longer produce — a default may not be removed at all (#387).
+        ///
+        /// <para>The restore is not redundant against the seed. <c>ContentItemSettingSeedData</c>
+        /// does now replace a missing LIVE default, but only at startup, and nothing restarts
+        /// mid-suite — the tests that follow depend on this call, not on the seed.</para>
         /// </summary>
         public async ValueTask<CoreContentItemSetting> InsertCoreContentItemSettingAsync(
             CoreContentItemSetting contentItemSetting) =>

@@ -17,6 +17,7 @@ using Glory2Him.Core.Models.Enums;
 using Glory2Him.WebApp.Tests.Acceptance.Brokers;
 using Glory2Him.WebApp.Tests.Acceptance.Models.ContentItemSettings;
 using Tynamix.ObjectFiller;
+using CoreContentItemSetting = Glory2Him.Core.Models.Foundations.ContentItemSettings.ContentItemSetting;
 
 namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 {
@@ -104,6 +105,39 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
 
         private static ContentItemSetting CreateRandomContentItemSetting() =>
             CreateRandomContentItemSettingFiller().Create();
+
+        /// <summary>
+        /// A soft-deleted per-type DEFAULT, built as a Core row because it cannot be arranged
+        /// through the API: the delete endpoint refuses a default outright, every content type
+        /// having to keep one (#387, §12.5.2 business rule 5). The only caller is the test that
+        /// asserts <c>UX_ContentItemSettings_DefaultPerType</c> still releases a scope held by
+        /// nothing but a dead row.
+        ///
+        /// <para>Written by hand rather than through the filler because the filler mints
+        /// OVERRIDES — a fresh <c>ContentItemId</c> on every row — and this is the one shape it
+        /// deliberately never produces.</para>
+        /// </summary>
+        private static CoreContentItemSetting CreateSoftDeletedCoreDefaultContentItemSetting(
+            ContentType contentType)
+        {
+            string user = Guid.NewGuid().ToString();
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            return new CoreContentItemSetting
+            {
+                Id = Guid.NewGuid(),
+                ContentType = contentType,
+                ContentItemId = null,
+                CreatedBy = user,
+                CreatedWhen = now,
+                UpdatedBy = user,
+                UpdatedWhen = now,
+                IsDeleted = true,
+                DeletedBy = user,
+                DeletedWhen = now,
+                DeletionReason = "Arranged beneath HTTP for the scope-release assertion."
+            };
+        }
 
         private static Filler<ContentItemSetting> CreateRandomContentItemSettingFiller()
         {
