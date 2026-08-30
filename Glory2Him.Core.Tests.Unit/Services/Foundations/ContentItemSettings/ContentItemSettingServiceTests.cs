@@ -304,6 +304,14 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                 // than drawn: a posture-sensitive test must never depend on the draw. Tests
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(contentItemSetting => contentItemSetting.IsDeleted).Use(false)
+
+                // A per-ITEM OVERRIDE. The scope decides whether a row may be removed at all —
+                // a default (ContentItemId null) is refused by both removal paths — so it is
+                // pinned rather than drawn, and the tests that want a default set it to null
+                // explicitly.
+                .OnProperty(contentItemSetting => contentItemSetting.ContentItemId)
+                    .Use(new Func<Guid?>(() => Guid.NewGuid()))
+
                 .OnProperty(contentItemSetting => contentItemSetting.CreatedBy).Use(userId)
                 .OnProperty(contentItemSetting => contentItemSetting.UpdatedBy).Use(userId);
 

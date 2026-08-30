@@ -230,6 +230,27 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 message: "Content item setting is invalid, fix the errors and try again.",
                 (Rule: IsInvalid(contentItemSettingId), Parameter: nameof(ContentItemSetting.Id)));
 
+        // Every ContentType must always have a live default — the row where ContentItemId IS
+        // NULL — because §12.5.2 business rule 1 makes the default the setting that applies when
+        // no item override exists, so a content type without one has no resolvable setting at all
+        // and rendering for that type falls back to nothing (§12.5.2 business rule 5).
+        //
+        // The refusal is a validation error rather than a not-found: the row is there and the
+        // caller may see it, they are asking for something the entity does not permit — the same
+        // shape BibleReference.USFM's immutability takes (§12.3.1 rule 2a). It is stated
+        // unconditionally rather than skipped for an already-deleted row, because the tier is
+        // what is refused, not the transition.
+        //
+        // Both removal paths call this. The invariant is about the row existing, so the mechanism
+        // that removes it is irrelevant and a hard delete is no escape hatch — no code path may
+        // leave a content type without a default, even briefly.
+        private static void ValidateStorageContentItemSettingIsNotADefault(
+            ContentItemSetting storageContentItemSetting) =>
+            Validate(
+                message: "Content item setting is invalid, fix the errors and try again.",
+                (Rule: IsADefault(storageContentItemSetting.ContentItemId),
+                    Parameter: nameof(ContentItemSetting.ContentItemId)));
+
         private static void ValidateStorageContentItemSetting(
             ContentItemSetting maybeContentItemSetting,
             Guid contentItemSettingId)
@@ -265,6 +286,13 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         {
             Condition = date == default,
             Message = "Date is required"
+        };
+
+        private static dynamic IsADefault(Guid? contentItemId) => new
+        {
+            Condition = contentItemId is null,
+            Message = "Default content item settings cannot be removed. " +
+                "Every content type must always have a default."
         };
 
         private static dynamic IsInvalid(ContentType contentType) => new

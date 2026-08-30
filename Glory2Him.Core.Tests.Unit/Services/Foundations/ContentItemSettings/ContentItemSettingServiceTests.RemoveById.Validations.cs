@@ -246,5 +246,138 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// The invariant of §12.5.2 business rule 5: every content type must always have a live
+        /// default, so the row where <c>ContentItemId</c> is null may not be removed at all.
+        ///
+        /// <para>A refusal rather than a not-found. The row is there and every caller may read it
+        /// — settings are public — so answering not-found would be a lie; the caller is asking for
+        /// something the entity does not permit, which is the shape <c>BibleReference.USFM</c>
+        /// immutability takes (§12.3.1 rule 2a).</para>
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfContentItemSettingIsADefaultAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
+            storageContentItemSetting.ContentItemId = null;
+            Guid inputContentItemSettingId = storageContentItemSetting.Id;
+
+            var invalidContentItemSettingException = new InvalidContentItemSettingException(
+                message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.UpsertDataList(
+                key: nameof(ContentItemSetting.ContentItemId),
+                value: "Default content item settings cannot be removed. " +
+                    "Every content type must always have a default.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<ContentItemSetting> removeContentItemSettingByIdTask =
+                this.contentItemSettingService.RemoveContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    removeContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
+        /// <summary>
+        /// The tier refusal is stated ahead of the idempotent already-deleted short-circuit, so a
+        /// default that reached the deleted state by some other route still answers the rule
+        /// rather than a silent success. What is refused is the tier, not the transition.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDefaultIsAlreadyDeletedAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
+            storageContentItemSetting.ContentItemId = null;
+            storageContentItemSetting.IsDeleted = true;
+            Guid inputContentItemSettingId = storageContentItemSetting.Id;
+
+            var invalidContentItemSettingException = new InvalidContentItemSettingException(
+                message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.UpsertDataList(
+                key: nameof(ContentItemSetting.ContentItemId),
+                value: "Default content item settings cannot be removed. " +
+                    "Every content type must always have a default.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<ContentItemSetting> removeContentItemSettingByIdTask =
+                this.contentItemSettingService.RemoveContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    cancellationToken: TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    removeContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }

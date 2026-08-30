@@ -257,5 +257,70 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        /// <summary>
+        /// The same refusal on the hard path. The invariant is about the row EXISTING, so the
+        /// mechanism that removes it is irrelevant — a hard delete is not an escape hatch from
+        /// §12.5.2 business rule 5, and no code path may leave a content type without a default
+        /// even briefly.
+        /// </summary>
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfContentItemSettingIsADefaultAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
+            storageContentItemSetting.ContentItemId = null;
+            Guid inputContentItemSettingId = storageContentItemSetting.Id;
+
+            var invalidContentItemSettingException = new InvalidContentItemSettingException(
+                message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.UpsertDataList(
+                key: nameof(ContentItemSetting.ContentItemId),
+                value: "Default content item settings cannot be removed. " +
+                    "Every content type must always have a default.");
+
+            var expectedContentItemSettingValidationException = new ContentItemSettingValidationException(
+                message: "Content item setting validation error occurred, fix the errors and try again.",
+                innerException: invalidContentItemSettingException);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    TestContext.Current.CancellationToken))
+                        .ReturnsAsync(storageContentItemSetting);
+
+            // when
+            ValueTask<ContentItemSetting> hardRemoveContentItemSettingByIdTask =
+                this.contentItemSettingService.HardRemoveContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    hardRemoveContentItemSettingByIdTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.SelectContentItemSettingByIdAsync(
+                    inputContentItemSettingId,
+                    TestContext.Current.CancellationToken),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
