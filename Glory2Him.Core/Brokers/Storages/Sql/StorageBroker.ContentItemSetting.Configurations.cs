@@ -57,6 +57,13 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(contentItemSetting => contentItemSetting.ContentTypeIconCssClass)
                 .IsRequired(false);
 
+            // The default matches the entity's own, so a row inserted without one lands past
+            // the curated seed values rather than at zero, where every unordered row would
+            // otherwise pile up ahead of the types somebody chose the order of.
+            model.Property(contentItemSetting => contentItemSetting.SortOrder)
+                .IsRequired()
+                .HasDefaultValue(1000);
+
             model.Property(contentItemSetting => contentItemSetting.TagsAllowed)
                 .IsRequired()
                 .HasDefaultValue(false);

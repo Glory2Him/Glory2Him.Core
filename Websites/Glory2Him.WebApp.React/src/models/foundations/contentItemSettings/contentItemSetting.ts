@@ -17,6 +17,12 @@ export type ContentItemSetting = {
     contentTypeName: string;
     contentTypeDescription: string;
     contentTypeIconCssClass: string;
+
+    // The order this type is presented in wherever the types are listed — the contribute page's
+    // type picker above all. Lower first, and the server rejects a negative. New rows default to
+    // 1000, past every value the seed curates, so an unordered type lands after the ordered ones.
+    sortOrder: number;
+
     hasTitle: boolean;
     hasAuthor: boolean;
     isAvailableAsGeneralUserContribution: boolean;

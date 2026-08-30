@@ -1,4 +1,4 @@
-// ────────────────────────────────────────────────────────────────────────────────
+﻿// ────────────────────────────────────────────────────────────────────────────────
 // Copyright (c) Glory 2 Him. All rights reserved.
 // Licensed under the Glory 2 Him Software License (G2HSL).
 // See License.txt in the project root for full license information.
@@ -72,10 +72,17 @@ namespace Glory2Him.WebApp.Data
         // — the per-type default scope UX_ContentItemSettings_DefaultPerType enforces (§6.2).
         // Values below are the reviewed defaults; adjust here rather than by hand-editing rows,
         // so a fresh environment always comes up matching.
+        //
+        // SortOrder is the order a contributor meets the types in — the type picker sorts on it
+        // rather than on whatever order the read answered with. The gap before Series and Topic
+        // mirrors the gap ContentType itself leaves (design §3.6): the two grouping types are
+        // numbered apart from the standalone ones, and they are presented apart for the same
+        // reason. Every row here states its value, so none falls back to the entity's 1000.
         private static IEnumerable<ContentItemSetting> BuildDefaultContentItemSettings()
         {
             yield return BuildSetting(
                 ContentType.Quote,
+                sortOrder: 0,
                 contentTypeName: "Quote",
                 contentTypeDescription: "Words that stirred you",
                 contentTypeIconCssClass: "bi-quote",
@@ -98,6 +105,7 @@ namespace Glory2Him.WebApp.Data
 
             yield return BuildSetting(
                 ContentType.Story,
+                sortOrder: 1,
                 contentTypeName: "Story",
                 contentTypeDescription: "Something He did",
                 contentTypeIconCssClass: "bi-journal-text",
@@ -120,6 +128,7 @@ namespace Glory2Him.WebApp.Data
 
             yield return BuildSetting(
                 ContentType.Testimony,
+                sortOrder: 2,
                 contentTypeName: "Testimony",
                 contentTypeDescription: "Your walk with Him",
                 contentTypeIconCssClass: "bi-chat-heart",
@@ -142,6 +151,7 @@ namespace Glory2Him.WebApp.Data
 
             yield return BuildSetting(
                 ContentType.Devotional,
+                sortOrder: 3,
                 contentTypeName: "Devotional",
                 contentTypeDescription: "A daily encouragement",
                 contentTypeIconCssClass: "bi-brightness-high",
@@ -164,6 +174,7 @@ namespace Glory2Him.WebApp.Data
 
             yield return BuildSetting(
                 ContentType.BibleStudy,
+                sortOrder: 4,
                 contentTypeName: "Bible Study",
                 contentTypeDescription: "Digging into the Word",
                 contentTypeIconCssClass: "bi-book",
@@ -186,6 +197,7 @@ namespace Glory2Him.WebApp.Data
 
             yield return BuildSetting(
                 ContentType.BlogPost,
+                sortOrder: 5,
                 contentTypeName: "Blog Post",
                 contentTypeDescription: "Articles and reflections exploring Christian faith, " +
                     "biblical teachings, spiritual life.",
@@ -209,6 +221,7 @@ namespace Glory2Him.WebApp.Data
 
             yield return BuildSetting(
                 ContentType.Series,
+                sortOrder: 100,
                 contentTypeName: "Series",
                 contentTypeDescription: "A collection of quotes, stories, testimonies, articles, " +
                     "and reflections exploring a specific topic.",
@@ -232,6 +245,7 @@ namespace Glory2Him.WebApp.Data
 
             yield return BuildSetting(
                 ContentType.Topic,
+                sortOrder: 200,
                 contentTypeName: "Topic",
                 contentTypeDescription: "A collection of content related to a specific topic.",
                 contentTypeIconCssClass: "bi-compass",
@@ -258,6 +272,7 @@ namespace Glory2Him.WebApp.Data
             string contentTypeName,
             string contentTypeDescription,
             string contentTypeIconCssClass,
+            int sortOrder,
             bool hasTitle,
             bool hasAuthor,
             bool isAvailableAsGeneralUserContribution,
@@ -285,6 +300,7 @@ namespace Glory2Him.WebApp.Data
                 ContentTypeName = contentTypeName,
                 ContentTypeDescription = contentTypeDescription,
                 ContentTypeIconCssClass = contentTypeIconCssClass,
+                SortOrder = sortOrder,
                 HasTitle = hasTitle,
                 HasAuthor = hasAuthor,
                 IsAvailableAsGeneralUserContribution = isAvailableAsGeneralUserContribution,
