@@ -38,13 +38,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
     internal static class AcceptanceDatabaseBroker
     {
         /// <summary>
-        /// Every database this suite is willing to create or drop starts with this. The guard
-        /// below refuses to touch anything else, because a drop here is unrecoverable.
+        /// Every catalogue this suite creates is named <c>Glory2Him.&lt;Store&gt;_Acceptance_
+        /// &lt;process id&gt;</c> — e.g. <c>Glory2Him.Core_Acceptance_1234</c> — matching the
+        /// per-tier layout issue #351 settled on for both the acceptance and integration suites.
         ///
-        /// <para>One prefix covers all three catalogues, unlike the integration suite's two,
-        /// so there is one guard rather than one per store.</para>
+        /// <para>The guard below checks EXACT membership in <see cref="DatabaseNames"/> rather
+        /// than a shared string prefix: issue #351 also gave the normal-use databases the same
+        /// leading segment (<c>Glory2Him.Core</c>, <c>Glory2Him.Events</c>,
+        /// <c>Glory2Him.Security</c>), so a prefix check alone could no longer tell a test
+        /// catalogue apart from a production one.</para>
         /// </summary>
-        private const string TestDatabasePrefix = "Glory2HimAcceptance_";
+        private const string TestDatabaseSegment = "_Acceptance_";
 
         /// <summary>
         /// A TEST-ONLY key, and the reason matters.
@@ -175,21 +179,23 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         // Belt and braces. The template resolution above already makes it impossible to name
         // anything but a per-process test catalogue, but a drop is irreversible and silent, so
         // the name is checked immediately before the call rather than trusted from a distance.
+        //
+        // Checked against the exact set this run computed, not a prefix: see the remark on
+        // TestDatabaseSegment above for why a prefix is no longer a safeguard on its own.
         private static void GuardAgainstDroppingANonTestDatabase(string databaseName)
         {
-            bool isTestDatabase = databaseName.StartsWith(
-                TestDatabasePrefix, StringComparison.Ordinal);
+            bool isTestDatabase = Array.IndexOf(DatabaseNames, databaseName) >= 0;
 
             if (isTestDatabase is false)
             {
                 throw new InvalidOperationException(
                     $"Refusing to drop '{databaseName}': acceptance tests only ever create and " +
-                    $"drop databases named '{TestDatabasePrefix}<store>_<process id>'.");
+                    $"drop databases named 'Glory2Him.<Store>{TestDatabaseSegment}<process id>'.");
             }
         }
 
         private static string CatalogFor(string store) =>
-            $"{TestDatabasePrefix}{store}_{Environment.ProcessId}";
+            $"Glory2Him.{store}{TestDatabaseSegment}{Environment.ProcessId}";
 
         private static string WithCatalog(string template, string databaseName) =>
             new SqlConnectionStringBuilder(template) { InitialCatalog = databaseName }
