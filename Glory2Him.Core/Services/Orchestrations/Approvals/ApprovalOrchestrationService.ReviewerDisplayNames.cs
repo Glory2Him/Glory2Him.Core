@@ -62,9 +62,13 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 // implementation detail. A GUID has several equal spellings - case, braces,
                 // hyphens - so counting the raw strings would let one account arrive as two and
                 // refuse a caller who asked about 200 people using 201 spellings. The cap counts
-                // ACCOUNTS. Canonicalising here also makes the UserId echoed back in the answer
-                // identical to what the caller sent, so a surface can join on it whatever form it
-                // holds ids in.
+                // ACCOUNTS.
+                //
+                // What this does NOT do is change the answer's shape. The UserId echoed back is
+                // read off the resolved row below, so it has always been canonical whatever the
+                // caller sent - which means a caller holding ids in some other spelling must
+                // normalise its own side to join on the response. Canonicalising the INPUT only
+                // decides what counts as one account here and what reaches the identity store.
                 //
                 // Unparseable ids fall out before the count too. They can never name an account,
                 // so charging them against a ceiling that exists to bound a query would refuse

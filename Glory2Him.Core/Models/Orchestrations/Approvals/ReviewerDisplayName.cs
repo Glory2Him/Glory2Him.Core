@@ -34,8 +34,9 @@ namespace Glory2Him.Core.Models.Orchestrations.Approvals
     public class ReviewerDisplayName
     {
         /// <summary>
-        /// The account id that was asked about, echoed back so a caller can join the answer onto
-        /// the rows it already holds without depending on ordering.
+        /// The account id, echoed back so a caller can join the answer onto the rows it already
+        /// holds without depending on ordering. Read off the resolved account, so it is always the
+        /// canonical form rather than whichever spelling was asked with.
         /// </summary>
         public required string UserId { get; init; }
 

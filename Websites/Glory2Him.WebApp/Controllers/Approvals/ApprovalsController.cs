@@ -319,15 +319,22 @@ namespace Glory2Him.WebApp.Controllers.Approvals
         /// for the round, so a reviewer who has since lost the role is absent from it entirely.
         /// This read applies no role filter and no disabled filter for exactly that reason.</para>
         ///
-        /// <para><b>Not keyed on a round</b>, and that is what makes it answer every surface at
-        /// once — reviewers, invited people and candidates are all just ids a surface is holding.
-        /// A display-name projection per read would have answered one of them and left the next
-        /// to invent its own.</para>
+        /// <para><b>One resolver rather than a projection per read.</b> A display name hung off
+        /// the review read would have answered that surface and left the next to invent its own,
+        /// and three lookups are three chances to render one person under two names.</para>
+        ///
+        /// <para><b>That it is not keyed on a round is a separate choice, and an open one.</b> It
+        /// does not follow from the paragraph above — the surfaces the panel renders all belong to
+        /// the same round — and §16.7.4 records composing this tier gate with an entity gate as
+        /// the better posture, still to be settled.</para>
         ///
         /// <para>The ids ride the query string, repeated, for the same reason the invitation's
         /// <c>requestedUserId</c> does: they are the whole request, and a body would make a plain
         /// read into a POST. The batch is capped in the orchestration and an oversized one is a
-        /// <c>400</c> rather than a truncated <c>200</c>.</para>
+        /// <c>400</c> rather than a truncated <c>200</c> — though the transport refuses a long
+        /// batch first: repeated ids on the query string exhaust IIS's 2048-character limit at
+        /// roughly 45 ids and Kestrel's 8KB request line at roughly 180, both as a refusal rather
+        /// than a truncation. A caller wanting many names pages.</para>
         ///
         /// <para>Bare <c>[Authorize]</c> and the tier decided beneath, matching the candidates
         /// read: the admitted set is suffix-matched across every entity and content type (§18.6),

@@ -17,10 +17,11 @@ using Glory2Him.Core.Models.Foundations.IdentityUsers;
 namespace Glory2Him.Core.Services.Foundations.IdentityUsers
 {
     /// <summary>
-    /// The read-only foundation over the identity store (§12.7.1). It answers exactly one kind of
-    /// question — WHO holds a given set of role names — because that is the only thing the
-    /// approval workflow needs from the security database and every extra member would widen a
-    /// cross-component read surface for no caller.
+    /// The read-only foundation over the identity store (§12.7.1). It answers two questions and
+    /// no others — WHO holds a given set of role names, and what an account id already held is
+    /// CALLED — because those are the only things the approval workflow needs from the security
+    /// database. Every further member would widen a cross-component read surface for no caller,
+    /// so a third one has to be argued for rather than added.
     ///
     /// <para><b>It applies no policy.</b> Composing which role names constitute the review tier
     /// for an entity is §18.6's rule and belongs to the caller that knows the entity type; this

@@ -161,8 +161,9 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
         /// distinct ACCOUNTS is refused rather than truncated, so a caller is never quietly told
         /// less than it asked for. The count is taken after the ids are parsed, because a GUID has
         /// several equal spellings and counting raw text would refuse a caller who asked about 200
-        /// people using 201 spellings of them. The id echoed back is canonical for the same
-        /// reason: a surface joins on it whatever form it holds ids in.</para>
+        /// people using 201 spellings of them. The id echoed back is read off the resolved row, so
+        /// it is always canonical whatever was sent — a caller holding ids in another spelling
+        /// normalises its own side to join on the answer.</para>
         /// </summary>
         ValueTask<IReadOnlyList<ReviewerDisplayName>> RetrieveReviewerDisplayNamesAsync(
             IEnumerable<string> userIds,

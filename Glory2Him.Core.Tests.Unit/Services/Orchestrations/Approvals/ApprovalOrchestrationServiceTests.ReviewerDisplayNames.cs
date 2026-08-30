@@ -194,8 +194,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// <summary>
         /// The batch is capped, and an oversized one is REFUSED rather than truncated. Truncating
         /// would hand the caller a shorter answer than it asked for and leave it rendering blanks
-        /// it could not explain; leaving it uncapped is how a name resolver becomes the directory
-        /// dump the tier restriction exists to prevent.
+        /// it could not explain.
+        ///
+        /// <para>The cap bounds one response, not a caller — what decides how much of the
+        /// directory is reachable is the tier gate, not this constant.</para>
         /// </summary>
         [Fact]
         public async Task ShouldThrowValidationOnResolveIfTheBatchExceedsTheCapAsync()
@@ -306,17 +308,32 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         /// <summary>
-        /// Whatever spelling the caller used, the echoed id comes back canonical and matches the
-        /// account it resolved - which is what lets a surface join the answer onto rows it already
-        /// holds without normalising anything itself.
+        /// A non-canonical spelling still reaches the identity store, canonicalised.
+        ///
+        /// <para><b>The captured argument is the assertion here, not the echo.</b> The echoed
+        /// UserId is read off the resolved row, so it is canonical by construction whatever the
+        /// caller sent and whatever this method does to the input — asserting on it alone would
+        /// pass even if every braced spelling were silently discarded on the way in, which is the
+        /// whole failure this guards. What has to be observed is the id handed DOWN.</para>
         /// </summary>
         [Fact]
-        public async Task ShouldEchoTheCanonicalIdWhateverSpellingWasSentAsync()
+        public async Task ShouldResolveANonCanonicalSpellingAsTheCanonicalIdAsync()
         {
             // given
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
             Guid userId = Guid.NewGuid();
-            SetupResolvedIdentityUsers(CreateIdentityUser(userId, preferredName: "Someone"));
+            IEnumerable<string> capturedUserIds = null;
+
+            this.identityUserServiceMock.Setup(service =>
+                service.RetrieveIdentityUsersByIdsAsync(
+                    It.IsAny<IEnumerable<string>>(),
+                    It.IsAny<CancellationToken>()))
+                        .Callback<IEnumerable<string>, CancellationToken>(
+                            (userIds, token) => capturedUserIds = userIds)
+                        .ReturnsAsync(new List<IdentityUser>
+                        {
+                            CreateIdentityUser(userId, preferredName: "Someone"),
+                        });
 
             // when
             IReadOnlyList<ReviewerDisplayName> reviewerDisplayNames =
@@ -324,7 +341,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     new[] { userId.ToString("B").ToUpperInvariant() },
                     TestContext.Current.CancellationToken);
 
-            // then
+            // then: the braced, upper-cased spelling was recognised and canonicalised, not dropped
+            capturedUserIds.Should().BeEquivalentTo(new[] { userId.ToString() });
+
+            // and: the answer names the account in canonical form
             reviewerDisplayNames.Single().UserId.Should().Be(userId.ToString());
         }
 
