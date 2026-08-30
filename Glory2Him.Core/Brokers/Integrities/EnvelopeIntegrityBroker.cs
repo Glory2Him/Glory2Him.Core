@@ -40,17 +40,32 @@ namespace Glory2Him.Core.Brokers.Integrities
             ValidateSigningKeys(this.signingKeys);
         }
 
-        // Two configuration mistakes a signature cannot survive, refused at the one point that
-        // sees every key at once. Both fail at boot rather than at the first publish, because a
+        // Three configuration mistakes a signature cannot survive, refused at the one point that
+        // sees every key at once. All fail at boot rather than at the first publish, because a
         // host that cannot sign anything usable should not go on looking like a working one.
         private static void ValidateSigningKeys(
             IReadOnlyList<EventEnvelopeSigningKey> signingKeys)
         {
-            // An unconfigured host is NOT an error here — it fails closed at signing time, by
-            // design, and validating an empty set would turn a deliberate posture into a crash.
+            // An unconfigured host used to be tolerated here on the reasoning that it fails
+            // closed at signing time instead. IT DOES NOT FAIL CLOSED. Every foundation service
+            // writes its row, commits, and only then mints and signs the fact announcing it —
+            // ContentItemService.DoAddContentItemAsync is the standing example — so by the time
+            // SelectActiveSigningKey throws, the write it was refusing has already landed. On
+            // ContentItem that is unrecoverable rather than merely untidy: the duplicate probe
+            // (§3.4.2/§14.6) is global and unfiltered by design, so the stranded row makes every
+            // retry of the same content fail as a duplicate, and the contributor is locked out
+            // of a submission they cannot see. #392.
+            //
+            // Nor is there a host this protected. "A site that publishes nothing" does not exist
+            // here — §14.6 requires one fact per completed write, so every mutating endpoint
+            // publishes. A host with no key is not a read-only deployment, it is one where every
+            // write is a landmine.
             if (signingKeys.Count is 0)
             {
-                return;
+                throw new InvalidOperationException(
+                    "No event envelope signing key is configured. Populate the " +
+                    $"'{SigningSection}' configuration section — every write publishes a fact, " +
+                    "and a fact cannot be published unsigned.");
             }
 
             // A key with no secret is not a weak key, it is an open door: the HMAC becomes one

@@ -19,6 +19,11 @@ namespace Glory2Him.Core.Brokers.Integrities
     /// modified payload, or a message that never went through the proper code path — is detectable
     /// on receive. Symmetric HMAC over a shared secret: the envelope is internal-only, so there is
     /// no external verifier to need asymmetric keys (design §14.6 rule 4, §5.10 of EventSubstrate.md).
+    ///
+    /// <para><b>The implementation refuses to construct on a host with no signing key configured</b>,
+    /// so an unconfigured host never serves a request. That has to happen at boot rather than at the
+    /// first publish: every foundation service commits its row before it mints and signs the fact
+    /// announcing it, so a throw deferred to signing time strands the write it was refusing (#392).</para>
     /// </summary>
     internal interface IEnvelopeIntegrityBroker
     {
