@@ -12,8 +12,13 @@ namespace Glory2Him.Core.Migrations
     /// from a unique index, so no scope can be found in violation: under the old filters a scope
     /// could hold at most one row, deleted or not, and a live row therefore never shared its
     /// scope with a soft-deleted one. Rows already trapped simply stop blocking, which is the
-    /// fix. Nothing reads a soft-deleted setting — §8.4 resolution skips them at every tier and
-    /// §14.5 hides them from every caller — so no resolution changes answer.</para>
+    /// fix. No <i>resolution</i> changes answer either: §8.4 skips soft-deleted rows at every
+    /// tier, §14.5 hides them from every caller, and the effective-setting resolution of §12.5.2
+    /// is not built yet. The one place that observes them at all is
+    /// <c>ContentItemSettingSeedData</c>'s idempotence check, which asks whether a row exists for
+    /// a content type without excluding deleted ones — so a default an administrator removes is
+    /// not resurrected on the next startup. That is left as it stands: a restart re-imposing a
+    /// deliberately removed policy would be the worse behaviour.</para>
     ///
     /// <para><b>Down can fail, and deliberately is not defended.</b> Once the fix is live a scope
     /// may legitimately hold one live row alongside soft-deleted predecessors, and restoring the

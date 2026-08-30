@@ -357,23 +357,27 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             CoreContentItemSetting seededDefault =
                 await this.apiBroker.GetCoreDefaultContentItemSettingAsync(ContentType.Topic);
 
-            await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(seededDefault.Id);
-
             ContentItemSetting ownDefault = CreateRandomContentItemSetting();
             ownDefault.ContentType = ContentType.Topic;
             ownDefault.ContentItemId = null;
-
-            ContentItemSetting removedDefault =
-                await this.apiBroker.PostContentItemSettingAsync(ownDefault);
-
-            await this.apiBroker.DeleteContentItemSettingByIdAsync(removedDefault.Id);
 
             ContentItemSetting reusedScopeContentItemSetting = CreateRandomContentItemSetting();
             reusedScopeContentItemSetting.ContentType = ContentType.Topic;
             reusedScopeContentItemSetting.ContentItemId = null;
 
+            // The seeded row leaves the slot on the LAST line before the try, so every call that
+            // could throw while the slot is empty is covered by the restore in the finally. The
+            // ids are minted by the filler rather than by the responses, so teardown reaches a row
+            // whose post never returned.
+            await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(seededDefault.Id);
+
             try
             {
+                ContentItemSetting removedDefault =
+                    await this.apiBroker.PostContentItemSettingAsync(ownDefault);
+
+                await this.apiBroker.DeleteContentItemSettingByIdAsync(removedDefault.Id);
+
                 // when
                 ContentItemSetting actualContentItemSetting = await this.apiBroker
                     .PostContentItemSettingAsync(reusedScopeContentItemSetting);
@@ -384,7 +388,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
             }
             finally
             {
-                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(removedDefault.Id);
+                await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(ownDefault.Id);
 
                 await this.apiBroker.RemoveCoreContentItemSettingByIdAsync(
                     reusedScopeContentItemSetting.Id);

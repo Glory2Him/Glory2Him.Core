@@ -153,11 +153,12 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             // 2) At most one LIVE override per entity/post:
             //      UNIQUE(ContentItemId) WHERE ContentItemId IS NOT NULL AND IsDeleted = 0
             //
-            // The IsDeleted term is load-bearing rather than tidy. §6.10 resolution skips
-            // soft-deleted rows and §14.5 hides them from every caller including Admin, so a
-            // deleted row occupying a scope would be invisible and immovable — and the API's
-            // delete is a SOFT delete, which made the ordinary way to remove a setting the way
-            // that trapped its content type, or its content item, forever.
+            // The IsDeleted term is load-bearing rather than tidy. It is what §12.5.2 business
+            // rules 3-4 mean by one default per content type and one override per item: a
+            // soft-deleted row is invisible to every caller including Admin (§14.5 rule 3), so
+            // one occupying a scope could be neither seen nor moved — and the API's delete is a
+            // SOFT delete, which made the ordinary way to remove a setting the way that trapped
+            // its content type, or its content item, forever.
             // ------------------------------------------------------------------------
 
             model.HasIndex(contentItemSetting => contentItemSetting.ContentType)
