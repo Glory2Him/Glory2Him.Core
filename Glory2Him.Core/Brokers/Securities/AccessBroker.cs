@@ -590,6 +590,77 @@ namespace Glory2Him.Core.Brokers.Securities
             return entityCreatedBy;
         }
 
+        // The set-shaped twin of RetrieveEntityAuthorAsync, and deliberately NOT that method in a
+        // loop. ResolveEntityAsync answers one row with one read; asking it per approval is the
+        // N+1 this exists to avoid, and materialising the actor's whole authored corpus instead
+        // just moves the cost into an IN (...) that grows with how much they have written.
+        //
+        // So the ownership test is composed INTO the caller's query: one correlated EXISTS per
+        // approvable type, evaluated by the database against rows it is already visiting. The
+        // eight arms mirror ResolveEntityAsync's switch one-for-one on purpose — a type with a
+        // traversal there and none here would silently stop answering its own author.
+        public async ValueTask<IQueryable<Approval>> FilterApprovalsToEntityAuthorAsync(
+            IQueryable<Approval> approvals,
+            string authorUserId,
+            CancellationToken cancellationToken = default)
+        {
+            // Fail closed, and before any read. An actor whose id could not be resolved must match
+            // nothing at all — the single-row gates never treat blank as matching blank, and a
+            // collection read that did would hand every approval to whoever arrived without one.
+            if (string.IsNullOrWhiteSpace(authorUserId))
+            {
+                return Enumerable.Empty<Approval>().AsQueryable();
+            }
+
+            var contentItems = await this.storageBroker.SelectAllContentItemsAsync(cancellationToken);
+            var tags = await this.storageBroker.SelectAllTagsAsync(cancellationToken);
+            var reactions = await this.storageBroker.SelectAllReactionsAsync(cancellationToken);
+            var bibleReferences = await this.storageBroker.SelectAllBibleReferencesAsync(cancellationToken);
+            var comments = await this.storageBroker.SelectAllCommentsAsync(cancellationToken);
+            var links = await this.storageBroker.SelectAllLinksAsync(cancellationToken);
+            var attachments = await this.storageBroker.SelectAllAttachmentsAsync();
+            var associations = await this.storageBroker.SelectAllAssociationsAsync(cancellationToken);
+
+            // The EntityType arm is tested alongside every id match rather than matching the id
+            // alone. Ids are Guids and a collision across two tables is not a realistic worry —
+            // but the pairing is what "the author of THIS approval's entity" means, and a filter
+            // that reads the id without the discriminator is only accidentally right.
+            //
+            // No IsDeleted clause on the authored side: a soft-deleted entity keeps its author,
+            // and dropping its approval here would hide the round from the very person whose
+            // work it is about. What is visible is the APPROVAL's own state, which the caller
+            // filtered before handing the query over.
+            return approvals.Where(approval =>
+                (approval.EntityType == EntityType.ContentItem
+                    && contentItems.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId))
+                || (approval.EntityType == EntityType.Tag
+                    && tags.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId))
+                || (approval.EntityType == EntityType.Reaction
+                    && reactions.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId))
+                || (approval.EntityType == EntityType.BibleReference
+                    && bibleReferences.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId))
+                || (approval.EntityType == EntityType.Comment
+                    && comments.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId))
+                || (approval.EntityType == EntityType.Link
+                    && links.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId))
+                || (approval.EntityType == EntityType.Attachment
+                    && attachments.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId))
+
+                // The association's OWN author, not its endpoints'. Posture A′ widens the REVIEW
+                // tier to whoever holds a role on either end; it does not make them the author,
+                // and this clause answers authorship alone.
+                || (approval.EntityType == EntityType.Association
+                    && associations.Any(entity =>
+                        entity.Id == approval.EntityId && entity.CreatedBy == authorUserId)));
+        }
+
         /// <summary>
         /// The ordinary one-subject case: an entity is authorised from itself. Only
         /// <c>Association</c> departs from this, and it composes its pair inline.

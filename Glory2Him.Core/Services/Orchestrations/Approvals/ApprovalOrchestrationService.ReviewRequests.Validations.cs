@@ -71,11 +71,28 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
                 (Rule: IsInvalid(requestedUserId),
                     Parameter: nameof(ApprovalReviewRequest.RequestedUserId)));
 
-        private static void ValidateOnWithdrawApprovalReviewRequest(Guid approvalReviewRequestId) =>
+        private static void ValidateOnRetrieveApprovalReviewRequests(
+            EntityType entityType,
+            Guid entityId) =>
             Validate(
                 message: "Approval orchestration request is invalid, fix the errors and try again.",
-                (Rule: IsInvalid(approvalReviewRequestId),
-                    Parameter: nameof(ApprovalReviewRequest.Id)));
+                (Rule: IsInvalid(entityType), Parameter: nameof(EntityType)),
+                (Rule: IsInvalid(entityId), Parameter: "EntityId"));
+
+        // Same three parameters the REQUEST takes, because withdrawal is now that operation's
+        // exact undo — it names the round and the person rather than a row somebody had to have
+        // been handed earlier.
+        private static void ValidateOnWithdrawApprovalReviewRequest(
+            EntityType entityType,
+            Guid entityId,
+            string requestedUserId) =>
+            Validate(
+                message: "Approval orchestration request is invalid, fix the errors and try again.",
+                (Rule: IsInvalid(entityType), Parameter: nameof(EntityType)),
+                (Rule: IsInvalid(entityId), Parameter: "EntityId"),
+
+                (Rule: IsInvalid(requestedUserId),
+                    Parameter: nameof(ApprovalReviewRequest.RequestedUserId)));
 
         // The scope is gathered off an approval the caller-facing lookup just proved exists, so
         // a null here means the row vanished between the two reads. Reported as not-found rather
