@@ -70,6 +70,13 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
     /// (<c>ContentItemId IS NULL</c>) and <c>UX_ContentItemSettings_OverridePerEntity</c> allows
     /// one override per content item. §6.10's resolution depends on at most one row per scope,
     /// so these are the rule rather than a storage detail (§12.5.2 business rules 3 and 4).</para>
+    ///
+    /// <para><b>Both delete verbs refuse a default, and answer 400.</b> Every content type must
+    /// always have a live default (§12.5.2 business rule 5), so the service refuses to remove a row
+    /// whose <c>ContentItemId</c> is null — soft and hard alike, the invariant being about the row
+    /// existing rather than about how it goes away. It surfaces as a validation error naming the
+    /// rule rather than a 404: the row is there and every caller may read it. Overrides stay
+    /// freely removable.</para>
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -231,7 +238,8 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
         /// <summary>
         /// Soft removal (design §14.6): the row is marked deleted and keeps its audit trail.
-        /// The optional reason is carried through to <c>DeletionReason</c>.
+        /// The optional reason is carried through to <c>DeletionReason</c>. A per-type default is
+        /// refused with 400 — see the class remarks.
         /// </summary>
         [HttpDelete("{contentItemSettingId}")]
         [Authorize(Roles = Roles.Administrators)]
@@ -288,7 +296,9 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
 
         /// <summary>
         /// Permanent removal. Design §14.6 restricts hard removal to <c>Administrators</c>; the attribute
-        /// below is the coarse half of that and the foundation re-decides it against the row.
+        /// below is the coarse half of that and the foundation re-decides it against the row. A
+        /// per-type default is refused with 400 here too — hard delete is not an escape hatch from
+        /// the must-always-exist rule.
         /// </summary>
         [HttpDelete("{contentItemSettingId}/Hard")]
         [Authorize(Roles = Roles.Administrators)]
