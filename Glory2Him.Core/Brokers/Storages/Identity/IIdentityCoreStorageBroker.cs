@@ -9,6 +9,7 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -59,6 +60,22 @@ namespace Glory2Him.Core.Brokers.Storages.Identity
         /// </summary>
         ValueTask<List<IdentityUser>> SelectIdentityUsersInRolesAsync(
             IReadOnlyList<string> normalizedRoleNames,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// The accounts carrying the given ids, in whatever order the store returns them. Ids
+        /// naming nothing are simply absent — there is no row to describe and no fault to report.
+        ///
+        /// <para><b>Disabled accounts are INCLUDED here, unlike the roles read above.</b> The two
+        /// reads answer different questions. That one asks who may be invited, and somebody who
+        /// cannot sign in would leave an invitation nobody could answer. This one asks what a
+        /// stored row's account id is CALLED, and a review recorded by somebody since disabled is
+        /// still a review the panel has to render — dropping them is exactly the blank name
+        /// §16.7.4's naming gap was about. The same holds for an account that has lost its review
+        /// role: this read never looks at role membership.</para>
+        /// </summary>
+        ValueTask<List<IdentityUser>> SelectIdentityUsersByIdsAsync(
+            IReadOnlyList<Guid> userIds,
             CancellationToken cancellationToken = default);
     }
 }
