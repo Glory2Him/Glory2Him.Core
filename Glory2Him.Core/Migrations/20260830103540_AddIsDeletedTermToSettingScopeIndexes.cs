@@ -17,8 +17,12 @@ namespace Glory2Him.Core.Migrations
     /// is not built yet. The one place that observes them at all is
     /// <c>ContentItemSettingSeedData</c>'s idempotence check, which asks whether a row exists for
     /// a content type without excluding deleted ones — so a default an administrator removes is
-    /// not resurrected on the next startup. That is left as it stands: a restart re-imposing a
-    /// deliberately removed policy would be the worse behaviour.</para>
+    /// not restored on the next startup. That is left as it stands HERE, and fixed in #387: a
+    /// content type must always have a default, so the rule being settled is that the default
+    /// tier refuses deletion outright and the seed restores a missing one. The seed's term
+    /// depends on this migration and could not have landed before it — until the filter carried
+    /// <c>IsDeleted</c>, a re-seed insert would have violated the unique index a soft-deleted
+    /// default was still occupying.</para>
     ///
     /// <para><b>Down can fail, and deliberately is not defended.</b> Once the fix is live a scope
     /// may legitimately hold one live row alongside soft-deleted predecessors, and restoring the

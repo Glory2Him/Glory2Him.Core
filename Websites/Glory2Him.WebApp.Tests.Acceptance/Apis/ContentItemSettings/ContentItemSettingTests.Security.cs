@@ -349,6 +349,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItemSettings
         /// back byte-for-byte in the teardown: the seed is idempotent on "a row exists for this
         /// content type" and counts soft-deleted ones, so a test that merely soft-deleted it would
         /// leave the environment a default short and no restart would notice.</para>
+        ///
+        /// <para>#387 changes both halves of that — a content type must always have a default, so
+        /// the default tier will refuse deletion and the seed will restore a missing one. This
+        /// test then has to arrange its soft-deleted predecessor beneath HTTP rather than through
+        /// the API's delete. The assertion stays worth making: a soft-deleted default can still
+        /// arrive by routes that are not the delete endpoint, and the index term is what holds
+        /// then.</para>
         /// </summary>
         [Fact]
         public async Task ShouldAllowPostWhenContentTypeDefaultIsHeldOnlyByASoftDeletedRowAsync()
