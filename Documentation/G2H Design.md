@@ -3886,7 +3886,7 @@ Planned reusable components based on the Blogzine template:
 | `ApprovalReviewForm` | Form for a reviewer to submit an approval or rejection decision. |
 | `ApprovalCommentForm` | Form to add a comment to an approval record. |
 | `ReviewPanel` | The approval round rendered: reviews, the viewer's own vote, block reasons, bypass, the publisher-tier decision, and review requests (§20.6.1). |
-| `ContentForm` | Shared form for creating and editing content items — includes paste-to-upload for inline images (§5.6.6). |
+| `ContentItemPanel` | One content item in the three states it has — contributed (`add`), read, amended (`edit`) — field-shaped per content type and gated per §18.6 (§20.6.2). Paste-to-upload for inline images (§5.6.6) is not part of it yet. |
 | `HeaderImagePicker` | Header-image candidates for a content item — upload, list, promote the default (§4.9). |
 | `ShareBar` | Share buttons composing real short-link URLs (§19.7). |
 | `SearchBar` | Search input with debounce. |
@@ -3913,6 +3913,56 @@ Planned reusable components based on the Blogzine template:
 | The request rows and picker | The §16.7.4 candidates and review-request endpoints |
 
 **Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the approval's status for the frozen/live switch — deliberately a prop of its own, because the read-only view has a status to show and no verdict to read it from.
+
+#### 20.6.2 ContentItemPanel — contract and dependencies
+
+`ContentItemPanel` is a **pure presentation component**: props in, events out, no fetching, no mutation, no sockets. It carries one content item in the three states it has — `add` (no item yet), `read` (an item was handed over), and `edit` (the reader pressed Edit, or the consumer passed `mode="edit"`).
+
+**Security posture.** Every gate it renders decides what to SHOW and nothing more. The foundation and processing services re-decide add, modify and remove against the stored row (§14.6, §14.7 posture A), and must: a hidden button is a courtesy to the reader, never an authorization boundary.
+
+**The `mode` prop re-asserts itself.** It is a landing override rather than a two-way binding — the reader's own `Edit` and `Cancel` still move the surface — but a *change* to the prop overrules whatever the reader last chose, so a consumer driving the panel from its own state (the pattern `onModeChanged` invites) can close the editor after a save and reopen it afterwards.
+
+**`isEditingAllowed` is the surface switch, ahead of every role check**, and it is off by default — the safe posture `AssociationPanel` takes with `showModerationActions`. While it is off the panel renders no action affordance at all: no `Edit`, no `Delete`, no route into `edit` however the roles fall, and a `mode="edit"` passed in is refused back to `read`. A public page renders the panel without it and gets a read surface that cannot accidentally become an edit one; a profile or admin area switches it on and the role gates below then decide, per action, what is actually shown. It only ever subtracts.
+
+**Role composition** follows §18.6 — capability last and plural, resolved against the content type IN PLAY (the selected type while adding, the item's own type when reading or editing). Every set is an overridable comma-separated prop in which `{ContentType}` resolves to the enum member name, and `[OWNER]` names the item's contributor, matched on the account id and never on a display name.
+
+| Gate | Default |
+| --- | --- |
+| blocked by | `ReadOnly`, `ContentItem-ReadOnly`, `ContentItem-{ContentType}-ReadOnly` |
+| add | empty — any authenticated reader, since there is no `Contributor` role |
+| edit | `[OWNER]`, `Publishers`, `ContentItem-Publishers`, `ContentItem-{ContentType}-Publishers`, `Administrators` — the non-owner half further confined to `Draft` / `Submitted` |
+| delete | `[OWNER]`, `Administrators` — removal is a takedown, not a moderation step (§14.7 posture A.3) |
+
+**The block set is asked first and outranks every grant**, `[OWNER]` included: a contributor holding `ContentItem-Devotional-ReadOnly` sees no `Edit` and no `Delete` on their own devotional, and no add surface for that type, while stories and quotes stay open to them. The narrow block therefore lands on the **picker**, not only on the form: a blocked tile renders disabled with its reason on it, and only a reader blocked from every available type loses the form. The `Reviewers` tier appears in no set at all — a reviewer reviews.
+
+**The content type is create-only** (§12.4.1 rule 7a), so the picker renders in `add` alone and `edit` shows the type as a frozen label.
+
+**Which fields exist is per content type and is passed in, never fetched — and the panel resolves the EFFECTIVE row itself.** The consumer hands over the `ContentItemSetting` rows it already holds and the most specific one wins, exactly as §6.4 and §12.5.2 rules 1–2 require: an item-level override takes **full precedence** over the content type default, and a soft-deleted row is excluded from resolution entirely (§6.6). The override is matched on the **item** as well as the type, so a mixed collection is safe — one item's override is never applied to another's. `add` can therefore only ever resolve a default, because an override belongs to an item that does not exist yet.
+
+What the panel reads off the resolved row is the **field shaping and the type's presentation**: `HasTitle`, `HasAuthor`, `ContentTypeName`, `ContentTypeDescription`, `ContentTypeIconCssClass`. `HasTitle` and `HasAuthor` govern all three surfaces — the input in `add` and `edit`, and the heading and byline in `read` (which additionally require the item to carry a value). **A field the reader cannot see contributes nothing, and the row keeps whatever it already had.** One rule, settling both halves. On an amendment it means hiding is never destructive: a value already on the row survives an edit it was not shown for, so a setting changed after the item was written cannot silently blank it. On a contribution it means the opposite is equally true — a title typed under one content type and then abandoned by picking another whose setting has no title is **not** posted, because the contributor can no longer see it, the type is create-only, and no read surface would ever show it again. Where no row resolves at all there is no flag to obey, and the panel shows whichever of the two the item carries. **The page above the panel obeys the same rule**: a heading that named a title the panel deliberately hides would make the suppressed value the loudest thing on the screen, so `/posts/{id}` resolves the effective row through the same shared projection and falls back to the type's name.
+
+**`SharePermission` is the exception, and drops rather than persisting.** It is hidden by the contributor's own answer to a question in front of them — not by a setting they never chose — so "the row keeps what it had" does not apply: a note reading *permission granted by the author* stored against an item its contributor has just declared `Owned` is a provenance claim they withdrew. Nothing server-side correlates the two (the foundation length-checks `SharePermission` and no more), and no read surface renders it once the basis has moved, so preserving it would file a contradiction nobody can see or clear. The field, the placement of its validation messages and what is submitted all read the same flag, so the three cannot disagree. The **facet pairs** (§6.5 — `TagsAllowed`/`ShowTags` and the same for comments, reactions, links, attachments and bible references) govern surfaces this panel does not own; the panels rendering beside it read those, against this same effective row.
+
+**The picker offers the content type defaults carrying `IsAvailableAsGeneralUserContribution`**, which is exactly the question a tile asks. An override is never a tile however the consumer's collection arrived.
+
+**The consumer owns persistence and freshness.** The panel raises `onAdded`, `onModified`, `onRemoved`, `onCancelled` and `onModeChanged`, and does nothing else: the page decides whether `onModified` is a `PUT` or a fork of a new version on a terminal item (§3.4 rule 16), and re-fetches and re-renders whenever the item changes underneath it. The panel shows the world as of the last props it was handed.
+
+**Validation comes back from the API, not from the browser.** The panel judges nothing itself — the server is the authority on what a content item must carry, and a second opinion in the browser would drift from it. The consumer submits, and hands the `errors` dictionary of the returned `ValidationProblemDetails` back to the panel as `validationIssues`; the panel matches those keys onto its fields case-insensitively (they are the server's parameter names) and summarises anything it cannot place rather than dropping it. The failure also raises a timed notification through the existing toast framework, carrying the API's own reason rather than a generic one.
+
+**Associations render beside it, never within it.** Tags and bible references belong to `AssociationPanel` and its two wrappers, which have their own approval and role rules and need an item to associate to — so they cannot render on an add surface at all. Approval controls belong to `ReviewPanel` (§20.6.1).
+
+**Direct API dependencies** (called by the consumer, never the component):
+
+| Concern | Endpoint |
+| --- | --- |
+| The type picker and field shaping | `GET api/ContentItemSettings` (`[AllowAnonymous]`; `$filter=contentItemId eq null` for the defaults, plus `isAvailableAsGeneralUserContribution eq true` for the contribution surface). A page rendering one item may also pass that item's override row alongside the defaults — the panel resolves which wins. |
+| The contribution | `POST api/ContentItems` — six caller-supplied members only (`ContentType`, `Title`, `Author`, `Content`, `ShareabilityBasis`, `SharePermission`); the processing service mints the identifiers, hashes the content and lands the row as an unpublished `Draft`, and the foundation beneath it stamps the audit trail |
+| The item | `GET api/ContentItems/{contentItemId}` (`[AllowAnonymous]` — the service's own visibility filter decides what a caller may see) |
+| An amendment | `PUT api/ContentItems`, or the version fork on a terminal item |
+
+**Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the item's `ApprovalStatus` for the non-owner edit gate.
+
+**Consumers.** `/posts/contribute` renders the `add` surface and owns the `POST`, the redirect to `/posts/{contentItemId}`, the notification and the validation readback. `/posts/{contentItemId}` renders the `read` surface with `isEditingAllowed` left off.
 
 ### 20.7 Navigation
 
