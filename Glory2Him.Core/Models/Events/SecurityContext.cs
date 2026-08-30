@@ -28,8 +28,14 @@ namespace Glory2Him.Core.Models.Events
         public string? SubjectId { get; init; }
 
         /// <summary>
-        /// The display name or login name of the authenticated user. Null for machine-to-machine flows.
+        /// The account's login name. Null for machine-to-machine flows.
         /// </summary>
+        /// <remarks>
+        /// Never the caller's email address. An envelope is signed and then stored verbatim, so
+        /// whatever this field carries is written into every event the caller ever causes and
+        /// cannot afterwards be scrubbed without invalidating the signature that proves the event
+        /// was not tampered with. Personal data therefore does not go here.
+        /// </remarks>
         public string? Username { get; init; }
 
         /// <summary>
