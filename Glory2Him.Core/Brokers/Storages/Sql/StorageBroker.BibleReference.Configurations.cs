@@ -42,6 +42,9 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
             model.Property(bibleReference => bibleReference.Scripture)
                  .IsRequired(false);
 
+            model.Property(bibleReference => bibleReference.ScriptureHtml)
+                 .IsRequired(false);
+
             model.Property(bibleReference => bibleReference.CreatedBy)
                  .HasMaxLength(255)
                  .IsRequired();

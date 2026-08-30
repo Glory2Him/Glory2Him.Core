@@ -357,5 +357,149 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             this.eventBrokerMock.VerifyNoOtherCalls();
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
+
+        [Theory]
+        [InlineData(
+            "<script>alert(1)</script><p class=\"wj\">Jesus said</p>",
+            "<p class=\"wj\">Jesus said</p>")]
+
+        [InlineData(
+            "<div onclick=\"steal()\">plain</div>",
+            "plain")]
+
+        [InlineData(
+            "<span class=\"evil\">text</span>",
+            "<span>text</span>")]
+
+        [InlineData(
+            "<p onclick=\"alert(1)\">Jesus said</p>",
+            "<p>Jesus said</p>")]
+
+        [InlineData(
+            "<x-evil onclick=\"alert(1)\">click</x-evil>",
+            "click")]
+
+        [InlineData(
+            "<script/src=\"//evil.example/x.js\">",
+            "")]
+
+        [InlineData(
+            "<p class=\"wj nd\">Jesus said, \"God\"</p>",
+            "<p class=\"wj nd\">Jesus said, \"God\"</p>")]
+
+        [InlineData(
+            "<p class=wj>unquoted</p>",
+            "<p class=\"wj\">unquoted</p>")]
+        public async Task ShouldSanitizeScriptureHtmlOnModifyAsync(
+            string rawScriptureHtml,
+            string expectedSanitizedScriptureHtml)
+        {
+            // given
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
+            randomBibleReference.ScriptureHtml = rawScriptureHtml;
+            BibleReference inputBibleReference = randomBibleReference;
+            BibleReference auditAppliedBibleReference = inputBibleReference.DeepClone();
+            BibleReference storageBibleReference = auditAppliedBibleReference.DeepClone();
+            storageBibleReference.UpdatedWhen = storageBibleReference.UpdatedWhen.AddDays(GetRandomNegativeNumber());
+            BibleReference auditPreservedBibleReference = auditAppliedBibleReference.DeepClone();
+            BibleReference updatedBibleReference = auditPreservedBibleReference.DeepClone();
+            updatedBibleReference.ScriptureHtml = expectedSanitizedScriptureHtml;
+            BibleReference expectedBibleReference = updatedBibleReference.DeepClone();
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(inputBibleReference, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(auditAppliedBibleReference);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.SelectBibleReferenceByIdAsync(
+                    auditAppliedBibleReference.Id,
+                    It.IsAny<CancellationToken>()))
+                        .ReturnsAsync(storageBibleReference);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                    auditAppliedBibleReference,
+                    storageBibleReference))
+                        .ReturnsAsync(auditPreservedBibleReference);
+
+            this.storageBrokerMock.Setup(broker =>
+                broker.UpdateBibleReferenceAsync(auditPreservedBibleReference, It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(updatedBibleReference);
+
+            this.eventBrokerMock.Setup(broker =>
+                broker.PublishBibleReferenceAsync(
+                    It.IsAny<EventEnvelope<BibleReference>>(),
+                    BibleReferenceEventOperation.Modified))
+                    .Returns(new ValueTask<EventPublishResult<BibleReference>>(
+                        new EventPublishResult<BibleReference>()));
+
+            // when
+            BibleReference actualBibleReference =
+                await this.bibleReferenceService.ModifyBibleReferenceAsync(
+                    inputBibleReference,
+                    TestContext.Current.CancellationToken);
+
+            // then
+            actualBibleReference.Should().BeEquivalentTo(expectedBibleReference);
+            auditAppliedBibleReference.ScriptureHtml.Should().Be(expectedSanitizedScriptureHtml);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Exactly(2));
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                    broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Exactly(3));
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.ApplyModifyAuditValuesAsync(inputBibleReference, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.SelectBibleReferenceByIdAsync(
+                        auditAppliedBibleReference.Id,
+                        It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                    broker.EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync(
+                        auditAppliedBibleReference,
+                        storageBibleReference),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                    broker.UpdateBibleReferenceAsync(auditPreservedBibleReference, It.IsAny<CancellationToken>()),
+                Times.Once);
+
+            this.eventBrokerMock.Verify(broker =>
+                    broker.PublishBibleReferenceAsync(
+                        It.IsAny<EventEnvelope<BibleReference>>(),
+                        BibleReferenceEventOperation.Modified),
+                Times.Once);
+
+            this.storageBrokerMock.Verify(broker =>
+                broker.InsertProcessedEventAsync(
+                    It.Is<ProcessedEvent>(processedEvent =>
+                        processedEvent.ReceiverName ==
+                            EventBrokerIdentifiers.BibleReferenceOnModifyingBibleReferenceSubscriptionName),
+                    It.IsAny<CancellationToken>()),
+                Times.Exactly(2));
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
     }
 }
