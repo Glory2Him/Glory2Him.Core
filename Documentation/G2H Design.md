@@ -677,6 +677,7 @@ If `ContentItemId` is supplied, the setting applies only to that specific conten
 | `Id` | Unique content item setting identifier. |
 | `ContentType` | Content type this setting applies to. |
 | `ContentItemId` | Optional specific content item override. |
+| `SortOrder` | Where this content type sits wherever the types are presented as a list — the contribute page's type picker above all. Lower first; defaults to `1000`, past every value the seed curates, so a row written without a considered order lands after the ordered types rather than in front of them. Must be `0` or greater — the foundation rejects a negative on both write paths. |
 | `IsDeleted` | Soft-delete flag. When `true` the setting is excluded from active policy resolution. |
 | `CreatedBy` | User who created the setting. |
 | `CreatedWhen` | Creation timestamp. |
@@ -3955,7 +3956,7 @@ What the panel reads off the resolved row is the **field shaping and the type's 
 
 **`SharePermission` is the exception, and drops rather than persisting.** It is hidden by the contributor's own answer to a question in front of them — not by a setting they never chose — so "the row keeps what it had" does not apply: a note reading *permission granted by the author* stored against an item its contributor has just declared `Owned` is a provenance claim they withdrew. Nothing server-side correlates the two (the foundation length-checks `SharePermission` and no more), and no read surface renders it once the basis has moved, so preserving it would file a contradiction nobody can see or clear. The field, the placement of its validation messages and what is submitted all read the same flag, so the three cannot disagree. The **facet pairs** (§6.5 — `TagsAllowed`/`ShowTags` and the same for comments, reactions, links, attachments and bible references) govern surfaces this panel does not own; the panels rendering beside it read those, against this same effective row.
 
-**The picker offers the content type defaults carrying `IsAvailableAsGeneralUserContribution`**, which is exactly the question a tile asks. An override is never a tile however the consumer's collection arrived.
+**The picker offers the content type defaults carrying `IsAvailableAsGeneralUserContribution`**, which is exactly the question a tile asks. An override is never a tile however the consumer's collection arrived **The tiles are ordered by the rows' own `SortOrder`** (§6.6), ascending, so the order a contributor meets the types in is a decision recorded on the setting rather than an accident of the order the consumer's read answered with. The panel sorts what it is handed — it is a presentation component, so it does not depend on the consumer having ordered the collection — and the type it lands on by default is the first tile in that order. A tie keeps the order the rows arrived in.
 
 **The consumer owns persistence and freshness.** The panel raises `onAdded`, `onModified`, `onRemoved`, `onCancelled` and `onModeChanged`, and does nothing else: the page decides whether `onModified` is a `PUT` or a fork of a new version on a terminal item (§3.4 rule 16), and re-fetches and re-renders whenever the item changes underneath it. The panel shows the world as of the last props it was handed.
 

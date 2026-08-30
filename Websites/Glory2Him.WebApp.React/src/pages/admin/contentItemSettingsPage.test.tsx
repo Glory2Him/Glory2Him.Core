@@ -36,6 +36,7 @@ const createSetting = (overrides: Partial<ContentItemSetting> = {}): ContentItem
     contentTypeName: 'Quote',
     contentTypeDescription: 'Words that stirred you',
     contentTypeIconCssClass: 'bi-quote',
+    sortOrder: 0,
     hasTitle: false,
     hasAuthor: true,
     isAvailableAsGeneralUserContribution: true,

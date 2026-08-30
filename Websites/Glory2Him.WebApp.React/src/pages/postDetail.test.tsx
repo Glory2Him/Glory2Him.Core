@@ -37,6 +37,7 @@ const testimonySetting: ContentItemSetting = {
     contentTypeName: 'Testimony',
     contentTypeDescription: 'Your walk with Him',
     contentTypeIconCssClass: 'bi-chat-heart',
+    sortOrder: 0,
     hasTitle: true,
     hasAuthor: false,
     isAvailableAsGeneralUserContribution: true,

@@ -304,6 +304,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
                 // than drawn: a posture-sensitive test must never depend on the draw. Tests
                 // that want a soft-deleted row set it explicitly.
                 .OnProperty(contentItemSetting => contentItemSetting.IsDeleted).Use(false)
+                // A negative SortOrder is a validation failure on both write paths, so a valid
+                // row must never be handed one by the draw — pinned rather than trusted to the
+                // filler's int range, the same reason IsDeleted is pinned above.
+                .OnProperty(contentItemSetting => contentItemSetting.SortOrder).Use(GetRandomNumber())
                 .OnProperty(contentItemSetting => contentItemSetting.CreatedBy).Use(userId)
                 .OnProperty(contentItemSetting => contentItemSetting.UpdatedBy).Use(userId);
 

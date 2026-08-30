@@ -104,6 +104,7 @@ const settingFor = (
         contentTypeName,
         contentTypeDescription,
         contentTypeIconCssClass,
+        sortOrder: contentType,
         hasTitle: true,
         hasAuthor: true,
         isAvailableAsGeneralUserContribution: true,
@@ -567,7 +568,10 @@ export function ContentItemPanelDoc() {
                     why an override is never a tile in the picker, however the collection arrived.
                     The picker offers the defaults carrying{' '}
                     <code>isAvailableAsGeneralUserContribution</code>, which is exactly the
-                    question a tile asks.
+                    question a tile asks, and orders them by each row&rsquo;s own{' '}
+                    <code>sortOrder</code> &mdash; lowest first, ties keeping the order they
+                    arrived in. Hand the collection over in any order; the panel sorts it, and
+                    lands on the first tile in that order.
                 </p>
 
                 <p className="small text-body-secondary">

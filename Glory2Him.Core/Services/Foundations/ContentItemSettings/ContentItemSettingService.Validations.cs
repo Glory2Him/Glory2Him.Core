@@ -91,6 +91,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
                 (Rule: IsGreaterThan(contentItemSetting.ContentTypeDescription, 500),
                     Parameter: nameof(ContentItemSetting.ContentTypeDescription)),
 
+                (Rule: IsLessThan(contentItemSetting.SortOrder, 0),
+                    Parameter: nameof(ContentItemSetting.SortOrder)),
+
                 (Rule: IsNotSame(
                         firstDate: contentItemSetting.UpdatedWhen,
                         secondDate: contentItemSetting.CreatedWhen,
@@ -140,6 +143,9 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
 
                 (Rule: IsGreaterThan(contentItemSetting.ContentTypeDescription, 500),
                     Parameter: nameof(ContentItemSetting.ContentTypeDescription)),
+
+                (Rule: IsLessThan(contentItemSetting.SortOrder, 0),
+                    Parameter: nameof(ContentItemSetting.SortOrder)),
 
                 (Rule: IsNotSame(
                         first: currentUserId,
@@ -303,6 +309,12 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         {
             Condition = (text ?? string.Empty).Length > maxLength,
             Message = $"Text exceed max length of {maxLength} characters"
+        };
+
+        private static dynamic IsLessThan(int number, int minimum) => new
+        {
+            Condition = number < minimum,
+            Message = $"Value is less than the minimum of {minimum}"
         };
 
         private static dynamic IsSame(

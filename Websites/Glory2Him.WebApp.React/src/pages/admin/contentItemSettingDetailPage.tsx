@@ -31,6 +31,10 @@ const settingsRoute = '/Admin/ContentItemSettings';
 const contentTypeNameMaxLength = 50;
 const contentTypeDescriptionMaxLength = 500;
 
+// The foundation refuses a negative SortOrder, so the input refuses one too rather than letting
+// the save come back a 400. A blank box reads as 0 rather than NaN — there is no "no order".
+const sortOrderMinimum = 0;
+
 // Only the setting's boolean members can be wired to a switch, so a mistyped field name below
 // is a compile error rather than a switch that silently never moves.
 type ContentItemSettingFlag = {
@@ -239,6 +243,28 @@ export const ContentItemSettingDetailPage = () => {
                                     placeholder="bi-quote"
                                     value={editModel.contentTypeIconCssClass ?? ''}
                                     onValueChange={(value) => setField('contentTypeIconCssClass', value)} />
+                            </div>
+                        </div>
+
+                        <div className="row">
+                            <div className="col-md-6 mb-3">
+                                <label className="form-label" htmlFor="sortOrder">Sort order</label>
+                                <input
+                                    id="sortOrder"
+                                    type="number"
+                                    min={sortOrderMinimum}
+                                    step={1}
+                                    className="form-control"
+                                    value={editModel.sortOrder}
+                                    onChange={(event) => setField(
+                                        'sortOrder',
+                                        Math.max(
+                                            sortOrderMinimum,
+                                            Number.parseInt(event.target.value, 10) || 0))} />
+                                <div className="form-text">
+                                    Where this type sits on the contribute page's type picker.
+                                    Lower comes first.
+                                </div>
                             </div>
                         </div>
 
