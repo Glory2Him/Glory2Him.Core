@@ -105,7 +105,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         /// catalogue the running host is reading.</para>
         ///
         /// <para>It is listed in <see cref="DatabaseNames"/> so it inherits the same
-        /// create-clean-and-drop lifecycle as the other three rather than growing a second
+        /// create-clean-and-drop lifecycle as every other catalogue rather than growing a second
         /// one — including the startup drop, which is what makes a rehearsal deterministic
         /// after a previous run that reused this process id.</para>
         /// </summary>

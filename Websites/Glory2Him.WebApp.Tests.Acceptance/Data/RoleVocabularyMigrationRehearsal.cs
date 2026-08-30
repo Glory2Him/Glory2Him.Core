@@ -26,11 +26,16 @@ using Xunit;
 namespace Glory2Him.WebApp.Tests.Acceptance.Data
 {
     /// <summary>
-    /// Builds a pre-#368 Identity store, applies the one rename migration to it, and reads the
-    /// result back. Run once for the whole test class; the assertions live in
+    /// Builds TWO pre-#368 Identity stores, applies the one rename migration to each, and reads
+    /// both results back. Run once for the whole test class; the assertions live in
     /// <see cref="RoleVocabularyMigrationTests"/>.
     ///
-    /// <para><b>Migrated in two steps against its own catalogue.</b> The store is first brought
+    /// <para><b>Two stores because the migration has two paths.</b> The main arrangement has both
+    /// administrator roles, so <c>Admin</c> is merged and dropped; the fallback arrangement has
+    /// <c>Admin</c> and no <c>Administrators</c>, so it is renamed instead. A store cannot be in
+    /// both states at once, so each gets its own catalogue.</para>
+    ///
+    /// <para><b>Migrated in two steps against those catalogues.</b> Each store is first brought
     /// up to <see cref="PreviousMigration"/> — the last migration before the rename — and
     /// populated there, so the rows exist before the statements under test run. Migrating
     /// straight to the head and inserting afterwards would test nothing: every UPDATE would have
@@ -157,9 +162,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
                 isPrimary: false);
         }
 
-        // The catalogue is dropped by AcceptanceDatabaseBroker along with the other three, so
-        // there is nothing to undo here — one teardown for the suite beats a second one that can
-        // disagree with it about which server the databases are on.
+        // Both catalogues are dropped by AcceptanceDatabaseBroker along with the rest of
+        // DatabaseNames, so there is nothing to undo here — one teardown for the suite beats a
+        // second one that can disagree with it about which server the databases are on.
         public ValueTask DisposeAsync() =>
             ValueTask.CompletedTask;
 
@@ -239,8 +244,10 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
                 Membership(ScopedReviewerId, rolesByName["Tag-Publisher"]),
                 Membership(NarrowReviewerId, rolesByName["ContentItem-Story-Reviewer"]));
 
-            // Role claims FK to the role, so the Admin drop has to clear them or fail on the
-            // constraint. One is enough to prove the migration does.
+            // One role claim on Admin, to pin what survives the drop. The foreign key cascades
+            // (InitialIdentitySchema), so this cannot prove the migration's own DELETE ran — what
+            // it pins is that dropping the role leaves no claim addressing it behind, by whichever
+            // route.
             securityDbContext.RoleClaims.Add(new IdentityRoleClaim<Guid>
             {
                 RoleId = rolesByName["Admin"].Id,

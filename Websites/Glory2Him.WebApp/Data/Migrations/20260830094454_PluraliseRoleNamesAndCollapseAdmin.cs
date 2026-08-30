@@ -37,7 +37,7 @@ namespace Glory2Him.WebApp.Data.Migrations
     /// portal's <c>/api/admin</c>. In practice the seeded site administrators already held
     /// both. Only where <c>Administrators</c> is somehow absent is <c>Admin</c> renamed into
     /// it instead, so no membership is ever dropped on the floor.</para>
-    /// </summary>
+    ///
     /// <para>ROLLING THE APP BACK NEEDS THIS MIGRATION ROLLED BACK FIRST, and that is not the
     /// usual app-only rollback. The previous build's <c>SeedData</c> mints the singular names it
     /// knows, and <c>EnsureRoleAsync</c> creates any it cannot find — so an old build started
@@ -45,9 +45,22 @@ namespace Glory2Him.WebApp.Data.Migrations
     /// EMPTY rows while every holder stays on the plural row, which is the silent
     /// loss-of-capability this migration exists to prevent, arrived at from the other side. It
     /// then cannot be repaired by migrating either way: the <c>NOT EXISTS</c> guards below read a
-    /// re-seeded target as "already done" and skip, in <c>Up</c> and <c>Down</c> alike. So a
-    /// rollback runs <c>dotnet ef database update AddUserProfileFields</c> BEFORE the old build
-    /// starts, not after.</para>
+    /// re-seeded target as "already done" and skip, in <c>Up</c> and <c>Down</c> alike. So the
+    /// rollback runs BEFORE the old build starts, not after, from
+    /// <c>Websites/Glory2Him.WebApp</c> — the working directory matters, because this is the one
+    /// place <c>SecurityDbContext</c> is the only discoverable context and a bare
+    /// <c>dotnet ef</c> resolves it without <c>--context</c>:</para>
+    ///
+    /// <code>
+    /// cd Websites/Glory2Him.WebApp
+    /// dotnet ef database update AddUserProfileFields --context SecurityDbContext
+    /// </code>
+    ///
+    /// <para>Naming the context anyway is deliberate: the repository's other EF instructions all
+    /// carry it (README, §12.7), and one copied from them with Core's
+    /// <c>--project Glory2Him.Core --context StorageBroker</c> would target the wrong database
+    /// entirely.</para>
+    /// </summary>
     /// <inheritdoc />
     public partial class PluraliseRoleNamesAndCollapseAdmin : Migration
     {
@@ -103,6 +116,12 @@ namespace Glory2Him.WebApp.Data.Migrations
         /// the closest this can get. Which of the two a user held before the merge is recorded
         /// nowhere, so a down migration cannot restore the split exactly: anyone who had been
         /// granted <c>Administrators</c> alone comes back holding both.
+        ///
+        /// <para>The other thing it cannot put back is <c>Admin</c>'s role CLAIMS, which
+        /// <see cref="Up"/> deletes outright on the merge path. Nothing in the application mints
+        /// an Identity role claim — the scopes §18.5 lists are OAuth scopes, not these — so the
+        /// loss is theoretical today, and it is recorded here rather than repaired because a
+        /// claim can only be restored from a copy this migration never took.</para>
         /// </summary>
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)

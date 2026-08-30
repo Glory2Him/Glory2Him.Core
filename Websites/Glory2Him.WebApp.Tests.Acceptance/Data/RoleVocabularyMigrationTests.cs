@@ -207,9 +207,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
                 because: "with no row to merge into, the rename is the only way Admin's holders "
                     + "keep their authority");
 
-            actualRoles.Should().NotContainKey("Admin",
-                because: "the old name goes on this path too — it is a rename, so the row is the "
-                    + "same row under the name the gates now compose");
+            actualRoles[Roles.Administrators].Should().Be(Roles.Administrators.ToUpperInvariant(),
+                because: "the rename has to move NormalizedName as well, or Identity resolves "
+                    + "nothing through the row it just renamed");
 
             actualHolderRoles.Should().BeEquivalentTo(
                 new[] { Roles.Administrators },
