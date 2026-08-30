@@ -18,7 +18,7 @@ using Microsoft.Extensions.Configuration;
 namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
 {
     /// <summary>
-    /// The four databases this suite runs against, and their whole lifecycle.
+    /// The five databases this suite runs against, and their whole lifecycle.
     ///
     /// <para>The acceptance host boots the real portal, so it touches every store the portal
     /// has: Core's schema, the EventHighway substrate, and Identity. Before this existed the
@@ -83,7 +83,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             CatalogFor("Core"),
             CatalogFor("Events"),
             CatalogFor("Security"),
-            CatalogFor("SecurityRehearsal")
+            CatalogFor("SecurityRehearsal"),
+            CatalogFor("SecurityFallbackRehearsal")
         };
 
         // The drop MUST reach the same server the catalogues are created on. Both are derived
@@ -110,6 +111,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         /// </summary>
         internal static string SecurityRehearsalConnectionString =>
             WithCatalog(ConnectionStringTemplate, DatabaseNames[3]);
+
+        /// <summary>
+        /// A FIFTH, for the one branch the rehearsal above cannot reach from its own arrangement.
+        ///
+        /// <para>The rename migration takes a different path when <c>Administrators</c> does not
+        /// already exist — it renames <c>Admin</c> into it rather than merging and dropping — and
+        /// a single store cannot be in both states at once. Two pre-states, two catalogues.</para>
+        /// </summary>
+        internal static string SecurityFallbackRehearsalConnectionString =>
+            WithCatalog(ConnectionStringTemplate, DatabaseNames[4]);
 
         /// <summary>
         /// The resolved per-run connection strings, keyed by the PRODUCTION configuration keys

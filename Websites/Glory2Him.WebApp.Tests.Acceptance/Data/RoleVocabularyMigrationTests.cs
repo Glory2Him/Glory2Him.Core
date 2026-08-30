@@ -186,6 +186,37 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
                     + "check would fail the migration outright");
         }
 
+        /// <summary>
+        /// The migration's other path, which the arrangement above can never reach because it
+        /// seeds both administrator roles. Where <c>Administrators</c> does not exist there is
+        /// nothing to merge into, so <c>Admin</c> is renamed into it instead — and the whole
+        /// point of that branch is that no membership is dropped on the floor either way.
+        /// </summary>
+        [Fact]
+        public void ShouldRenameAdminIntoAdministratorsWhenThatRowDoesNotExist()
+        {
+            // given, when
+            IReadOnlyDictionary<string, string> actualRoles = this.rehearsal.FallbackMigratedRoles;
+
+            IReadOnlyList<string> actualHolderRoles =
+                this.rehearsal.FallbackRolesHeldBy(
+                    RoleVocabularyMigrationRehearsal.FallbackAdministratorId);
+
+            // then
+            actualRoles.Should().ContainKey(Roles.Administrators,
+                because: "with no row to merge into, the rename is the only way Admin's holders "
+                    + "keep their authority");
+
+            actualRoles.Should().NotContainKey("Admin",
+                because: "the old name goes on this path too — it is a rename, so the row is the "
+                    + "same row under the name the gates now compose");
+
+            actualHolderRoles.Should().BeEquivalentTo(
+                new[] { Roles.Administrators },
+                because: "an in-place rename carries the membership, which is exactly why this "
+                    + "branch exists rather than deleting Admin and leaving its holders behind");
+        }
+
         [Fact]
         public void ShouldDropTheAdminRoleAndEverythingHangingOffIt()
         {

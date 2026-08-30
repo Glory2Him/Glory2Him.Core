@@ -94,8 +94,17 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             "ContentItem-Testimony-Publisher"
         };
 
+        /// <summary>
+        /// The holder used by the fallback arrangement, who has ONLY <c>Admin</c> in a store with
+        /// no <c>Administrators</c> row at all.
+        /// </summary>
+        internal static readonly Guid FallbackAdministratorId =
+            Guid.Parse("55555555-5555-5555-5555-555555555555");
+
         private readonly Dictionary<Guid, List<string>> rolesByUser = new();
         private readonly Dictionary<string, string> normalizedNamesByName = new();
+        private readonly Dictionary<Guid, List<string>> fallbackRolesByUser = new();
+        private readonly Dictionary<string, string> fallbackNormalizedNamesByName = new();
 
         /// <summary>
         /// Every surviving role, keyed by <c>Name</c> and valued by its <c>NormalizedName</c>.
@@ -109,17 +118,43 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
 
         internal int MigratedAdminRoleClaimCount { get; private set; }
 
+        /// <summary>
+        /// The same read, over the store where <c>Administrators</c> never existed — see
+        /// <see cref="AcceptanceDatabaseBroker.SecurityFallbackRehearsalConnectionString"/>.
+        /// </summary>
+        internal IReadOnlyDictionary<string, string> FallbackMigratedRoles =>
+            this.fallbackNormalizedNamesByName;
+
         internal IReadOnlyList<string> RolesHeldBy(Guid userId) =>
             this.rolesByUser.TryGetValue(userId, out List<string> roles)
                 ? roles
                 : new List<string>();
 
+        internal IReadOnlyList<string> FallbackRolesHeldBy(Guid userId) =>
+            this.fallbackRolesByUser.TryGetValue(userId, out List<string> roles)
+                ? roles
+                : new List<string>();
+
         public async ValueTask InitializeAsync()
         {
-            await MigrateToAsync(PreviousMigration);
-            await ArrangePreMigrationStoreAsync();
-            await MigrateToAsync(RenameMigration);
-            await ReadMigratedStoreAsync();
+            string primary = AcceptanceDatabaseBroker.SecurityRehearsalConnectionString;
+
+            await MigrateToAsync(primary, PreviousMigration);
+            await ArrangePreMigrationStoreAsync(primary);
+            await MigrateToAsync(primary, RenameMigration);
+            await ReadMigratedStoreAsync(
+                primary, this.normalizedNamesByName, this.rolesByUser, isPrimary: true);
+
+            string fallback = AcceptanceDatabaseBroker.SecurityFallbackRehearsalConnectionString;
+
+            await MigrateToAsync(fallback, PreviousMigration);
+            await ArrangeStoreWithoutAdministratorsAsync(fallback);
+            await MigrateToAsync(fallback, RenameMigration);
+            await ReadMigratedStoreAsync(
+                fallback,
+                this.fallbackNormalizedNamesByName,
+                this.fallbackRolesByUser,
+                isPrimary: false);
         }
 
         // The catalogue is dropped by AcceptanceDatabaseBroker along with the other three, so
@@ -128,27 +163,53 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         public ValueTask DisposeAsync() =>
             ValueTask.CompletedTask;
 
-        private static SecurityDbContext CreateContext()
+        private static SecurityDbContext CreateContext(string connectionString)
         {
             DbContextOptions<SecurityDbContext> options =
                 new DbContextOptionsBuilder<SecurityDbContext>()
-                    .UseSqlServer(AcceptanceDatabaseBroker.SecurityRehearsalConnectionString)
+                    .UseSqlServer(connectionString)
                     .Options;
 
             return new SecurityDbContext(options);
         }
 
-        private static async Task MigrateToAsync(string targetMigration)
+        private static async Task MigrateToAsync(string connectionString, string targetMigration)
         {
-            using SecurityDbContext securityDbContext = CreateContext();
+            using SecurityDbContext securityDbContext = CreateContext(connectionString);
             IMigrator migrator = securityDbContext.GetService<IMigrator>();
 
             await migrator.MigrateAsync(targetMigration);
         }
 
-        private static async Task ArrangePreMigrationStoreAsync()
+        /// <summary>
+        /// The other pre-state: Core's <c>Admin</c> with a holder, and NO <c>Administrators</c>
+        /// row. The migration cannot merge into a row that is not there, so it renames instead —
+        /// the branch that exists so no membership is ever dropped on the floor, and the one the
+        /// main arrangement can never reach because it seeds both roles.
+        /// </summary>
+        private static async Task ArrangeStoreWithoutAdministratorsAsync(string connectionString)
         {
-            using SecurityDbContext securityDbContext = CreateContext();
+            using SecurityDbContext securityDbContext = CreateContext(connectionString);
+
+            var adminRole = new AppRole
+            {
+                Id = Guid.NewGuid(),
+                Name = "Admin",
+                NormalizedName = "ADMIN",
+                ConcurrencyStamp = Guid.NewGuid().ToString()
+            };
+
+            securityDbContext.Roles.Add(adminRole);
+            securityDbContext.Users.Add(CreateUser(FallbackAdministratorId, "fallbackadmin"));
+            await securityDbContext.SaveChangesAsync();
+
+            securityDbContext.UserRoles.Add(Membership(FallbackAdministratorId, adminRole));
+            await securityDbContext.SaveChangesAsync();
+        }
+
+        private static async Task ArrangePreMigrationStoreAsync(string connectionString)
+        {
+            using SecurityDbContext securityDbContext = CreateContext(connectionString);
 
             Dictionary<string, AppRole> rolesByName = PreMigrationRoleNames.ToDictionary(
                 roleName => roleName,
@@ -208,9 +269,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
         // Read back through a FRESH context: the arranging one still tracks the rows under their
         // pre-migration names, and a rename issued as SQL underneath it never reaches its
         // change tracker.
-        private async Task ReadMigratedStoreAsync()
+        private async Task ReadMigratedStoreAsync(
+            string connectionString,
+            Dictionary<string, string> normalizedNames,
+            Dictionary<Guid, List<string>> rolesByUserId,
+            bool isPrimary)
         {
-            using SecurityDbContext securityDbContext = CreateContext();
+            using SecurityDbContext securityDbContext = CreateContext(connectionString);
 
             List<AppRole> roles = await securityDbContext.Roles.AsNoTracking().ToListAsync();
             List<IdentityUserRole<Guid>> memberships =
@@ -221,16 +286,16 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
 
             foreach (AppRole role in roles)
             {
-                this.normalizedNamesByName[role.Name] = role.NormalizedName;
+                normalizedNames[role.Name] = role.NormalizedName;
             }
 
             foreach (IdentityUserRole<Guid> membership in memberships)
             {
-                if (this.rolesByUser.TryGetValue(membership.UserId, out List<string> heldRoles)
+                if (rolesByUserId.TryGetValue(membership.UserId, out List<string> heldRoles)
                     is false)
                 {
                     heldRoles = new List<string>();
-                    this.rolesByUser[membership.UserId] = heldRoles;
+                    rolesByUserId[membership.UserId] = heldRoles;
                 }
 
                 heldRoles.Add(roleNamesById[membership.RoleId]);
@@ -243,10 +308,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Data
             // This cannot distinguish the migration's explicit DELETE from the cascade Identity
             // configures on AspNetRoleClaims, and it is not meant to — what it pins is the END
             // state, that dropping the role leaves no claim addressing it behind.
-            this.MigratedAdminRoleClaimCount =
-                await securityDbContext.RoleClaims
-                    .AsNoTracking()
-                    .CountAsync(roleClaim => roleClaim.ClaimValue == "admin.users");
+            if (isPrimary)
+            {
+                this.MigratedAdminRoleClaimCount =
+                    await securityDbContext.RoleClaims
+                        .AsNoTracking()
+                        .CountAsync(roleClaim => roleClaim.ClaimValue == "admin.users");
+            }
         }
     }
 }
