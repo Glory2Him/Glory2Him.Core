@@ -9,14 +9,11 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
-using Glory2Him.Core.Brokers.Storages.Sql;
 using Glory2Him.Core.Models.Foundations.ApprovalReviewRequests;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
-using Microsoft.Extensions.Configuration;
 
 namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
 {
@@ -48,7 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
         public void ShouldRestrictTheInvitationUniqueIndexToActiveRequests()
         {
             // given
-            IModel model = CreateStorageBrokerModel();
+            IModel model = StorageBrokerModelSource.Model;
 
             IIndex invitationIndex = model
                 .FindEntityType(typeof(ApprovalReviewRequest))!
@@ -71,23 +68,6 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Storages
                 .Equal(
                     nameof(ApprovalReviewRequest.ApprovalId),
                     nameof(ApprovalReviewRequest.RequestedUserId));
-        }
-
-        private static IModel CreateStorageBrokerModel()
-        {
-            // A connection string is required for OnConfiguring to complete, but no connection is
-            // opened: EF builds the model lazily from the configuration alone.
-            IConfiguration configuration = new ConfigurationBuilder()
-                .AddInMemoryCollection(new Dictionary<string, string?>
-                {
-                    ["ConnectionStrings:Glory2HimConnectionString"] =
-                        "Server=(local);Database=ModelOnly;Integrated Security=true;",
-                })
-                .Build();
-
-            using var storageBroker = new StorageBroker(configuration);
-
-            return storageBroker.Model;
         }
     }
 }

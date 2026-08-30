@@ -1,9 +1,10 @@
-import { RouteObject } from 'react-router-dom';
+import { Navigate, RouteObject } from 'react-router-dom';
 import { Author } from '../pages/author';
 import { Categories } from '../pages/categories';
 import { Contribute } from '../pages/contribute';
 import { Home } from '../pages/home';
 import { JournalMasonry } from '../pages/journalMasonry';
+import { PostDetail } from '../pages/postDetail';
 import { PostGrid } from '../pages/postGrid';
 import { PostList } from '../pages/postList';
 import { PostSingle } from '../pages/postSingle';
@@ -21,5 +22,15 @@ export const publicPostRoutes: RouteObject[] = [
     { path: 'Post-Grid-Masonry-Filter', element: <JournalMasonry /> },
     { path: 'Post-Single', element: <PostSingle /> },
     { path: 'Post-Single/:slug', element: <PostSingle /> },
-    { path: 'post/contribute', element: <Contribute /> },
+    // REST puts the collection first and plural, so the contribution surface is a member of
+    // `posts` rather than a verb hung off a singular noun. The literal segment is declared before
+    // the parameter one for the reader's sake — React Router ranks a static segment above a
+    // dynamic one whatever the order — so /posts/contribute is the form and /posts/{id} is an
+    // item.
+    { path: 'posts/contribute', element: <Contribute /> },
+    { path: 'posts/:contentItemId', element: <PostDetail /> },
+
+    // The route this page used to answer on. Kept so links already in the wild — and the
+    // sample pages that hard-code it — still land somewhere.
+    { path: 'post/contribute', element: <Navigate to="/posts/contribute" replace /> },
 ];
