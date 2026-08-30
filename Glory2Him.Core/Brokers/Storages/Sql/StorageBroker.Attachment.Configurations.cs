@@ -99,11 +99,7 @@ namespace Glory2Him.Core.Brokers.Storages.Sql
                  .IsUnique()
                  .HasDatabaseName("UX_Attachments_GroupId_Version");
 
-            // Exactly one published version per group
-            model.HasIndex(attachment => new { attachment.GroupId, attachment.IsPublished })
-                 .IsUnique()
-                 .HasFilter($"[{nameof(Attachment.IsPublished)}] = 1")
-                 .HasDatabaseName("UX_Attachments_GroupId_IsPublished");
+            AddPublishedSlotIndex(model, "UX_Attachments_GroupId_IsPublished");
 
             // Hash index for deduplication lookups
             model.HasIndex(attachment => attachment.Hash)
