@@ -1694,23 +1694,58 @@ describe('ReviewPanel', () => {
                 expect(trigger).not.toHaveAttribute('aria-controls');
             });
 
-        it.each([
-            ['the vote menu', openVoteMenu, 'Approved'],
-            ['the reviewer picker', openPicker, 'Filter by name'],
-            ['the decision menu', openDecisionMenu, 'Approve this item']
-        ] as Array<[string, () => Promise<HTMLElement>, string]>)(
-            'should move focus to the first control in %s when it opens',
-            async (_name, open, expectedFocusName) => {
-                // given, when
-                await open();
+        it('should move focus to the first control in the reviewer picker when it opens', async () => {
+            // given, when: the picker's first control is the filter box, which is also where
+            // somebody opening it wants to be
+            await openPicker();
 
-                // then: WHICH element, not merely "something inside". Asserting containment let a
-                // hook focusing the LAST control pass — landing the picker on its final candidate
-                // row instead of the filter box somebody opened it to type in.
-                expect(screen.getByRole(
-                    expectedFocusName === 'Filter by name' ? 'textbox' : 'button',
-                    { name: new RegExp(expectedFocusName) })).toHaveFocus();
+            // then: WHICH element, not merely "something inside". Asserting containment let a
+            // hook focusing the LAST control pass — landing the picker on its final candidate
+            // row instead of the filter box somebody opened it to type in.
+            expect(screen.getByRole('textbox', { name: /Filter by name/ })).toHaveFocus();
+        });
+
+        it.each([
+            ['the vote menu', openVoteMenu],
+            ['the decision menu', openDecisionMenu]
+        ] as Array<[string, () => Promise<HTMLElement>]>)(
+            'should move focus to the menu container, not the first item, when %s opens',
+            async (_name, open) => {
+                // given, when: focusing the first item would make a stray second Enter on the
+                // trigger fall through to that item's action — casting a vote or picking a
+                // decision with no visible menu the user noticed opening. See #370.
+                await open();
+                const item = open === openVoteMenu
+                    ? screen.getByRole('button', { name: /Approved/ })
+                    : screen.getByRole('button', { name: /Approve this item/ });
+                const menu = item.closest('.dropdown-menu');
+                expect(menu).not.toBeNull();
+
+                // then
+                expect(menu as HTMLElement).toHaveFocus();
             });
+
+        it('should not cast a vote when Enter is pressed right after the vote menu opens', async () => {
+            // given: a second Enter on the trigger is the habitual response to a menu that opened
+            // below the fold or was otherwise not noticed. Before #370, that Enter landed on the
+            // first item and cast a vote nobody meant to cast.
+            signInAs(authState, ['Reviewer']);
+            const onReviewStatusChanged = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    onReviewStatusChanged={onReviewStatusChanged} />);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Vote...' }));
+
+            // when
+            await userEvent.keyboard('{Enter}');
+
+            // then
+            expect(onReviewStatusChanged).not.toHaveBeenCalled();
+        });
 
         it('should hand focus back to the trigger after a vote is cast', async () => {
             // given
