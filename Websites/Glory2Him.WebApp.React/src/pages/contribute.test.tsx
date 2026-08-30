@@ -7,6 +7,7 @@ import { Contribute } from './contribute';
 import { AuthProvider } from '../components/securitys/authProvider';
 import { ContentItemSetting } from '../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../models/foundations/contentItemSettings/contentType';
+import { ShareabilityBasis } from '../models/components/contentItems/contentItemFormItem';
 import { createAuthState, signInAs } from '../tests/testAuth';
 
 // What the page OWNS is everything the panel does not: the POST, the redirect, the notification
@@ -149,7 +150,11 @@ describe('Contribute', () => {
             title: null,
             author: null,
             content: 'He kept me through the night shift',
-            shareabilityBasis: 0,
+
+            // The basis an untouched form carries: the contributor's own work, shared here by
+            // their permission. The narrowest of the four offered, so a form nobody opened the
+            // dropdown on has licensed this use and given nothing away.
+            shareabilityBasis: ShareabilityBasis.OwnedPermissionGranted,
             sharePermission: null
         }));
     });
