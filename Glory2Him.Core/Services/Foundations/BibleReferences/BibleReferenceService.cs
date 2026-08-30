@@ -313,6 +313,8 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             bibleReference = await this.securityAuditBroker
                 .ApplyAddAuditValuesAsync(entity: bibleReference, securityContext: inboundEnvelope.SecurityContext);
 
+            bibleReference.ScriptureHtml = SanitizeScriptureHtml(bibleReference.ScriptureHtml);
+
             await ValidateOnAddBibleReferenceAsync(
                 bibleReference: bibleReference,
                 securityContext: inboundEnvelope.SecurityContext);
@@ -351,6 +353,8 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
 
             bibleReference = await this.securityAuditBroker
                 .ApplyModifyAuditValuesAsync(entity: bibleReference, securityContext: inboundEnvelope.SecurityContext);
+
+            bibleReference.ScriptureHtml = SanitizeScriptureHtml(bibleReference.ScriptureHtml);
 
             await ValidateOnModifyBibleReferenceAsync(
                 bibleReference: bibleReference,
