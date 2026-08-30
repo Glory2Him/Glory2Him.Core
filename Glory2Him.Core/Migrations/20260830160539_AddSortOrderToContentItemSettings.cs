@@ -29,21 +29,35 @@ namespace Glory2Him.Core.Migrations
             // a tile, so it keeps 1000 rather than being given a presentation order it has no
             // surface for. ContentType is persisted as a string (design §3.7), so it is matched
             // by member name here.
+            //
+            // WRAPPED IN EXEC, AND IT HAS TO BE. `dotnet ef migrations script --idempotent` —
+            // how this repo actually deploys, and what the build verifies — emits an entire
+            // migration as ONE batch with no GO between its statements. SQL Server compiles a
+            // batch before it runs any of it, and deferred name resolution covers missing TABLES
+            // only, not a missing column on a table that exists: the UPDATE would fail to compile
+            // with "Invalid column name 'SortOrder'" (Msg 207) against the column the statement
+            // above it is adding. EXEC defers the parse to execution time, after the ALTER has
+            // run. It applies cleanly under EF's own Database.Migrate() either way — that path
+            // sends each statement as its own command — so only the script path shows the fault.
+            //
+            // Single quotes are doubled for the EXEC literal.
             migrationBuilder.Sql(@"
-                UPDATE [ContentItemSettings]
-                SET [SortOrder] =
-                    CASE [ContentType]
-                        WHEN 'Quote' THEN 0
-                        WHEN 'Story' THEN 1
-                        WHEN 'Testimony' THEN 2
-                        WHEN 'Devotional' THEN 3
-                        WHEN 'BibleStudy' THEN 4
-                        WHEN 'BlogPost' THEN 5
-                        WHEN 'Series' THEN 100
-                        WHEN 'Topic' THEN 200
-                        ELSE [SortOrder]
-                    END
-                WHERE [ContentItemId] IS NULL;");
+                EXEC(N'
+                    UPDATE [ContentItemSettings]
+                    SET [SortOrder] =
+                        CASE [ContentType]
+                            WHEN ''Quote'' THEN 0
+                            WHEN ''Story'' THEN 1
+                            WHEN ''Testimony'' THEN 2
+                            WHEN ''Devotional'' THEN 3
+                            WHEN ''BibleStudy'' THEN 4
+                            WHEN ''BlogPost'' THEN 5
+                            WHEN ''Series'' THEN 100
+                            WHEN ''Topic'' THEN 200
+                            ELSE [SortOrder]
+                        END
+                    WHERE [ContentItemId] IS NULL;
+                ');");
         }
 
         /// <inheritdoc />
