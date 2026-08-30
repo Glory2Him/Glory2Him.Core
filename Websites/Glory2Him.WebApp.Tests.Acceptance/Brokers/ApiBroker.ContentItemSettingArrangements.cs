@@ -56,8 +56,15 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
         }
 
         /// <summary>
-        /// The seeded per-type default, whatever its id — <c>ContentItemSettingSeedData</c> mints a
+        /// The LIVE per-type default, whatever its id — <c>ContentItemSettingSeedData</c> mints a
         /// fresh <c>Guid</c> per environment, so it can only be found by its scope.
+        ///
+        /// <para>The <c>IsDeleted</c> term is not decoration. <c>UX_ContentItemSettings_DefaultPerType</c>
+        /// now constrains live rows only (#326), so a scope may legitimately hold one live default
+        /// alongside soft-deleted predecessors and the scope alone no longer names a single row.
+        /// Without the term this would return whichever the query happened to reach first, and a
+        /// caller lifting a default out of its slot could remove a predecessor while the live row
+        /// went on occupying it.</para>
         /// </summary>
         public async ValueTask<CoreContentItemSetting> GetCoreDefaultContentItemSettingAsync(
             ContentType contentType)
@@ -68,7 +75,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Brokers
             return await allContentItemSettings.FirstOrDefaultAsync(
                 contentItemSetting =>
                     contentItemSetting.ContentType == contentType
-                    && contentItemSetting.ContentItemId == null);
+                    && contentItemSetting.ContentItemId == null
+                    && contentItemSetting.IsDeleted == false);
         }
 
         /// <summary>
