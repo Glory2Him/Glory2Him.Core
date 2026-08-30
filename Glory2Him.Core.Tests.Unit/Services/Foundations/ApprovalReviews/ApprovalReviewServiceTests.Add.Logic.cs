@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldAddApprovalReviewAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalReview randomApprovalReview = CreateApprovalReviewFiller(randomDateTimeOffset).Create();
             ApprovalReview inputApprovalReview = randomApprovalReview;
@@ -179,7 +179,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldAddApprovalReviewWithoutACommentAsync(string blankComment)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalReview randomApprovalReview = CreateApprovalReviewFiller(randomDateTimeOffset).Create();
             randomApprovalReview.Comment = blankComment;

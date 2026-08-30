@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given
             var requestEnvelope = new EventEnvelope<Association>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Content = new Association { Id = Guid.Empty },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -137,7 +137,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             var requestEnvelope = new EventEnvelope<Association>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Content = new Association { Id = someAssociationId },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

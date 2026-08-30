@@ -170,7 +170,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
 
             var requestEnvelope = new EventEnvelope<Comment>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = CreateApprovalDecision(storageComment.Id),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -229,7 +229,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // given
             var requestEnvelope = new EventEnvelope<Comment>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = CreateApprovalDecision(Guid.NewGuid()),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldHardRemoveBibleReferenceByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             BibleReference randomBibleReference = CreateRandomBibleReference();
             BibleReference storageBibleReference = randomBibleReference;
             BibleReference expectedBibleReference = storageBibleReference.DeepClone();

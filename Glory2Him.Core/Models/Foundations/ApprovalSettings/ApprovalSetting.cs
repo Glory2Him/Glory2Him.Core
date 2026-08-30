@@ -134,8 +134,8 @@ namespace Glory2Him.Core.Models.Foundations.ApprovalSettings
 
         // The ApprovalSettingReviewerRoles and ApprovalSettingPublisherRoles collections are
         // gone, along with RestrictWhoCanReview and RestrictWhoCanApprove. Who may review and
-        // who may publish is COMPOSED from the entity type by the %EntityType%-Reviewer /
-        // %EntityType%-Publisher convention (§18.6), not configured per settings row, and that
+        // who may publish is COMPOSED from the entity type by the %EntityType%-Reviewers /
+        // %EntityType%-Publishers convention (§18.6), not configured per settings row, and that
         // composition now has a single home in G2H.Security.Client. Two sources for the same
         // fact is two sources to drift.
     }

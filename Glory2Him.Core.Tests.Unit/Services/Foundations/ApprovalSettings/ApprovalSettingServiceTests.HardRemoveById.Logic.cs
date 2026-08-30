@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldHardRemoveApprovalSettingByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalSetting randomApprovalSetting = CreateRandomApprovalSetting();
             ApprovalSetting storageApprovalSetting = randomApprovalSetting;
             ApprovalSetting expectedApprovalSetting = storageApprovalSetting.DeepClone();

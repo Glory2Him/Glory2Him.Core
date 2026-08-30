@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldModifyApprovalSettingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSetting randomApprovalSetting =

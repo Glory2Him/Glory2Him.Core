@@ -45,7 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: every transition, driven end to end against one permissive caller, with
             // every published operation recorded
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.Admin, Roles.Publisher, Roles.Reviewer);
+                Roles.Administrators, Roles.Publishers, Roles.Reviewers);
 
             var publishedOperations = new List<AssociationEventOperation>();
 
@@ -58,7 +58,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             Association anchorAssociation = CreateAnchorAssociation(sortOrder: 200);
 
             // the sorter and the scorer must not be the caller: sort requires the owner or an
-            // Admin (satisfied by Admin), and set-confidence REFUSES the owner outright
+            // administrator (satisfied by Administrators), and set-confidence REFUSES the owner outright
             foreach (Association association in new[]
                 {
                     submittableAssociation, approvableAssociation,

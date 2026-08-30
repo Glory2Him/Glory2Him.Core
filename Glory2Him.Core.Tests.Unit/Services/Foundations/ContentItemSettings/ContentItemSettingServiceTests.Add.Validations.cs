@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfContentItemSettingIsNullAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting nullContentItemSetting = null;
 
             var nullContentItemSettingException =
@@ -72,7 +72,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             string invalidText)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             DateTimeOffset startDate = randomDateTimeOffset.AddSeconds(-90);
             DateTimeOffset endDate = randomDateTimeOffset;
@@ -175,7 +175,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfContentItemSettingExceedsMaxLengthAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -253,7 +253,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfContentTypeDescriptionExceedsMaxLengthAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string invalidContentTypeDescription = GetRandomStringWithLengthOf(501);
@@ -330,7 +330,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfContentTypeNameExceedsMaxLengthAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string invalidContentTypeName = GetRandomStringWithLengthOf(51);
@@ -407,7 +407,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfContentTypeIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ContentItemSetting randomContentItemSetting =
@@ -482,7 +482,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedWhenIsNotSameAsCreatedWhenAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ContentItemSetting randomContentItemSetting =
@@ -557,7 +557,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedByIsNotSameAsCurrentUserIdAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             string differentUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -634,7 +634,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedByIsNotSameAsCreatedByAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ContentItemSetting randomContentItemSetting =
@@ -710,7 +710,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedWhenIsNotRecentAndLogItAsync(int minutes)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ContentItemSetting randomContentItemSetting =

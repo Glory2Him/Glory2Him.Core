@@ -249,7 +249,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldModifyWhenPublisherMovesStatusToSubmittedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.BibleReferencePublisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.BibleReferencePublishers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
             string ownerUserId = GetRandomString();

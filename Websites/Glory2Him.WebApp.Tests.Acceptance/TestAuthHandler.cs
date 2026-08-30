@@ -34,7 +34,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance
     /// <para><b>Overrides.</b> A gate is only proven by the callers it turns away, and those
     /// callers cannot be expressed by one fixed principal. The headers below let a test act as
     /// nobody, as an ordinary contributor with no roles, or as a specific user id — which is what
-    /// makes "not the owner" and "not an Admin" testable over real HTTP. They are read only here,
+    /// makes "not the owner" and "not an administrator" testable over real HTTP. They are read only here,
     /// in the test host; the production pipeline has no such path.</para>
     /// </summary>
     public class TestAuthHandler : AuthenticationHandler<CustomAuthenticationSchemeOptions>

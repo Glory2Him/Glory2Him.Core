@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // The publisher tier by default, because that is who reaches the verdict at all.
             // Tests about the gate override it explicitly.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateAsync(It.IsAny<Approval>()))

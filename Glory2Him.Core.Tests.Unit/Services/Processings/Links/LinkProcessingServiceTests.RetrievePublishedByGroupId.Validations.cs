@@ -90,7 +90,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
                 link: new Link { GroupId = inputGroupId },
-                securityContext: CreateAuthenticatedSecurityContext(Roles.Admin));
+                securityContext: CreateAuthenticatedSecurityContext(Roles.Administrators));
 
             var notFoundLinkProcessingException =
                 new NotFoundLinkProcessingException(message: "The link was not found.");

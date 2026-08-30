@@ -39,7 +39,7 @@
 
 **Violates:** ts-foundations-011
 **What happens:** An `OnXingAsync` handler reads `envelope.SecurityContext` without first verifying the envelope's integrity signature.
-**Why it's wrong:** The `SecurityContext` is only trustworthy because it is signed. Unverified, anyone who can put a message on that address states their own identity and roles — including `Admin` — and is believed. Verification belongs in the receiver, not the transport, because a handler is reachable without going through the broker.
+**Why it's wrong:** The `SecurityContext` is only trustworthy because it is signed. Unverified, anyone who can put a message on that address states their own identity and roles — including `Administrators` — and is believed. Verification belongs in the receiver, not the transport, because a handler is reachable without going through the broker.
 **Fix:** Call the entity's `Validate{Entity}EventEnvelopeAsync` first, passing the operation this handler serves.
 
 ## authorization-error-on-read

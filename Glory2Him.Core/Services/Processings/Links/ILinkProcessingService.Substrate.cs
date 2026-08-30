@@ -46,7 +46,7 @@ namespace Glory2Him.Core.Services.Processings.Links
         /// envelopes, converging on the same do-work as <see cref="RemoveLinkByIdAsync"/>.
         /// The request payload is the remove instruction — the content item's <c>Id</c> and
         /// the optional <c>DeletionReason</c>; the envelope's <c>SecurityContext</c> carries
-        /// the original caller for the contribution gate and the owner/<c>Admin</c> check.
+        /// the original caller for the contribution gate and the owner/<c>Administrators</c> check.
         /// Replies with the removed content item's envelope.
         /// </summary>
         ValueTask<EventEnvelope<Link>?> OnRemovingLinkByIdAsync(

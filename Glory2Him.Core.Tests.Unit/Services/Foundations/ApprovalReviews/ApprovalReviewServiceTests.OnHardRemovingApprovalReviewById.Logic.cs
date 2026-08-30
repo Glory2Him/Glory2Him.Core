@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             var requestEnvelope = new EventEnvelope<ApprovalReview>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Content = new ApprovalReview { Id = storageApprovalReview.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

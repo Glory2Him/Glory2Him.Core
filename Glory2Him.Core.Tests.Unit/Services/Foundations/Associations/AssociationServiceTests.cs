@@ -226,7 +226,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         // Association has no scoped roles of its own (design §14.7, §18.6) — only the
@@ -234,9 +234,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public static TheoryData<string> ReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.Reviewer,
-                Roles.Publisher,
-                Roles.Admin
+                Roles.Reviewers,
+                Roles.Publishers,
+                Roles.Administrators
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()

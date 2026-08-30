@@ -430,8 +430,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         public async Task ShouldLeaveTheApprovalSubmittedWhenTheConditionsAreMetButAutoApproveIsOffAsync()
         {
             // given: the conditions ARE met and the policy still asks for a human click, so the
-            // approval stays Submitted and the manual approve becomes available to Publisher /
-            // Admin (§9.7.7 rule 5). Approving here would be the system taking a decision the
+            // approval stays Submitted and the manual approve becomes available to Publishers /
+            // Administrators (§9.7.7 rule 5). Approving here would be the system taking a decision the
             // policy reserved for a person.
             var approvalId = Guid.NewGuid();
             var entityId = Guid.NewGuid();

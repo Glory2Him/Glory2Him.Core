@@ -150,12 +150,12 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         name: 'entityType',
         type: 'string',
         description: 'Names the entity under approval so the §18.6 vote and decision tiers can '
-            + 'be composed — capability-last and singular, e.g. ContentItem-Reviewer.'
+            + 'be composed — capability-last and plural, e.g. ContentItem-Reviewers.'
     },
     {
         name: 'contentType',
         type: 'string?',
-        description: 'Adds the narrow ContentItem-{contentType}-Reviewer/-Publisher tier. '
+        description: 'Adds the narrow ContentItem-{contentType}-Reviewers/-Publishers tier. '
             + 'Only ContentItem carries one (§18.6 rule 5).'
     },
     {
@@ -325,7 +325,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
         name: 'voteRoles / decisionRoles',
         type: 'string?',
         description: 'Comma-separated overrides. Defaults compose from entityType/contentType. '
-            + 'decisionRoles excludes every -Reviewer role: HR-3 bars a reviewer from setting '
+            + 'decisionRoles excludes every -Reviewers role: HR-3 bars a reviewer from setting '
             + 'an ApprovalStatus.'
     },
     {
@@ -634,14 +634,14 @@ export function ReviewPanelDoc() {
                 title="Roles"
                 lead={
                     <>
-                        Composed per &sect;18.6, capability-last and singular. Voting takes the
-                        review tier &mdash; global <code>Reviewer</code>, <code>Publisher</code>,{' '}
-                        <code>Admin</code>, <code>Administrators</code>,{' '}
-                        <code>{'{EntityType}'}-Reviewer</code> / <code>-Publisher</code>, and for
+                        Composed per &sect;18.6, capability-last and plural. Voting takes the
+                        review tier &mdash; global <code>Reviewers</code>,{' '}
+                        <code>Publishers</code>, <code>Administrators</code>,{' '}
+                        <code>{'{EntityType}'}-Reviewers</code> / <code>-Publishers</code>, and for
                         ContentItem the narrow{' '}
-                        <code>ContentItem-{'{ContentType}'}-Reviewer</code> /{' '}
-                        <code>-Publisher</code> pair. Deciding takes the publisher tier only:
-                        every <code>-Reviewer</code> role is excluded, because HR-3 bars a
+                        <code>ContentItem-{'{ContentType}'}-Reviewers</code> /{' '}
+                        <code>-Publishers</code> pair. Deciding takes the publisher tier only:
+                        every <code>-Reviewers</code> role is excluded, because HR-3 bars a
                         reviewer from setting an approval status by any route. Requesting a review
                         is coordination rather than decision, so it is open to the whole review
                         tier (&sect;7.9 rule 2).

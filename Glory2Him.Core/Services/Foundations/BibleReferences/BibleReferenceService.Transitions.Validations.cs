@@ -78,9 +78,9 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
 
         // Submitting is the owner-or-publisher act of §9.2. It is deliberately the SAME set the
         // modify carve-out admits (design §9.2 rules 4-6): a dedicated status-only verb must
-        // not be narrower than the identical transition reached through a content edit. A
-        // Reviewer is absent by design — HasPublisherRole excludes the review tier (§8.6 HR-3),
-        // and a Reviewer moves an outcome only through the approval workflow, never by hand.
+        // not be narrower than the identical transition reached through a content edit. The
+        // Reviewers tier is absent by design — HasPublisherRole excludes it (§8.6 HR-3),
+        // and a reviewer moves an outcome only through the approval workflow, never by hand.
         private async ValueTask ValidateUserCanSubmitStorageBibleReferenceAsync(
             BibleReference storageBibleReference,
             SecurityContext securityContext)
@@ -107,10 +107,10 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
         //
         // Two hard rules meet here (design §8.6):
         //
-        // HR-3 — a Reviewer may NEVER set an approval status. A reviewer's instrument is the
+        // HR-3 — a reviewer may NEVER set an approval status. A reviewer's instrument is the
         // ApprovalReview record; they move the outcome only indirectly, through automatic
         // approval. HasPublisherRole is strictly narrower than the review tier and excludes the
-        // Reviewer roles for exactly this reason.
+        // Reviewers roles for exactly this reason.
         //
         // HR-2 — no one approves their own content unless AllowSelfApproval permits it. That
         // setting lives on another entity, so the question goes to IAccessBroker.
@@ -146,8 +146,8 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     || storageBibleReference.ApprovalStatus == ApprovalStatus.Rejected;
 
             // §8.6 HR-4. Moving a row OUT of a terminal state is an override, and it is what
-            // keeps "terminal" meaningful: a state that the owner or a Publisher could edit out
-            // of would not be terminal at all (§3.4 rules 7, 16). It is gated to Admin — and to
+            // keeps "terminal" meaningful: a state that the owner or a publisher could edit out
+            // of would not be terminal at all (§3.4 rules 7, 16). It is gated to Administrators — and to
             // the workflow, below — and to nobody else.
             //
             // Run row-local and FIRST, so an unauthorised override costs one role comparison
@@ -155,7 +155,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             // gathering can only ever make this stricter (§8.6.1).
             if (isOverride
                 && isSystemIdentity is false
-                && securityContext.Roles.Contains(Roles.Admin) is false)
+                && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedBibleReferenceException(
                     message: "The current user is not allowed to transition this bible reference.");
@@ -165,7 +165,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             // second admissible actor exists at all (§8.6 regardless-rule 1): the reviewer whose
             // own review fires an automatic approval is the one party barred from deciding it,
             // and the previously published sibling a newly approved version demotes is itself
-            // Approved, so no Publisher may touch it either.
+            // Approved, so no Publishers may touch it either.
             //
             // The bypass pair is CARRIED, not decided. The workflow reaches here as the
             // messenger of a decision a human already made and was authorised for on the
@@ -191,7 +191,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
             // Re-opening a row to Submitted decides nothing — it returns the row to review
             // rather than granting or withholding approval — so there is no approval decision to
             // ask for, and ApprovalDecision has no member that would honestly express one. The
-            // Admin gate above is the whole authority for it.
+            // Administrators gate above is the whole authority for it.
             if (bibleReference.ApprovalStatus == ApprovalStatus.Submitted)
             {
                 return false;
@@ -235,7 +235,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     // the row comes back on the verdict: asking here and writing from the answer
                     // is what stops a genuine waiver being un-recorded by the party it is
                     // evidence about. DoNotAllowBypassingSettings is resolved inside the
-                    // decision and closes this route to everyone, Admin included.
+                    // decision and closes this route to everyone, Administrators included.
                     IsBypassRequested = bibleReference.IsApprovedByBypass,
                     BypassReason = bibleReference.ApprovedByBypassReason,
 

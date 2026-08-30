@@ -90,8 +90,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         }
 
         /// <summary>
-        /// A signed-in contributor is not an Admin. Design §14.7 posture A rule 3 restricts hard
-        /// removal to Admin, and the attribute must turn the caller away before the service is
+        /// A signed-in contributor is not an administrator. Design §14.7 posture A rule 3 restricts hard
+        /// removal to Administrators, and the attribute must turn the caller away before the service is
         /// reached — so the row is still there afterwards.
         /// </summary>
         [Fact]
@@ -136,7 +136,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         }
 
         /// <summary>
-        /// A reviewer is not a publisher (HR-3). Comment-Reviewer clears no part of the approve
+        /// A reviewer is not a publisher (HR-3). Comment-Reviewers clears no part of the approve
         /// gate, and the attribute must not admit it.
         /// </summary>
         [Fact]
@@ -144,7 +144,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = CreateRandomComment();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewers);
 
             // when
             var approveCommentTask = this.apiBroker.TransitionCommentApprovalAsync(randomComment).AsTask();
@@ -211,13 +211,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
 
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a comment they did not create.
-        /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>Comment-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// Both tiers are exercised — the global <c>Reviewers</c> and the entity-scoped
+        /// <c>Comment-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.CommentReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.CommentReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersCommentAsync(string reviewRoleName)
         {
             // given
@@ -241,7 +241,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         }
 
         /// <summary>
-        /// Removal is owner-or-Admin, deliberately narrower than modify: a Reviewer holds write
+        /// Removal is owner-or-Administrators, deliberately narrower than modify: a reviewer holds write
         /// permission on someone else's comment but may not delete it.
         /// </summary>
         [Fact]
@@ -249,7 +249,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = await PostRandomCommentAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewers);
 
             try
             {
@@ -269,7 +269,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         /// <summary>
         /// The block tier (design §18.6): "assigned to users who misbehave, takes precedence over
         /// every other role". Both the global and the comment-scoped block are refused, and the
-        /// refusal survives the caller also holding Admin — precedence is the whole point.
+        /// refusal survives the caller also holding Administrators — precedence is the whole point.
         /// </summary>
         [Theory]
         [InlineData(Roles.ReadOnly)]
@@ -295,7 +295,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = CreateRandomComment();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postCommentTask = this.apiBroker.PostCommentAsync(randomComment).AsTask();
@@ -305,7 +305,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         }
 
         /// <summary>
-        /// Hard delete is the one write whose coarse gate is a role list, so a blocked Admin
+        /// Hard delete is the one write whose coarse gate is a role list, so a blocked administrator
         /// clears the attribute and is stopped by the foundation instead.
         /// </summary>
         [Fact]
@@ -313,7 +313,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = await PostRandomCommentAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.CommentReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.CommentReadOnly);
 
             try
             {

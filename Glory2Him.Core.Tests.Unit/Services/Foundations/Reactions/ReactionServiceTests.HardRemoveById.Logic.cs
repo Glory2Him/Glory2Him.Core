@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldHardRemoveReactionByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Reaction randomReaction = CreateRandomReaction();
             Reaction storageReaction = randomReaction;
             Reaction expectedReaction = storageReaction.DeepClone();

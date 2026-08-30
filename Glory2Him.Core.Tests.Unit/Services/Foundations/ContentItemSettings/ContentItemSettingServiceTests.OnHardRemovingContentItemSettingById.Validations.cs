@@ -72,7 +72,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             var requestEnvelope = new EventEnvelope<ContentItemSetting>
             {
                 Content = new ContentItemSetting { Id = Guid.Empty },
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             var requestEnvelope = new EventEnvelope<ContentItemSetting>
             {
                 Content = new ContentItemSetting { Id = someContentItemSettingId },
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidBibleReferenceId = Guid.Empty;
 
             var invalidBibleReferenceException = new InvalidBibleReferenceException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfBibleReferenceNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someBibleReferenceId = Guid.NewGuid();
             BibleReference noBibleReference = null;
 
@@ -219,11 +219,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         [Fact]
         public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
         {
-            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // given: the global ReadOnly ban outranks Administrators, so a banned administrator is refused before
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someBibleReferenceId = Guid.NewGuid();
 
@@ -275,11 +275,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         [Fact]
         public async Task ShouldBlockHardRemoveWhenTheCallerIsScopedReadOnlyAndLogItAsync()
         {
-            // given: a banned caller who also holds Admin must be refused the irreversible hard
+            // given: a banned caller who also holds Administrators must be refused the irreversible hard
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.BibleReferenceReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.BibleReferenceReadOnly);
 
             Guid someBibleReferenceId = Guid.NewGuid();
 

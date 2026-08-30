@@ -40,14 +40,14 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
     /// <para>Only hard removal carries a role list. The rest, for the same reason:</para>
     ///
     /// <list type="bullet">
-    /// <item>Add and both reads admit any review-role holder — global <c>Reviewer</c>,
-    /// <c>Publisher</c>, <c>Admin</c>, or any <c>%EntityType%-Reviewer</c> /
-    /// <c>%EntityType%-Publisher</c>. Suffix-matched, so not enumerable.</item>
-    /// <item>Modify and soft removal are the <b>owner alone</b> — not <c>Publisher</c>, not
-    /// <c>Admin</c>. A verdict belongs to the reviewer who recorded it; an Admin who needs past a
+    /// <item>Add and both reads admit any review-role holder — global <c>Reviewers</c>,
+    /// <c>Publishers</c>, <c>Administrators</c>, or any <c>%EntityType%-Reviewers</c> /
+    /// <c>%EntityType%-Publishers</c>. Suffix-matched, so not enumerable.</item>
+    /// <item>Modify and soft removal are the <b>owner alone</b> — not <c>Publishers</c>, not
+    /// <c>Administrators</c>. A verdict belongs to the reviewer who recorded it; an administrator who needs past a
     /// standing rejection bypasses the block (§8.6.1) rather than editing the review out of the
     /// way, which keeps the record of what was actually said intact (§14.7 rule 4).</item>
-    /// <item>Hard removal is the global <c>Admin</c> and nothing else — a closed, enumerable set
+    /// <item>Hard removal is the global <c>Administrators</c> and nothing else — a closed, enumerable set
     /// with no owner branch, which is why it is the only one in the attribute.</item>
     /// </list>
     ///
@@ -322,12 +322,12 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
 
         /// <summary>
         /// Permanent removal, and the one gate here with no owner branch: the foundation requires
-        /// the global <c>Admin</c> role and admits neither the reviewer who recorded the verdict
+        /// the global <c>Administrators</c> role and admits neither the reviewer who recorded the verdict
         /// nor any suffix-matched publisher role, so the set is closed and enumerable and belongs
         /// in the attribute.
         /// </summary>
         [HttpDelete("{approvalReviewId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ApprovalReview>> HardDeleteApprovalReviewByIdAsync(
             Guid approvalReviewId,
             CancellationToken cancellationToken)

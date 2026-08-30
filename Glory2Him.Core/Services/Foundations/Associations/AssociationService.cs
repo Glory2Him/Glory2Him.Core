@@ -48,8 +48,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
     /// <c>ReadOnly</c> scoped to <i>either</i> endpoint type. Review permission is a global
     /// elevated role <b>or</b> a scoped role matching <i>at least one</i> endpoint, each
     /// endpoint checked at both the coarse entity-type tier and the narrow content-type tier.
-    /// Write permission is the owner or a review role; removal is the owner or <c>Admin</c>,
-    /// hard removal <c>Admin</c> only — both additionally subject to the endpoint veto. The
+    /// Write permission is the owner or a review role; removal is the owner or <c>Administrators</c>,
+    /// hard removal <c>Administrators</c> only — both additionally subject to the endpoint veto. The
     /// veto is scoped to writes and never consulted on a read, so a moderator holding one
     /// scoped <c>ReadOnly</c> keeps their audit visibility. Reads otherwise follow the
     /// §14.1/§14.5 posture.</para>
@@ -349,8 +349,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             foreach (EntityType entityType in Enum.GetValues<EntityType>())
             {
                 bool isReviewable =
-                    securityContext.Roles.Contains(Roles.ReviewerFor(entityType))
-                        || securityContext.Roles.Contains(Roles.PublisherFor(entityType));
+                    securityContext.Roles.Contains(Roles.ReviewersFor(entityType))
+                        || securityContext.Roles.Contains(Roles.PublishersFor(entityType));
 
                 if (isReviewable)
                 {
@@ -370,8 +370,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // invariant lives in this service, not in the schema — there is no check constraint
         // tying the column to an EntityType of ContentItem — so a row arriving by migration,
         // backfill or direct SQL is not bound by it. Matching on the content type alone would
-        // then hand a "ContentItem-Testimony-Reviewer" a Tag endpoint carrying Testimony,
-        // while the single read denies the same row (it composes "Tag-Testimony-Reviewer",
+        // then hand a "ContentItem-Testimony-Reviewers" a Tag endpoint carrying Testimony,
+        // while the single read denies the same row (it composes "Tag-Testimony-Reviewers",
         // which is never granted). The bulk path must not be the more permissive of the two.
         private static HashSet<ContentType> ResolveReviewableContentTypes(
             SecurityContext? securityContext)
@@ -387,9 +387,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             {
                 bool isReviewable =
                     securityContext.Roles.Contains(
-                            Roles.ReviewerFor(EntityType.ContentItem, contentType))
+                            Roles.ReviewersFor(EntityType.ContentItem, contentType))
                         || securityContext.Roles.Contains(
-                            Roles.PublisherFor(EntityType.ContentItem, contentType));
+                            Roles.PublishersFor(EntityType.ContentItem, contentType));
 
                 if (isReviewable)
                 {
@@ -617,7 +617,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             ValidateStorageAssociation(maybeAssociation, associationId);
 
             // the same endpoint veto the soft delete applies. Without it this surface is the
-            // one write an endpoint-blocked Admin can still perform — and it is the
+            // one write an endpoint-blocked Administrators can still perform — and it is the
             // destructive one, taking the audit trail with it. A block that stops the
             // reversible takedown but not the irreversible one is the wrong way round.
             ValidateUserIsNotBlockedFromEndpoints(

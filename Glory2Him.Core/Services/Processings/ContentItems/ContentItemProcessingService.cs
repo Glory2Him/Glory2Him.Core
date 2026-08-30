@@ -719,7 +719,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // path that could relabel an item: the in-place edit is refused by the foundation's
             // pin against the stored row, but a fork is an ADD and has no stored row to pin
             // against, so a Story became a Testimony with its content never validated against
-            // the target type's rules, its %ContentItem%-%ContentType%-Reviewer/-Publisher tier
+            // the target type's rules, its %ContentItem%-%ContentType%-Reviewers/-Publishers tier
             // changed under it (§18.6 rule 5), and its duplicate bucket moved (§3.4.2).
             // From the highest version the group has EVER held, not from the tip's own
             // number. The tip is the highest LIVE row, but a soft-deleted row still owns

@@ -32,9 +32,9 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.BibleReferences
 
             List<string> expectedAttributeValues = new List<string>
             {
-                Roles.Admin,
-                Roles.Publisher,
-                Roles.BibleReferencePublisher
+                Roles.Administrators,
+                Roles.Publishers,
+                Roles.BibleReferencePublishers
             };
 
             // When

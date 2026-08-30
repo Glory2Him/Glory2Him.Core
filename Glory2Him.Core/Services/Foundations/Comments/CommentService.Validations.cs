@@ -47,29 +47,29 @@ namespace Glory2Him.Core.Services.Foundations.Comments
         }
 
         // the moderation roles that may act on and read non-public versions for review and
-        // audit (Reviewer, Publisher, Admin — global or Comment-scoped, §16.6)
+        // audit (Reviewers, Publishers, Administrators — global or Comment-scoped, §16.6)
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.CommentReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.CommentPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.CommentReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.CommentPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // the publisher tier: the roles the approve operation itself requires, and the only ones
         // besides the owner that may move a submission status through the general modify. Strictly
-        // narrower than the review tier — a Reviewer is absent by design (§8.6 HR-3).
+        // narrower than the review tier — a reviewer is absent by design (§8.6 HR-3).
         private static bool HasPublisherRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.CommentPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.CommentPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // row-level write permission: the owner or a review role may write the row — the
         // narrower process rules stay in the orchestration, which needs owner writes to
         // approved rows and role writes for the publish flip.
         //
         // Returns whether the caller may also use the Draft <-> Submitted carve-out (§9.2): the
-        // owner or the Publisher tier. It falls out of the ownership check already performed, so
-        // it is returned rather than recomputed. A Reviewer holds write permission but is NOT in
+        // owner or the Publishers tier. It falls out of the ownership check already performed, so
+        // it is returned rather than recomputed. A reviewer holds write permission but is NOT in
         // the publisher tier, so it may amend content and still never move the status (HR-3).
         private async ValueTask<bool> ValidateUserCanModifyStorageCommentAsync(
             Comment storageComment,
@@ -91,7 +91,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
         }
 
         // Approved and Rejected are TERMINAL: the content of a row in either state is immutable
-        // in place, to its owner, to a Publisher and to an Admin alike (§3.4 rules 7 and 16,
+        // in place, to its owner, to a publisher and to an administrator alike (§3.4 rules 7 and 16,
         // §9.7.4, §12.3.1 shared rule 9). Reviewers reached a verdict on that text, and text
         // that changes underneath a verdict makes the verdict a record of nothing.
         //
@@ -103,7 +103,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
         // with no re-review. That is the hole this closes; the pin never covered it.
         //
         // A comment never forks, so refusing the write IS the enforcement — there is no version to
-        // amend into, and the only way back is the Admin override on the approval transition
+        // amend into, and the only way back is the Administrators override on the approval transition
         // (§8.6 HR-4). For the Versioned entities an orchestration turns this same condition
         // into a fork instead (§10.17, #199).
         //
@@ -125,7 +125,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
         }
 
         // removing content is a takedown, not a moderation step — the owner may remove
-        // their own comment and an Admin may remove anyone's; Reviewers and Publishers
+        // their own comment and an administrator may remove anyone's; Reviewers and Publishers
         // moderate through the approval workflow instead
         private async ValueTask ValidateUserCanRemoveStorageCommentAsync(
             Comment storageComment,
@@ -137,14 +137,14 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageComment.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedCommentException(
                     message: "The current user is not allowed to remove this comment.");
             }
         }
 
-        // a hard remove destroys the row and its audit trail — Admin only
+        // a hard remove destroys the row and its audit trail — Administrators only
         private static void ValidateUserCanHardRemoveComment(SecurityContext securityContext)
         {
             if (securityContext is null || securityContext.IsAuthenticated is false)
@@ -160,7 +160,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                     message: "The current user is blocked from contributing comments.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedCommentException(
                     message: "The current user is not allowed to permanently remove this comment.");
@@ -314,7 +314,7 @@ namespace Glory2Him.Core.Services.Foundations.Comments
 
                 // The general modify is for content only. Every IApproval member belongs to the
                 // approve operation (design §9.7.1 rules 2 and 3), so all five are pinned against
-                // storage here — except the one carve-out: the owner or Publisher tier may move
+                // storage here — except the one carve-out: the owner or Publishers tier may move
                 // the status between Draft and Submitted (§9.2). Without these pins any caller with
                 // write permission could take a pending row and publish it through the general
                 // modify, approving content nobody with authority over it ever looked at.
@@ -490,10 +490,10 @@ namespace Glory2Him.Core.Services.Foundations.Comments
                 $"or {nameof(ApprovalStatus.Submitted)} on add"
         };
 
-        // The one carve-out on modify (design §9.2 rules 4-6): the owner or Publisher tier may
+        // The one carve-out on modify (design §9.2 rules 4-6): the owner or Publishers tier may
         // move the status between Draft and Submitted, because submitting is inseparable from the
         // edit that made the work ready. Everything else about the status stays pinned, and the
-        // caller must have been found eligible before this is reached — a Reviewer holds write
+        // caller must have been found eligible before this is reached — a reviewer holds write
         // permission on the row and must still never move the status (HR-3).
         private static dynamic IsNotAPermittedStatusChangeOnModify(
             ApprovalStatus inputStatus,

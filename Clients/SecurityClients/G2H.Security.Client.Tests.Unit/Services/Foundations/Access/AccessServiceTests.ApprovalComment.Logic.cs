@@ -155,13 +155,13 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         }
 
         [Theory]
-        [InlineData(RoleNames.Admin)]
-        [InlineData(RoleNames.Publisher)]
-        [InlineData(RoleNames.Reviewer)]
+        [InlineData(RoleNames.Administrators)]
+        [InlineData(RoleNames.Publishers)]
+        [InlineData(RoleNames.Reviewers)]
         public async Task ShouldRefuseAmendingAnotherPersonsCommentWhateverTheRoleAsync(
             string role)
         {
-            // given: no tier widens the amend gate. An Admin who needs past an unresolved
+            // given: no tier widens the amend gate. An administrator who needs past an unresolved
             // comment resolves it or bypasses the block; neither rewrites another's words.
             AmendApprovalCommentRequest amendApprovalCommentRequest =
                 CreateRandomAmendApprovalCommentRequest(
@@ -256,7 +256,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
                     actor: CreateRandomAccessActor(
-                        roles: new List<string> { RoleNames.Admin }),
+                        roles: new List<string> { RoleNames.Administrators }),
                     commentCreatedBy: GetRandomString(),
                     isParentApprovalDeleted: true);
 
@@ -275,7 +275,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         [Fact]
         public async Task ShouldRefuseTheAuthorResolvingOnceTheRoundHasClosedAsync()
         {
-            // given: the closed-round bar is not an Admin-only rule — narrowing it to admins
+            // given: the closed-round bar is not an administrator-only rule — narrowing it to admins
             // would otherwise survive the suite
             string authorId = GetRandomString();
 
@@ -309,7 +309,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             var actorWithoutUserId = new AccessActor
             {
                 UserId = invalidUserId!,
-                Roles = new List<string> { RoleNames.Admin },
+                Roles = new List<string> { RoleNames.Administrators },
                 IsAuthenticated = true,
             };
 
@@ -357,11 +357,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         }
 
         [Theory]
-        [InlineData(RoleNames.Publisher)]
-        [InlineData(RoleNames.Reviewer)]
+        [InlineData(RoleNames.Publishers)]
+        [InlineData(RoleNames.Reviewers)]
         public async Task ShouldRefuseResolvingAnotherPersonsCommentWithoutAdminAsync(string role)
         {
-            // given: the resolve gate widens to Admin and to nobody else
+            // given: the resolve gate widens to Administrators and to nobody else
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(roles: new List<string> { role }),
@@ -380,11 +380,11 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         public async Task ShouldPermitAnAdminResolvingAnotherPersonsCommentAsync()
         {
             // given: resolving records that a comment is settled, which changes no words —
-            // the one comment operation an Admin may perform on someone else's row
+            // the one comment operation an administrator may perform on someone else's row
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(
-                    roles: new List<string> { RoleNames.Admin }),
+                    roles: new List<string> { RoleNames.Administrators }),
                 commentCreatedBy: GetRandomString());
 
             // when
@@ -427,7 +427,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             ResolveApprovalCommentRequest resolveApprovalCommentRequest =
                 CreateRandomResolveApprovalCommentRequest(
                 actor: CreateRandomAccessActor(
-                    roles: new List<string> { RoleNames.Admin }),
+                    roles: new List<string> { RoleNames.Administrators }),
                 commentCreatedBy: GetRandomString(),
                 approvalState: closedState);
 

@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldHardRemoveContentItemByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItem randomContentItem = CreateRandomContentItem();
             ContentItem storageContentItem = randomContentItem;
             ContentItem expectedContentItem = storageContentItem.DeepClone();

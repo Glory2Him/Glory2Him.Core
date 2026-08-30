@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldRemoveContentItemSettingByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
             randomContentItemSetting.IsDeleted = false;
             ContentItemSetting storageContentItemSetting = randomContentItemSetting;
@@ -114,7 +114,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldRemoveContentItemSettingByIdWithDeletionReasonAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string someDeletionReason = GetRandomString();
             ContentItemSetting randomContentItemSetting = CreateRandomContentItemSetting();
             randomContentItemSetting.IsDeleted = false;
@@ -200,7 +200,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldReturnEarlyOnRemoveByIdIfAlreadyDeletedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting alreadyDeletedContentItemSetting = CreateRandomContentItemSetting();
             alreadyDeletedContentItemSetting.IsDeleted = true;
             Guid someContentItemSettingId = alreadyDeletedContentItemSetting.Id;
