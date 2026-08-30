@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowValidationExceptionOnDismissIfIdIsInvalidAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             var invalidApprovalReviewException =
                 new InvalidApprovalReviewException(
@@ -77,7 +77,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowNotFoundOnDismissIfTheReviewIsMissingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             Guid approvalReviewId = Guid.NewGuid();
 
             this.storageBrokerMock.Setup(broker =>
@@ -118,7 +118,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowNotFoundOnDismissIfTheReviewIsSoftDeletedAsync()
         {
             // given: a soft-removed review is reported as not-found, matching the read posture
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.IsDeleted = true;
@@ -171,7 +171,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         {
             // given: a fully authenticated caller, holding the tier that USED to be sufficient
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             this.eventEnvelopeBrokerMock.Setup(broker =>
                 broker.CreateSystemAsync(It.IsAny<ApprovalReview>()))
@@ -212,7 +212,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // rather than treated as idempotent, so the caller learns it was a no-op instead of
             // it silently re-stamping the audit values and re-publishing the fact. The publisher
             // tier passes first, so this proves the state gate stands on its own.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.StatusId = ApprovalStatus.Dismissed;

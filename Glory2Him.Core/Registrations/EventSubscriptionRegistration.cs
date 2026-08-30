@@ -303,7 +303,7 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers.ContentItemProcessingOnRemovingContentItemByIdSubscriptionName,
 
                     Description = "Handles remove requests: runs the contribution gate and the " +
-                        "owner/Admin permission rule, then soft deletes the content item via " +
+                        "owner/Administrators permission rule, then soft deletes the content item via " +
                         "the foundation service (which publishes ContentItem-Removed), and " +
                         "replies with the removed entity; ApprovalStatus is left untouched."
                 },
@@ -770,7 +770,7 @@ namespace Glory2Him.Core.Registrations
                     Name = EventBrokerIdentifiers.LinkProcessingOnRemovingLinkByIdSubscriptionName,
 
                     Description = "Handles remove requests: runs the contribution gate and the " +
-                        "owner/Admin permission rule, then soft deletes the link via the " +
+                        "owner/Administrators permission rule, then soft deletes the link via the " +
                         "foundation service (which publishes Link-Removed), and replies with " +
                         "the removed entity; ApprovalStatus is left untouched."
                 },

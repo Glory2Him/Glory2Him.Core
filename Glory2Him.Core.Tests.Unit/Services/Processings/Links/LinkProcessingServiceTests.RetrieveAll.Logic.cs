@@ -254,11 +254,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.LinkReviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.LinkPublisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.LinkReviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.LinkPublishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldRetrieveEveryNonDeletedLinkOnRetrieveAllIfCallerHasReviewRoleAsync(
             string reviewRole)
         {

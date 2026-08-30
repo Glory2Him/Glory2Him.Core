@@ -131,13 +131,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
 
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a link they did not create.
-        /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>Link-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// Both tiers are exercised — the global <c>Reviewers</c> and the entity-scoped
+        /// <c>Link-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.LinkReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.LinkReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersLinkAsync(string reviewRoleName)
         {
             // given
@@ -161,7 +161,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         }
 
         /// <summary>
-        /// Removal is owner-or-Admin, deliberately narrower than modify: a Reviewer holds write
+        /// Removal is owner-or-Administrators, deliberately narrower than modify: a reviewer holds write
         /// permission on someone else's link but may not delete it.
         /// </summary>
         [Fact]
@@ -169,7 +169,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         {
             // given
             Link randomLink = await PostRandomLinkAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.LinkReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.LinkReviewers);
 
             try
             {
@@ -189,7 +189,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         /// <summary>
         /// The block tier (design §18.6): "assigned to users who misbehave, takes precedence over
         /// every other role". Both the global and the link-scoped block are refused, and the
-        /// refusal survives the caller also holding Admin — precedence is the whole point.
+        /// refusal survives the caller also holding Administrators — precedence is the whole point.
         /// </summary>
         [Theory]
         [InlineData(Roles.ReadOnly)]
@@ -215,7 +215,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         {
             // given
             Link randomLink = CreateRandomLink();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postLinkTask = this.apiBroker.PostLinkAsync(randomLink).AsTask();

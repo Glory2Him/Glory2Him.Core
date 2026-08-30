@@ -151,7 +151,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
@@ -257,7 +257,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             new EventEnvelope<ContentItemSetting>
             {
                 Content = new ContentItemSetting { Id = Guid.NewGuid() },
-                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

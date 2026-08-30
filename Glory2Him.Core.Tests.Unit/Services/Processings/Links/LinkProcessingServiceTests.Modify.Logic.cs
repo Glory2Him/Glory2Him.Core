@@ -483,16 +483,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(ApprovalStatus.Draft, Roles.Reviewer)]
-        [InlineData(ApprovalStatus.Draft, Roles.LinkReviewer)]
-        [InlineData(ApprovalStatus.Submitted, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Submitted, Roles.LinkPublisher)]
-        [InlineData(ApprovalStatus.Dismissed, Roles.Admin)]
+        [InlineData(ApprovalStatus.Draft, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Draft, Roles.LinkReviewers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.LinkPublishers)]
+        [InlineData(ApprovalStatus.Dismissed, Roles.Administrators)]
         public async Task ShouldModifyLinkInPlaceOnModifyIfActorHasModifyRoleAsync(
             ApprovalStatus approvalStatus,
             string modifyingRole)
         {
-            // given: while a link is not yet decided, a Reviewer, Publisher or Admin
+            // given: while a link is not yet decided, a reviewer, Publishers or Administrators
             // (global or Link-scoped) may modify it in place alongside the owner; the link
             // stays on the same row and their identity lands on UpdatedBy downstream. A
             // terminal link is deliberately absent — it belongs to its owner alone.

@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidReactionId = Guid.Empty;
 
             var invalidReactionException = new InvalidReactionException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfReactionNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someReactionId = Guid.NewGuid();
             Reaction noReaction = null;
 
@@ -219,11 +219,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         [Fact]
         public async Task ShouldBlockHardRemoveWhenTheCallerIsGloballyReadOnlyAndLogItAsync()
         {
-            // given: the global ReadOnly ban outranks Admin, so a banned Admin is refused before
+            // given: the global ReadOnly ban outranks Administrators, so a banned administrator is refused before
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someReactionId = Guid.NewGuid();
 
@@ -275,11 +275,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         [Fact]
         public async Task ShouldBlockHardRemoveWhenTheCallerIsScopedReadOnlyAndLogItAsync()
         {
-            // given: a banned caller who also holds Admin must be refused the irreversible hard
+            // given: a banned caller who also holds Administrators must be refused the irreversible hard
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReactionReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReactionReadOnly);
 
             Guid someReactionId = Guid.NewGuid();
 

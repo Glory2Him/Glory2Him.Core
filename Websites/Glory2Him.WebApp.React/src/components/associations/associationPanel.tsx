@@ -182,7 +182,7 @@ export function AssociationPanel({
     rejectIconCssClass = 'bi-slash-circle',
     approveButtonCssClass = 'btn-success',
     rejectButtonCssClass = 'btn-warning',
-    moderationRoles = 'Reviewer, Publisher, Administrators',
+    moderationRoles = 'Reviewers, Publishers, Administrators',
     showAdd = false,
     addRoles = '',
     suggestTitle = '',

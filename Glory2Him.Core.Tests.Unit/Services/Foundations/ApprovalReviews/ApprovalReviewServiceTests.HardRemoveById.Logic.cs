@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldHardRemoveApprovalReviewByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalReview randomApprovalReview = CreateRandomApprovalReview();
             ApprovalReview storageApprovalReview = randomApprovalReview;
             ApprovalReview expectedApprovalReview = storageApprovalReview.DeepClone();

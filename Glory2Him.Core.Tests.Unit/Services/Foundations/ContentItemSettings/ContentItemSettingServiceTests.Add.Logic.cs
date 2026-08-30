@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldAddContentItemSettingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ContentItemSetting randomContentItemSetting = CreateContentItemSettingFiller(randomDateTimeOffset).Create();
             ContentItemSetting inputContentItemSetting = randomContentItemSetting;

@@ -158,19 +158,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         // the review roles a workflow record honors: the global three, plus — by the §16.6
-        // suffix convention — any entity-scoped "{Entity}-Reviewer"/"{Entity}-Publisher"
+        // suffix convention — any entity-scoped "{Entity}-Reviewers"/"{Entity}-Publishers"
         public static TheoryData<string> ReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.Reviewer,
-                Roles.Publisher,
-                Roles.Admin,
-                Roles.ContentItemReviewer,
-                Roles.ContentItemPublisher
+                Roles.Reviewers,
+                Roles.Publishers,
+                Roles.Administrators,
+                Roles.ContentItemReviewers,
+                Roles.ContentItemPublishers
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()

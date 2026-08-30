@@ -63,7 +63,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 List<ApprovalReview> actualReviews =
                     await this.apiBroker.GetAllApprovalReviewsAsync();
 
-                // then: the acting caller holds Reviewer, so the row is visible in the collection
+                // then: the acting caller holds Reviewers, so the row is visible in the collection
                 actualReviews.Should().Contain(retrieved => retrieved.Id == review.Id);
             }
             finally

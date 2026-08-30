@@ -135,7 +135,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             BibleReference storageBibleReference = CreateSubmittableStorageBibleReference();
 
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             this.securityAuditBrokerMock.Setup(broker =>
                 broker.GetUserIdAsync(It.IsAny<SecurityContext>()))

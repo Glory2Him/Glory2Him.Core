@@ -546,16 +546,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
         }
 
         [Theory]
-        [InlineData(ApprovalStatus.Draft, Roles.Reviewer)]
-        [InlineData(ApprovalStatus.Submitted, Roles.ContentItemReviewer)]
-        [InlineData(ApprovalStatus.Submitted, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Draft, Roles.ContentItemPublisher)]
-        [InlineData(ApprovalStatus.Dismissed, Roles.Admin)]
+        [InlineData(ApprovalStatus.Draft, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.ContentItemReviewers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Draft, Roles.ContentItemPublishers)]
+        [InlineData(ApprovalStatus.Dismissed, Roles.Administrators)]
         public async Task ShouldModifyContentItemInPlaceOnModifyIfActorHasModifyRoleAsync(
             ApprovalStatus approvalStatus,
             string modifyingRole)
         {
-            // given: while an item is not yet decided, a Reviewer, Publisher or Admin
+            // given: while an item is not yet decided, a reviewer, Publishers or Administrators
             // (global or ContentItem-scoped) may modify it in place alongside the owner;
             // the item stays on the same row and their identity lands on UpdatedBy
             // downstream. A terminal item is deliberately absent — it belongs to its owner
@@ -705,8 +705,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
             // that by the foundation's pin against the stored row, but a fork is an ADD: it has no
             // stored row of its own to be pinned against. That made the fork the one path that
             // could relabel an item — a Story landing as a Testimony with its content never
-            // validated against the target type's rules, its %ContentItem%-%ContentType%-Reviewer
-            // /-Publisher tier changed under it (§18.6 rule 5), and its duplicate bucket moved
+            // validated against the target type's rules, its %ContentItem%-%ContentType%-Reviewers
+            // /-Publishers tier changed under it (§18.6 rule 5), and its duplicate bucket moved
             // (§3.4.2).
             //
             // The caller here sends a DIFFERENT ContentType from the stored tip, which is what the

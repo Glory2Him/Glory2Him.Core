@@ -20,7 +20,7 @@ namespace Glory2Him.WebApp.Data
     // the sibling of SeedData.cs, which does the same for roles and users.
     //
     // WRITTEN DIRECTLY THROUGH IStorageBroker, bypassing ContentItemSettingService. The
-    // foundation enforces its own Admin gate (design §14.6) by reading the SecurityContext
+    // foundation enforces its own Administrators gate (design §14.6) by reading the SecurityContext
     // an inbound EventEnvelope carries, and that envelope is populated from the ambient
     // HttpContext at the moment it is created (CoreRegistration.cs). There is no HttpContext
     // during host startup, so the audited Add path is unreachable here — the same reason

@@ -224,13 +224,13 @@ describe('AssociationPanel', () => {
 
         it('should show a submitted item to a moderator so they can decide on it', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
                 <AssociationPanel
                     title="Tags"
-                    moderationRoles="Reviewer"
+                    moderationRoles="Reviewers"
                     removeRoles="[OWNER]"
                     associationCollection={[submittedItem('hope', OtherId)]} />);
 
@@ -279,7 +279,7 @@ describe('AssociationPanel', () => {
 
         it('should hide a draft from the publishing tier — it was never put forward', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -312,7 +312,7 @@ describe('AssociationPanel', () => {
 
         it('should hide a refusal from the publishing tier — it has already been judged', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -351,7 +351,7 @@ describe('AssociationPanel', () => {
 
         it('should not let a reviewer see a draft or a refusal, only what awaits them', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(

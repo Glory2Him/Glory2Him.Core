@@ -40,7 +40,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
     /// inbound envelope carries the original caller's <c>SecurityContext</c> and anchors the
     /// causation chain. Per design §14.6 the foundation enforces security itself — the
     /// contribution gate on writes, owner-or-review-role write permission (removal by owner
-    /// or Admin, hard removal by Admin only), and the §14.1/§14.5 read visibility posture
+    /// or Administrators, hard removal by Administrators only), and the §14.1/§14.5 read visibility posture
     /// (an approval is a workflow record, never public: only its owner and the review roles
     /// may read it) — never assuming an upstream orchestration already gated the caller.
     /// </summary>
@@ -406,7 +406,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     cancellationToken: cancellationToken);
 
                 // and that tier narrowed to the entity actually under approval, which the
-                // row-local check above cannot see — a Tag-Reviewer clears it for any approval
+                // row-local check above cannot see — a Tag-Reviewers holder clears it for any approval
                 // at all. Asked about the STORED row, so a payload naming a different entity
                 // cannot move the question onto something the caller does hold a role for.
                 await ValidateUserMayAmendStorageApprovalAsync(
@@ -449,7 +449,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             // The seam is not only the automatic path. RecordApprovalDecisionAsync relays a
             // DELIBERATE human decision through it (Decisions.cs:108) and sets
             // IsApprovedByBypass from that decision's own verdict — which is true whenever an
-            // Admin legitimately bypass-approves. A guard keyed on isSystemIdentity therefore
+            // administrator legitimately bypass-approves. A guard keyed on isSystemIdentity therefore
             // refuses the one case a bypass is FOR.
             //
             // What actually protects the pair is that every call site derives it from a verdict

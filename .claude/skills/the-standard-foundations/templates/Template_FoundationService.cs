@@ -990,7 +990,7 @@ namespace {Namespace}.Services.Foundations.{Entity}s
 
         // Replace with this entity's actual write posture. The shape below — authenticated
         // first, then the global ReadOnly ban, then the permission itself — is the order to
-        // keep: the ban precedes the role check so a banned Admin cannot reach past it.
+        // keep: the ban precedes the role check so a banned administrator cannot reach past it.
         private static void ValidateUserIsAllowedToWrite{Entity}(
             SecurityContext securityContext)
         {
@@ -1006,7 +1006,7 @@ namespace {Namespace}.Services.Foundations.{Entity}s
                     message: "The current user is blocked from writing {entity display}s.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new Unauthorized{Entity}Exception(
                     message: "The current user is not allowed to write {entity display}s.");
@@ -1014,7 +1014,7 @@ namespace {Namespace}.Services.Foundations.{Entity}s
         }
 
         // hard removal is a separate gate from the ordinary write: it destroys the audit
-        // trail, so it is Admin-only even where ordinary writes are wider
+        // trail, so it is Administrators-only even where ordinary writes are wider
         private static void ValidateUserIsAllowedToHardRemove{Entity}(
             SecurityContext securityContext)
         {
@@ -1030,7 +1030,7 @@ namespace {Namespace}.Services.Foundations.{Entity}s
                     message: "The current user is blocked from removing {entity display}s.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new Unauthorized{Entity}Exception(
                     message: "The current user is not allowed to hard remove {entity display}s.");
@@ -2091,7 +2091,7 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
@@ -2163,7 +2163,7 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
             new EventEnvelope<{Entity}>
             {
                 Content = new {Entity} { Id = Guid.NewGuid() },
-                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 
@@ -2236,7 +2236,7 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
         public async Task ShouldAdd{Entity}Async()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             {Entity} random{Entity} = Create{Entity}Filler(randomDateTimeOffset).Create();
             {Entity} input{Entity} = random{Entity};
@@ -2357,7 +2357,7 @@ namespace {Namespace}.Tests.Unit.Services.Foundations.{Entity}s
             var requestEnvelope = new EventEnvelope<{Entity}>
             {
                 Content = input{Entity},
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

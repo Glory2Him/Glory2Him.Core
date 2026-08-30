@@ -23,7 +23,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
     /// §14.7 posture C, and this suite is written rather than copied because posture C differs
     /// from the content exposers' posture A in both directions.
     ///
-    /// <para><b>Writes are narrower.</b> Every write including hard removal is <c>Admin</c> only.
+    /// <para><b>Writes are narrower.</b> Every write including hard removal is <c>Administrators</c> only.
     /// There is no owner branch and no scoped review tier — <c>Roles.cs</c> declares no
     /// <c>ApprovalSetting-*</c> constants at all — so the contributor, reviewer and
     /// owner-versus-moderator cases the posture A suites spend most of their length on do not
@@ -62,7 +62,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
 
         /// <summary>
         /// The half of posture C rule 2 that is easy to lose. It would be tempting to gate these
-        /// reads on <c>Admin</c> like the writes; the design says otherwise, because a contributor
+        /// reads on <c>Administrators</c> like the writes; the design says otherwise, because a contributor
         /// needs to see the policy their submission will be judged under.
         /// </summary>
         [Fact]
@@ -115,13 +115,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
 
         /// <summary>
         /// The whole of posture C rule 1 in one theory: only administrators author configuration.
-        /// A <c>Publisher</c> is the interesting negative — they carry the highest tier this
+        /// A publisher is the interesting negative — they carry the highest tier this
         /// exposer's sibling controllers admit on their approve route, and it buys them nothing
         /// here.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefusePostIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -144,8 +144,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefusePutIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -175,8 +175,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefuseDeleteIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -203,8 +203,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefuseHardDeleteIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given

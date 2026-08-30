@@ -105,11 +105,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
 
             // when
             await this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                new[] { "  Tag-Reviewer  ", "tag-reviewer", "TAG-PUBLISHER", null, "  " },
+                new[] { "  Tag-Reviewers  ", "tag-reviewers", "TAG-PUBLISHERS", null, "  " },
                 TestContext.Current.CancellationToken);
 
             // then
-            capturedRoleNames.Should().BeEquivalentTo(new[] { "TAG-REVIEWER", "TAG-PUBLISHER" });
+            capturedRoleNames.Should().BeEquivalentTo(new[] { "TAG-REVIEWERS", "TAG-PUBLISHERS" });
         }
 
         [Fact]
@@ -130,7 +130,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             IReadOnlyList<IdentityUser> members =
                 await this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then
@@ -154,7 +154,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then: the security database being unreachable is a CRITICAL dependency failure,
@@ -179,7 +179,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then
@@ -201,7 +201,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     cancellationTokenSource.Token);
 
             // then
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.IdentityUsers
             // when
             ValueTask<IReadOnlyList<IdentityUser>> retrieveTask =
                 this.identityUserService.RetrieveIdentityUsersInRolesAsync(
-                    new[] { "Tag-Reviewer" },
+                    new[] { "Tag-Reviewers" },
                     TestContext.Current.CancellationToken);
 
             // then

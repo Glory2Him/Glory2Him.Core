@@ -44,7 +44,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
     /// and there is no approval-invalidation hazard in binding one layer down meanwhile.</para>
     ///
     /// <para><b>Posture C (§14.7) on the writes.</b> All writes including hard removal are
-    /// <c>Admin</c> only — there is no owner branch, because only administrators author
+    /// <c>Administrators</c> only — there is no owner branch, because only administrators author
     /// configuration — so the role list is expressible on the attribute rather than deferred to
     /// the service. The service still re-decides it against the stored row (§14.6).</para>
     ///
@@ -81,7 +81,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
             this.contentItemSettingService = contentItemSettingService;
 
         [HttpPost]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> PostContentItemSettingAsync(
             [FromBody] ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken)
@@ -179,7 +179,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         }
 
         [HttpPut]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> PutContentItemSettingAsync(
             [FromBody] ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken)
@@ -234,7 +234,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         /// The optional reason is carried through to <c>DeletionReason</c>.
         /// </summary>
         [HttpDelete("{contentItemSettingId}")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> DeleteContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             [FromQuery] string? deletionReason,
@@ -287,11 +287,11 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         }
 
         /// <summary>
-        /// Permanent removal. Design §14.6 restricts hard removal to <c>Admin</c>; the attribute
+        /// Permanent removal. Design §14.6 restricts hard removal to <c>Administrators</c>; the attribute
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{contentItemSettingId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> HardDeleteContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             CancellationToken cancellationToken)
