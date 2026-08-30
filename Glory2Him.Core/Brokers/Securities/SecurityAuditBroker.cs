@@ -9,7 +9,6 @@
 // If Jesus is who He said He is, what does that mean for you, today?
 // ────────────────────────────────────────────────────────────────────────────────
 
-using System.Security.Claims;
 using System.Threading.Tasks;
 using G2H.Security.Client.Clients;
 using G2H.Security.Client.Models.Clients;
@@ -18,9 +17,10 @@ using Glory2Him.Core.Models.Events;
 namespace Glory2Him.Core.Brokers.Securities
 {
     /// <summary>
-    /// Stamps and verifies audit metadata (CreatedBy/UpdatedBy/DeletedBy and their timestamps)
-    /// on entities, and resolves the acting user id — all from the actor carried on an event
-    /// envelope's <see cref="SecurityContext"/> rather than an ambient principal.
+    /// Stamps audit metadata (CreatedBy/UpdatedBy/DeletedBy and their timestamps) on entities and
+    /// resolves the acting user id, from the actor carried on an event envelope's
+    /// <see cref="SecurityContext"/> rather than an ambient principal. Also guards those values
+    /// across a modify, which involves no actor at all.
     /// </summary>
     internal class SecurityAuditBroker : ISecurityAuditBroker
     {
@@ -60,7 +60,7 @@ namespace Glory2Him.Core.Brokers.Securities
         public ValueTask<T> ApplyAddAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
             this.securityClient.Audits.ApplyAddAuditValuesAsync(
                 entity,
-                CreateClaimsPrincipal(securityContext),
+                SecurityContextPrincipalFactory.Create(securityContext),
                 securityConfigurations);
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace Glory2Him.Core.Brokers.Securities
         public ValueTask<T> ApplyModifyAuditValuesAsync<T>(T entity, SecurityContext securityContext) =>
             this.securityClient.Audits.ApplyModifyAuditValuesAsync(
                 entity,
-                CreateClaimsPrincipal(securityContext),
+                SecurityContextPrincipalFactory.Create(securityContext),
                 securityConfigurations);
 
         /// <summary>
@@ -83,7 +83,7 @@ namespace Glory2Him.Core.Brokers.Securities
             string? deletionReason = null) =>
             this.securityClient.Audits.ApplyRemoveAuditValuesAsync(
                 entity,
-                CreateClaimsPrincipal(securityContext),
+                SecurityContextPrincipalFactory.Create(securityContext),
                 securityConfigurations,
                 deletionReason);
 
@@ -91,12 +91,7 @@ namespace Glory2Him.Core.Brokers.Securities
         /// Resolves the acting user id from an event envelope's <see cref="SecurityContext"/>,
         /// consistent with the id the context-aware audit methods stamp.
         /// </summary>
-        public async ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
-            await securityClient.Audits.GetUserIdAsync(CreateClaimsPrincipal(securityContext));
-
-        // Shared with AccessBroker, which resolves the actor these audit values are later
-        // compared against. See SecurityContextPrincipalFactory for why there is only one.
-        private static ClaimsPrincipal CreateClaimsPrincipal(SecurityContext securityContext) =>
-            SecurityContextPrincipalFactory.Create(securityContext);
+        public ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
+            securityClient.Audits.GetUserIdAsync(SecurityContextPrincipalFactory.Create(securityContext));
     }
 }

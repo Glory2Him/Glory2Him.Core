@@ -21,13 +21,14 @@ namespace Glory2Him.Core.Brokers.Securities
     internal interface ISecurityAuditBroker
     {
         /// <summary>
-        /// Ensures that audit values related to entity creation remain unchanged during modification,
-        /// copying them from the stored version of the entity to the current one.
+        /// Ensures that audit values other than the ones being modified (e.g., created by/date)
+        /// remain unchanged during modification, copying them from the stored version of the
+        /// entity to the current one.
         /// </summary>
         /// <typeparam name="T">The type of the entity being verified.</typeparam>
         /// <param name="entity">The modified entity.</param>
         /// <param name="storageEntity">The original stored entity with correct creation audit values.</param>
-        /// <returns>A task containing the entity with preserved creation audit values.</returns>
+        /// <returns>A task containing the entity with preserved other audit values.</returns>
         ValueTask<T> EnsureOtherAuditValuesRemainsUnchangedOnModifyAsync<T>(
             T entity,
             T storageEntity);

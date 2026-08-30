@@ -120,7 +120,8 @@ namespace Glory2Him.WebApp.Infrastructure
             // actors, so the same mistake here would misattribute every CreatedBy/UpdatedBy in
             // the process. The accepted cost of that margin: SecurityClient's constructor builds
             // its own small internal DI container, so this rebuilds it once per scope rather than
-            // once per process.
+            // once per process — AccessBroker above pays the identical cost independently for the
+            // same reason, since nothing here shares a single ISecurityClient between the two.
             services.AddScoped<ISecurityAuditBroker, SecurityAuditBroker>();
             // The service INTERFACES are public; the implementations are not. Binding the two is
             // only possible from inside Core's friend set, which is the point — the host names

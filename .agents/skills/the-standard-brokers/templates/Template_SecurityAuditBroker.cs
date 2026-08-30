@@ -78,6 +78,10 @@ namespace {Namespace}.Brokers.Securities
 }
 
 // SecurityAuditBroker.cs — implementation
+//
+// Also emits Template_SecurityContextPrincipalFactory.cs — SecurityAuditBroker.Create* calls
+// below depend on the SecurityContextPrincipalFactory that template scaffolds into the same
+// {Namespace}.Brokers.Securities namespace.
 using System.Threading.Tasks;
 using {Namespace}.Models.Events;
 using {Namespace}.Security.Client.Clients;
@@ -86,9 +90,10 @@ using {Namespace}.Security.Client.Models.Clients;
 namespace {Namespace}.Brokers.Securities
 {
     /// <summary>
-    /// Stamps and verifies audit metadata (CreatedBy/UpdatedBy/DeletedBy and their timestamps)
-    /// on entities, and resolves the acting user id — all from the actor carried on an event
-    /// envelope's <see cref="SecurityContext"/> rather than an ambient principal.
+    /// Stamps audit metadata (CreatedBy/UpdatedBy/DeletedBy and their timestamps) on entities and
+    /// resolves the acting user id, from the actor carried on an event envelope's
+    /// <see cref="SecurityContext"/> rather than an ambient principal. Also guards those values
+    /// across a modify, which involves no actor at all.
     /// </summary>
     internal class SecurityAuditBroker : ISecurityAuditBroker
     {
@@ -167,50 +172,7 @@ namespace {Namespace}.Brokers.Securities
         /// Resolves the acting user id from an event envelope's <see cref="SecurityContext"/>.
         /// </summary>
         /// <param name="securityContext">The actor to resolve the user id for.</param>
-        public async ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
-            await this.securityClient.Audits.GetUserIdAsync(SecurityContextPrincipalFactory.Create(securityContext));
-    }
-}
-
-// SecurityContextPrincipalFactory.cs — shared claims-building helper
-using System.Collections.Generic;
-using System.Security.Claims;
-using {Namespace}.Models.Events;
-
-namespace {Namespace}.Brokers.Securities
-{
-    /// <summary>
-    /// Rebuilds a <see cref="ClaimsPrincipal"/> from an event envelope's normalized actor, so the
-    /// security client's pipeline — which resolves a user id from <c>oid</c> / <c>nameidentifier</c>
-    /// claims — sees the ORIGINAL caller regardless of what identity the current process runs under.
-    ///
-    /// <para><b>There is exactly one of these, and that is the point.</b> Every broker that needs
-    /// to turn a <see cref="SecurityContext"/> into a <see cref="ClaimsPrincipal"/> —
-    /// <see cref="SecurityAuditBroker"/> today, an access broker that compares an actor against an
-    /// entity's CreatedBy tomorrow — must call this rather than building its own copy. A second
-    /// copy would not fail loudly; it would quietly build a slightly different principal and let
-    /// two call sites silently disagree about who the actor is.</para>
-    /// </summary>
-    internal static class SecurityContextPrincipalFactory
-    {
-        public static ClaimsPrincipal Create(SecurityContext securityContext)
-        {
-            var claims = new List<Claim>();
-
-            if (string.IsNullOrWhiteSpace(securityContext?.SubjectId) is false)
-                claims.Add(new Claim(ClaimTypes.NameIdentifier, securityContext!.SubjectId!));
-
-            if (string.IsNullOrWhiteSpace(securityContext?.Username) is false)
-                claims.Add(new Claim(ClaimTypes.Name, securityContext!.Username!));
-
-            foreach (string role in securityContext?.Roles ?? [])
-                claims.Add(new Claim(ClaimTypes.Role, role));
-
-            ClaimsIdentity identity = securityContext?.IsAuthenticated == true
-                ? new ClaimsIdentity(claims, authenticationType: "EventEnvelope")
-                : new ClaimsIdentity(claims);
-
-            return new ClaimsPrincipal(identity);
-        }
+        public ValueTask<string> GetUserIdAsync(SecurityContext securityContext) =>
+            this.securityClient.Audits.GetUserIdAsync(SecurityContextPrincipalFactory.Create(securityContext));
     }
 }

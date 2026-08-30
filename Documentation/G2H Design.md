@@ -1143,7 +1143,7 @@ The answer is a **policy broker**, not a cross-entity read — and it extends th
    What the change does cost is the risk of an *ungathered* input, and that risk is real: a pure function cannot fetch what it was not given, so a missing list reads as **empty**, and empty is the permissive answer to every question asked of one. An ungathered comment list makes "all comments are resolved" vacuously true; an ungathered review list makes a rejection invisible. Both fail *open*, and both would pass any test written against them. This is closed structurally rather than by discipline: every section of every request is `required`, so a forgotten gather is a compile error at the call site.
 3. Foundation services reach it through an **`IAccessBroker`** in `Brokers/Securities/`, alongside `ISecurityBroker` and `ISecurityAuditBroker`. The service still calls one storage broker for its own entity; the policy broker is a dependency like any other, so the service stays single-entity.
 4. **The broker returns a verdict, not settings.** If it handed back an `ApprovalSetting`, the decision logic would be re-implemented in every foundation service and would drift. One question, one answer, one place.
-5. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path. `SecurityAuditBroker` already carries an access-token constructor for exactly this reason — the lesson is taken rather than repeated.
+5. **The actor is passed in from the envelope's `SecurityContext`.** The client must not resolve identity itself through `IHttpContextAccessor`: there is no `HttpContext` on the event path, so an approval arriving through an event address would carry an empty principal, and two identity sources that disagree would disagree precisely on the unauthenticated path. `SecurityAuditBroker` already takes the actor as an explicit `SecurityContext` argument on every call for exactly this reason — the lesson is taken rather than repeated.
 
    Note what this does *not* settle: it makes the envelope the single identity source, not an authenticated one. On the direct path that context is built from the real principal; on the event path it is deserialized and unverified (§14.6 rule 4). One source is still the right answer — two would disagree in the permissive direction — but the source is only as trustworthy as the path it arrived on.
 
@@ -3054,8 +3054,8 @@ the singleton `IEventBroker` as method groups. That trade is only sound in a hos
 wires those subscriptions. **A host that exposes a service over HTTP and wires no subscriptions
 must not use those helpers** — it registers the service and its request-bound brokers scoped
 itself, as `CoreRegistration.AddCoreServices` does. Only the genuinely stateless brokers
-(`IDateTimeBroker`, `IIdentifierBroker`, `IEnvelopeIntegrityBroker`, `IEventBroker`) stay
-singletons there.
+(`IDateTimeBroker`, `IIdentifierBroker`, `IHashBroker`, `IEnvelopeIntegrityBroker`,
+`IEventBroker`) stay singletons there.
 
 Because the failure is invisible to behavioural tests, **the guard is a registration test that
 asserts the lifetime directly** — see `CoreRegistrationTests.ShouldRegisterRequestBoundServicesAsScoped`.
