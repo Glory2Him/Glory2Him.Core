@@ -1099,6 +1099,83 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             this.loggingBrokerMock.VerifyNoOtherCalls();
         }
 
+        [Fact]
+        public async Task ShouldThrowValidationExceptionOnModifyIfSortOrderIsNegativeAndLogItAsync()
+        {
+            // given
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
+            string randomUserId = GetRandomString();
+            DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
+            int negativeSortOrder = GetRandomNegativeNumber();
+
+            ContentItemSetting randomContentItemSetting =
+                CreateRandomModifyContentItemSetting(randomDateTimeOffset, randomUserId);
+            ContentItemSetting invalidContentItemSetting = randomContentItemSetting;
+            invalidContentItemSetting.SortOrder = negativeSortOrder;
+
+            var invalidContentItemSettingException =
+                new InvalidContentItemSettingException(
+                    message: "Content item setting is invalid, fix the errors and try again.");
+
+            invalidContentItemSettingException.AddData(
+                key: nameof(ContentItemSetting.SortOrder),
+                values: "Value is less than the minimum of 0");
+
+            var expectedContentItemSettingValidationException =
+                new ContentItemSettingValidationException(
+                    message: "Content item setting validation error occurred, fix the errors and try again.",
+                    innerException: invalidContentItemSettingException);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItemSetting, It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(invalidContentItemSetting);
+
+            this.securityAuditBrokerMock.Setup(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()))
+                    .ReturnsAsync(randomUserId);
+
+            this.dateTimeBrokerMock.Setup(broker =>
+                broker.GetCurrentDateTimeOffsetAsync())
+                    .ReturnsAsync(randomDateTimeOffset);
+
+            // when
+            ValueTask<ContentItemSetting> modifyContentItemSettingTask =
+                this.contentItemSettingService.ModifyContentItemSettingAsync(
+                    invalidContentItemSetting,
+                    TestContext.Current.CancellationToken);
+
+            ContentItemSettingValidationException actualContentItemSettingValidationException =
+                await Assert.ThrowsAsync<ContentItemSettingValidationException>(
+                    modifyContentItemSettingTask.AsTask);
+
+            // then
+            actualContentItemSettingValidationException.Should().BeEquivalentTo(
+                expectedContentItemSettingValidationException);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.ApplyModifyAuditValuesAsync(invalidContentItemSetting, It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.securityAuditBrokerMock.Verify(broker =>
+                broker.GetUserIdAsync(It.IsAny<SecurityContext>()),
+                Times.Once);
+
+            this.dateTimeBrokerMock.Verify(broker =>
+                broker.GetCurrentDateTimeOffsetAsync(),
+                Times.Once);
+
+            this.loggingBrokerMock.Verify(broker =>
+                broker.LogErrorAsync(It.Is(
+                    SameExceptionAs(expectedContentItemSettingValidationException))),
+                Times.Once);
+
+            this.securityAuditBrokerMock.VerifyNoOtherCalls();
+            this.dateTimeBrokerMock.VerifyNoOtherCalls();
+            this.storageBrokerMock.VerifyNoOtherCalls();
+            this.eventBrokerMock.VerifyNoOtherCalls();
+            this.loggingBrokerMock.VerifyNoOtherCalls();
+        }
+
         [Theory]
         [MemberData(nameof(UnauthenticatedSecurityContexts))]
         public async Task ShouldThrowValidationExceptionOnModifyIfUserIsNotAuthenticatedAndLogItAsync(
