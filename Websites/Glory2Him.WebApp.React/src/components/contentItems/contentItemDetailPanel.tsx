@@ -13,7 +13,7 @@ import {
 import {
     ApprovalStatus,
     ContentItemFormItem,
-    ContentItemPanelMode,
+    ContentItemDetailPanelMode,
     ContentItemValidationIssues,
     ShareabilityBasis,
     shareabilityBasisLabels,
@@ -56,7 +56,7 @@ export const ContentTypeToken = '{ContentType}';
 //
 // THEMING. Styling is expressed as CSS CLASSES rather than colours, so every control follows the
 // light/dark theme. Pass btn-primary, btn-danger or any theme class — never a literal colour.
-export interface ContentItemPanelProps {
+export interface ContentItemDetailPanelProps {
     // ── Subject ───────────────────────────────────────────────────────────────
     // Absent puts the panel in `add`. Present, `read` is the default surface.
     //
@@ -68,7 +68,7 @@ export interface ContentItemPanelProps {
     // Overrides the mode derived from `contentItem`, so a consumer can land straight on an edit
     // surface without faking a click. `edit` is refused back to `read` when isEditingAllowed is
     // off, or when the roles do not allow it.
-    mode?: ContentItemPanelMode;
+    mode?: ContentItemDetailPanelMode;
 
     // Which fields exist is per content type and is PASSED IN, never fetched: the ContentItemSetting
     // rows the consumer already holds (hasTitle, hasAuthor, contentTypeName, contentTypeIconCssClass).
@@ -132,7 +132,7 @@ export interface ContentItemPanelProps {
     onModified?: (item: ContentItemFormItem) => void;
     onRemoved?: (item: ContentItemFormItem) => void;
     onCancelled?: () => void;
-    onModeChanged?: (mode: ContentItemPanelMode) => void;
+    onModeChanged?: (mode: ContentItemDetailPanelMode) => void;
 
     // ── Roles ─────────────────────────────────────────────────────────────────
     // Names the entity so the role names can be composed per §18.6 (capability LAST, and plural —
@@ -236,7 +236,7 @@ const draftFromItem = (contentItem: ContentItemFormItem | undefined): ContentIte
     sharePermission: contentItem?.sharePermission ?? ''
 });
 
-export function ContentItemPanel({
+export function ContentItemDetailPanel({
     contentItem,
     mode,
     contentItemSettingCollection = [],
@@ -293,13 +293,13 @@ export function ContentItemPanel({
     submitButtonCssClass = 'btn-primary',
     editButtonCssClass = 'btn-outline-primary',
     deleteButtonCssClass = 'btn-outline-danger'
-}: ContentItemPanelProps) {
+}: ContentItemDetailPanelProps) {
     const { isAuthenticated, user, userRoles } = useAuth();
     const location = useLocation();
     const headingId = useId();
     const fieldId = useId();
 
-    const [requestedMode, setRequestedMode] = useState<ContentItemPanelMode | null>(null);
+    const [requestedMode, setRequestedMode] = useState<ContentItemDetailPanelMode | null>(null);
     const [draft, setDraft] = useState<ContentItemDraft>(() => draftFromItem(contentItem));
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
@@ -453,17 +453,17 @@ export function ContentItemPanel({
         && contributableSettings.length > 0
         && (resolvedAddRoleList.length === 0 || holdsAnyRole(resolvedAddRoleList));
 
-    const derivedMode: ContentItemPanelMode =
+    const derivedMode: ContentItemDetailPanelMode =
         mode ?? (contentItem == null ? 'add' : 'read');
 
     const resolvedMode = requestedMode ?? derivedMode;
 
     // isEditingAllowed and the role gates both subtract, and both apply to a mode passed in as a
     // prop exactly as they do to one the reader asked for.
-    const activeMode: ContentItemPanelMode =
+    const activeMode: ContentItemDetailPanelMode =
         resolvedMode === 'edit' && mayEdit === false ? 'read' : resolvedMode;
 
-    const changeMode = (nextMode: ContentItemPanelMode) => {
+    const changeMode = (nextMode: ContentItemDetailPanelMode) => {
         setRequestedMode(nextMode);
         onModeChanged?.(nextMode);
     };

@@ -3920,7 +3920,7 @@ Planned reusable components based on the Blogzine template:
 | `ApprovalReviewForm` | Form for a reviewer to submit an approval or rejection decision. |
 | `ApprovalCommentForm` | Form to add a comment to an approval record. |
 | `ReviewPanel` | The approval round rendered: reviews, the viewer's own vote, block reasons, bypass, the publisher-tier decision, and review requests (§20.6.1). |
-| `ContentItemPanel` | One content item in the three states it has — contributed (`add`), read, amended (`edit`) — field-shaped per content type and gated per §18.6 (§20.6.2). Paste-to-upload for inline images (§5.6.6) is not part of it yet. |
+| `ContentItemDetailPanel` | One content item in the three states it has — contributed (`add`), read, amended (`edit`) — field-shaped per content type and gated per §18.6 (§20.6.2). Paste-to-upload for inline images (§5.6.6) is not part of it yet. |
 | `HeaderImagePicker` | Header-image candidates for a content item — upload, list, promote the default (§4.9). |
 | `ShareBar` | Share buttons composing real short-link URLs (§19.7). |
 | `SearchBar` | Search input with debounce. |
@@ -3949,9 +3949,9 @@ Planned reusable components based on the Blogzine template:
 
 **Indirect dependencies:** the signed-in identity and roles (`/api/accounts/me` via the auth context) for the render gates, and the approval's status for the frozen/live switch — deliberately a prop of its own, because the read-only view has a status to show and no verdict to read it from.
 
-#### 20.6.2 ContentItemPanel — contract and dependencies
+#### 20.6.2 ContentItemDetailPanel — contract and dependencies
 
-`ContentItemPanel` is a **pure presentation component**: props in, events out, no fetching, no mutation, no sockets. It carries one content item in the three states it has — `add` (no item yet), `read` (an item was handed over), and `edit` (the reader pressed Edit, or the consumer passed `mode="edit"`).
+`ContentItemDetailPanel` is a **pure presentation component**: props in, events out, no fetching, no mutation, no sockets. It carries one content item in the three states it has — `add` (no item yet), `read` (an item was handed over), and `edit` (the reader pressed Edit, or the consumer passed `mode="edit"`).
 
 **Security posture.** Every gate it renders decides what to SHOW and nothing more. The foundation and processing services re-decide add, modify and remove against the stored row (§14.6, §14.7 posture A), and must: a hidden button is a courtesy to the reader, never an authorization boundary.
 

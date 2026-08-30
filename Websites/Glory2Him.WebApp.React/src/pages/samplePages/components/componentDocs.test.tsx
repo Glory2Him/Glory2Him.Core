@@ -1,7 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssociationPanelDoc } from './associationPanelDoc';
-import { ContentItemPanelDoc } from './contentItemPanelDoc';
+import { ContentItemDetailPanelDoc } from './contentItemDetailPanelDoc';
 import { BibleReferenceAssociationPanelDoc } from './bibleReferenceAssociationPanelDoc';
 import { ReviewPanelDoc } from './reviewPanelDoc';
 import { TagAssociationPanelDoc } from './tagAssociationPanelDoc';
@@ -158,16 +158,16 @@ describe('Component reference pages', () => {
         });
     });
 
-    describe('ContentItemPanelDoc', () => {
+    describe('ContentItemDetailPanelDoc', () => {
         it('should document the component and name its source', () => {
             // when
-            renderWithAuth(<ContentItemPanelDoc />);
+            renderWithAuth(<ContentItemDetailPanelDoc />);
 
             // then
-            expect(screen.getByRole('heading', { name: 'Content Item Panel', level: 1 }))
+            expect(screen.getByRole('heading', { name: 'Content Item Detail Panel', level: 1 }))
                 .toBeInTheDocument();
 
-            expect(screen.getByText('src/components/contentItems/contentItemPanel.tsx'))
+            expect(screen.getByText('src/components/contentItems/contentItemDetailPanel.tsx'))
                 .toBeInTheDocument();
 
             expect(screen.getByRole('heading', { name: 'Security posture' }))
@@ -178,7 +178,7 @@ describe('Component reference pages', () => {
 
         it('should run the add demo rather than picture one', () => {
             // when
-            renderWithAuth(<ContentItemPanelDoc />);
+            renderWithAuth(<ContentItemDetailPanelDoc />);
 
             // then: the picker is the settings the page handed over, running for real
             expect(screen.getAllByRole('button', { name: /Testimony/ }).length)
@@ -190,7 +190,7 @@ describe('Component reference pages', () => {
 
         it('should mark up the validation demo from the API messages it was given', () => {
             // when
-            renderWithAuth(<ContentItemPanelDoc />);
+            renderWithAuth(<ContentItemDetailPanelDoc />);
 
             // then: two fields named, and the message that names no field summarised
             expect(screen.getAllByText('Text is required')).toHaveLength(2);
@@ -201,7 +201,7 @@ describe('Component reference pages', () => {
 
         it('should demonstrate the effective-setting resolution, not merely describe it', () => {
             // when
-            renderWithAuth(<ContentItemPanelDoc />);
+            renderWithAuth(<ContentItemDetailPanelDoc />);
 
             // then
             expect(screen.getByRole('heading',
@@ -222,7 +222,7 @@ describe('Component reference pages', () => {
 
         it('should show the actions only where isEditingAllowed lets the roles decide', () => {
             // when
-            renderWithAuth(<ContentItemPanelDoc />);
+            renderWithAuth(<ContentItemDetailPanelDoc />);
 
             // then: three read demos, and only the two that throw the switch offer anything —
             // and of those, the Approved one is terminal to an administrator, so it keeps the

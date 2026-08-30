@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ContentItemPanel } from '../components/contentItems/contentItemPanel';
+import { ContentItemDetailPanel } from '../components/contentItems/contentItemDetailPanel';
 import { Spinner } from '../components/coreUI/spinner';
 import { contentItemService } from '../services/foundations/contentItemService';
 import { contentItemSettingService } from '../services/foundations/contentItemSettingService';
@@ -16,7 +16,7 @@ import { useDocumentTitle } from './useDocumentTitle';
 // address of the item afterwards.
 //
 // EDITING IS OFF HERE. isEditingAllowed is left at its default, which is the surface switch
-// ContentItemPanel puts ahead of every role check: no Edit, no Delete, no route into the edit
+// ContentItemDetailPanel puts ahead of every role check: no Edit, no Delete, no route into the edit
 // mode, however the reader's roles fall. A public page that could never be turned into an edit
 // surface by a role change elsewhere is the point of that switch — an editing surface is a
 // separate page's decision, not this one's.
@@ -95,7 +95,7 @@ export function PostDetail() {
                                 <h1 className="h2 mb-4">{pageHeading}</h1>
 
                                 <div className="card card-body border p-4 p-lg-5">
-                                    <ContentItemPanel
+                                    <ContentItemDetailPanel
                                         ariaLabel="Contribution"
                                         contentItem={formItem}
                                         showItemTitle={false}

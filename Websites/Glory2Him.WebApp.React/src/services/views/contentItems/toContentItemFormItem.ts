@@ -5,7 +5,7 @@ import {
 
 import { ContentItemFormItem } from '../../../models/components/contentItems/contentItemFormItem';
 
-// The two projections between the wire entity and the shape ContentItemPanel renders. Shared
+// The two projections between the wire entity and the shape ContentItemDetailPanel renders. Shared
 // rather than repeated per page: the contribute page and the post page both cross this boundary,
 // and a projection that drifted between them would show the same item differently on each.
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ContentItemPanel } from '../../../components/contentItems/contentItemPanel';
+import { ContentItemDetailPanel } from '../../../components/contentItems/contentItemDetailPanel';
 import { useAuth } from '../../../components/securitys/authProvider';
 
 import {
@@ -26,10 +26,10 @@ import {
 } from './shared/componentDoc';
 
 const minimalSample = `
-import { ContentItemPanel } from '../../components/contentItems/contentItemPanel';
+import { ContentItemDetailPanel } from '../../components/contentItems/contentItemDetailPanel';
 
 // add — no item yet, so the panel offers the picker and the editable fields
-<ContentItemPanel
+<ContentItemDetailPanel
     contentItemSettingCollection={contributableSettings}
     validationIssues={validationIssues}
     isSubmitting={addContentItem.isPending}
@@ -37,12 +37,12 @@ import { ContentItemPanel } from '../../components/contentItems/contentItemPanel
     onCancelled={() => navigate('/')} />
 
 // read — an item, and no way to turn the surface into an edit one
-<ContentItemPanel
+<ContentItemDetailPanel
     contentItem={formItem}
     contentItemSettingCollection={defaultSettings} />
 
 // read + edit — the roles now decide, per action, what is actually shown
-<ContentItemPanel
+<ContentItemDetailPanel
     contentItem={formItem}
     contentItemSettingCollection={defaultSettings}
     isEditingAllowed
@@ -357,15 +357,15 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     },
 ];
 
-export function ContentItemPanelDoc() {
-    useDocumentTitle('Content Item Panel — Glory 2 Him');
+export function ContentItemDetailPanelDoc() {
+    useDocumentTitle('Content Item Detail Panel — Glory 2 Him');
     const { userRoles } = useAuth();
     const [lastEvent, setLastEvent] = useState('—');
 
     return (
         <ComponentDoc
-            name="Content Item Panel"
-            filePath="src/components/contentItems/contentItemPanel.tsx"
+            name="Content Item Detail Panel"
+            filePath="src/components/contentItems/contentItemDetailPanel.tsx"
             summary={
                 <>
                     One content item, in the three states it has: contributed, read, and amended.
@@ -430,7 +430,7 @@ export function ContentItemPanelDoc() {
                     </>
                 }>
                 <LiveDemo>
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItemSettingCollection={demoSettings}
                         onAdded={(item) =>
                             setLastEvent(`onAdded(${ContentType[item.contentType]})`)}
@@ -455,7 +455,7 @@ export function ContentItemPanelDoc() {
                     </>
                 }>
                 <LiveDemo>
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItemSettingCollection={demoSettings}
                         validationIssues={{
                             Content: ['Text is required'],
@@ -478,7 +478,7 @@ export function ContentItemPanelDoc() {
                     </>
                 }>
                 <LiveDemo>
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={storyByAnother}
                         contentItemSettingCollection={demoSettings} />
                 </LiveDemo>
@@ -495,7 +495,7 @@ export function ContentItemPanelDoc() {
                     </>
                 }>
                 <LiveDemo>
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={storyByAnother}
                         contentItemSettingCollection={demoSettings}
                         isEditingAllowed
@@ -524,7 +524,7 @@ export function ContentItemPanelDoc() {
                     </>
                 }>
                 <LiveDemo>
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={approvedStory}
                         contentItemSettingCollection={demoSettings}
                         isEditingAllowed
@@ -550,14 +550,14 @@ export function ContentItemPanelDoc() {
                 }>
                 <LiveDemo title="Live — default only">
                     {/* The Story default has hasAuthor: true, so the byline renders. */}
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={storyByAnother}
                         contentItemSettingCollection={demoSettings} />
                 </LiveDemo>
 
                 <LiveDemo title="Live — the same item, with its override in the collection">
                     {/* Same item, same props, one extra row: the override drops the author. */}
-                    <ContentItemPanel
+                    <ContentItemDetailPanel
                         contentItem={storyByAnother}
                         contentItemSettingCollection={[...demoSettings, storyOverride]} />
                 </LiveDemo>

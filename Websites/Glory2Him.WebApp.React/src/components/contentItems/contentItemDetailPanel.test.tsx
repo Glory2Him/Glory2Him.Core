@@ -2,7 +2,7 @@ import { ReactElement, ReactNode } from 'react';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ContentItemPanel } from './contentItemPanel';
+import { ContentItemDetailPanel } from './contentItemDetailPanel';
 import { ContentItemSetting } from '../../models/foundations/contentItemSettings/contentItemSetting';
 import { ContentType } from '../../models/foundations/contentItemSettings/contentType';
 
@@ -99,7 +99,7 @@ const itemWith = (overrides: Partial<ContentItemFormItem> = {}): ContentItemForm
     ...overrides
 });
 
-describe('ContentItemPanel', () => {
+describe('ContentItemDetailPanel', () => {
     beforeEach(() => {
         signOut(authState);
     });
@@ -110,7 +110,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByText('What are you sharing?')).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe('ContentItemPanel', () => {
 
         it('should offer a way in rather than a form when nobody is signed in', () => {
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByRole('link', { name: /Login to contribute/ }))
@@ -139,7 +139,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState, ['ReadOnly']);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByText('Contributions are not open to this account.'))
@@ -154,7 +154,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState, ['ContentItem-ReadOnly']);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByText('Contributions are not open to this account.'))
@@ -166,7 +166,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState, ['ContentItem-Devotional-ReadOnly']);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByRole('button', { name: /Devotional/ })).toBeDisabled();
@@ -182,7 +182,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             await userEvent.type(screen.getByLabelText(/Devotional/), 'A word for today');
             await userEvent.click(screen.getByRole('button', { name: 'Submit for review' }));
@@ -198,7 +198,7 @@ describe('ContentItemPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
+                <ContentItemDetailPanel contentItemSettingCollection={settings} onAdded={onAdded} />);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: /Devotional/ }));
@@ -220,7 +220,7 @@ describe('ContentItemPanel', () => {
         it('should ask for the permission detail only once permission is the basis', async () => {
             // given
             signInAs(authState);
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.queryByLabelText('Permission details')).not.toBeInTheDocument();
@@ -244,7 +244,7 @@ describe('ContentItemPanel', () => {
             });
 
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={[storySetting, quoteSetting]} />);
+                <ContentItemDetailPanel contentItemSettingCollection={[storySetting, quoteSetting]} />);
 
             // when
             await userEvent.click(screen.getByRole('button', { name: /Quote/ }));
@@ -265,7 +265,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={[testimony, story, quote]} />);
 
             // then
@@ -286,7 +286,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={[]} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={[]} />);
 
             // then
             expect(screen.getByText('Contributions are not open for any content type right now.'))
@@ -299,7 +299,7 @@ describe('ContentItemPanel', () => {
             const onCancelled = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     onCancelled={onCancelled} />);
 
@@ -315,7 +315,7 @@ describe('ContentItemPanel', () => {
         it('should default to read and render the item for anyone, anonymous included', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={settings} />);
 
@@ -332,7 +332,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={settings} />);
 
@@ -347,7 +347,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     contentItemSettingCollection={settings} />);
@@ -363,7 +363,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -380,7 +380,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ approvalStatus: ApprovalStatus.Approved })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -395,7 +395,7 @@ describe('ContentItemPanel', () => {
 
             // when
             const submitted = renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         createdBy: OtherId,
                         approvalStatus: ApprovalStatus.Submitted
@@ -409,7 +409,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         createdBy: OtherId,
                         approvalStatus: ApprovalStatus.Approved
@@ -428,7 +428,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -444,7 +444,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -460,7 +460,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -475,7 +475,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ createdBy: OtherId })}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -491,7 +491,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     contentItemSettingCollection={settings} />);
@@ -508,7 +508,7 @@ describe('ContentItemPanel', () => {
             const contentItem = itemWith();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={contentItem}
                     isEditingAllowed
                     onRemoved={onRemoved}
@@ -535,7 +535,7 @@ describe('ContentItemPanel', () => {
             const onRemoved = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     onRemoved={onRemoved}
@@ -559,7 +559,7 @@ describe('ContentItemPanel', () => {
             const onModeChanged = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     onModeChanged={onModeChanged}
@@ -580,7 +580,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -598,7 +598,7 @@ describe('ContentItemPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -625,7 +625,7 @@ describe('ContentItemPanel', () => {
             const onCancelled = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     isEditingAllowed
                     onCancelled={onCancelled}
@@ -657,7 +657,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{
                         Content: ['Text is required'],
@@ -676,7 +676,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{ content: ['Text is required'] }} />);
 
@@ -690,7 +690,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{
                         ContentHash: ['A content item already exists with the same content.']
@@ -711,7 +711,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -731,7 +731,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{ ContentType: ['Value is invalid'] }} />);
 
@@ -750,7 +750,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={[quoteSetting]}
                     validationIssues={{ Title: ['Text is required'] }} />);
 
@@ -767,7 +767,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     validationIssues={{ Content: ['Text is required'] }} />);
 
@@ -785,7 +785,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={settings} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then
             expect(screen.getByLabelText(/^Story/)).not.toHaveAttribute('aria-invalid');
@@ -806,7 +806,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={[quoteSetting]}
                     validationIssues={{
                         Title: ['Text is required'],
@@ -828,7 +828,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -855,7 +855,7 @@ describe('ContentItemPanel', () => {
         it('should hide both fields in the read surface when the setting says the type has neither', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={quoteCarryingBoth}
                     contentItemSettingCollection={[quoteSetting]} />);
 
@@ -873,7 +873,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={quoteCarryingBoth}
                     mode="edit"
                     isEditingAllowed
@@ -892,7 +892,7 @@ describe('ContentItemPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={quoteCarryingBoth}
                     mode="edit"
                     isEditingAllowed
@@ -915,7 +915,7 @@ describe('ContentItemPanel', () => {
         it('should fall back to what the item carries when no setting resolves at all', () => {
             // when: no row for this content type, so there is no flag to obey
             renderWithAuth(
-                <ContentItemPanel contentItem={itemWith()} contentItemSettingCollection={[]} />);
+                <ContentItemDetailPanel contentItem={itemWith()} contentItemSettingCollection={[]} />);
 
             // then
             expect(screen.getByRole('heading', { name: 'He carried me' })).toBeInTheDocument();
@@ -925,7 +925,7 @@ describe('ContentItemPanel', () => {
         it('should let a resolved false beat what the item carries', () => {
             // when: the flag is present, so presence is not consulted
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={quoteCarryingBoth}
                     contentItemSettingCollection={[quoteSetting]} />);
 
@@ -950,7 +950,7 @@ describe('ContentItemPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={[storySetting, quoteSetting]}
                     onAdded={onAdded} />);
 
@@ -977,7 +977,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState);
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={[storySetting, quoteSetting]} />);
 
             await userEvent.type(screen.getByLabelText(/Title/), 'A story title');
@@ -997,7 +997,7 @@ describe('ContentItemPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     onAdded={onAdded} />);
 
@@ -1030,7 +1030,7 @@ describe('ContentItemPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         shareabilityBasis: ShareabilityBasis.PermissionGranted,
                         sharePermission: 'Emailed by the author'
@@ -1060,7 +1060,7 @@ describe('ContentItemPanel', () => {
             const onAdded = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItemSettingCollection={settings}
                     onAdded={onAdded} />);
 
@@ -1090,7 +1090,7 @@ describe('ContentItemPanel', () => {
             const onModified = vi.fn();
 
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         contentType: ContentType.Quote,
                         title: 'A title the type no longer has'
@@ -1132,7 +1132,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -1150,7 +1150,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -1167,7 +1167,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -1184,7 +1184,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -1197,7 +1197,7 @@ describe('ContentItemPanel', () => {
         it('should fall back to the default when no override matches', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     contentItemSettingCollection={[storySetting]} />);
 
@@ -1212,7 +1212,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={[storySetting, override]} />);
+                <ContentItemDetailPanel contentItemSettingCollection={[storySetting, override]} />);
 
             // then: an override belongs to one existing item and is never a contributable type
             expect(screen.getAllByRole('button', { name: /Story/ })).toHaveLength(1);
@@ -1231,7 +1231,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={[storySetting, adminOnly]} />);
+                <ContentItemDetailPanel contentItemSettingCollection={[storySetting, adminOnly]} />);
 
             // then
             expect(screen.getByRole('button', { name: /Story/ })).toBeInTheDocument();
@@ -1247,7 +1247,7 @@ describe('ContentItemPanel', () => {
             });
 
             // when
-            renderWithAuth(<ContentItemPanel contentItemSettingCollection={[adminOnly]} />);
+            renderWithAuth(<ContentItemDetailPanel contentItemSettingCollection={[adminOnly]} />);
 
             // then
             expect(screen.getByText('Contributions are not open for any content type right now.'))
@@ -1263,7 +1263,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({ contentType: ContentType.BlogPost })}
                     contentItemSettingCollection={[blogSetting]} />);
 
@@ -1281,7 +1281,7 @@ describe('ContentItemPanel', () => {
             const contentItem = itemWith();
 
             const view = renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={contentItem}
                     mode="read"
                     isEditingAllowed
@@ -1292,7 +1292,7 @@ describe('ContentItemPanel', () => {
 
             // when: the page catches up with the reader, then later closes the editor itself
             view.rerender(wrapped(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={contentItem}
                     mode="edit"
                     isEditingAllowed
@@ -1301,7 +1301,7 @@ describe('ContentItemPanel', () => {
             expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
 
             view.rerender(wrapped(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={contentItem}
                     mode="read"
                     isEditingAllowed
@@ -1318,7 +1318,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState);
 
             const view = renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     mode="edit"
                     isEditingAllowed
@@ -1329,7 +1329,7 @@ describe('ContentItemPanel', () => {
 
             // when
             view.rerender(wrapped(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith({
                         id: 'content-item-2',
                         content: 'A different story entirely.'
@@ -1350,7 +1350,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     addRoles="Editors"
                     contentItemSettingCollection={settings} />);
 
@@ -1368,7 +1368,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     addRoles="Editors, Administrators"
                     contentItemSettingCollection={settings} />);
 
@@ -1382,7 +1382,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     addRoles="Editors"
                     contentItemSettingCollection={settings} />);
 
@@ -1396,7 +1396,7 @@ describe('ContentItemPanel', () => {
         it('should let a page suppress the item title it states itself', () => {
             // when
             renderWithAuth(
-                <ContentItemPanel
+                <ContentItemDetailPanel
                     contentItem={itemWith()}
                     showItemTitle={false}
                     contentItemSettingCollection={settings} />);
@@ -1414,7 +1414,7 @@ describe('ContentItemPanel', () => {
 
             // when
             const { container } = renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={settings} />);
+                <ContentItemDetailPanel contentItemSettingCollection={settings} />);
 
             // then: the theme pads every bare <section> by 3.5rem/2.8rem, which the panel's own
             // class neutralises
@@ -1430,7 +1430,7 @@ describe('ContentItemPanel', () => {
 
             // when
             renderWithAuth(
-                <ContentItemPanel contentItemSettingCollection={settings} isSubmitting />);
+                <ContentItemDetailPanel contentItemSettingCollection={settings} isSubmitting />);
 
             // then
             expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled();
@@ -1441,7 +1441,7 @@ describe('ContentItemPanel', () => {
             signInAs(authState);
 
             // when
-            renderWithAuth(<ContentItemPanel isLoading />);
+            renderWithAuth(<ContentItemDetailPanel isLoading />);
 
             // then
             expect(screen.getByText('Loading…')).toBeInTheDocument();
