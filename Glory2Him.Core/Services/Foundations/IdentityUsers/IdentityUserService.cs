@@ -24,15 +24,23 @@ using Xeptions;
 namespace Glory2Him.Core.Services.Foundations.IdentityUsers
 {
     /// <summary>
-    /// Reads role membership out of the security database (design 12.7.1). Read-only by
-    /// construction: its broker exposes no write, and this service publishes no event and stamps
-    /// no audit values - there is nothing here for a fact to describe.
+    /// Reads the security database (design 12.7.1) - who holds a set of roles, and what an account
+    /// id already held is CALLED. Read-only by construction: its broker exposes no write, and this
+    /// service publishes no event and stamps no audit values - there is nothing here for a fact to
+    /// describe.
+    ///
+    /// <para><b>The by-ids read applies no role filter and no disabled filter, and that is not an
+    /// oversight to tidy up.</b> Every id it is given came off a row somebody already stored, so
+    /// the account belongs to the record whatever has happened to it since. Filtering it by the
+    /// review tier is exactly what left a reviewer who had lost their role with no name at all
+    /// (16.7.4). The roles read above is the one that decides eligibility; this one only resolves
+    /// names.</para>
     ///
     /// <para>No EventEnvelope either, and that is the deliberate difference from every other
     /// foundation. An envelope exists to carry the caller identity into a decision, and this
     /// service takes none: WHO may enumerate users is decided by the orchestration above it
-    /// before the call is made (16.7.4), because the answer depends on the entity being reviewed,
-    /// which this service never sees.</para>
+    /// before the call is made (16.7.4), which is the layer that knows both the entity being
+    /// reviewed and the caller's tier - neither of which this service ever sees.</para>
     /// </summary>
     internal class IdentityUserService : IIdentityUserService
     {

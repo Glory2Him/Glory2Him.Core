@@ -97,8 +97,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                     It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()),
                 Times.Never);
 
-            // and: no approval is read either - the resolver is not keyed on a round, which is
-            // what lets one call answer reviewers, invited people and candidates together.
+            // and: no approval is read either - the resolver takes ids, not a round, so nothing
+            // in this path touches the approval store. Whether it SHOULD be keyed on a round is
+            // recorded as open in 16.7.4, not settled by this assertion.
             this.accessBrokerMock.VerifyNoOtherCalls();
             this.approvalServiceMock.VerifyNoOtherCalls();
         }
@@ -235,8 +236,9 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         /// about 200 people using 201 spellings of them, which is a request the resolver can
         /// answer perfectly well.
         ///
-        /// <para>201 strings go in, naming 200 distinct accounts. It must succeed, and the
-        /// identity store must be asked for 200 canonical ids.</para>
+        /// <para>202 strings go in, naming 200 distinct accounts - one id spelled twice and one
+        /// entry naming nothing. It must succeed, and the identity store must be asked for exactly
+        /// the 200 canonical ids.</para>
         /// </summary>
         [Fact]
         public async Task ShouldCountAccountsRatherThanSpellingsAgainstTheCapAsync()
@@ -248,11 +250,20 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
                 .Select(_ => Guid.NewGuid())
                 .ToList();
 
-            // 201 strings for 200 accounts: the first id spelled twice, once braced and uppercased.
+            // 202 strings for 200 accounts, sitting exactly on the cap. The first id is spelled
+            // twice, once braced and uppercased; and one entry names nothing at all.
+            //
+            // The unparseable entry is what pins the Guid.Empty filter, and it has to live HERE
+            // rather than in its own test: an id that fails to parse becomes Guid.Empty, and
+            // Distinct() collapses ANY number of them to one - so a test that sends only rubbish
+            // never gets near the ceiling and cannot tell whether the filter ran. On the boundary
+            // it can. Drop the filter and this request counts 201 against a cap of 200 and is
+            // refused, which is the refusal the source comment promises will not happen.
             var spellings = new List<string>(
                 distinctUserIds.Select(userId => userId.ToString()))
                 {
                     distinctUserIds[0].ToString("B").ToUpperInvariant(),
+                    "not-a-guid",
                 };
 
             IEnumerable<string> capturedUserIds = null;

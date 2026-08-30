@@ -1256,9 +1256,13 @@ namespace Glory2Him.WebApp.Tests.Unit.Controllers.Approvals
         }
 
         /// <summary>
-        /// Covers both refusals a caller can reach here: the tier gate (§16.7.4 — this is a
-        /// user-enumeration surface, so only the requesting tier may resolve names) and the batch
-        /// cap, which is refused rather than truncated.
+        /// Covers the batch cap, which is refused rather than truncated.
+        ///
+        /// <para>NOT the tier gate, despite both arriving as an
+        /// <c>ApprovalOrchestrationValidationException</c>: a refusal wraps an
+        /// <c>UnauthorizedApprovalOrchestrationException</c>, and the action catches that shape
+        /// FIRST and answers <c>401</c>, so it can never reach this <c>400</c> arm. The gate is
+        /// pinned by its own test below.</para>
         /// </summary>
         [Theory]
         [MemberData(nameof(ValidationExceptions))]
