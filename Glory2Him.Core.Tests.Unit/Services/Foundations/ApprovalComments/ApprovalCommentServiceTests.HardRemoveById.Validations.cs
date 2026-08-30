@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidApprovalCommentId = Guid.Empty;
 
             var invalidApprovalCommentException = new InvalidApprovalCommentException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfApprovalCommentNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalCommentId = Guid.NewGuid();
             ApprovalComment noApprovalComment = null;
 
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someApprovalCommentId = Guid.NewGuid();
 

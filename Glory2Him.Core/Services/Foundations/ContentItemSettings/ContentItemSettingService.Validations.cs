@@ -60,7 +60,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItemSettings
         // the only role that may write settings — there is no read counterpart: settings
         // drive anonymous page rendering, so every non-deleted row is public (§14.1)
         private static bool HasAdminRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Administrators);
 
         private async ValueTask ValidateOnAddContentItemSettingAsync(
             ContentItemSetting contentItemSetting,

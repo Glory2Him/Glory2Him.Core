@@ -259,7 +259,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldRemoveSomeoneElsesLinkByIdWhenUserIsAdminAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             Link randomLink = CreateRandomLink();
             randomLink.IsDeleted = false;

@@ -136,7 +136,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         }
 
         /// <summary>
-        /// A reviewer is not a publisher (HR-3). Tag-Reviewer clears no part of the approve
+        /// A reviewer is not a publisher (HR-3). Tag-Reviewers clears no part of the approve
         /// gate, and the attribute must not admit it.
         /// </summary>
         [Fact]
@@ -144,7 +144,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         {
             // given
             Tag randomTag = CreateRandomTag();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.TagReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.TagReviewers);
 
             // when
             var approveTagTask = this.apiBroker.TransitionTagApprovalAsync(randomTag).AsTask();
@@ -212,12 +212,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a tag they did not create.
         /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>Tag-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// <c>Tag-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.TagReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.TagReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersTagAsync(string reviewRoleName)
         {
             // given
@@ -249,7 +249,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         {
             // given
             Tag randomTag = await PostRandomTagAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.TagReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.TagReviewers);
 
             try
             {
@@ -295,7 +295,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         {
             // given
             Tag randomTag = CreateRandomTag();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postTagTask = this.apiBroker.PostTagAsync(randomTag).AsTask();
@@ -313,7 +313,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Tags
         {
             // given
             Tag randomTag = await PostRandomTagAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.TagReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.TagReadOnly);
 
             try
             {

@@ -368,7 +368,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
@@ -468,7 +468,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageUSFMNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
@@ -1154,7 +1154,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
             // the owner or a Publisher WOULD be allowed — so the refusal comes from the carve-out
             // gate, not from the status being a verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             string ownerUserId = GetRandomString();
@@ -1256,7 +1256,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfIsPublishedChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
@@ -1356,7 +1356,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfPublishDateChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
@@ -1456,7 +1456,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfIsApprovedByBypassChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
@@ -1556,7 +1556,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovedByBypassReasonChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             BibleReference randomBibleReference = CreateRandomModifyBibleReference(randomDateTimeOffset, randomUserId);
@@ -1739,8 +1739,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         }
 
         [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
             string role)
         {

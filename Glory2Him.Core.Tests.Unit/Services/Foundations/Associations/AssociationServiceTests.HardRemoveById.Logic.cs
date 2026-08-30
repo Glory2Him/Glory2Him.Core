@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldHardRemoveAssociationByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Association randomAssociation = CreateRandomAssociation();
             Association storageAssociation = randomAssociation;
             Association expectedAssociation = storageAssociation.DeepClone();

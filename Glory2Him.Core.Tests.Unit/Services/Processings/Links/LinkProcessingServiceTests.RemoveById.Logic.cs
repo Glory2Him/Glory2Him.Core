@@ -149,7 +149,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
 
             Link removedLink = storageLink.DeepClone();
             removedLink.IsDeleted = true;
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             EventEnvelope<Link> inboundEnvelope = CreateEventEnvelope(
                 link: storageLink,

@@ -163,7 +163,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
 
             var requestEnvelope = new EventEnvelope<ApprovalReview>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers),
                 Content = new ApprovalReview { Id = storageApprovalReview.Id },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };

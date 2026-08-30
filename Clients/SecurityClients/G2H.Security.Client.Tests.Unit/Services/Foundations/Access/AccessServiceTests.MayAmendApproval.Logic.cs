@@ -24,7 +24,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             AccessActor unauthenticatedActor = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.Reviewer },
+                roles: new List<string> { RoleNames.Reviewers },
                 isAuthenticated: false);
 
             AmendApprovalRequest amendApprovalRequest =
@@ -50,7 +50,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             var actorWithoutUserId = new AccessActor
             {
                 UserId = invalidUserId!,
-                Roles = new List<string> { RoleNames.Reviewer },
+                Roles = new List<string> { RoleNames.Reviewers },
                 IsAuthenticated = true,
             };
 
@@ -160,9 +160,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         /// tier widens into the review tier, so the publisher spellings clear it too.
         /// </summary>
         [Theory]
-        [InlineData(RoleNames.Reviewer)]
-        [InlineData(RoleNames.Publisher)]
-        [InlineData(RoleNames.Admin)]
+        [InlineData(RoleNames.Reviewers)]
+        [InlineData(RoleNames.Publishers)]
+        [InlineData(RoleNames.Administrators)]
         public async Task ShouldPermitAmendingAnApprovalForEachGlobalReviewTierRoleAsync(
             string globalRole)
         {
@@ -201,8 +201,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             string scopedRole = asPublisher
-                ? RoleNames.PublisherFor(scopedEndpoint)
-                : RoleNames.ReviewerFor(scopedEndpoint);
+                ? RoleNames.PublishersFor(scopedEndpoint)
+                : RoleNames.ReviewersFor(scopedEndpoint);
 
             AccessActor endpointActor = CreateRandomAccessActor(
                 roles: new List<string> { scopedRole });
@@ -232,7 +232,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             AccessActor unrelatedActor = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.ReviewerFor("Tag") });
+                roles: new List<string> { RoleNames.ReviewersFor("Tag") });
 
             AmendApprovalRequest amendApprovalRequest = CreateRandomAmendApprovalRequest(
                 actor: unrelatedActor,
@@ -259,7 +259,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             AccessActor narrowActor = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.ReviewerFor("ContentItem", "Testimony") });
+                roles: new List<string> { RoleNames.ReviewersFor("ContentItem", "Testimony") });
 
             AmendApprovalRequest amendApprovalRequest = CreateRandomAmendApprovalRequest(
                 actor: narrowActor,

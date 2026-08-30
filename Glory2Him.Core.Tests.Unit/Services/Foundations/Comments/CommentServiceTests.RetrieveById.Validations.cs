@@ -125,7 +125,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         {
             // given: even an Admin caller gets not-found for a soft-deleted row —
             // deleted beats privilege
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Comment storageComment = CreateRandomComment();
             storageComment.IsDeleted = true;
             Guid commentId = storageComment.Id;

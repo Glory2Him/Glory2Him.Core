@@ -214,11 +214,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
                                     && entityCreatedBy == actorUserId;
 
                             bool hasReviewTier = securityContext.Roles.Any(role =>
-                                role == Roles.Reviewer
-                                    || role == Roles.Publisher
-                                    || role == Roles.Admin
-                                    || role.EndsWith(Roles.ReviewerSuffix, StringComparison.Ordinal)
-                                    || role.EndsWith(Roles.PublisherSuffix, StringComparison.Ordinal));
+                                role == Roles.Reviewers
+                                    || role == Roles.Publishers
+                                    || role == Roles.Administrators
+                                    || role.EndsWith(Roles.ReviewersSuffix, StringComparison.Ordinal)
+                                    || role.EndsWith(Roles.PublishersSuffix, StringComparison.Ordinal));
 
                             return isOwner || hasReviewTier
                                 ? CreatePermittedAmendmentVerdict()
@@ -302,19 +302,19 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         // the global review roles plus two §16.6 scoped roles, which qualify by their
-        // "-Reviewer"/"-Publisher" suffix whatever entity type they are scoped to
+        // "-Reviewers"/"-Publishers" suffix whatever entity type they are scoped to
         public static TheoryData<string> ReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.Reviewer,
-                Roles.Publisher,
-                Roles.Admin,
-                Roles.ContentItemReviewer,
-                Roles.ContentItemPublisher
+                Roles.Reviewers,
+                Roles.Publishers,
+                Roles.Administrators,
+                Roles.ContentItemReviewers,
+                Roles.ContentItemPublishers
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()

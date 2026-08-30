@@ -250,7 +250,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         {
             // given: a review role does not carry removal rights — retracting a comment
             // is the author's call or an Admin's
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             string randomActorUserId = GetRandomString();
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
             Guid someApprovalCommentId = storageApprovalComment.Id;
@@ -320,7 +320,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             // given: the Admin escape is closed. This used to assert the opposite — that an
             // Admin could retract anyone's comment — and that is withdrawn (§14.7 rule 5). An
             // Admin who needs past a comment bypasses the block rather than deleting it.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
             Guid someApprovalCommentId = storageApprovalComment.Id;

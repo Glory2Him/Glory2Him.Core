@@ -69,7 +69,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // re-run the pair-uniqueness check against a row that already moved.
             var requestEnvelope = new EventEnvelope<Association>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = new Association { Id = Guid.NewGuid() },
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -111,7 +111,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             var requestEnvelope = new EventEnvelope<Association>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = CreateApprovalDecision(storageAssociation.Id),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -189,7 +189,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             var requestEnvelope = new EventEnvelope<Association>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = requestedDecision,
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -262,7 +262,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             var requestEnvelope = new EventEnvelope<Association>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = CreateConfidenceDecision(storageAssociation.Id),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
@@ -325,7 +325,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
 
             var requestEnvelope = new EventEnvelope<Association>
             {
-                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher),
+                SecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers),
                 Content = new Association
                 {
                     Id = storageAssociation.Id,

@@ -150,7 +150,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             ContentItem removedContentItem = storageContentItem.DeepClone();
             removedContentItem.IsDeleted = true;
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: storageContentItem,

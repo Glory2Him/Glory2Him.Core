@@ -144,17 +144,17 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.LinkReviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.LinkPublisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.LinkReviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.LinkPublishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldRetrieveNonPublicLinkOnRetrieveByIdIfCallerHasReviewRoleAsync(
             string reviewRole)
         {
             // given: a non-public version is readable by the moderation roles for review
             // and audit (§16.6, §18.6) — Link has no narrow content-type tier, so a
-            // Link-Reviewer covers every link there is
+            // Link-Reviewers covers every link there is
             Guid inputLinkId = Guid.NewGuid();
             DateTimeOffset currentDateTime = GetRandomDateTimeOffset();
 

@@ -35,7 +35,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             {
                 null,
                 new SecurityContext { IsAuthenticated = false, Roles = Array.Empty<string>() },
-                new SecurityContext { IsAuthenticated = false, Roles = new[] { Roles.Admin } },
+                new SecurityContext { IsAuthenticated = false, Roles = new[] { Roles.Administrators } },
             };
 
         [Fact]
@@ -307,7 +307,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             string nearMissRole)
         {
             // given: names that a substring or case-insensitive match would wave through. The
-            // capability segment is singular and always LAST (§18.6) — `ContentItem-Publisher`,
+            // capability segment is singular and always LAST (§18.6) — `ContentItem-Publishers`,
             // never `Publisher-Backup` — and the suffix test is Ordinal, so `-publisher` is a
             // different role name, not the same one spelled loosely. A gate that matched
             // otherwise would hand the moderation view to whoever could get a role minted with
@@ -359,12 +359,12 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
         }
 
         [Theory]
-        [InlineData(Roles.Admin)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.ContentItemPublisher)]
-        [InlineData(Roles.TagReviewer)]
-        [InlineData("ContentItem-Story-Reviewer")]
+        [InlineData(Roles.Administrators)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ContentItemPublishers)]
+        [InlineData(Roles.TagReviewers)]
+        [InlineData("ContentItem-Story-Reviewers")]
         public async Task ShouldAdmitEveryModerationRoleToTheVerdictReadAsync(string admittedRole)
         {
             // given: the four global names plus the granular `%EntityType%-*` and
@@ -425,7 +425,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Orchestrations.Approvals
             // reason — and never as an exception. Conflating the two gates would blind exactly
             // the people who record the verdicts to whether the round is finished.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Reviewer);
+                CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
             EntityType inputEntityType = EntityType.Link;
             Guid inputEntityId = Guid.NewGuid();

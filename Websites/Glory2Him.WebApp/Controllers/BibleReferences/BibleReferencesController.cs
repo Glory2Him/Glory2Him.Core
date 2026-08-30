@@ -286,7 +286,7 @@ namespace Glory2Him.WebApp.Controllers.BibleReferences
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{bibleReferenceId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<BibleReference>> HardDeleteBibleReferenceByIdAsync(
             Guid bibleReferenceId,
             CancellationToken cancellationToken)
@@ -403,7 +403,7 @@ namespace Glory2Him.WebApp.Controllers.BibleReferences
         /// every caller reaches it for.
         /// </summary>
         [HttpPost("Approve")]
-        [Authorize(Roles = Roles.Admin + "," + Roles.Publisher + "," + Roles.BibleReferencePublisher)]
+        [Authorize(Roles = Roles.Administrators + "," + Roles.Publishers + "," + Roles.BibleReferencePublishers)]
         public async ValueTask<ActionResult<BibleReference>> TransitionBibleReferenceApprovalAsync(
             [FromBody] BibleReference bibleReference,
             CancellationToken cancellationToken)

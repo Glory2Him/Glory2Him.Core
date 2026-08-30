@@ -155,7 +155,7 @@ internal partial class StudentService
         if (securityContext.Roles.Contains(Roles.ReadOnly))
             throw new UnauthorizedStudentException(message: "The current user is blocked from writing students.");
 
-        if (securityContext.Roles.Contains(Roles.Admin) is false)
+        if (securityContext.Roles.Contains(Roles.Administrators) is false)
             throw new UnauthorizedStudentException(message: "The current user is not allowed to write students.");
     }
 

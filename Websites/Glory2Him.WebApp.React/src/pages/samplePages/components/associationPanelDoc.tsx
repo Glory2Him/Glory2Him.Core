@@ -53,8 +53,8 @@ const rolesSample = `
 // role name. Any other listed role allows the action outright.
 <AssociationPanel
     title="Tags"
-    removeRoles="[OWNER], Administrators, Tag-Reviewer"
-    moderationRoles="Administrators, Tag-Reviewer"
+    removeRoles="[OWNER], Administrators, Tag-Reviewers"
+    moderationRoles="Administrators, Tag-Reviewers"
     addRoles=""
     showModerationActions={true}
     onApprove={approveAsync}
@@ -152,7 +152,7 @@ const propRows: ReadonlyArray<ComponentPropRow> = [
     },
     {
         name: 'moderationRoles', type: 'string (csv)',
-        defaultValue: "'Reviewer, Publisher, Administrators'",
+        defaultValue: "'Reviewers, Publishers, Administrators'",
         description: 'Who may decide. [OWNER] is ignored — owning the item suppresses the pair rather than granting it.'
     },
     {
@@ -333,7 +333,7 @@ export const AssociationPanelDoc = () => {
                     <>
                         With <code>hideUnapprovedFromOthers</code> on (the default), and the
                         defaults <code>viewAllRoles="Administrators"</code> and{' '}
-                        <code>moderationRoles="Reviewer, Publisher, Administrators"</code>.
+                        <code>moderationRoles="Reviewers, Publishers, Administrators"</code>.
                     </>
                 }>
                 <div className="table-responsive">
@@ -403,7 +403,7 @@ export const AssociationPanelDoc = () => {
                 lead={
                     <>
                         Using the defaults <code>removeRoles="[OWNER], Administrators"</code>{' '}
-                        and <code>moderationRoles="Reviewer, Publisher, Administrators"</code>. The
+                        and <code>moderationRoles="Reviewers, Publishers, Administrators"</code>. The
                         owner branch is resolved <strong>first</strong>, so an administrator who
                         contributed the item gets a removal rather than a verdict — nobody waves
                         through their own submission.

@@ -151,7 +151,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer }
+                new[] { Roles.Reviewers }
             };
 
         // reads only ask for a signed-in caller, so every role set — including none at
@@ -161,8 +161,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             {
                 new string[0],
                 new[] { Roles.ReadOnly },
-                new[] { Roles.Reviewer },
-                new[] { Roles.Admin }
+                new[] { Roles.Reviewers },
+                new[] { Roles.Administrators }
             };
 
         public static TheoryData<Exception, Xeption> DependencyExceptions()
@@ -268,7 +268,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             new EventEnvelope<ApprovalSetting>
             {
                 Content = new ApprovalSetting { Id = Guid.NewGuid() },
-                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Admin),
+                SecurityContext = securityContext ?? CreateAuthenticatedSecurityContext(Roles.Administrators),
                 Metadata = new EventMetadata { EventId = Guid.NewGuid() }
             };
 

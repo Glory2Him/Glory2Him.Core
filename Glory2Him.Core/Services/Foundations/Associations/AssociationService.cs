@@ -349,8 +349,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             foreach (EntityType entityType in Enum.GetValues<EntityType>())
             {
                 bool isReviewable =
-                    securityContext.Roles.Contains(Roles.ReviewerFor(entityType))
-                        || securityContext.Roles.Contains(Roles.PublisherFor(entityType));
+                    securityContext.Roles.Contains(Roles.ReviewersFor(entityType))
+                        || securityContext.Roles.Contains(Roles.PublishersFor(entityType));
 
                 if (isReviewable)
                 {
@@ -370,8 +370,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // invariant lives in this service, not in the schema — there is no check constraint
         // tying the column to an EntityType of ContentItem — so a row arriving by migration,
         // backfill or direct SQL is not bound by it. Matching on the content type alone would
-        // then hand a "ContentItem-Testimony-Reviewer" a Tag endpoint carrying Testimony,
-        // while the single read denies the same row (it composes "Tag-Testimony-Reviewer",
+        // then hand a "ContentItem-Testimony-Reviewers" a Tag endpoint carrying Testimony,
+        // while the single read denies the same row (it composes "Tag-Testimony-Reviewers",
         // which is never granted). The bulk path must not be the more permissive of the two.
         private static HashSet<ContentType> ResolveReviewableContentTypes(
             SecurityContext? securityContext)
@@ -387,9 +387,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             {
                 bool isReviewable =
                     securityContext.Roles.Contains(
-                            Roles.ReviewerFor(EntityType.ContentItem, contentType))
+                            Roles.ReviewersFor(EntityType.ContentItem, contentType))
                         || securityContext.Roles.Contains(
-                            Roles.PublisherFor(EntityType.ContentItem, contentType));
+                            Roles.PublishersFor(EntityType.ContentItem, contentType));
 
                 if (isReviewable)
                 {

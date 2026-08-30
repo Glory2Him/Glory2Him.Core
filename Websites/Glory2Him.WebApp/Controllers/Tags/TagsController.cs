@@ -270,7 +270,7 @@ namespace Glory2Him.WebApp.Controllers.Tags
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{tagId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<Tag>> HardDeleteTagByIdAsync(
             Guid tagId,
             CancellationToken cancellationToken)
@@ -387,7 +387,7 @@ namespace Glory2Him.WebApp.Controllers.Tags
         /// every caller reaches it for.
         /// </summary>
         [HttpPost("Approve")]
-        [Authorize(Roles = Roles.Admin + "," + Roles.Publisher + "," + Roles.TagPublisher)]
+        [Authorize(Roles = Roles.Administrators + "," + Roles.Publishers + "," + Roles.TagPublishers)]
         public async ValueTask<ActionResult<Tag>> TransitionTagApprovalAsync(
             [FromBody] Tag tag,
             CancellationToken cancellationToken)

@@ -36,7 +36,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // passes and the cross-entity decision is the ONLY thing left that can refuse the
             // approve. Without that the test would pass on the row-local check alone and prove
             // nothing about the wired gate.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -119,7 +119,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: §14.5 — the true reason is recorded server-side and the caller is told
             // nothing about the policy. It has to be recorded BEFORE the throw, because the
             // throw is what discards the verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -166,7 +166,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // many approvals were required, which block fired — and the denial reason names the
             // rule. Exception messages and their Data surface outward through a public event
             // address (§14.5 rule 2), so neither may appear in anything thrown.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             Association decision = CreateApprovalDecision(storageAssociation.Id);
@@ -209,7 +209,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // difference is what gives the assertion below its meaning — if the query were
             // built from the caller's copy, a contributor could name somebody else as author
             // and walk straight past the self-approval bar.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
             storageAssociation.CreatedBy = $"stored-{Guid.NewGuid()}";
@@ -270,7 +270,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // rather than granting it, so it satisfies no threshold and waives nothing. Asking
             // one question for both would leave a publisher unable to reject the very row the
             // threshold was failing to approve.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateApprovableStorageAssociation();
 

@@ -30,14 +30,14 @@ using Moq;
 namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
 {
     // The cross-entity half of "may this caller amend the approval record?" — the row-local role
-    // test cannot see which entity an approval targets, so a bare Tag-Reviewer clears it for any
+    // test cannot see which entity an approval targets, so a bare Tag-Reviewers clears it for any
     // approval at all. These tests are about what the service does when the broker refuses, and
     // about the order the two halves run in.
     public partial class ApprovalServiceTests
     {
         /// <summary>
         /// #190's headline sentence, at the surface it was written about. A bare
-        /// <c>Tag-Reviewer</c> passes the row-local suffix test — a review role is a review role
+        /// <c>Tag-Reviewers</c> passes the row-local suffix test — a review role is a review role
         /// as far as that check can tell — and is stopped only here, by the decision that has the
         /// entity behind the approval in hand.
         /// </summary>
@@ -50,7 +50,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             string randomUserId = GetRandomString();
 
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.TagReviewer);
+                CreateAuthenticatedSecurityContext(Roles.TagReviewers);
 
             Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
             Approval inputApproval = randomApproval;
@@ -120,7 +120,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             string randomUserId = GetRandomString();
 
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.TagReviewer);
+                CreateAuthenticatedSecurityContext(Roles.TagReviewers);
 
             Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);
             Approval inputApproval = randomApproval;

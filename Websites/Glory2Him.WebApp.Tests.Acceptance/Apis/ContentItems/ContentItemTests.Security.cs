@@ -132,12 +132,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a contentItem they did not create.
         /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>ContentItem-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// <c>ContentItem-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.ContentItemReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ContentItemReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersContentItemAsync(string reviewRoleName)
         {
             // given
@@ -169,7 +169,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         {
             // given
             ContentItem randomContentItem = await PostRandomContentItemAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ContentItemReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ContentItemReviewers);
 
             try
             {
@@ -215,7 +215,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ContentItems
         {
             // given
             ContentItem randomContentItem = CreateRandomContentItem();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postContentItemTask = this.apiBroker.PostContentItemAsync(randomContentItem).AsTask();

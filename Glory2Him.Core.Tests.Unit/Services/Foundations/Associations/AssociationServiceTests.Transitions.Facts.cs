@@ -45,7 +45,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // given: every transition, driven end to end against one permissive caller, with
             // every published operation recorded
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.Admin, Roles.Publisher, Roles.Reviewer);
+                Roles.Administrators, Roles.Publishers, Roles.Reviewers);
 
             var publishedOperations = new List<AssociationEventOperation>();
 

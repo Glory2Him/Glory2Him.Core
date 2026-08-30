@@ -125,7 +125,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         {
             // given: even an Admin caller gets not-found for a soft-deleted row —
             // deleted beats privilege
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting storageContentItemSetting = CreateRandomContentItemSetting();
             storageContentItemSetting.IsDeleted = true;
             Guid contentItemSettingId = storageContentItemSetting.Id;

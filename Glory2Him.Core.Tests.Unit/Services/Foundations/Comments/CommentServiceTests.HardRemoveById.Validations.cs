@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidCommentId = Guid.Empty;
 
             var invalidCommentException = new InvalidCommentException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfCommentNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someCommentId = Guid.NewGuid();
             Comment noComment = null;
 
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someCommentId = Guid.NewGuid();
 
@@ -279,7 +279,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.CommentReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.CommentReadOnly);
 
             Guid someCommentId = Guid.NewGuid();
 

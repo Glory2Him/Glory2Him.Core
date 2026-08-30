@@ -77,7 +77,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
         // ContentItem is the one entity type with three role tiers rather than two, because
         // it is the only one carrying a ContentType (design §18.6 rule 5). The tiers widen
-        // from narrow to broad — ContentItem-Story-Reviewer ⊂ ContentItem-Reviewer ⊂ Reviewer
+        // from narrow to broad — ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewer
         // — and rule 4 binds both directions: holding ANY of them satisfies a check for that
         // content type, and the narrow role NEVER satisfies a check for a different one. Both
         // halves are load-bearing, so the checks below are always asked about a content type.
@@ -85,20 +85,20 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         // the broad tiers, which cover every content type at once and so need no per-row
         // question asked of them
         private static bool HasBroadReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.ContentItemReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.ContentItemReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // the narrow tier: authority over one content type and never over another
         private static bool HasContentTypeReviewRole(
             SecurityContext securityContext,
             ContentType contentType) =>
             securityContext.Roles.Contains(
-                    Roles.ReviewerFor(EntityType.ContentItem, contentType))
+                    Roles.ReviewersFor(EntityType.ContentItem, contentType))
                 || securityContext.Roles.Contains(
-                    Roles.PublisherFor(EntityType.ContentItem, contentType));
+                    Roles.PublishersFor(EntityType.ContentItem, contentType));
 
         // the moderation roles that may act on and read non-public versions of THIS content
         // type for review and audit (§16.6, §18.6)
@@ -122,11 +122,11 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
         private static bool HasPublisherRole(
             SecurityContext securityContext,
             ContentType contentType) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Contains(
-                    Roles.PublisherFor(EntityType.ContentItem, contentType));
+                    Roles.PublishersFor(EntityType.ContentItem, contentType));
 
         // row-level write permission: the owner or a review role may write the row — the
         // narrower process rules (approved items fork, only the latest version is amended)
@@ -221,7 +221,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageContentItem.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to remove this content item.");
@@ -244,7 +244,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
                     message: "The current user is blocked from contributing content items.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to permanently remove this content item.");

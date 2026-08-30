@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidApprovalReviewId = Guid.Empty;
 
             var invalidApprovalReviewException = new InvalidApprovalReviewException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfApprovalReviewNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalReviewId = Guid.NewGuid();
             ApprovalReview noApprovalReview = null;
 
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someApprovalReviewId = Guid.NewGuid();
 

@@ -107,7 +107,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // them mark a stranger's draft approved and published — no review role check, no
             // publisher tier, no access decision, no approval conditions.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -162,7 +162,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -198,7 +198,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -412,7 +412,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewer);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemReviewers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -451,7 +451,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.ContentItemPublisher);
+                CreateAuthenticatedSecurityContext(Roles.ContentItemPublishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();

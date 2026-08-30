@@ -136,7 +136,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         }
 
         /// <summary>
-        /// A reviewer is not a publisher (HR-3). Reaction-Reviewer clears no part of the approve
+        /// A reviewer is not a publisher (HR-3). Reaction-Reviewers clears no part of the approve
         /// gate, and the attribute must not admit it.
         /// </summary>
         [Fact]
@@ -144,7 +144,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         {
             // given
             Reaction randomReaction = CreateRandomReaction();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ReactionReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ReactionReviewers);
 
             // when
             var approveReactionTask = this.apiBroker.TransitionReactionApprovalAsync(randomReaction).AsTask();
@@ -212,12 +212,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a reaction they did not create.
         /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>Reaction-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// <c>Reaction-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.ReactionReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ReactionReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersReactionAsync(string reviewRoleName)
         {
             // given
@@ -249,7 +249,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         {
             // given
             Reaction randomReaction = await PostRandomReactionAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ReactionReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.ReactionReviewers);
 
             try
             {
@@ -295,7 +295,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         {
             // given
             Reaction randomReaction = CreateRandomReaction();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postReactionTask = this.apiBroker.PostReactionAsync(randomReaction).AsTask();
@@ -313,7 +313,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Reactions
         {
             // given
             Reaction randomReaction = await PostRandomReactionAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.ReactionReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.ReactionReadOnly);
 
             try
             {

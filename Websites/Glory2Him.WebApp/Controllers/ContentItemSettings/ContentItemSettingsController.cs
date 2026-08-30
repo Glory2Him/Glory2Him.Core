@@ -81,7 +81,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
             this.contentItemSettingService = contentItemSettingService;
 
         [HttpPost]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> PostContentItemSettingAsync(
             [FromBody] ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken)
@@ -179,7 +179,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         }
 
         [HttpPut]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> PutContentItemSettingAsync(
             [FromBody] ContentItemSetting contentItemSetting,
             CancellationToken cancellationToken)
@@ -234,7 +234,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         /// The optional reason is carried through to <c>DeletionReason</c>.
         /// </summary>
         [HttpDelete("{contentItemSettingId}")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> DeleteContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             [FromQuery] string? deletionReason,
@@ -291,7 +291,7 @@ namespace Glory2Him.WebApp.Controllers.ContentItemSettings
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{contentItemSettingId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ContentItemSetting>> HardDeleteContentItemSettingByIdAsync(
             Guid contentItemSettingId,
             CancellationToken cancellationToken)

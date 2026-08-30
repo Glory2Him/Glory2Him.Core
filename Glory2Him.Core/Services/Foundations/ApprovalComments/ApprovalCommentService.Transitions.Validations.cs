@@ -30,7 +30,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // (§14.1) without owning it, so a Reviewer who wants to respond to an outstanding comment
         // writes one of their own — declaring somebody else's comment settled is the author's
         // call, or an administrator's. Admin is the GLOBAL role only: an entity-scoped
-        // "-Publisher" is a workflow role, and lifting the block
+        // "-Publishers" is a workflow role, and lifting the block
         // RequireReviewCommentResolutionBeforeApprovals holds shut is an administrative
         // override rather than part of deciding the approval.
         private async ValueTask ValidateUserCanResolveStorageApprovalCommentAsync(
@@ -43,7 +43,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageApprovalComment.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalCommentException(
                     message: "The current user is not allowed to resolve this approval comment.");

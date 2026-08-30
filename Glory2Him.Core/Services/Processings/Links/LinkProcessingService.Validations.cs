@@ -67,7 +67,7 @@ namespace Glory2Him.Core.Services.Processings.Links
             // removing content is a takedown, not a moderation step — the owner may remove
             // their own link and an Admin may remove anyone's; Reviewers and Publishers
             // moderate through the approval workflow instead
-            bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Admin);
+            bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPermitted is false)
             {
@@ -151,14 +151,14 @@ namespace Glory2Him.Core.Services.Processings.Links
 
         // Link has two role tiers, not ContentItem's three: the narrow tier exists only
         // where an entity carries a ContentType, and no entity but ContentItem does
-        // (design §18.6 rule 5). So a Link-Reviewer covers every link there is, and there
+        // (design §18.6 rule 5). So a Link-Reviewers covers every link there is, and there
         // is no per-row question to ask of the caller's grants.
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.LinkReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.LinkPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.LinkReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.LinkPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         private static void ValidateUserIsAllowedToContribute(SecurityContext securityContext)
         {

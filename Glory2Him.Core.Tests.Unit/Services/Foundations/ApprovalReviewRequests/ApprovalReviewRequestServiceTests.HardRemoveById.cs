@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldHardRemoveApprovalReviewRequestByIdAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalReviewRequest randomApprovalReviewRequest = CreateRandomApprovalReviewRequest();
             Guid inputApprovalReviewRequestId = randomApprovalReviewRequest.Id;
             ApprovalReviewRequest storageApprovalReviewRequest = randomApprovalReviewRequest;
@@ -142,7 +142,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowNotFoundExceptionOnHardRemoveIfRequestDoesNotExistAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalReviewRequestId = Guid.NewGuid();
             ApprovalReviewRequest noApprovalReviewRequest = null;
 
@@ -233,7 +233,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowValidationExceptionOnHardRemoveIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid invalidApprovalReviewRequestId = Guid.Empty;
 
             var invalidApprovalReviewRequestException =
@@ -278,7 +278,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldHardRemoveAnAlreadyWithdrawnApprovalReviewRequestAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalReviewRequest randomApprovalReviewRequest = CreateRandomApprovalReviewRequest();
             randomApprovalReviewRequest.IsDeleted = true;
             Guid inputApprovalReviewRequestId = randomApprovalReviewRequest.Id;

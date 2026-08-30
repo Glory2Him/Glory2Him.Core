@@ -242,7 +242,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         {
             // given
             string ownerUserId = GetRandomString();
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
             Approval inputApproval =
@@ -335,7 +335,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
             // given
             string publisherUserId = GetRandomString();
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 

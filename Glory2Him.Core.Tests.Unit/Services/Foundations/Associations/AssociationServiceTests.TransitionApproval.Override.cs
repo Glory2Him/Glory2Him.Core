@@ -41,7 +41,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // terminal state is an override, and a state a Publisher could edit out of would not
             // be terminal at all (§3.4 rules 7 and 16, §8.6 HR-4).
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Association storageAssociation = CreateTerminalStorageAssociation(terminalStatus);
             Association inputAssociation = CreateReopenDecision(storageAssociation.Id);
@@ -133,7 +133,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // published, so this is also where the unpublish-on-the-way-out rule is proved: a
             // re-opened row must not stay publicly visible while it waits for a second verdict.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Association storageAssociation = CreateTerminalStorageAssociation(terminalStatus);
             Association inputAssociation = CreateReopenDecision(storageAssociation.Id);
@@ -172,7 +172,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
             // whatever this demoted — the group simply has no public row until something is
             // approved again.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Association storageAssociation =
                 CreateTerminalStorageAssociation(ApprovalStatus.Approved);

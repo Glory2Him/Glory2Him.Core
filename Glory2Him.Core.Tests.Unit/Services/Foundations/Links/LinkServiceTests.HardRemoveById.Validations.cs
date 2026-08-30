@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidLinkId = Guid.Empty;
 
             var invalidLinkException = new InvalidLinkException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfLinkNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someLinkId = Guid.NewGuid();
             Link noLink = null;
 
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someLinkId = Guid.NewGuid();
 
@@ -279,7 +279,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.LinkReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.LinkReadOnly);
 
             Guid someLinkId = Guid.NewGuid();
 

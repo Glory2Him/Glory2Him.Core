@@ -306,7 +306,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalComments
         /// set is closed and enumerable and belongs in the attribute.
         /// </summary>
         [HttpDelete("{approvalCommentId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ApprovalComment>> HardDeleteApprovalCommentByIdAsync(
             Guid approvalCommentId,
             CancellationToken cancellationToken)

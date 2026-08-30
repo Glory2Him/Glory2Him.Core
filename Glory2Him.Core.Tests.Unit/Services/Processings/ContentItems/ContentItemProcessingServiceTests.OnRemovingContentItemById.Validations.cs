@@ -183,7 +183,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
             EventEnvelope<ContentItem> requestEnvelope = CreateEventEnvelope(
                 contentItem: removeRequest,
-                securityContext: CreateAuthenticatedSecurityContext(Roles.Publisher));
+                securityContext: CreateAuthenticatedSecurityContext(Roles.Publishers));
 
             var unauthorizedContentItemProcessingException =
                 new UnauthorizedContentItemProcessingException(

@@ -124,7 +124,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         {
             // given: even an Admin caller gets not-found for a soft-deleted row —
             // deleted beats privilege
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.IsDeleted = true;
             Guid approvalReviewId = storageApprovalReview.Id;

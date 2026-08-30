@@ -104,8 +104,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer },
-                new[] { Roles.ContentItemReviewer },
+                new[] { Roles.Reviewers },
+                new[] { Roles.ContentItemReviewers },
             };
 
         private void SetupUnpublishSaveBrokers() =>
@@ -181,7 +181,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: the incumbent holds the group's published slot with a real PublishDate.
             // Both fields are the whole of this verb's remit, and a date left behind is a date
             // nothing reads.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItem storageContentItem = CreateUnpublishStorageContentItem();
 
             // when
@@ -218,7 +218,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // field entirely (§3.4 rule 18): publication and the edit tip move independently,
             // and the tip is DERIVED from Version, so an unpublish that moved this row's
             // Version would silently re-point the whole group's tip.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItem storageContentItem = CreateUnpublishStorageContentItem();
 
             // snapshotted BEFORE the act — the service copies onto the instance the read
@@ -249,7 +249,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: its OWN fact. Modified would re-enter the approval workflow that caused
             // this write, and Approved would tell every subscriber a decision was taken when
             // none was — the incumbent's verdict has not changed.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItem storageContentItem = CreateUnpublishStorageContentItem();
 
             // when
@@ -293,7 +293,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // already cleared the slot — refusing here would fail an approval for work that
             // is already done, and writing anyway would announce an Unpublished fact for a
             // row nothing unpublished.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItem storageContentItem = CreateUnpublishStorageContentItem();
             storageContentItem.IsPublished = false;
             storageContentItem.PublishDate = null;
@@ -342,7 +342,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // so a tombstone still occupies it. Refusing to clear one would leave the group
             // permanently unpublishable (§9.7.7 rule 7). Anyone "tidying up" the load to
             // reuse the shared helper breaks that, and this test is what catches it.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItem storageContentItem = CreateUnpublishStorageContentItem();
             storageContentItem.IsDeleted = true;
 
@@ -389,7 +389,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnUnpublishIfIdIsInvalidAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             var invalidContentItemException =
                 new InvalidContentItemException(
@@ -427,7 +427,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowNotFoundOnUnpublishIfTheRowIsMissingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectContentItemByIdAsync(
@@ -500,8 +500,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.ContentItemPublisher)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.ContentItemPublishers)]
         public async Task ShouldThrowUnauthorizedOnUnpublishIfCallerIsAPublisherAsync(
             string publisherRole)
         {
@@ -651,7 +651,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // taken FROM the envelope rather than merely surviving alongside an ambient one
             // that would have passed anyway. The ambient caller is an Admin; the envelope
             // carries a plain contributor. The envelope must lose.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             EventEnvelope<ContentItem> inboundEnvelope =
                 CreateUnpublishInboundEnvelope(CreateAuthenticatedSecurityContext());
@@ -693,7 +693,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             Xeption expectedInnerException)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             var expectedContentItemDependencyException = new ContentItemDependencyException(
                 message: "Content item dependency error occurred, contact support.",
@@ -739,7 +739,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowCriticalDependencyExceptionOnUnpublishIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             SqlException sqlException = GetSqlException();
 
             var failedStorageContentItemException = new FailedStorageContentItemException(
@@ -785,7 +785,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowOperationCanceledExceptionOnUnpublishIfCancellationRequestedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var cancellationToken = new CancellationToken(canceled: true);
 
             // when
@@ -809,7 +809,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: the swap's route checks the token before it chains an envelope, so a
             // cancelled request never mints causation for work it will not do
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var cancellationToken = new CancellationToken(canceled: true);
 
             EventEnvelope<ContentItem> inboundEnvelope =

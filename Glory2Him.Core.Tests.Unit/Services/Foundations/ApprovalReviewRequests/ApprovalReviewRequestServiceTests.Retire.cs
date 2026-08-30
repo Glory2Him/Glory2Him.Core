@@ -256,7 +256,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         {
             // given: a caller-shaped context reaches the do-work instead of a system-minted one
             this.systemContextIsGenuine = false;
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalReviewRequestId = Guid.NewGuid();
 
             var unauthorizedApprovalReviewRequestException =

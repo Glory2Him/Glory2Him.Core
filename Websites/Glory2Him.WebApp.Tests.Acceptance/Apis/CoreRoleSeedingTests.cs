@@ -59,9 +59,9 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
         }
 
         [Theory]
-        [InlineData(Roles.Admin)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Administrators)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         [InlineData(Roles.ReadOnly)]
         public async Task ShouldSeedGlobalCoreRoleAsync(string roleName)
         {
@@ -81,8 +81,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
             string[] expectedRoleNames = new[]
             {
                 Roles.ReadOnlyFor(entityType),
-                Roles.ReviewerFor(entityType),
-                Roles.PublisherFor(entityType)
+                Roles.ReviewersFor(entityType),
+                Roles.PublishersFor(entityType)
             };
 
             foreach (string expectedRoleName in expectedRoleNames)
@@ -109,8 +109,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
             string[] unexpectedRoleNames = new[]
             {
                 Roles.ReadOnlyFor(entityType),
-                Roles.ReviewerFor(entityType),
-                Roles.PublisherFor(entityType)
+                Roles.ReviewersFor(entityType),
+                Roles.PublishersFor(entityType)
             };
 
             foreach (string unexpectedRoleName in unexpectedRoleNames)
@@ -135,7 +135,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis
             IList<string> actualRoles = await this.apiBroker.GetSeededAdministratorRolesAsync();
 
             // then
-            actualRoles.Should().Contain(Roles.Admin,
+            actualRoles.Should().Contain(Roles.Administrators,
                 because: "the portal's own 'Administrators' is a different vocabulary and "
                     + "satisfies none of Core's gates, so an administrator holding only it "
                     + "cannot approve or hard delete anything (#193)");

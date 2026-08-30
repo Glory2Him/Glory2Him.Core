@@ -93,7 +93,7 @@ describe('ReviewPanel', () => {
 
         it('should list the viewer first and everyone else alphabetically', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when — Zoe supplied before Adam to prove sorting, viewer's row last in the input
             renderWithAuth(
@@ -112,7 +112,7 @@ describe('ReviewPanel', () => {
 
         it('should synthesize a placeholder vote row for an eligible viewer with no vote', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -128,7 +128,7 @@ describe('ReviewPanel', () => {
 
         it('should not offer a vote to the entity owner', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -170,9 +170,9 @@ describe('ReviewPanel', () => {
         });
 
         it.each([
-            ['ContentItem-Reviewer'],
-            ['ContentItem-Blog-Reviewer'],
-            ['ContentItem-Publisher'],
+            ['ContentItem-Reviewers'],
+            ['ContentItem-Blog-Reviewers'],
+            ['ContentItem-Publishers'],
             ['Administrators']
         ])('should offer a vote to the scoped role %s', (role: string) => {
             // given
@@ -191,7 +191,7 @@ describe('ReviewPanel', () => {
 
         it('should not treat another entity\'s scoped role as eligible here', () => {
             // given
-            signInAs(authState, ['Tag-Reviewer']);
+            signInAs(authState, ['Tag-Reviewers']);
 
             // when
             renderWithAuth(
@@ -203,7 +203,7 @@ describe('ReviewPanel', () => {
 
         it('should raise onReviewStatusChanged when the viewer casts a vote', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -223,7 +223,7 @@ describe('ReviewPanel', () => {
 
         it('should raise onReviewStatusChanged when the viewer changes their vote', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -243,7 +243,7 @@ describe('ReviewPanel', () => {
 
         it('should not raise onReviewStatusChanged when the viewer re-picks their current vote', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -264,7 +264,7 @@ describe('ReviewPanel', () => {
 
         it('should freeze the viewer\'s vote into a badge once the approval is decided', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -280,7 +280,7 @@ describe('ReviewPanel', () => {
 
         it('should render awaiting-review rows for pending review requests', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -297,7 +297,7 @@ describe('ReviewPanel', () => {
 
         it('should not render the viewer among the requested rows', () => {
             // given — the viewer's own row is already the vote dropdown; one person, one row
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -331,9 +331,9 @@ describe('ReviewPanel', () => {
 
     describe('review requests', () => {
         it.each([
-            ['Reviewer'],
-            ['ContentItem-Reviewer'],
-            ['Publisher'],
+            ['Reviewers'],
+            ['ContentItem-Reviewers'],
+            ['Publishers'],
             ['Administrators']
         ])('should show the request cog to %s', (role: string) => {
             // given
@@ -371,7 +371,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the request cog once the approval is decided', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -384,7 +384,7 @@ describe('ReviewPanel', () => {
 
         it('should raise onReviewerLookupRequested and list the candidates when opened', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewerLookupRequested = vi.fn();
 
             renderWithAuth(
@@ -405,7 +405,7 @@ describe('ReviewPanel', () => {
 
         it('should show the loading text in the picker while candidates load', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -422,7 +422,7 @@ describe('ReviewPanel', () => {
 
         it('should filter the candidates by display name and by username', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -453,7 +453,7 @@ describe('ReviewPanel', () => {
         /// task, and closing after each would make the common case four trips through the cog.
         it('should raise onReviewRequested and keep the picker open', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
 
             renderWithAuth(
@@ -477,7 +477,7 @@ describe('ReviewPanel', () => {
         /// is no inline control on the row, so the one route is the one place the rule lives.
         it('should withdraw a request when its Requested row is picked', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequestWithdrawn = vi.fn();
 
             renderWithAuth(
@@ -502,7 +502,7 @@ describe('ReviewPanel', () => {
         /// missing, which is the question the ticks exist to answer.
         it('should list a requested person once, in the Requested section', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -529,7 +529,7 @@ describe('ReviewPanel', () => {
         /// make a search for them come back empty.
         it('should list a voter as ticked and refuse to act on a click', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
             const onReviewRequestWithdrawn = vi.fn();
 
@@ -583,7 +583,7 @@ describe('ReviewPanel', () => {
     describe('outcome', () => {
         it('should show the blocked panel with every reason message when blocked', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -608,7 +608,7 @@ describe('ReviewPanel', () => {
 
         it('should not show the blocked panel when nothing blocks approval', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -643,7 +643,7 @@ describe('ReviewPanel', () => {
     describe('bypass', () => {
         it('should offer the bypass checkbox to a decision-tier viewer the verdict allows', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -658,7 +658,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the bypass checkbox when the verdict does not allow this caller to bypass', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -673,7 +673,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the bypass checkbox when nothing blocks approval', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -688,7 +688,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the bypass checkbox from the reviewer tier even when the verdict allows it', () => {
             // given — HR-3: a reviewer never decides, so they are never offered the waiver either
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             // when
             renderWithAuth(
@@ -703,7 +703,7 @@ describe('ReviewPanel', () => {
 
         it('should reveal the reason box on tick and clear the reason on untick', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -736,7 +736,7 @@ describe('ReviewPanel', () => {
         /// and painting block reasons over a settled round tells the reader it is still waiting.
         it('should not render block reasons once the round is no longer submitted', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when - a terminal status alongside a verdict that still says blocked
             renderWithAuth(
@@ -758,7 +758,7 @@ describe('ReviewPanel', () => {
 
         it('should reset the bypass tick when the verdict changes underneath it', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const panelWith = (verdict: ApprovalVerdictItem): ReactElement => (
                 <MemoryRouter>
@@ -798,7 +798,7 @@ describe('ReviewPanel', () => {
         /// refuse, which is the one outcome guaranteed to look like a bug.
         it('should clear a bypass approve selection when the bypass is unticked', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -830,7 +830,7 @@ describe('ReviewPanel', () => {
         /// fails the moment the field stops being read.
         it('should refuse approve on the verdict word even when nothing is blocking', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -859,7 +859,7 @@ describe('ReviewPanel', () => {
         /// the publisher read, not against its code.
         it('should reset the bypass tick when a block reason is reworded', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const panelWith = (verdict: ApprovalVerdictItem): ReactElement => (
                 <MemoryRouter>
@@ -906,7 +906,7 @@ describe('ReviewPanel', () => {
         /// it — a bypass reason is free text it only checks for being non-blank.
         it('should reset the bypass tick when the panel moves to another approval', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
             const onApprovalStatusChanged = vi.fn();
 
             const reasonBoxQuery = () =>
@@ -956,11 +956,11 @@ describe('ReviewPanel', () => {
 
     describe('decision', () => {
         it.each([
-            ['Publisher'],
-            ['Admin'],
+            ['Publishers'],
             ['Administrators'],
-            ['ContentItem-Publisher'],
-            ['ContentItem-Blog-Publisher']
+            ['Administrators'],
+            ['ContentItem-Publishers'],
+            ['ContentItem-Blog-Publishers']
         ])('should show the set-approval-status dropdown to %s', (role: string) => {
             // given
             signInAs(authState, [role]);
@@ -978,8 +978,8 @@ describe('ReviewPanel', () => {
         });
 
         it.each([
-            ['Reviewer'],
-            ['ContentItem-Reviewer'],
+            ['Reviewers'],
+            ['ContentItem-Reviewers'],
             ['Users']
         ])('should hide the set-approval-status dropdown from %s', (role: string) => {
             // given — HR-3: the reviewer tier may never set an ApprovalStatus
@@ -999,7 +999,7 @@ describe('ReviewPanel', () => {
 
         it('should hide the set-approval-status dropdown once the approval is decided', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             // when
             renderWithAuth(
@@ -1015,7 +1015,7 @@ describe('ReviewPanel', () => {
 
         it('should disable approve while blocked without a bypass, and keep reject enabled', async () => {
             // given — §12.5.3 rule 13: a direct reject is not gated by the conditions
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1033,7 +1033,7 @@ describe('ReviewPanel', () => {
 
         it('should enable approve when the verdict says this caller may approve', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1050,7 +1050,7 @@ describe('ReviewPanel', () => {
 
         it('should enable approve once the bypass is ticked', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1068,7 +1068,7 @@ describe('ReviewPanel', () => {
 
         it('should submit a plain rejection with no bypass recorded', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
             const onApprovalStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -1090,7 +1090,7 @@ describe('ReviewPanel', () => {
 
         it('should hold submit on a bypass approve until a reason is given, then send it', async () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
             const onApprovalStatusChanged = vi.fn();
 
             renderWithAuth(
@@ -1156,7 +1156,7 @@ describe('ReviewPanel', () => {
         /// would invite a publisher to count an opinion nobody currently holds.
         it('should exclude a dismissed review entirely', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const dismissed: ApprovalReviewItem = {
                 reviewerUserId: 'user-jane',
@@ -1182,7 +1182,7 @@ describe('ReviewPanel', () => {
         /// A withdrawn review keeps its row, and a withdrawn opinion is no opinion.
         it('should exclude a soft-deleted review entirely', () => {
             // given
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             const withdrawn: ApprovalReviewItem = {
                 reviewerUserId: 'user-jane',
@@ -1209,7 +1209,7 @@ describe('ReviewPanel', () => {
         /// than a dropdown labelled with a verdict they can no longer amend.
         it('should offer the vote placeholder to a viewer whose own review was dismissed', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const viewerDismissed: ApprovalReviewItem = {
                 reviewerUserId: ViewerId,
@@ -1232,7 +1232,7 @@ describe('ReviewPanel', () => {
         /// Dismissal is per-review, so one being dismissed must not disturb another.
         it('should keep the standing votes when one review is dismissed', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const janeDismissed: ApprovalReviewItem = {
                 reviewerUserId: 'user-jane',
@@ -1258,7 +1258,7 @@ describe('ReviewPanel', () => {
         /// twice - once as an answer and once as a question.
         it('should drop a request once its target has voted', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const johnRequested: ReviewerCandidateItem = {
                 userId: johnApproved.reviewerUserId,
@@ -1284,7 +1284,7 @@ describe('ReviewPanel', () => {
         /// not the answer has arrived.
         it('should sort requests and votes into one alphabetical list', () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const bill: ReviewerCandidateItem = {
                 userId: 'user-bill',
@@ -1309,7 +1309,7 @@ describe('ReviewPanel', () => {
         /// cannot see - so suggestions and their reasons come from the consumer.
         it('should render supplied suggestions with their reason', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             const suggested: ReviewerCandidateItem = {
                 userId: 'user-christo',
@@ -1338,7 +1338,7 @@ describe('ReviewPanel', () => {
         /// section: already answered, nothing to do here.
         it('should render a suggested candidate who has already voted as inert', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
 
             const suggested: ReviewerCandidateItem = {
@@ -1372,7 +1372,7 @@ describe('ReviewPanel', () => {
         /// twice in one open picker makes the second row look like a different person.
         it('should not repeat a suggested person under everyone else', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1395,7 +1395,7 @@ describe('ReviewPanel', () => {
         /// somebody who has already answered, with nothing on screen saying why.
         it('should not count an answered request against the cap', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
 
             const votedInvitee: ReviewerCandidateItem = {
@@ -1430,7 +1430,7 @@ describe('ReviewPanel', () => {
         /// error.
         it('should render a requested candidate who has already voted as inert', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequestWithdrawn = vi.fn();
 
             const invitedAndAnswered: ReviewerCandidateItem = {
@@ -1462,7 +1462,7 @@ describe('ReviewPanel', () => {
         /// hand the same person to both collections, and two rows read as two people.
         it('should not repeat a suggested person under requested', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1480,7 +1480,7 @@ describe('ReviewPanel', () => {
 
         it('should name the cap in the picker heading', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1500,7 +1500,7 @@ describe('ReviewPanel', () => {
         /// limit would trap the round with no way to free a slot.
         it('should stop new requests at the cap while leaving withdrawal available', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
             const onReviewRequestWithdrawn = vi.fn();
 
@@ -1538,7 +1538,7 @@ describe('ReviewPanel', () => {
     // hook is that they cannot drift apart.
     describe('menu dismissal and labelling', () => {
         const openVoteMenu = async (): Promise<HTMLElement> => {
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1552,7 +1552,7 @@ describe('ReviewPanel', () => {
         };
 
         const openPicker = async (): Promise<HTMLElement> => {
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1567,7 +1567,7 @@ describe('ReviewPanel', () => {
         };
 
         const openDecisionMenu = async (): Promise<HTMLElement> => {
-            signInAs(authState, ['Publisher']);
+            signInAs(authState, ['Publishers']);
 
             renderWithAuth(
                 <ReviewPanel
@@ -1738,7 +1738,7 @@ describe('ReviewPanel', () => {
         // task — so its dismissal must not have quietly turned that into one round trip per name.
         it('should keep the picker open after a candidate is requested', async () => {
             // given
-            signInAs(authState, ['Reviewer']);
+            signInAs(authState, ['Reviewers']);
             const onReviewRequested = vi.fn();
 
             renderWithAuth(

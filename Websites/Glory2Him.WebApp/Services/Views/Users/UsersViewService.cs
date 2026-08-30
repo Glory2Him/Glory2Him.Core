@@ -22,15 +22,14 @@ namespace Glory2Him.WebApp.Services.Views.Users
 {
     public partial class UsersViewService : IUsersViewService
     {
-        public const string AdministratorsRole = "Administrators";
-
-        // Two vocabularies, two surfaces, and both need protecting. "Administrators" opens
-        // /api/admin; Core's Roles.Admin opens the moderation tier — hard delete, approve, and
-        // removing another user's row. Guarding only the first let an administrator strip the
-        // last holder of the second and silently restore the state issue #193 described, with
-        // no warning and no route back but a re-seed.
-        public static readonly string[] ProtectedAdministratorRoles =
-            new[] { AdministratorsRole, Roles.Admin };
+        // One name, two surfaces, and it needs protecting on both. "Administrators" opens
+        // /api/admin AND Core's moderation tier — hard delete, approve, and removing another
+        // user's row: #368 collapsed the two vocabularies onto this single name, so there is
+        // no longer a second administrator role that can be stripped while the first looks
+        // safe. Guarding it is what stops an administrator removing its last holder and
+        // leaving nobody able to administer the site, with no warning and no route back but a
+        // re-seed — the state issue #193 described.
+        public const string AdministratorsRole = Roles.Administrators;
 
         private readonly IIdentityBroker identityBroker;
         private readonly ILoggingBroker loggingBroker;
@@ -140,7 +139,7 @@ namespace Glory2Him.WebApp.Services.Views.Users
                     return;
                 }
 
-                if (ProtectedAdministratorRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
+                if (AdministratorsRole.Equals(roleName, StringComparison.OrdinalIgnoreCase))
                 {
                     IList<string> userRoles = await this.identityBroker.SelectUserRolesAsync(user);
 
@@ -251,10 +250,7 @@ namespace Glory2Him.WebApp.Services.Views.Users
         {
             IList<string> roles = await this.identityBroker.SelectUserRolesAsync(user);
 
-            foreach (string administratorRole in ProtectedAdministratorRoles)
-            {
-                await EnsureNotLastHolderAsync(roles, administratorRole, action);
-            }
+            await EnsureNotLastHolderAsync(roles, AdministratorsRole, action);
         }
 
         private async ValueTask EnsureNotLastHolderAsync(
@@ -264,8 +260,8 @@ namespace Glory2Him.WebApp.Services.Views.Users
         {
             // Identity resolves role names through NormalizedName, so RemoveFromRoleAsync
             // succeeds for a differently-cased name. Matching ordinally here would let
-            // "admin" strip the Admin role while the guard concluded the role was not
-            // protected at all.
+            // "administrators" strip the Administrators role while the guard concluded the
+            // role was not protected at all.
             if (!roles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
             {
                 return;

@@ -67,7 +67,7 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // removing content is a takedown, not a moderation step — the owner may remove
             // their own item and an Admin may remove anyone's; Reviewers and Publishers
             // moderate through the approval workflow instead
-            bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Admin);
+            bool isPermitted = isOwner || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPermitted is false)
             {
@@ -104,11 +104,11 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
             // moderator forking someone else's decided row would author a version in
             // their name
             bool hasModifyRole =
-                securityContext.Roles.Contains(Roles.Reviewer)
-                    || securityContext.Roles.Contains(Roles.ContentItemReviewer)
-                    || securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.ContentItemPublisher)
-                    || securityContext.Roles.Contains(Roles.Admin);
+                securityContext.Roles.Contains(Roles.Reviewers)
+                    || securityContext.Roles.Contains(Roles.ContentItemReviewers)
+                    || securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                    || securityContext.Roles.Contains(Roles.Administrators);
 
             bool isTerminal =
                 currentContentItem.ApprovalStatus == ApprovalStatus.Approved
@@ -157,27 +157,27 @@ namespace Glory2Him.Core.Services.Processings.ContentItems
 
         // ContentItem is the one entity type with three role tiers rather than two, because
         // it is the only one carrying a ContentType (design §18.6 rule 5). The tiers widen
-        // from narrow to broad — ContentItem-Story-Reviewer ⊂ ContentItem-Reviewer ⊂ Reviewer
+        // from narrow to broad — ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewer
         // — and rule 4 binds both directions: holding ANY of them satisfies a check for that
         // content type, and the narrow role NEVER satisfies a check for a different one.
 
         // the broad tiers, which cover every content type at once and so need no per-row
         // question asked of them
         private static bool HasBroadReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.ContentItemReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.ContentItemPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.ContentItemReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.ContentItemPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // the narrow tier: authority over one content type and never over another
         private static bool HasContentTypeReviewRole(
             SecurityContext securityContext,
             ContentType contentType) =>
             securityContext.Roles.Contains(
-                    Roles.ReviewerFor(EntityType.ContentItem, contentType))
+                    Roles.ReviewersFor(EntityType.ContentItem, contentType))
                 || securityContext.Roles.Contains(
-                    Roles.PublisherFor(EntityType.ContentItem, contentType));
+                    Roles.PublishersFor(EntityType.ContentItem, contentType));
 
         // the moderation roles that may read non-public versions of THIS content type for
         // review and audit (§16.6, §18.6)

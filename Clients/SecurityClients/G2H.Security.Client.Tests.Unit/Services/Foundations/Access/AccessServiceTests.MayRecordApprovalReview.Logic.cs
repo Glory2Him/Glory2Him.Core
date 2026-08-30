@@ -24,7 +24,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             AccessActor unauthenticatedActor = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.Reviewer },
+                roles: new List<string> { RoleNames.Reviewers },
                 isAuthenticated: false);
 
             RecordReviewRequest recordReviewRequest =
@@ -50,7 +50,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             var actorWithoutUserId = new AccessActor
             {
                 UserId = invalidUserId!,
-                Roles = new List<string> { RoleNames.Reviewer },
+                Roles = new List<string> { RoleNames.Reviewers },
                 IsAuthenticated = true,
             };
 
@@ -113,8 +113,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             string scopedRole = asPublisher
-                ? RoleNames.PublisherFor(scopedEndpoint)
-                : RoleNames.ReviewerFor(scopedEndpoint);
+                ? RoleNames.PublishersFor(scopedEndpoint)
+                : RoleNames.ReviewersFor(scopedEndpoint);
 
             AccessActor endpointActor = CreateRandomAccessActor(
                 roles: new List<string> { scopedRole });
@@ -145,7 +145,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             AccessActor unrelatedActor = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.ReviewerFor("Tag") });
+                roles: new List<string> { RoleNames.ReviewersFor("Tag") });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: unrelatedActor,
@@ -166,9 +166,9 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         }
 
         [Theory]
-        [InlineData(RoleNames.Reviewer)]
-        [InlineData(RoleNames.Publisher)]
-        [InlineData(RoleNames.Admin)]
+        [InlineData(RoleNames.Reviewers)]
+        [InlineData(RoleNames.Publishers)]
+        [InlineData(RoleNames.Administrators)]
         public async Task ShouldPermitRecordingAReviewForEachGlobalReviewTierRoleAsync(
             string globalRole)
         {
@@ -198,7 +198,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             string entityType = GetRandomString();
 
             AccessActor scopedReviewer = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.ReviewerFor(entityType) });
+                roles: new List<string> { RoleNames.ReviewersFor(entityType) });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: scopedReviewer,
@@ -225,7 +225,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             string contentType = GetRandomString();
 
             AccessActor scopedReviewer = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.ReviewerFor(entityType, contentType) });
+                roles: new List<string> { RoleNames.ReviewersFor(entityType, contentType) });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: scopedReviewer,
@@ -254,7 +254,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
             string differentEntityType = GetRandomString();
 
             AccessActor scopedReviewerElsewhere = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.ReviewerFor(differentEntityType) });
+                roles: new List<string> { RoleNames.ReviewersFor(differentEntityType) });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: scopedReviewerElsewhere,
@@ -287,13 +287,13 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
                 roles: new List<string>
                 {
-                    RoleNames.Reviewer,
-                    RoleNames.Publisher,
-                    RoleNames.Admin,
-                    RoleNames.ReviewerFor(entityType),
-                    RoleNames.ReviewerFor(entityType, contentType),
-                    RoleNames.PublisherFor(entityType),
-                    RoleNames.PublisherFor(entityType, contentType),
+                    RoleNames.Reviewers,
+                    RoleNames.Publishers,
+                    RoleNames.Administrators,
+                    RoleNames.ReviewersFor(entityType),
+                    RoleNames.ReviewersFor(entityType, contentType),
+                    RoleNames.PublishersFor(entityType),
+                    RoleNames.PublishersFor(entityType, contentType),
                 });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
@@ -365,7 +365,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor actor = CreateRandomAccessActor(
                 userId: actorId,
-                roles: new List<string> { RoleNames.Reviewer });
+                roles: new List<string> { RoleNames.Reviewers });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: actor,
@@ -398,7 +398,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor actor = CreateRandomAccessActor(
                 userId: actorId,
-                roles: new List<string> { RoleNames.Reviewer });
+                roles: new List<string> { RoleNames.Reviewers });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: actor,
@@ -428,7 +428,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor actor = CreateRandomAccessActor(
                 userId: actorId,
-                roles: new List<string> { RoleNames.Reviewer });
+                roles: new List<string> { RoleNames.Reviewers });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: actor,
@@ -456,7 +456,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor actor = CreateRandomAccessActor(
                 userId: actorId,
-                roles: new List<string> { RoleNames.Reviewer });
+                roles: new List<string> { RoleNames.Reviewers });
 
             RecordReviewRequest recordReviewRequest = CreateRandomRecordReviewRequest(
                 actor: actor,

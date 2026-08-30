@@ -49,19 +49,19 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
         // the moderation roles that may act on and read non-public versions for review and
         // audit (Reviewer, Publisher, Admin — global or BibleReference-scoped, §16.6)
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.BibleReferenceReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.BibleReferencePublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.BibleReferenceReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.BibleReferencePublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // the publisher tier: the roles the approve operation itself requires, and the only ones
         // besides the owner that may move a submission status through the general modify. Strictly
         // narrower than the review tier — a Reviewer is absent by design (§8.6 HR-3).
         private static bool HasPublisherRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.BibleReferencePublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.BibleReferencePublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // row-level write permission: the owner or a review role may write the row — the
         // narrower process rules (approved items fork, only the latest version is amended)
@@ -138,7 +138,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageBibleReference.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedBibleReferenceException(
                     message: "The current user is not allowed to remove this bible reference.");
@@ -161,7 +161,7 @@ namespace Glory2Him.Core.Services.Foundations.BibleReferences
                     message: "The current user is blocked from contributing bible references.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedBibleReferenceException(
                     message: "The current user is not allowed to permanently remove this bible reference.");

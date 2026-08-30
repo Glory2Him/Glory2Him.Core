@@ -31,7 +31,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         //
         // ContentItem is the only entity with three role tiers, because it is the only one
         // carrying a ContentType. The tiers widen from narrow to broad —
-        // ContentItem-Story-Reviewer ⊂ ContentItem-Reviewer ⊂ Reviewer — and rule 4 binds
+        // ContentItem-Story-Reviewers ⊂ ContentItem-Reviewers ⊂ Reviewer — and rule 4 binds
         // BOTH directions: holding any of them satisfies a check for that content type, and
         // the narrow role never satisfies a check for a different one. Every test below
         // pairs a "may" with a "may not" so neither half can rot.
@@ -39,8 +39,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public static TheoryData<string> TestimonyScopedReviewRoles() =>
             new TheoryData<string>
             {
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony),
-                Roles.PublisherFor(EntityType.ContentItem, ContentType.Testimony)
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony),
+                Roles.PublishersFor(EntityType.ContentItem, ContentType.Testimony)
             };
 
         [Theory]
@@ -91,7 +91,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: rule 4's second half — a Testimony reviewer has no authority over a
             // Story, and the denial is reported as not-found so a probe learns nothing
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony));
 
             string randomActorUserId = GetRandomString();
             ContentItem storageContentItem = CreateRandomContentItem();
@@ -151,7 +151,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // the caller's view to its own content type and to nothing else — the danger
             // being a blanket "reviewers see everything" branch handing over every draft.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony));
 
             string randomActorUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -222,7 +222,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: the write gate has to honour the narrow tier too, or a content-type
             // reviewer could read an item for review and then not be able to amend it
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony));
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -262,7 +262,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: rule 4's second half on the write gate
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.ReviewerFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.ReviewersFor(EntityType.ContentItem, ContentType.Testimony));
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -312,7 +312,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: the §9.2 carve-out is gated on the Publisher TIER, and the narrow
             // content-type publisher is part of that tier for its own content type
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.PublisherFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.PublishersFor(EntityType.ContentItem, ContentType.Testimony));
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();
@@ -356,8 +356,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: a Testimony publisher who also holds the coarse reviewer role passes
             // the write gate on a Story, and must still not move its status
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(
-                Roles.ContentItemReviewer,
-                Roles.PublisherFor(EntityType.ContentItem, ContentType.Testimony));
+                Roles.ContentItemReviewers,
+                Roles.PublishersFor(EntityType.ContentItem, ContentType.Testimony));
 
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string actorUserId = GetRandomString();

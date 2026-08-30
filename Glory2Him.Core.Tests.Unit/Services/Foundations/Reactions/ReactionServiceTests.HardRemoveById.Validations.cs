@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidReactionId = Guid.Empty;
 
             var invalidReactionException = new InvalidReactionException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfReactionNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someReactionId = Guid.NewGuid();
             Reaction noReaction = null;
 
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someReactionId = Guid.NewGuid();
 
@@ -279,7 +279,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReactionReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReactionReadOnly);
 
             Guid someReactionId = Guid.NewGuid();
 

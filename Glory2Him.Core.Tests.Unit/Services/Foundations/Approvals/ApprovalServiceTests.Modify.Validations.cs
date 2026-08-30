@@ -366,7 +366,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Approvals
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Approval randomApproval = CreateRandomModifyApproval(randomDateTimeOffset, randomUserId);

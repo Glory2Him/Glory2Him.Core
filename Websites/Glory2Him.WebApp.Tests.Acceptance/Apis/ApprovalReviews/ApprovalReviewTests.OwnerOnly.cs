@@ -62,8 +62,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
 
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldReturnUnauthorizedOnPutIfCallerIsNotTheReviewerAsync(string callerRole)
         {
             // given: a verdict recorded by somebody else
@@ -113,8 +113,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
 
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldReturnUnauthorizedOnDeleteIfCallerIsNotTheReviewerAsync(string callerRole)
         {
             // given

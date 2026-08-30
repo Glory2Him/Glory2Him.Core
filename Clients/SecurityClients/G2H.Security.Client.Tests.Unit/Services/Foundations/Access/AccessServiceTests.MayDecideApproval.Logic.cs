@@ -24,7 +24,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             AccessActor unauthenticatedActor = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.Admin },
+                roles: new List<string> { RoleNames.Administrators },
                 isAuthenticated: false);
 
             DecideApprovalRequest decideApprovalRequest =
@@ -45,7 +45,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         {
             // given
             AccessActor reviewerOnly = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.Reviewer });
+                roles: new List<string> { RoleNames.Reviewers });
 
             DecideApprovalRequest decideApprovalRequest =
                 CreateRandomDecideApprovalRequest(actor: reviewerOnly);
@@ -79,8 +79,8 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
         }
 
         [Theory]
-        [InlineData(RoleNames.Publisher)]
-        [InlineData(RoleNames.Admin)]
+        [InlineData(RoleNames.Publishers)]
+        [InlineData(RoleNames.Administrators)]
         public async Task ShouldPermitDecidingAnApprovalForEachGlobalPublisherTierRoleAsync(
             string globalRole)
         {
@@ -114,7 +114,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
                 requireApprovals: false);
 
             AccessActor scopedPublisher = CreateRandomAccessActor(
-                roles: new List<string> { RoleNames.PublisherFor(entityType) });
+                roles: new List<string> { RoleNames.PublishersFor(entityType) });
 
             DecideApprovalRequest decideApprovalRequest = CreateRandomDecideApprovalRequest(
                 actor: scopedPublisher,
@@ -166,7 +166,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor adminHoldingAReview = CreateRandomAccessActor(
                 userId: actorId,
-                roles: new List<string> { RoleNames.Admin });
+                roles: new List<string> { RoleNames.Administrators });
 
             ApprovalPolicy permissiveApprovalPolicy = CreateRandomApprovalPolicy(
                 requireApprovals: false,
@@ -201,7 +201,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor author = CreateRandomAccessActor(
                 userId: authorId,
-                roles: new List<string> { RoleNames.Publisher });
+                roles: new List<string> { RoleNames.Publishers });
 
             ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
                 requireApprovals: false,
@@ -231,7 +231,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor author = CreateRandomAccessActor(
                 userId: authorId,
-                roles: new List<string> { RoleNames.Publisher });
+                roles: new List<string> { RoleNames.Publishers });
 
             ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
                 requireApprovals: false,
@@ -293,7 +293,7 @@ namespace G2H.Security.Client.Tests.Unit.Services.Foundations.Access
 
             AccessActor author = CreateRandomAccessActor(
                 userId: authorId,
-                roles: new List<string> { RoleNames.Publisher });
+                roles: new List<string> { RoleNames.Publishers });
 
             ApprovalPolicy approvalPolicy = CreateRandomApprovalPolicy(
                 requireApprovals: false,

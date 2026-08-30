@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidContentItemId = Guid.Empty;
 
             var invalidContentItemException = new InvalidContentItemException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfContentItemNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someContentItemId = Guid.NewGuid();
             ContentItem noContentItem = null;
 
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someContentItemId = Guid.NewGuid();
 
@@ -279,7 +279,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ContentItemReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ContentItemReadOnly);
 
             Guid someContentItemId = Guid.NewGuid();
 

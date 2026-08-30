@@ -225,7 +225,7 @@ namespace G2H.Security.Client.Services.Foundations.Access
             }
 
             bool isAuthor = IsSameUser(request.Actor.UserId, request.CommentCreatedBy);
-            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Admin);
+            bool isAdmin = request.Actor.Roles.Contains(RoleNames.Administrators);
 
             if (isAuthor is false && isAdmin is false)
             {
@@ -561,27 +561,27 @@ namespace G2H.Security.Client.Services.Foundations.Access
         private static bool HasReviewTier(
             AccessActor actor,
             IReadOnlyList<RoleSubject> roleSubjects) =>
-            actor.Roles.Contains(RoleNames.Reviewer)
+            actor.Roles.Contains(RoleNames.Reviewers)
                 || HasPublisherTier(actor, roleSubjects)
                 || roleSubjects.Any(subject => HasScopedRole(
                     actor,
                     subject,
-                    RoleNames.ReviewerFor,
-                    RoleNames.ReviewerFor));
+                    RoleNames.ReviewersFor,
+                    RoleNames.ReviewersFor));
 
         private static bool HasPublisherTier(
             AccessActor actor,
             IReadOnlyList<RoleSubject> roleSubjects) =>
-            actor.Roles.Contains(RoleNames.Publisher)
-                || actor.Roles.Contains(RoleNames.Admin)
+            actor.Roles.Contains(RoleNames.Publishers)
+                || actor.Roles.Contains(RoleNames.Administrators)
                 || roleSubjects.Any(subject => HasScopedRole(
                     actor,
                     subject,
-                    RoleNames.PublisherFor,
-                    RoleNames.PublisherFor));
+                    RoleNames.PublishersFor,
+                    RoleNames.PublishersFor));
 
-        // The narrow tier widens into the coarse one: ContentItem-Blog-Reviewer ⊂
-        // ContentItem-Reviewer ⊂ Reviewer (§18.6 rule 4). Holding either spelling satisfies the
+        // The narrow tier widens into the coarse one: ContentItem-Blog-Reviewers ⊂
+        // ContentItem-Reviewers ⊂ Reviewer (§18.6 rule 4). Holding either spelling satisfies the
         // check for that content type; the narrow one never satisfies a check for a different one.
         private static bool HasScopedRole(
             AccessActor actor,

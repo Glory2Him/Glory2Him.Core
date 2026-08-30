@@ -406,7 +406,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     cancellationToken: cancellationToken);
 
                 // and that tier narrowed to the entity actually under approval, which the
-                // row-local check above cannot see — a Tag-Reviewer clears it for any approval
+                // row-local check above cannot see — a Tag-Reviewers clears it for any approval
                 // at all. Asked about the STORED row, so a payload naming a different entity
                 // cannot move the question onto something the caller does hold a role for.
                 await ValidateUserMayAmendStorageApprovalAsync(

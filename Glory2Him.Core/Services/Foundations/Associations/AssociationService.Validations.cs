@@ -37,7 +37,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         // endpoints, and blocks on EITHER of them.
         //
         // The OR is load-bearing. Under AND, a user holding Tag-ReadOnly alongside
-        // BibleReference-Reviewer could pair a tag with an entity type they are not banned
+        // BibleReference-Reviewers could pair a tag with an entity type they are not banned
         // from and land it on a public scripture page — precisely what Tag-ReadOnly exists
         // to prevent. A block on one end blocks the association.
         private static void ValidateUserIsAllowedToContribute(
@@ -95,12 +95,12 @@ namespace Glory2Him.Core.Services.Foundations.Associations
 
         // the global moderation roles, which grant review over every entity type
         private static bool HasGlobalReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
-        // Both tiers for one endpoint: the coarse ContentItem-Reviewer from the entity type,
-        // and the narrow ContentItem-Testimony-Reviewer from the denormalised content type.
+        // Both tiers for one endpoint: the coarse ContentItem-Reviewers from the entity type,
+        // and the narrow ContentItem-Testimony-Reviewers from the denormalised content type.
         // The narrow tier only exists for ContentItem, so a null content type simply costs
         // the caller that tier rather than widening anything (design §18.6 rule 4).
         private static bool HasEndpointReviewRole(
@@ -108,8 +108,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EntityType entityType,
             ContentType? contentType)
         {
-            if (securityContext.Roles.Contains(Roles.ReviewerFor(entityType))
-                || securityContext.Roles.Contains(Roles.PublisherFor(entityType)))
+            if (securityContext.Roles.Contains(Roles.ReviewersFor(entityType))
+                || securityContext.Roles.Contains(Roles.PublishersFor(entityType)))
             {
                 return true;
             }
@@ -120,9 +120,9 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
 
             return securityContext.Roles.Contains(
-                    Roles.ReviewerFor(entityType, contentType.Value))
+                    Roles.ReviewersFor(entityType, contentType.Value))
                 || securityContext.Roles.Contains(
-                    Roles.PublisherFor(entityType, contentType.Value));
+                    Roles.PublishersFor(entityType, contentType.Value));
         }
 
         // the moderation roles that may act on and read non-public rows for review and
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageAssociation.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to remove this content item association.");
@@ -246,7 +246,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                     message: "The current user is blocked from contributing content item associations.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to permanently remove " +
@@ -605,7 +605,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 //
                 // This matters more since authorization became endpoint-derived: the write
                 // gate now admits any scoped reviewer for EITHER endpoint, so without these
-                // pins a Tag-Reviewer could take someone else's pending association and
+                // pins a Tag-Reviewers could take someone else's pending association and
                 // publish it through the general modify — approving content nobody with
                 // authority over it ever looked at.
                 (Rule: IsNotAPermittedStatusChangeOnModify(

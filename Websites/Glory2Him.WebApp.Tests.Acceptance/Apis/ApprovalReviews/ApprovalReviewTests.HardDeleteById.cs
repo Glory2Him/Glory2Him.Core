@@ -74,7 +74,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 // when
                 this.apiBroker.ActAs(
                     Guid.NewGuid().ToString(),
-                    Roles.Admin,
+                    Roles.Administrators,
                     Roles.ReadOnly);
 
                 var hardDeleteTask =

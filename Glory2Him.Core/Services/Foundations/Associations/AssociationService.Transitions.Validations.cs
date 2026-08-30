@@ -157,7 +157,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         //
         // HR-3 — a Reviewer may NEVER set an approval status. A reviewer's instrument is the
         // ApprovalReview record; they move the outcome only indirectly, through automatic
-        // approval. %EntityType%-Reviewer is not a weaker %EntityType%-Publisher, it is a
+        // approval. %EntityType%-Reviewers is not a weaker %EntityType%-Publishers, it is a
         // different job, so the review-role helper is deliberately NOT used here.
         //
         // HR-2 — no one approves their own content unless AllowSelfApproval permits it. That
@@ -201,7 +201,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             // can only ever make this stricter (§8.6.1).
             if (isOverride
                 && isSystemIdentity is false
-                && securityContext.Roles.Contains(Roles.Admin) is false)
+                && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to transition " +
@@ -365,8 +365,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
         private static bool HasPublisherRoleForAssociation(
             SecurityContext securityContext,
             Association association) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || HasEndpointPublisherRole(
                     securityContext,
                     association.EntityAType,
@@ -381,7 +381,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             EntityType entityType,
             ContentType? contentType)
         {
-            if (securityContext.Roles.Contains(Roles.PublisherFor(entityType)))
+            if (securityContext.Roles.Contains(Roles.PublishersFor(entityType)))
             {
                 return true;
             }
@@ -392,7 +392,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
 
             return securityContext.Roles.Contains(
-                Roles.PublisherFor(entityType, contentType.Value));
+                Roles.PublishersFor(entityType, contentType.Value));
         }
 
         // Sorting arranges someone's own list — an author ordering the posts inside their own
@@ -408,7 +408,7 @@ namespace Glory2Him.Core.Services.Foundations.Associations
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageAssociation.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedAssociationException(
                     message: "The current user is not allowed to sort " +
@@ -438,8 +438,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             }
 
             bool isPublisherOrAdmin =
-                securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Admin);
+                securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPublisherOrAdmin is false)
             {
@@ -457,8 +457,8 @@ namespace Glory2Him.Core.Services.Foundations.Associations
             SecurityContext securityContext)
         {
             bool isPublisherOrAdmin =
-                securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Admin);
+                securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPublisherOrAdmin is false)
             {

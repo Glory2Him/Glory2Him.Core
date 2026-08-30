@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid invalidApprovalReviewRequestId = Guid.Empty;
 
             var invalidApprovalReviewRequestException =
@@ -73,7 +73,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfDeletionReasonExceedsMaxLengthAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid someApprovalReviewRequestId = Guid.NewGuid();
             string tooLongDeletionReason = GetRandomStringWithLengthOf(501);
 
@@ -213,7 +213,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviewRequests
         public async Task ShouldThrowNotFoundExceptionOnRemoveByIdIfRequestDoesNotExistAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Guid someApprovalReviewRequestId = Guid.NewGuid();
             ApprovalReviewRequest noApprovalReviewRequest = null;
 

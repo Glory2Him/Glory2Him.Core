@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             Xeption expectedInnerException)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
 
             var expectedContentItemSettingDependencyException = new ContentItemSettingDependencyException(
@@ -77,7 +77,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowDependencyExceptionOnModifyIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
             var operationCanceledException = new OperationCanceledException();
 
@@ -132,7 +132,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowOperationCanceledExceptionOnModifyIfCancellationRequestedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
             var cancellationToken = new CancellationToken(canceled: true);
 
@@ -157,7 +157,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowCriticalDependencyExceptionOnModifyIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
             SqlException sqlException = GetSqlException();
 
@@ -211,7 +211,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             Xeption expectedInnerException)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
 
             var expectedContentItemSettingDependencyValidationException =
@@ -257,7 +257,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowServiceExceptionOnModifyIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting someContentItemSetting = CreateRandomContentItemSetting();
             var serviceException = new Exception();
 

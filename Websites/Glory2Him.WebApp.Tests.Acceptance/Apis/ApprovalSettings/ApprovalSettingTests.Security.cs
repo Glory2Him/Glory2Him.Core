@@ -120,8 +120,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         /// here.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefusePostIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -144,8 +144,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefusePutIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -175,8 +175,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefuseDeleteIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given
@@ -203,8 +203,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalSettings
         }
 
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldRefuseHardDeleteIfCallerIsNotAdministratorAsync(string roleName)
         {
             // given

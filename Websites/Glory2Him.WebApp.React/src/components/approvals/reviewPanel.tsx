@@ -32,9 +32,9 @@ import './approvals.css';
 export interface ReviewPanelProps {
     // ── Subject ───────────────────────────────────────────────────────────────
     // Names the entity under approval so the vote-tier roles can be composed (§18.6,
-    // capability-last and singular): {entityType}-Reviewer / {entityType}-Publisher, and — only
+    // capability-last and plural): {entityType}-Reviewers / {entityType}-Publishers, and — only
     // when entityType is 'ContentItem' and a contentType is given — the narrower
-    // ContentItem-{contentType}-Reviewer / -Publisher pair. Identifiers are NOT used to fetch
+    // ContentItem-{contentType}-Reviewers / -Publishers pair. Identifiers are NOT used to fetch
     // anything here; the consumer resolves reviews and verdict itself.
     entityType: string;
     contentType?: string;
@@ -125,7 +125,7 @@ export interface ReviewPanelProps {
     // ── Roles ─────────────────────────────────────────────────────────────────
     // Comma-separated overrides. Defaults are composed from entityType/contentType per §18.6;
     // pass these only when a surface needs a different render gate. decisionRoles deliberately
-    // excludes the Reviewer tier: HR-3 — a reviewer may never set an ApprovalStatus.
+    // excludes the Reviewers tier: HR-3 — a reviewer may never set an ApprovalStatus.
     voteRoles?: string;
     decisionRoles?: string;
 
@@ -184,9 +184,9 @@ const parseRoles = (roles: string): ReadonlyArray<string> =>
         .map((role) => role.trim())
         .filter((role) => role.length > 0);
 
-// Both admin vocabularies are honoured deliberately: the portal seeds "Administrators" and the
-// core role enum seeds "Admin" — two surfaces, two names, one tier (SeedData).
-const AdminRoles = 'Admin, Administrators';
+// One name for one tier. "Administrators" used to be the portal's own vocabulary sitting beside
+// a separate core "Admin", so both had to be listed here; #368 collapsed them (SeedData).
+const AdministratorRoles = 'Administrators';
 
 export function ReviewPanel({
     entityType,
@@ -273,26 +273,26 @@ export function ReviewPanel({
     const [isBypassChecked, setIsBypassChecked] = useState(false);
     const [bypassReason, setBypassReason] = useState('');
 
-    // §18.6 composition, capability LAST and singular — ContentItem-Blog-Reviewer, never
-    // Reviewer-ContentItem-Blog: the services recognise a review role by its "-Reviewer" suffix.
-    // The content-type tier exists only for ContentItem (§18.6 rule 5).
+    // §18.6 composition, capability LAST and plural — ContentItem-Blog-Reviewers, never
+    // Reviewers-ContentItem-Blog: the services recognise a review role by its "-Reviewers"
+    // suffix. The content-type tier exists only for ContentItem (§18.6 rule 5).
     const contentTypedRole = (capability: string): string | undefined =>
         entityType === 'ContentItem' && contentType != null && contentType.length > 0
             ? `${entityType}-${contentType}-${capability}`
             : undefined;
 
     const defaultVoteRoles = [
-        'Reviewer', 'Publisher', ...parseRoles(AdminRoles),
-        `${entityType}-Reviewer`, `${entityType}-Publisher`,
-        contentTypedRole('Reviewer'), contentTypedRole('Publisher')
+        'Reviewers', 'Publishers', ...parseRoles(AdministratorRoles),
+        `${entityType}-Reviewers`, `${entityType}-Publishers`,
+        contentTypedRole('Reviewers'), contentTypedRole('Publishers')
     ].filter((role): role is string => role != null);
 
-    // HR-3: the Reviewer tier may never set an ApprovalStatus — deciding is the Publisher
-    // tier's and Admin's alone, so no -Reviewer role appears here.
+    // HR-3: the Reviewers tier may never set an ApprovalStatus — deciding is the Publishers
+    // tier's and Administrators' alone, so no -Reviewers role appears here.
     const defaultDecisionRoles = [
-        'Publisher', ...parseRoles(AdminRoles),
-        `${entityType}-Publisher`,
-        contentTypedRole('Publisher')
+        'Publishers', ...parseRoles(AdministratorRoles),
+        `${entityType}-Publishers`,
+        contentTypedRole('Publishers')
     ].filter((role): role is string => role != null);
 
     const voteRoleList = voteRoles != null ? parseRoles(voteRoles) : defaultVoteRoles;

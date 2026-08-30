@@ -41,8 +41,8 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
     ///
     /// <list type="bullet">
     /// <item>Add and both reads admit any review-role holder — global <c>Reviewer</c>,
-    /// <c>Publisher</c>, <c>Admin</c>, or any <c>%EntityType%-Reviewer</c> /
-    /// <c>%EntityType%-Publisher</c>. Suffix-matched, so not enumerable.</item>
+    /// <c>Publisher</c>, <c>Admin</c>, or any <c>%EntityType%-Reviewers</c> /
+    /// <c>%EntityType%-Publishers</c>. Suffix-matched, so not enumerable.</item>
     /// <item>Modify and soft removal are the <b>owner alone</b> — not <c>Publisher</c>, not
     /// <c>Admin</c>. A verdict belongs to the reviewer who recorded it; an Admin who needs past a
     /// standing rejection bypasses the block (§8.6.1) rather than editing the review out of the
@@ -327,7 +327,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalReviews
         /// in the attribute.
         /// </summary>
         [HttpDelete("{approvalReviewId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ApprovalReview>> HardDeleteApprovalReviewByIdAsync(
             Guid approvalReviewId,
             CancellationToken cancellationToken)

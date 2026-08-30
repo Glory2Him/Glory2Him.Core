@@ -132,12 +132,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a link they did not create.
         /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>Link-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// <c>Link-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.LinkReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.LinkReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersLinkAsync(string reviewRoleName)
         {
             // given
@@ -169,7 +169,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         {
             // given
             Link randomLink = await PostRandomLinkAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.LinkReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.LinkReviewers);
 
             try
             {
@@ -215,7 +215,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Links
         {
             // given
             Link randomLink = CreateRandomLink();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postLinkTask = this.apiBroker.PostLinkAsync(randomLink).AsTask();

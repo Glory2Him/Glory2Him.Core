@@ -34,8 +34,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
 
                 // a Reviewer holds the review tier and MUST still never set an approval status
                 // (§8.6 HR-3) — the publisher tier deliberately excludes it
-                new[] { Roles.Reviewer },
-                new[] { Roles.BibleReferenceReviewer },
+                new[] { Roles.Reviewers },
+                new[] { Roles.BibleReferenceReviewers },
             };
 
         [Fact]
@@ -87,7 +87,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // but only to a state the workflow can hold a row in. Draft is reached once, at
             // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
             // Submitted is NOT here: it is what an override re-opens a terminal row to.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference inputBibleReference = CreateApprovalDecision(Guid.NewGuid());
             inputBibleReference.ApprovalStatus = notATransitionTarget;
@@ -122,7 +122,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given: publication is a consequence of approval — a row cannot be published while
             // being rejected. The rule is the ONLY guard on this pair (DoApprove copies
             // IsPublished straight from the caller), and it fires before the row is read.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference inputBibleReference = CreateRejectionDecision(Guid.NewGuid());
             inputBibleReference.IsPublished = true;
@@ -171,7 +171,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given: a publish date without publication is a date nothing reads. DoApprove copies
             // PublishDate straight from the caller, so this rule is the only guard against a
             // phantom publish date on an unpublished row.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference inputBibleReference = CreateRejectionDecision(Guid.NewGuid());
             inputBibleReference.IsPublished = false;
@@ -213,7 +213,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowNotFoundOnApproveIfTheRowIsMissingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference inputBibleReference = CreateApprovalDecision(Guid.NewGuid());
 
@@ -249,7 +249,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         public async Task ShouldThrowNotFoundOnApproveIfTheRowIsSoftDeletedAsync()
         {
             // given: a soft-removed row is a takedown reported as not-found.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
             storageBibleReference.IsDeleted = true;
@@ -298,7 +298,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             //
             // The tier and the access decision pass first (global Publisher, permissive fixture),
             // so this proves the state gate stands on its own.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
             storageBibleReference.ApprovalStatus = storageStatus;
@@ -397,7 +397,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given: the caller holds the global Publisher role, so the row-local tier check
             // passes and the cross-entity decision is the ONLY thing left that can refuse the
             // approve (HR-2 self-approval lives behind the access broker).
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
             BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
@@ -460,7 +460,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given: the verdict's Explanation and the denial reason name resolved policy;
             // exception messages and their Data surface outward through a public event address
             // (§14.5 rule 2), so neither may appear in anything thrown.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
             BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
@@ -495,7 +495,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
         {
             // given: §14.5 — the true reason is recorded server-side BEFORE the throw, because
             // the throw is what discards the verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
             BibleReference inputBibleReference = CreateApprovalDecision(storageBibleReference.Id);
@@ -539,7 +539,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given: the caller's copy names a DIFFERENT author from the stored row. If the
             // query were built from the caller's copy, a contributor could name somebody else as
             // author and walk past the self-approval bar.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
             storageBibleReference.CreatedBy = $"stored-{Guid.NewGuid()}";
@@ -589,7 +589,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.BibleReferences
             // given: rejecting withholds approval rather than granting it, so it satisfies no
             // threshold and waives nothing. Asking one question for both would leave a publisher
             // unable to reject the very row the threshold was failing to approve.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             BibleReference storageBibleReference = CreateApprovableStorageBibleReference();
 

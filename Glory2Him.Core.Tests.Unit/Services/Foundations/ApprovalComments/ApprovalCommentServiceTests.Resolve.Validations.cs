@@ -27,16 +27,16 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
     {
         // The review roles read a comment thread without owning it, so none of them may declare
         // someone else's comment settled. Admin is the GLOBAL role only — an entity-scoped
-        // "-Publisher" decides approvals, which is not the same as lifting the block
+        // "-Publishers" decides approvals, which is not the same as lifting the block
         // RequireReviewCommentResolutionBeforeApprovals holds shut.
         public static TheoryData<string[]> NonResolverRoleSets() =>
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer },
-                new[] { Roles.Publisher },
-                new[] { Roles.ContentItemReviewer },
-                new[] { Roles.ContentItemPublisher },
+                new[] { Roles.Reviewers },
+                new[] { Roles.Publishers },
+                new[] { Roles.ContentItemReviewers },
+                new[] { Roles.ContentItemPublishers },
             };
 
         [Fact]
@@ -476,7 +476,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             // given: permission is settled first, so a caller who may not act cannot use the
             // "already resolved" response to learn whether a comment on a thread is still
             // outstanding
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
             storageApprovalComment.IsResolved = true;

@@ -364,7 +364,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ApprovalReview randomApprovalReview = CreateRandomModifyApprovalReview(randomDateTimeOffset, randomUserId);
@@ -474,7 +474,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // dismissed-state bar is what refuses them — which is the point: the bar is on the
             // row's state, not on who is asking. (This comment used to say an Admin "may
             // otherwise amend anyone's review"; that model is withdrawn — modify is owner-only.)
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
 
@@ -1152,7 +1152,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // run only as a plain Reviewer, which is refused by the withdrawn owner-or-Admin
             // predicate just as it is by the owner-only one — so the narrowing that is the point
             // of this branch was not pinned by anything. Admin is the member that matters here:
-            // restoring "|| Roles.Contains(Roles.Admin)" now fails this theory.
+            // restoring "|| Roles.Contains(Roles.Administrators)" now fails this theory.
             this.ambientSecurityContext = CreateAuthenticatedSecurityContext(reviewRole);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();

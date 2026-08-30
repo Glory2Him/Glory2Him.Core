@@ -81,7 +81,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalSettings
             this.approvalSettingService = approvalSettingService;
 
         [HttpPost]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ApprovalSetting>> PostApprovalSettingAsync(
             [FromBody] ApprovalSetting approvalSetting,
             CancellationToken cancellationToken)
@@ -179,7 +179,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalSettings
         }
 
         [HttpPut]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ApprovalSetting>> PutApprovalSettingAsync(
             [FromBody] ApprovalSetting approvalSetting,
             CancellationToken cancellationToken)
@@ -234,7 +234,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalSettings
         /// The optional reason is carried through to <c>DeletionReason</c>.
         /// </summary>
         [HttpDelete("{approvalSettingId}")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ApprovalSetting>> DeleteApprovalSettingByIdAsync(
             Guid approvalSettingId,
             [FromQuery] string? deletionReason,
@@ -291,7 +291,7 @@ namespace Glory2Him.WebApp.Controllers.ApprovalSettings
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{approvalSettingId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<ApprovalSetting>> HardDeleteApprovalSettingByIdAsync(
             Guid approvalSettingId,
             CancellationToken cancellationToken)

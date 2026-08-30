@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             Xeption expectedInnerException)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalCommentId = Guid.NewGuid();
 
             var expectedApprovalCommentDependencyException = new ApprovalCommentDependencyException(
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalCommentId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
@@ -140,7 +140,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowOperationCanceledExceptionOnHardRemoveByIdIfCancellationRequestedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalCommentId = Guid.NewGuid();
             var cancellationToken = new CancellationToken(canceled: true);
 
@@ -165,7 +165,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowCriticalDependencyExceptionOnHardRemoveByIdIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalCommentId = Guid.NewGuid();
             SqlException sqlException = GetSqlException();
 
@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowDependencyValidationExceptionOnHardRemoveByIdIfDbUpdateConcurrencyExceptionOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalCommentId = Guid.NewGuid();
             ApprovalComment someApprovalComment = CreateRandomApprovalComment();
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
@@ -288,7 +288,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         public async Task ShouldThrowServiceExceptionOnHardRemoveByIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someApprovalCommentId = Guid.NewGuid();
             var serviceException = new Exception();
 

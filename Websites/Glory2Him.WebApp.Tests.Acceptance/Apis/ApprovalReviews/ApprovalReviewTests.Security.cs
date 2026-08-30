@@ -79,7 +79,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
             try
             {
                 // when
-                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Publisher);
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Publishers);
 
                 var hardDeleteTask =
                     this.apiBroker.HardDeleteApprovalReviewByIdAsync(review.Id).AsTask();
@@ -87,7 +87,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalReviews
                 // then: refused by the coarse attribute, so the row survives
                 await Assert.ThrowsAsync<HttpResponseForbiddenException>(() => hardDeleteTask);
 
-                this.apiBroker.ActAs(this.reviewerUserId, Roles.Reviewer);
+                this.apiBroker.ActAs(this.reviewerUserId, Roles.Reviewers);
 
                 ApprovalReview actualReview =
                     await this.apiBroker.GetApprovalReviewByIdAsync(review.Id);

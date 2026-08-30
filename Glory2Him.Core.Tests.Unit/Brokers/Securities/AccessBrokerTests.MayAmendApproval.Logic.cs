@@ -67,7 +67,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
         /// <summary>
         /// The subject comes from the approval's target, which is the point: the foundation's
-        /// row-local suffix match cannot tell a <c>Tag-Reviewer</c> from a reviewer for the
+        /// row-local suffix match cannot tell a <c>Tag-Reviewers</c> from a reviewer for the
         /// entity actually under approval, and this is the read that can.
         /// </summary>
         [Theory]
@@ -109,7 +109,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
 
         /// <summary>
         /// An association names both endpoints here too (§14.7 posture A′ rule 2). Without this,
-        /// amending an association's approval would ask for <c>Association-Reviewer</c> — a role
+        /// amending an association's approval would ask for <c>Association-Reviewers</c> — a role
         /// nobody can hold — and only a global reviewer would ever get through.
         /// </summary>
         [Fact]
@@ -254,7 +254,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // given
             Guid approvalId = Guid.NewGuid();
             Guid entityId = Guid.NewGuid();
-            var roles = new[] { "ContentItem-Testimony-Reviewer" };
+            var roles = new[] { "ContentItem-Testimony-Reviewers" };
 
             SecurityContext securityContext = CreateSecurityContext(
                 roles: roles,

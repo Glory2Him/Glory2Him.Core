@@ -367,7 +367,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             string randomUserId = GetRandomString();
             Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
             Reaction invalidReaction = randomReaction;
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             Reaction storageReaction = randomReaction.DeepClone();
             storageReaction.CreatedBy = GetRandomString();
             storageReaction.UpdatedWhen = storageReaction.UpdatedWhen.AddDays(GetRandomNegativeNumber());
@@ -1044,7 +1044,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
             // tier, so mayTransitionApprovalStatus is false. The move is Draft -> Submitted — one
             // the owner or a Publisher WOULD be allowed — so the refusal comes from the carve-out
             // gate, not from the status being a verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             string ownerUserId = GetRandomString();
@@ -1146,7 +1146,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnModifyIfIsPublishedChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
@@ -1247,7 +1247,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnModifyIfIsApprovedByBypassChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
@@ -1347,7 +1347,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnModifyIfApprovedByBypassReasonChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
@@ -1448,7 +1448,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         public async Task ShouldThrowValidationExceptionOnModifyIfPublishDateChangedAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             Reaction randomReaction = CreateRandomModifyReaction(randomDateTimeOffset, randomUserId);
@@ -1631,8 +1631,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Reactions
         }
 
         [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
             string role)
         {

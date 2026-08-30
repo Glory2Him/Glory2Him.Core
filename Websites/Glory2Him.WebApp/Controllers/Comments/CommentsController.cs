@@ -288,7 +288,7 @@ namespace Glory2Him.WebApp.Controllers.Comments
         /// below is the coarse half of that and the foundation re-decides it against the row.
         /// </summary>
         [HttpDelete("{commentId}/Hard")]
-        [Authorize(Roles = Roles.Admin)]
+        [Authorize(Roles = Roles.Administrators)]
         public async ValueTask<ActionResult<Comment>> HardDeleteCommentByIdAsync(
             Guid commentId,
             CancellationToken cancellationToken)
@@ -405,7 +405,7 @@ namespace Glory2Him.WebApp.Controllers.Comments
         /// every caller reaches it for.
         /// </summary>
         [HttpPost("Approve")]
-        [Authorize(Roles = Roles.Admin + "," + Roles.Publisher + "," + Roles.CommentPublisher)]
+        [Authorize(Roles = Roles.Administrators + "," + Roles.Publishers + "," + Roles.CommentPublishers)]
         public async ValueTask<ActionResult<Comment>> TransitionCommentApprovalAsync(
             [FromBody] Comment comment,
             CancellationToken cancellationToken)

@@ -62,7 +62,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         {
             // given: a soft-deleted setting drops out of the set for every caller,
             // including an Admin — the collection read never reveals removed rows
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ContentItemSetting liveContentItemSetting = CreateRandomContentItemSetting();
             liveContentItemSetting.IsDeleted = false;
             ContentItemSetting deletedContentItemSetting = CreateRandomContentItemSetting();

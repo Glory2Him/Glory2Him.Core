@@ -136,7 +136,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         }
 
         /// <summary>
-        /// A reviewer is not a publisher (HR-3). BibleReference-Reviewer clears no part of the approve
+        /// A reviewer is not a publisher (HR-3). BibleReference-Reviewers clears no part of the approve
         /// gate, and the attribute must not admit it.
         /// </summary>
         [Fact]
@@ -144,7 +144,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         {
             // given
             BibleReference randomBibleReference = CreateRandomBibleReference();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.BibleReferenceReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.BibleReferenceReviewers);
 
             // when
             var approveBibleReferenceTask = this.apiBroker.TransitionBibleReferenceApprovalAsync(randomBibleReference).AsTask();
@@ -212,12 +212,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a bibleReference they did not create.
         /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>BibleReference-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// <c>BibleReference-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.BibleReferenceReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.BibleReferenceReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersBibleReferenceAsync(string reviewRoleName)
         {
             // given
@@ -249,7 +249,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         {
             // given
             BibleReference randomBibleReference = await PostRandomBibleReferenceAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.BibleReferenceReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.BibleReferenceReviewers);
 
             try
             {
@@ -295,7 +295,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         {
             // given
             BibleReference randomBibleReference = CreateRandomBibleReference();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postBibleReferenceTask = this.apiBroker.PostBibleReferenceAsync(randomBibleReference).AsTask();
@@ -313,7 +313,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.BibleReferences
         {
             // given
             BibleReference randomBibleReference = await PostRandomBibleReferenceAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.BibleReferenceReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.BibleReferenceReadOnly);
 
             try
             {

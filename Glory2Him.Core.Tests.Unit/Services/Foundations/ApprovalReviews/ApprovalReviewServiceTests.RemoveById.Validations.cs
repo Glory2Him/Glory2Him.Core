@@ -252,7 +252,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfUserIsNotOwnerAndNotAdminAndLogItAsync()
         {
             // given: a peer reviewer cannot withdraw someone else's verdict
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             string randomActorUserId = GetRandomString();
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.IsDeleted = false;
@@ -323,7 +323,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalReviews
             // given: the Admin escape is closed. This used to assert the opposite — that an
             // Admin could retract anyone's review — and that is withdrawn (§14.7 rule 5). An
             // Admin who needs past a review bypasses the block rather than deleting it.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             ApprovalReview storageApprovalReview = CreateRandomApprovalReview();
             storageApprovalReview.IsDeleted = false;

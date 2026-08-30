@@ -434,7 +434,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageCreatedByNotSameAsInputAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewer);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Reviewers);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             string randomUserId = GetRandomString();
             ContentItem randomContentItem = CreateRandomModifyContentItem(randomDateTimeOffset, randomUserId);
@@ -1274,8 +1274,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         }
 
         [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldThrowValidationExceptionOnModifyIfStorageIsTerminalForPrivilegedRolesAndLogItAsync(
             string role)
         {

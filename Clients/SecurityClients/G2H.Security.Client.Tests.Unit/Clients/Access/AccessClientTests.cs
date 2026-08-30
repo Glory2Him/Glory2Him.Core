@@ -64,7 +64,7 @@ namespace G2H.Security.Client.Tests.Unit.Clients.Access
             new AccessActor
             {
                 UserId = GetRandomString(),
-                Roles = new List<string> { RoleNames.Publisher },
+                Roles = new List<string> { RoleNames.Publishers },
                 IsAuthenticated = true,
             };
 

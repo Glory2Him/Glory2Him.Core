@@ -283,7 +283,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
                 createdBy: GetRandomString());
 
             storageContentItem.IsDeleted = true;
-            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            SecurityContext securityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             EventEnvelope<ContentItem> inboundEnvelope = CreateEventEnvelope(
                 contentItem: storageContentItem,

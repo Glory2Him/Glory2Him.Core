@@ -155,7 +155,7 @@ namespace Glory2Him.Core.Services.Foundations.Tags
             // gathering can only ever make this stricter (§8.6.1).
             if (isOverride
                 && isSystemIdentity is false
-                && securityContext.Roles.Contains(Roles.Admin) is false)
+                && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedTagException(
                     message: "The current user is not allowed to transition this tag.");

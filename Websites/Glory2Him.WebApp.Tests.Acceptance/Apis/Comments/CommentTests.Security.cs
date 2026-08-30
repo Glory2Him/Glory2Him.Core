@@ -136,7 +136,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         }
 
         /// <summary>
-        /// A reviewer is not a publisher (HR-3). Comment-Reviewer clears no part of the approve
+        /// A reviewer is not a publisher (HR-3). Comment-Reviewers clears no part of the approve
         /// gate, and the attribute must not admit it.
         /// </summary>
         [Fact]
@@ -144,7 +144,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = CreateRandomComment();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewers);
 
             // when
             var approveCommentTask = this.apiBroker.TransitionCommentApprovalAsync(randomComment).AsTask();
@@ -212,12 +212,12 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         /// <summary>
         /// The review tier is owner-OR-role, so a reviewer may write a comment they did not create.
         /// Both tiers are exercised — the global <c>Reviewer</c> and the entity-scoped
-        /// <c>Comment-Reviewer</c> — because the foundation tests for both and seeding only one
+        /// <c>Comment-Reviewers</c> — because the foundation tests for both and seeding only one
         /// would leave half the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.CommentReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.CommentReviewers)]
         public async Task ShouldAllowReviewerToModifyAnotherUsersCommentAsync(string reviewRoleName)
         {
             // given
@@ -249,7 +249,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = await PostRandomCommentAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewer);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.CommentReviewers);
 
             try
             {
@@ -295,7 +295,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = CreateRandomComment();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, blockRoleName);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, blockRoleName);
 
             // when
             var postCommentTask = this.apiBroker.PostCommentAsync(randomComment).AsTask();
@@ -313,7 +313,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.Comments
         {
             // given
             Comment randomComment = await PostRandomCommentAsync();
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.CommentReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.CommentReadOnly);
 
             try
             {

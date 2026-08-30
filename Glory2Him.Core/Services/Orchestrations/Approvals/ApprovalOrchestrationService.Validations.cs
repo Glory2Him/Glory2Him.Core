@@ -172,12 +172,12 @@ namespace Glory2Him.Core.Services.Orchestrations.Approvals
             }
 
             bool isPermitted =
-                securityContext.Roles.Contains(Roles.Admin)
-                    || securityContext.Roles.Contains(Roles.Publisher)
-                    || securityContext.Roles.Contains(Roles.Reviewer)
+                securityContext.Roles.Contains(Roles.Administrators)
+                    || securityContext.Roles.Contains(Roles.Publishers)
+                    || securityContext.Roles.Contains(Roles.Reviewers)
                     || securityContext.Roles.Any(role =>
-                        role.EndsWith("-Publisher", StringComparison.Ordinal)
-                            || role.EndsWith("-Reviewer", StringComparison.Ordinal));
+                        role.EndsWith("-Publishers", StringComparison.Ordinal)
+                            || role.EndsWith("-Reviewers", StringComparison.Ordinal));
 
             if (isPermitted is false)
             {

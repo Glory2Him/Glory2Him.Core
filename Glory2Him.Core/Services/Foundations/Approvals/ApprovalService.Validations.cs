@@ -27,8 +27,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
     {
         // the §16.6 scoped-role suffixes, built from the global role names so the
         // convention has a single source of truth
-        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
-        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewersSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublishersSuffix;
 
         // the foundation enforces the same security rules as the orchestration (design
         // §14.6): an exposer may bind to either service directly, so no layer may assume
@@ -52,10 +52,10 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         }
 
         // Tier 1, row-local: the global Reviewer/Publisher/Admin roles, plus — by the §16.6
-        // convention — any entity-scoped "{Entity}-Reviewer"/"{Entity}-Publisher" role.
+        // convention — any entity-scoped "{Entity}-Reviewers"/"{Entity}-Publishers" role.
         //
         // This check only ever sees the caller, so it cannot know which entity type an approval
-        // targets: a Tag-Reviewer passes it for a Link's approval. Narrowing to the approval's
+        // targets: a Tag-Reviewers passes it for a Link's approval. Narrowing to the approval's
         // own entity type was once described as an orchestration concern. That is withdrawn: it
         // lives in the foundation, one tier down, through IAccessBroker — which can read the
         // entity behind the approval where this cannot. (§12.3.1 withdraws the orchestration for
@@ -69,9 +69,9 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
         // WHERE THIS IS USED: the modify gate below (paired with the broker) and the two READ
         // paths, which are still row-local. §14.7's "Known gap" paragraph records that.
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
@@ -106,8 +106,8 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
             }
         }
 
-        // Tier 2, cross-entity. HasReviewRole above matches ANY "-Reviewer"/"-Publisher" suffix,
-        // so a bare Tag-Reviewer clears it for a ContentItem↔BibleReference association's
+        // Tier 2, cross-entity. HasReviewRole above matches ANY "-Reviewers"/"-Publishers" suffix,
+        // so a bare Tag-Reviewers clears it for a ContentItem↔BibleReference association's
         // approval. The broker resolves the entity behind the approval — for an association,
         // both of its endpoints, either of which is enough (§14.7 posture A′ rule 2).
         //
@@ -166,7 +166,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && entityCreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalException(
                     message: "The current user is not allowed to remove this approval.");
@@ -188,7 +188,7 @@ namespace Glory2Him.Core.Services.Foundations.Approvals
                     message: "The current user is blocked from contributing approvals.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalException(
                     message: "The current user is not allowed to permanently remove this approval.");

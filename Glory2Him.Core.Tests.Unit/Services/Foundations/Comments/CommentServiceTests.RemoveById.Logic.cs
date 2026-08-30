@@ -259,7 +259,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Comments
         public async Task ShouldRemoveSomeoneElsesCommentByIdWhenUserIsAdminAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomActorUserId = GetRandomString();
             Comment randomComment = CreateRandomComment();
             randomComment.IsDeleted = false;

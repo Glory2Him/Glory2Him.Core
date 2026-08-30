@@ -30,13 +30,13 @@ namespace G2H.Security.Client.Models.Foundations.Access
     {
         /// <summary>
         /// The entity type name, spelled exactly as it appears in role names — for example
-        /// <c>ContentItem</c>, giving <c>ContentItem-Reviewer</c>.
+        /// <c>ContentItem</c>, giving <c>ContentItem-Reviewers</c>.
         /// </summary>
         public required string EntityType { get; init; }
 
         /// <summary>
         /// The content type name when this subject carries one, giving access to the narrow tier
-        /// <c>ContentItem-Testimony-Reviewer</c> as well as the coarse <c>ContentItem-Reviewer</c>.
+        /// <c>ContentItem-Testimony-Reviewers</c> as well as the coarse <c>ContentItem-Reviewers</c>.
         /// Null when the subject has no content type, which is every entity type but
         /// <c>ContentItem</c>.
         /// </summary>

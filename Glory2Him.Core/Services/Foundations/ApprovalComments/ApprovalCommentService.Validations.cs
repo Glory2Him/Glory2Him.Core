@@ -28,9 +28,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // §14.6): an exposer may bind to either service directly, so no layer may assume
         // an upstream layer already gated the caller
 
-        // §16.6 spells an entity-scoped role "{Entity}-Reviewer" / "{Entity}-Publisher"
-        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
-        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
+        // §16.6 spells an entity-scoped role "{Entity}-Reviewers" / "{Entity}-Publishers"
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewersSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublishersSuffix;
 
         // commenting on a review thread is a conversation, not a moderation step: a reviewer
         // raises a point or records their thinking, the submitter responds on their own
@@ -54,9 +54,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
 
         // the review roles that may act on and read approval workflow records (Reviewer,
         // Publisher, Admin). Approval comments carry no entity-scoped roles of their own, so
-        // by the §16.6 convention any "{Entity}-Reviewer"/"{Entity}-Publisher" role counts:
+        // by the §16.6 convention any "{Entity}-Reviewers"/"{Entity}-Publishers" role counts:
         // the comment row alone does not say which entity type the approval targets, so the
-        // foundation cannot tell a Tag-Reviewer's comment thread from a Link-Reviewer's.
+        // foundation cannot tell a Tag-Reviewers's comment thread from a Link-Reviewers's.
         // This gates the two READ paths only. It reaches no write gate: add carries the
         // contribution gate, modify and remove are owner-only, resolve is owner-or-Admin, and
         // hard remove is Admin-only — none consults this.
@@ -67,9 +67,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
         // IAccessBroker). Narrowing the READS is a separate question and is still open —
         // §14.7's "Known gap" paragraph records it.
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
@@ -204,7 +204,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalComments
                     message: "The current user is blocked from contributing approval comments.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalCommentException(
                     message: "The current user is not allowed to permanently remove this approval comment.");

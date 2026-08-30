@@ -26,7 +26,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfApprovalSettingIsNullAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalSetting nullApprovalSetting = null;
 
             var nullApprovalSettingException =
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
             string invalidText)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             DateTimeOffset startDate = randomDateTimeOffset.AddSeconds(-90);
             DateTimeOffset endDate = randomDateTimeOffset;
@@ -174,7 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfApprovalSettingExceedsMaxLengthAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomStringWithLengthOf(256);
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
 
@@ -252,7 +252,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedWhenIsNotSameAsCreatedWhenAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSetting randomApprovalSetting =
@@ -327,7 +327,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedByIsNotSameAsCurrentUserIdAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             string differentUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
@@ -404,7 +404,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfUpdatedByIsNotSameAsCreatedByAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSetting randomApprovalSetting =
@@ -480,7 +480,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalSettings
         public async Task ShouldThrowValidationExceptionOnAddIfCreatedWhenIsNotRecentAndLogItAsync(int minutes)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             string randomUserId = GetRandomString();
             DateTimeOffset randomDateTimeOffset = GetRandomDateTimeOffset();
             ApprovalSetting randomApprovalSetting =

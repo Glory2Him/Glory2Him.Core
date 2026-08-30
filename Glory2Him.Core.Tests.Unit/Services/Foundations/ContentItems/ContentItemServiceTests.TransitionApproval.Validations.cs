@@ -79,7 +79,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // but only to a state the workflow can hold a row in. Draft is reached once, at
             // creation, and submitting is its own verb; Dismissed belongs to a withdrawal step.
             // Submitted is NOT here: it is what an override re-opens a terminal row to.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem inputContentItem = CreateApprovalDecision(Guid.NewGuid());
             inputContentItem.ApprovalStatus = notATransitionTarget;
@@ -116,7 +116,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // being rejected. The rule is the ONLY guard on this pair (DoApprove copies
             // IsPublished straight from the caller), and it must fire before the row is read, so
             // a rejected-but-published payload never touches storage.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem inputContentItem = CreateRejectionDecision(Guid.NewGuid());
             inputContentItem.IsPublished = true;
@@ -172,7 +172,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: a publish date without publication is a date nothing reads. DoApprove copies
             // PublishDate straight from the caller, so this rule is the only thing stopping a
             // phantom publish date landing on an unpublished row.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem inputContentItem = CreateRejectionDecision(Guid.NewGuid());
             inputContentItem.IsPublished = false;
@@ -220,7 +220,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         public async Task ShouldThrowNotFoundOnApproveIfTheRowIsMissingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem inputContentItem = CreateApprovalDecision(Guid.NewGuid());
 
@@ -257,7 +257,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
         {
             // given: a soft-removed row is a takedown reported as not-found, so a removed id is
             // indistinguishable from one that never existed (matches the read posture).
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             storageContentItem.IsDeleted = true;
@@ -306,7 +306,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             //
             // The tier and the access decision pass first (global Publisher, permissive fixture),
             // so this proves the state gate stands on its own.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             storageContentItem.ApprovalStatus = storageStatus;
@@ -359,8 +359,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
 
                 // a Reviewer holds the review tier and MUST still never set an approval status
                 // (§8.6 HR-3) — the publisher tier deliberately excludes it
-                new[] { Roles.Reviewer },
-                new[] { Roles.ContentItemReviewer },
+                new[] { Roles.Reviewers },
+                new[] { Roles.ContentItemReviewers },
             };
 
         [Theory]
@@ -418,7 +418,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: the caller holds the global Publisher role, so the row-local tier check
             // passes and the cross-entity decision is the ONLY thing left that can refuse the
             // approve (HR-2 self-approval lives behind the access broker).
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             ContentItem inputContentItem = CreateApprovalDecision(storageContentItem.Id);
@@ -483,7 +483,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // denial reason names the rule. Exception messages and their Data surface outward
             // through a public event address (§14.5 rule 2), so neither may appear in anything
             // thrown.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             ContentItem inputContentItem = CreateApprovalDecision(storageContentItem.Id);
@@ -522,7 +522,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // given: §14.5 — the true reason is recorded server-side and the caller is told
             // nothing about the policy. It has to be recorded BEFORE the throw, because the
             // throw is what discards the verdict.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             ContentItem inputContentItem = CreateApprovalDecision(storageContentItem.Id);
@@ -568,7 +568,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // row. That difference is what gives the assertion its meaning — if the query were
             // built from the caller's copy, a contributor could name somebody else as author, or
             // claim a content type they hold a publisher role for, and walk past the bar.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
             storageContentItem.ContentType = ContentType.Testimony;
@@ -622,7 +622,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItems
             // rather than granting it, so it satisfies no threshold and waives nothing. Asking
             // one question for both would leave a publisher unable to reject the very row the
             // threshold was failing to approve.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publisher);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             ContentItem storageContentItem = CreateApprovableStorageContentItem();
 

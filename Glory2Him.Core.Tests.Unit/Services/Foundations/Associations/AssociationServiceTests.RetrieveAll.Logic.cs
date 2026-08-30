@@ -29,7 +29,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Associations
         public async Task ShouldRetrieveAllAssociationsAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             IQueryable<Association> randomAssociations =
                 CreateRandomAssociations();

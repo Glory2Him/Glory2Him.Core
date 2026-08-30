@@ -59,7 +59,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
 
             bool isPermitted =
                 securityContext.IsSystemIdentity
-                    || securityContext.Roles.Contains(Roles.Admin);
+                    || securityContext.Roles.Contains(Roles.Administrators);
 
             if (isPermitted is false)
             {
@@ -194,7 +194,7 @@ namespace Glory2Him.Core.Services.Foundations.ContentItems
             // gathering can only ever make this stricter (§8.6.1).
             if (isOverride
                 && isSystemIdentity is false
-                && securityContext.Roles.Contains(Roles.Admin) is false)
+                && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedContentItemException(
                     message: "The current user is not allowed to transition this content item.");

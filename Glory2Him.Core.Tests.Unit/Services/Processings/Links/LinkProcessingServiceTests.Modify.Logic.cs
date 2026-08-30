@@ -483,11 +483,11 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.Links
         }
 
         [Theory]
-        [InlineData(ApprovalStatus.Draft, Roles.Reviewer)]
-        [InlineData(ApprovalStatus.Draft, Roles.LinkReviewer)]
-        [InlineData(ApprovalStatus.Submitted, Roles.Publisher)]
-        [InlineData(ApprovalStatus.Submitted, Roles.LinkPublisher)]
-        [InlineData(ApprovalStatus.Dismissed, Roles.Admin)]
+        [InlineData(ApprovalStatus.Draft, Roles.Reviewers)]
+        [InlineData(ApprovalStatus.Draft, Roles.LinkReviewers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.Publishers)]
+        [InlineData(ApprovalStatus.Submitted, Roles.LinkPublishers)]
+        [InlineData(ApprovalStatus.Dismissed, Roles.Administrators)]
         public async Task ShouldModifyLinkInPlaceOnModifyIfActorHasModifyRoleAsync(
             ApprovalStatus approvalStatus,
             string modifyingRole)

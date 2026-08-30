@@ -24,8 +24,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
     {
         // the §16.6 scoped-role suffixes; the entity prefix in front of them varies per
         // entity type, so only the suffix is a fixed part of the convention
-        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
-        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewersSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublishersSuffix;
 
         // the foundation enforces the same security rules as the orchestration (design
         // §14.6): an exposer may bind to either service directly, so no layer may assume
@@ -68,17 +68,17 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
 
         // The review roles that may issue, withdraw and read invitations: the global Reviewer,
         // Publisher and Admin roles plus — by the §16.6 naming convention — any entity-scoped
-        // "%EntityType%-Reviewer"/"%EntityType%-Publisher" role, including the content-type-scoped
+        // "%EntityType%-Reviewers"/"%EntityType%-Publishers" role, including the content-type-scoped
         // tier of §18.6 rule 5, which ends in the same suffix.
         //
-        // The request row names no entity type, so this cannot tell a Tag-Reviewer from a
-        // Link-Reviewer row-locally — the same limit its ApprovalReview sibling carries, and the
+        // The request row names no entity type, so this cannot tell a Tag-Reviewers from a
+        // Link-Reviewers row-locally — the same limit its ApprovalReview sibling carries, and the
         // reason the orchestration re-asks the question against the entity behind the approval
         // (§16.7.4) before a request is ever written.
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
@@ -108,7 +108,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviewRequests
                     message: "The current user is blocked from contributing approval review requests.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalReviewRequestException(
                     message: "The current user is not allowed to permanently remove this " +

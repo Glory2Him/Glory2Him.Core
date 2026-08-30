@@ -45,7 +45,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalSettings
                     message: "The current user is blocked from administering approval settings.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalSettingException(
                     message: "The current user is not allowed to administer approval settings.");

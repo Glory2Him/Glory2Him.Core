@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidContentItemSettingId = Guid.Empty;
 
             var invalidContentItemSettingException = new InvalidContentItemSettingException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfContentItemSettingNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someContentItemSettingId = Guid.NewGuid();
             ContentItemSetting noContentItemSetting = null;
 
@@ -209,7 +209,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ContentItemSettings
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someContentItemSettingId = Guid.NewGuid();
 

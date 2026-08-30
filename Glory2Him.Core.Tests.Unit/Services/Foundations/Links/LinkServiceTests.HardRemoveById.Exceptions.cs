@@ -32,7 +32,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             Xeption expectedInnerException)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someLinkId = Guid.NewGuid();
 
             var expectedLinkDependencyException = new LinkDependencyException(
@@ -81,7 +81,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowDependencyExceptionOnHardRemoveByIdIfOperationCanceledExceptionOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someLinkId = Guid.NewGuid();
             var operationCanceledException = new OperationCanceledException();
 
@@ -164,7 +164,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowCriticalDependencyExceptionOnHardRemoveByIdIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someLinkId = Guid.NewGuid();
             SqlException sqlException = GetSqlException();
 
@@ -219,7 +219,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowDependencyValidationExceptionOnHardRemoveByIdIfDbUpdateConcurrencyExceptionOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someLinkId = Guid.NewGuid();
             Link someLink = CreateRandomLink();
             var dbUpdateConcurrencyException = new DbUpdateConcurrencyException();
@@ -287,7 +287,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowServiceExceptionOnHardRemoveByIdIfServiceErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someLinkId = Guid.NewGuid();
             var serviceException = new Exception();
 

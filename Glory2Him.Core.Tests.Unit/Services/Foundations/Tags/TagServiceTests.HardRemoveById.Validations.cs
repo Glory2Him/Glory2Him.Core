@@ -27,7 +27,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfIdIsInvalidAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var invalidTagId = Guid.Empty;
 
             var invalidTagException = new InvalidTagException(
@@ -71,7 +71,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
         public async Task ShouldThrowValidationExceptionOnHardRemoveByIdIfTagNotFoundAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Guid someTagId = Guid.NewGuid();
             Tag noTag = null;
 
@@ -223,7 +223,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // the row is even read — the destructive surface is not an exception to the site-wide
             // contribution ban.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.ReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.ReadOnly);
 
             Guid someTagId = Guid.NewGuid();
 
@@ -279,7 +279,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Tags
             // remove before the row is even read — blocking the reversible takedown but not the
             // destructive one would be the wrong way round.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin, Roles.TagReadOnly);
+                CreateAuthenticatedSecurityContext(Roles.Administrators, Roles.TagReadOnly);
 
             Guid someTagId = Guid.NewGuid();
 

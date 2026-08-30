@@ -27,8 +27,8 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
     {
         // the §16.6 scoped-role suffixes; the entity prefix in front of them varies per
         // entity type, so only the suffix is a fixed part of the convention
-        private const string ScopedReviewerRoleSuffix = Roles.ReviewerSuffix;
-        private const string ScopedPublisherRoleSuffix = Roles.PublisherSuffix;
+        private const string ScopedReviewerRoleSuffix = Roles.ReviewersSuffix;
+        private const string ScopedPublisherRoleSuffix = Roles.PublishersSuffix;
 
         // the foundation enforces the same security rules as the orchestration (design
         // §14.6): an exposer may bind to either service directly, so no layer may assume
@@ -67,9 +67,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
 
         // the review roles that may record and read verdicts: the global Reviewer,
         // Publisher and Admin roles plus — by the §16.6 naming convention — any
-        // entity-scoped "%EntityType%-Reviewer"/"%EntityType%-Publisher" role. The
+        // entity-scoped "%EntityType%-Reviewers"/"%EntityType%-Publishers" role. The
         // approval review row names no entity type, so the foundation cannot tell a
-        // Tag-Reviewer's verdict from a Link-Reviewer's one row-locally.
+        // Tag-Reviewers's verdict from a Link-Reviewers's one row-locally.
         //
         // Narrowing a reviewer to the entity type they actually review was once called an
         // orchestration concern; that is withdrawn (§12.3.1 leaves no orchestration to defer
@@ -78,9 +78,9 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         // against the entity behind the approval. On the READ paths it still stands alone —
         // §14.7's "Known gap" paragraph records that as open.
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.Admin)
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.Administrators)
                 || securityContext.Roles.Any(role =>
                     role.EndsWith(ScopedReviewerRoleSuffix, StringComparison.Ordinal)
                         || role.EndsWith(ScopedPublisherRoleSuffix, StringComparison.Ordinal));
@@ -96,7 +96,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
         // one-active-review bar, which the unfiltered unique index alone cannot express.
         //
         // It also narrows the role check above rather than repeating it: HasReviewRole matches
-        // ANY "-Reviewer" suffix because the review row names no entity type, so a Tag-Reviewer
+        // ANY "-Reviewers" suffix because the review row names no entity type, so a Tag-Reviewers
         // passes it for a Link's approval. The broker resolves the entity behind the approval, so
         // the tier is finally checked against the thing actually being reviewed.
         private async ValueTask ValidateUserMayRecordApprovalReviewAsync(
@@ -183,7 +183,7 @@ namespace Glory2Him.Core.Services.Foundations.ApprovalReviews
                     message: "The current user is blocked from contributing approval reviews.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedApprovalReviewException(
                     message: "The current user is not allowed to permanently remove this approval review.");

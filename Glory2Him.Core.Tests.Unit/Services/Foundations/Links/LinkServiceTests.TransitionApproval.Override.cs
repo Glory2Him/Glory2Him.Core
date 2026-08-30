@@ -42,7 +42,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // terminal state is an override, and a state a Publisher could edit out of would not
             // be terminal at all (§3.4 rules 7 and 16, §8.6 HR-4).
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateTerminalStorageLink(terminalStatus);
             Link inputLink = CreateReopenDecision(storageLink.Id);
@@ -136,7 +136,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // published, so this is also where the unpublish-on-the-way-out rule is proved:
             // a re-opened row must not stay publicly visible while it waits for a second verdict.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Link storageLink = CreateTerminalStorageLink(terminalStatus);
             Link inputLink = CreateReopenDecision(storageLink.Id);
@@ -174,7 +174,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // whatever this demoted — the group simply has no public row until something is
             // approved again.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Link storageLink = CreateTerminalStorageLink(ApprovalStatus.Approved);
             Link inputLink = CreateRejectionDecision(storageLink.Id);
@@ -369,7 +369,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // "what was published without meeting its conditions" answers with rows that met
             // them.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
 
@@ -395,7 +395,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given: the reason's VALUE is necessarily the caller's own words — no decision can
             // say why a human chose to override — but its RETENTION is the decision's call.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             string inputBypassReason = GetRandomString();
@@ -422,7 +422,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given: the request has to reach the decision, or DoNotAllowBypassingSettings has
             // nothing to refuse and the waiver is never actually evaluated.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Publisher);
+                CreateAuthenticatedSecurityContext(Roles.Publishers);
 
             Link storageLink = CreateApprovableStorageLink();
             string inputBypassReason = GetRandomString();
@@ -451,7 +451,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // one records nothing worth reading. Refused BEFORE any policy is read, so it is
             // refused under every policy — including one that would have permitted the waiver.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Link inputLink = CreateBypassApprovalRequest(
                 linkId: Guid.NewGuid(),
@@ -505,7 +505,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // than granting it and re-opening decides nothing, so neither has anything to waive
             // (§9.7.5). Admitting one would stamp IsApprovedByBypass on a rejection.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Link inputLink = CreateBypassApprovalRequest(
                 linkId: Guid.NewGuid(),
@@ -554,7 +554,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // The setting lives on another entity, so the refusal comes back on the verdict —
             // which is the point of asking rather than deciding locally.
             this.ambientSecurityContext =
-                CreateAuthenticatedSecurityContext(Roles.Admin);
+                CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             Link storageLink = CreateApprovableStorageLink();
 

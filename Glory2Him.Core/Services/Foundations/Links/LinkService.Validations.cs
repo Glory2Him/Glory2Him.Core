@@ -49,19 +49,19 @@ namespace Glory2Him.Core.Services.Foundations.Links
         // the moderation roles that may act on and read non-public versions for review and
         // audit (Reviewer, Publisher, Admin — global or Link-scoped, §16.6)
         private static bool HasReviewRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Reviewer)
-                || securityContext.Roles.Contains(Roles.LinkReviewer)
-                || securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.LinkPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Reviewers)
+                || securityContext.Roles.Contains(Roles.LinkReviewers)
+                || securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.LinkPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // the publisher tier: the roles the approve operation itself requires, and the only ones
         // besides the owner that may move a submission status through the general modify. Strictly
         // narrower than the review tier — a Reviewer is absent by design (§8.6 HR-3).
         private static bool HasPublisherRole(SecurityContext securityContext) =>
-            securityContext.Roles.Contains(Roles.Publisher)
-                || securityContext.Roles.Contains(Roles.LinkPublisher)
-                || securityContext.Roles.Contains(Roles.Admin);
+            securityContext.Roles.Contains(Roles.Publishers)
+                || securityContext.Roles.Contains(Roles.LinkPublishers)
+                || securityContext.Roles.Contains(Roles.Administrators);
 
         // row-level write permission: the owner or a review role may write the row — the
         // narrower process rules (approved items fork, only the latest version is amended)
@@ -149,7 +149,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                 string.IsNullOrWhiteSpace(actorUserId) is false
                     && storageLink.CreatedBy == actorUserId;
 
-            if (isOwner is false && securityContext.Roles.Contains(Roles.Admin) is false)
+            if (isOwner is false && securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedLinkException(
                     message: "The current user is not allowed to remove this link.");
@@ -172,7 +172,7 @@ namespace Glory2Him.Core.Services.Foundations.Links
                     message: "The current user is blocked from contributing links.");
             }
 
-            if (securityContext.Roles.Contains(Roles.Admin) is false)
+            if (securityContext.Roles.Contains(Roles.Administrators) is false)
             {
                 throw new UnauthorizedLinkException(
                     message: "The current user is not allowed to permanently remove this link.");

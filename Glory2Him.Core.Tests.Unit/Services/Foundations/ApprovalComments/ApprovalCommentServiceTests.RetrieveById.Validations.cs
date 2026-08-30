@@ -125,7 +125,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
         {
             // given: even an Admin caller gets not-found for a soft-deleted row —
             // deleted beats privilege
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
             storageApprovalComment.IsDeleted = true;
             Guid approvalCommentId = storageApprovalComment.Id;

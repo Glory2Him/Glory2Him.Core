@@ -128,7 +128,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
                 await this.apiBroker.InsertOpenApprovalAsync(Guid.NewGuid().ToString());
 
             ApprovalComment randomApprovalComment = CreateRandomApprovalComment(randomApproval.Id);
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.ReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.ReadOnly);
 
             try
             {
@@ -202,7 +202,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
             (Approval randomApproval, ApprovalComment randomApprovalComment) =
                 await PostRandomApprovalCommentOnOpenApprovalAsync();
 
-            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin, Roles.ReadOnly);
+            this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators, Roles.ReadOnly);
 
             try
             {
@@ -284,8 +284,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         /// </summary>
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldReturnUnauthorizedOnPutIfCallerIsNotTheAuthorAsync(string roleName)
         {
             // given
@@ -361,8 +361,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         /// </summary>
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Admin)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Administrators)]
         public async Task ShouldReturnUnauthorizedOnDeleteIfCallerIsNotTheAuthorAsync(string roleName)
         {
             // given
@@ -396,8 +396,8 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         /// </summary>
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
         public async Task ShouldReturnUnauthorizedOnResolveIfCallerIsNeitherAuthorNorAdminAsync(
             string roleName)
         {
@@ -445,7 +445,7 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
             try
             {
                 // when
-                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Admin);
+                this.apiBroker.ActAs(Guid.NewGuid().ToString(), Roles.Administrators);
 
                 ApprovalComment resolvedApprovalComment = await this.apiBroker
                     .ResolveApprovalCommentAsync(createdApprovalComment.Id, isResolved: true);
@@ -503,13 +503,13 @@ namespace Glory2Him.WebApp.Tests.Acceptance.Apis.ApprovalComments
         /// <summary>
         /// The other side of the same posture: a review role reads a thread it did not write.
         /// Both tiers are exercised — the global roles and an entity-scoped one — because the
-        /// foundation admits any "-Reviewer"/"-Publisher" suffix by the §16.6 convention, and
+        /// foundation admits any "-Reviewers"/"-Publishers" suffix by the §16.6 convention, and
         /// testing only the global names would leave that half of the rule dead.
         /// </summary>
         [Theory]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.TagReviewer)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.TagReviewers)]
         public async Task ShouldAllowReviewRoleToReadAnotherUsersApprovalCommentAsync(string roleName)
         {
             // given

@@ -101,8 +101,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             new TheoryData<string[]>
             {
                 new string[0],
-                new[] { Roles.Reviewer },
-                new[] { Roles.LinkReviewer },
+                new[] { Roles.Reviewers },
+                new[] { Roles.LinkReviewers },
             };
 
         private void SetupUnpublishSaveBrokers() =>
@@ -177,7 +177,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given: the incumbent holds the group's published slot with a real PublishDate.
             // Both fields are the whole of this verb's remit, and a date left behind is a date
             // nothing reads.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Link storageLink = CreateUnpublishStorageLink();
 
             // when
@@ -213,7 +213,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // field entirely (§3.4 rule 18): publication and the edit tip move independently,
             // and the tip is DERIVED from Version, so an unpublish that moved this row's
             // Version would silently re-point the whole group's tip.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Link storageLink = CreateUnpublishStorageLink();
 
             // snapshotted BEFORE the act — the service copies onto the instance the read
@@ -243,7 +243,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // given: its OWN fact. Modified would re-enter the approval workflow that caused
             // this write, and Approved would tell every subscriber a decision was taken when
             // none was — the incumbent's verdict has not changed.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Link storageLink = CreateUnpublishStorageLink();
 
             // when
@@ -287,7 +287,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // already cleared the slot — refusing here would fail an approval for work that
             // is already done, and writing anyway would announce an Unpublished fact for a
             // row nothing unpublished.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Link storageLink = CreateUnpublishStorageLink();
             storageLink.IsPublished = false;
             storageLink.PublishDate = null;
@@ -336,7 +336,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // so a tombstone still occupies it. Refusing to clear one would leave the group
             // permanently unpublishable (§9.7.7 rule 7). Anyone "tidying up" the load to
             // reuse the shared helper breaks that, and this test is what catches it.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             Link storageLink = CreateUnpublishStorageLink();
             storageLink.IsDeleted = true;
 
@@ -381,7 +381,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowValidationExceptionOnUnpublishIfIdIsInvalidAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             var invalidLinkException =
                 new InvalidLinkException(
@@ -419,7 +419,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowNotFoundOnUnpublishIfTheRowIsMissingAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             this.storageBrokerMock.Setup(broker =>
                 broker.SelectLinkByIdAsync(
@@ -492,8 +492,8 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         }
 
         [Theory]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.LinkPublisher)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.LinkPublishers)]
         public async Task ShouldThrowUnauthorizedOnUnpublishIfCallerIsAPublisherAsync(
             string publisherRole)
         {
@@ -642,7 +642,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             // taken FROM the envelope rather than merely surviving alongside an ambient one
             // that would have passed anyway. The ambient caller is an Admin; the envelope
             // carries a plain contributor. The envelope must lose.
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             EventEnvelope<Link> inboundEnvelope =
                 CreateUnpublishInboundEnvelope(CreateAuthenticatedSecurityContext());
@@ -684,7 +684,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
             Xeption expectedInnerException)
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             var expectedLinkDependencyException = new LinkDependencyException(
                 message: "Link dependency error occurred, contact support.",
@@ -730,7 +730,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowCriticalDependencyExceptionOnUnpublishIfSqlErrorOccursAndLogItAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             SqlException sqlException = GetSqlException();
 
             var failedStorageLinkException = new FailedStorageLinkException(
@@ -776,7 +776,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         public async Task ShouldThrowOperationCanceledExceptionOnUnpublishIfCancellationRequestedAsync()
         {
             // given
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var cancellationToken = new CancellationToken(canceled: true);
 
             // when
@@ -800,7 +800,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.Links
         {
             // given: the swap's route checks the token before it chains an envelope, so a
             // cancelled request never mints causation for work it will not do
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
             var cancellationToken = new CancellationToken(canceled: true);
 
             EventEnvelope<Link> inboundEnvelope =

@@ -137,7 +137,7 @@ namespace Glory2Him.Core.Tests.Unit.Services.Foundations.ApprovalComments
             // given: the one comment operation an Admin may run against another person's row.
             // Resolving records that a comment is settled, which changes no words — amending
             // or withdrawing someone else's comment stays refused (§14.7 rule 5).
-            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Admin);
+            this.ambientSecurityContext = CreateAuthenticatedSecurityContext(Roles.Administrators);
 
             ApprovalComment storageApprovalComment = CreateRandomApprovalComment();
             storageApprovalComment.IsResolved = false;

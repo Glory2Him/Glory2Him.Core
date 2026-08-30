@@ -280,10 +280,10 @@ namespace Glory2Him.Core.Tests.Unit.Services.Processings.ContentItems
 
         [Theory]
         [InlineData(null)]
-        [InlineData(Roles.Reviewer)]
-        [InlineData(Roles.ContentItemReviewer)]
-        [InlineData(Roles.Publisher)]
-        [InlineData(Roles.ContentItemPublisher)]
+        [InlineData(Roles.Reviewers)]
+        [InlineData(Roles.ContentItemReviewers)]
+        [InlineData(Roles.Publishers)]
+        [InlineData(Roles.ContentItemPublishers)]
         public async Task ShouldThrowValidationExceptionOnRemoveByIdIfActorIsNotPermittedAndLogItAsync(
             string? actorRole)
         {

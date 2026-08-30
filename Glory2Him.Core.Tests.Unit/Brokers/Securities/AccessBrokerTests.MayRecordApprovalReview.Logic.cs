@@ -143,7 +143,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
         ///
         /// <para>The subject that must NOT appear is <c>Association</c> itself. Composing one
         /// from the approval's own <c>EntityType</c> — which is what this used to do — asks
-        /// whether the actor holds <c>Association-Reviewer</c>, a role
+        /// whether the actor holds <c>Association-Reviewers</c>, a role
         /// <c>Roles.cs</c> deliberately never issues. That is why this half of the gate failed
         /// closed rather than open: an endpoint-scoped publisher was refused along with everyone
         /// else, and only a global role got through.</para>
@@ -306,7 +306,7 @@ namespace Glory2Him.Core.Tests.Unit.Brokers.Securities
             // given
             Guid approvalId = Guid.NewGuid();
             Guid entityId = Guid.NewGuid();
-            var roles = new[] { "ContentItem-Testimony-Reviewer" };
+            var roles = new[] { "ContentItem-Testimony-Reviewers" };
 
             SecurityContext securityContext = CreateSecurityContext(
                 roles: roles,
