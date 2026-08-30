@@ -1,5 +1,6 @@
 import { ReactElement, ReactNode, useEffect, useId, useState } from 'react';
 import { Avatar } from '../coreUI/avatar';
+import { useDismissableMenu } from '../../hooks/useDismissableMenu';
 import { useAuth } from '../securitys/authProvider';
 import {
     ApprovalDecision,
@@ -260,10 +261,14 @@ export function ReviewPanel({
     const headingId = useId();
     const outcomeHeadingId = useId();
 
-    const [isVoteMenuOpen, setIsVoteMenuOpen] = useState(false);
-    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    // All three menus are ours rather than Bootstrap's, so dismissal, labelling and focus come
+    // from one shared hook instead of being written out three times — see useDismissableMenu for
+    // why adopting `data-bs-toggle` here was rejected.
+    const voteMenu = useDismissableMenu();
+    const picker = useDismissableMenu();
+    const decisionMenu = useDismissableMenu();
+
     const [candidateFilter, setCandidateFilter] = useState('');
-    const [isDecisionMenuOpen, setIsDecisionMenuOpen] = useState(false);
     const [selectedDecision, setSelectedDecision] = useState<ApprovalDecision | undefined>();
     const [isBypassChecked, setIsBypassChecked] = useState(false);
     const [bypassReason, setBypassReason] = useState('');
@@ -447,7 +452,8 @@ export function ReviewPanel({
     };
 
     const castVote = (vote: ApprovalStatus) => {
-        setIsVoteMenuOpen(false);
+        // Focus goes back to the vote button: the choice is made, and the button now shows it.
+        voteMenu.close();
 
         if (vote !== viewerReview?.vote) {
             onReviewStatusChanged?.(vote);
@@ -455,9 +461,9 @@ export function ReviewPanel({
     };
 
     const togglePicker = () => {
-        const opening = isPickerOpen === false;
+        const opening = picker.isOpen === false;
 
-        setIsPickerOpen(opening);
+        picker.toggle();
         setCandidateFilter('');
 
         if (opening) {
@@ -537,7 +543,9 @@ export function ReviewPanel({
 
     const isAtRequestCap = outstandingRequests.length >= maxReviewerRequests;
     const chooseDecision = (decision: ApprovalDecision) => {
-        setIsDecisionMenuOpen(false);
+        // Back to the trigger, which now reads as the chosen decision — and which sits directly
+        // above the Submit button the user is heading for next.
+        decisionMenu.close();
         setSelectedDecision(decision);
     };
 
@@ -619,17 +627,28 @@ export function ReviewPanel({
         }
 
         return (
-            <div className="dropdown">
+            <div className="dropdown" ref={voteMenu.containerRef}>
                 <button
                     type="button"
+                    id={voteMenu.triggerId}
+                    ref={voteMenu.triggerRef}
                     className={`btn btn-sm dropdown-toggle ${buttonCssClass} mb-0`}
-                    aria-expanded={isVoteMenuOpen}
-                    onClick={() => setIsVoteMenuOpen(!isVoteMenuOpen)}>
+
+                    // NO aria-haspopup, on any of the three, and that is a decision rather than
+                    // an omission — see useDismissableMenu for why. These are disclosures:
+                    // aria-expanded and aria-controls are true of them, and nothing more is.
+                    aria-controls={voteMenu.isOpen ? voteMenu.menuId : undefined}
+                    aria-expanded={voteMenu.isOpen}
+                    onClick={voteMenu.toggle}>
                     {buttonText}
                 </button>
 
-                {isVoteMenuOpen && (
-                    <div className="dropdown-menu dropdown-menu-end show shadow">
+                {voteMenu.isOpen && (
+                    <div
+                        id={voteMenu.menuId}
+                        ref={voteMenu.menuRef}
+                        aria-labelledby={voteMenu.triggerId}
+                        className="dropdown-menu dropdown-menu-end show shadow">
                         <button
                             type="button"
                             className="dropdown-item"
@@ -811,19 +830,26 @@ export function ReviewPanel({
                 <h4 className="mb-0" id={headingId}>{titleText}</h4>
 
                 {mayRequest && (
-                    <div className="dropdown">
+                    <div className="dropdown" ref={picker.containerRef}>
                         <button
                             type="button"
+                            id={picker.triggerId}
+                            ref={picker.triggerRef}
                             className="btn btn-link p-0 text-body g2h-review-request-cog"
                             title={requestReviewTooltip}
                             aria-label={requestReviewTooltip}
-                            aria-expanded={isPickerOpen}
+                            aria-controls={picker.isOpen ? picker.menuId : undefined}
+                            aria-expanded={picker.isOpen}
                             onClick={togglePicker}>
                             <i className="bi bi-gear-fill" aria-hidden="true"></i>
                         </button>
 
-                        {isPickerOpen && (
-                            <div className="dropdown-menu dropdown-menu-end show shadow p-0 g2h-review-candidate-picker">
+                        {picker.isOpen && (
+                            <div
+                                id={picker.menuId}
+                                ref={picker.menuRef}
+                                aria-labelledby={picker.triggerId}
+                                className="dropdown-menu dropdown-menu-end show shadow p-0 g2h-review-candidate-picker">
                                 <div className="g2h-review-picker-head px-3 pt-3 pb-2">
                                     <p className="fw-bold small mb-2">
                                         {pickerTitleText.replace(
@@ -950,17 +976,24 @@ export function ReviewPanel({
 
             {mayDecide && (
                 <>
-                    <div className="dropdown">
+                    <div className="dropdown" ref={decisionMenu.containerRef}>
                         <button
                             type="button"
+                            id={decisionMenu.triggerId}
+                            ref={decisionMenu.triggerRef}
                             className={`btn w-100 dropdown-toggle d-flex justify-content-between align-items-center ${decisionSelection?.selectionCssClass ?? setStatusCssClass} mb-0`}
-                            aria-expanded={isDecisionMenuOpen}
-                            onClick={() => setIsDecisionMenuOpen(!isDecisionMenuOpen)}>
+                            aria-controls={decisionMenu.isOpen ? decisionMenu.menuId : undefined}
+                            aria-expanded={decisionMenu.isOpen}
+                            onClick={decisionMenu.toggle}>
                             {decisionSelection?.text ?? setStatusText}
                         </button>
 
-                        {isDecisionMenuOpen && (
-                            <div className="dropdown-menu show shadow w-100">
+                        {decisionMenu.isOpen && (
+                            <div
+                                id={decisionMenu.menuId}
+                                ref={decisionMenu.menuRef}
+                                aria-labelledby={decisionMenu.triggerId}
+                                className="dropdown-menu show shadow w-100">
                                 <button
                                     type="button"
                                     className="dropdown-item"

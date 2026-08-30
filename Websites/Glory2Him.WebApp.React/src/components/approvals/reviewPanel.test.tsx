@@ -1,6 +1,6 @@
 import { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '../securitys/authProvider';
@@ -1527,6 +1527,235 @@ describe('ReviewPanel', () => {
             // and the standing request can still be withdrawn to free the slot
             await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
             expect(onReviewRequestWithdrawn).toHaveBeenCalledWith(mary);
+        });
+    });
+
+    // All three menus are the panel's own rather than Bootstrap's, so none of the dismissal that
+    // `data-bs-toggle` brings for free applies. Opened by keyboard, the only way out used to be
+    // finding the trigger and clicking it a second time.
+    //
+    // Driven through the three of them rather than one, because the whole point of the shared
+    // hook is that they cannot drift apart.
+    describe('menu dismissal and labelling', () => {
+        const openVoteMenu = async (): Promise<HTMLElement> => {
+            signInAs(authState, ['Reviewer']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted} />);
+
+            const trigger = screen.getByRole('button', { name: 'Vote...' });
+            await userEvent.click(trigger);
+
+            return trigger;
+        };
+
+        const openPicker = async (): Promise<HTMLElement> => {
+            signInAs(authState, ['Reviewer']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary, paul]} />);
+
+            const trigger = screen.getByRole('button', { name: 'Request a review' });
+            await userEvent.click(trigger);
+
+            return trigger;
+        };
+
+        const openDecisionMenu = async (): Promise<HTMLElement> => {
+            signInAs(authState, ['Publisher']);
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    approvalVerdict={verdictWith()} />);
+
+            const trigger = screen.getByRole('button', { name: 'Set approval status' });
+            await userEvent.click(trigger);
+
+            return trigger;
+        };
+
+        const menus: Array<[string, () => Promise<HTMLElement>, string]> = [
+            ['the vote menu', openVoteMenu, 'Approved'],
+            ['the reviewer picker', openPicker, 'Mary'],
+            ['the decision menu', openDecisionMenu, 'Approve']
+        ];
+
+        it.each(menus)(
+            'should dismiss %s on Escape and hand focus back to its trigger',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+                expect(screen.getByRole('button', { name: new RegExp(itemName) }))
+                    .toBeInTheDocument();
+
+                // when
+                await userEvent.keyboard('{Escape}');
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+
+                // the whole point: a keyboard user is put back where they were, not stranded
+                expect(trigger).toHaveFocus();
+                expect(trigger).toHaveAttribute('aria-expanded', 'false');
+            });
+
+        it.each(menus)(
+            'should dismiss %s on a click outside it',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+
+                // when: somewhere that is neither the menu nor its trigger.
+                //
+                // fireEvent.mouseDown rather than userEvent.click, and that is the whole
+                // difference between this test working and not. userEvent.click on a
+                // non-focusable <h4> blurs the active element ITSELF, after the hook's effect has
+                // run — so document.activeElement is <body> by the time the assertion below runs
+                // no matter what the hook did. Written with userEvent this test passes even when
+                // the outside-click path is changed to returnFocus: true, i.e. it cannot fail.
+                // mousedown moves no focus, so what is asserted is the hook's behaviour alone.
+                fireEvent.mouseDown(screen.getByRole('heading', { name: 'Approval Reviews' }));
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+
+                // and focus is NOT dragged back — the user chose to go elsewhere, and yanking
+                // it to the trigger would undo their own click
+                expect(trigger).not.toHaveFocus();
+            });
+
+        // The one dismissal route that existed BEFORE this PR, and the invariant the hook's
+        // containerRef exists to protect: the trigger lives inside the container, so its mousedown
+        // is never "outside" and cannot race the toggle into reopening what it just closed. Point
+        // containerRef at the menu instead and this is the test that goes red.
+        it.each(menus)(
+            'should dismiss %s when its own trigger is clicked again',
+            async (_name, open, itemName) => {
+                // given
+                const trigger = await open();
+
+                // when
+                await userEvent.click(trigger);
+
+                // then
+                expect(screen.queryByRole('button', { name: new RegExp(itemName) }))
+                    .not.toBeInTheDocument();
+
+                expect(trigger).toHaveAttribute('aria-expanded', 'false');
+            });
+
+        it.each(menus)(
+            'should label %s by the trigger that opened it',
+            async (_name, open) => {
+                // given
+                const trigger = await open();
+
+                // when
+                const menu = document.querySelector('.dropdown-menu.show');
+
+                // then: without this a screen-reader user landing in one of three menus has no
+                // way to tell which
+                expect(menu).not.toBeNull();
+                expect(trigger.id).not.toBe('');
+                expect(menu).toHaveAttribute('aria-labelledby', trigger.id);
+                expect(trigger).toHaveAttribute('aria-controls', menu?.id);
+
+                // asserted OPEN as well as closed. Pinning only the closed state let a trigger
+                // hard-coded to aria-expanded={false} pass the whole suite.
+                expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+                // NOT a menu, and it must not say it is. aria-haspopup="true" is defined as
+                // synonymous with "menu", which would promise roles and arrow keys none of these
+                // three have — see useDismissableMenu. Absence here is the assertion.
+                expect(trigger).not.toHaveAttribute('aria-haspopup');
+            });
+
+        it.each(menus)(
+            'should drop aria-controls from the %s trigger once it is closed',
+            async (_name, open) => {
+                // given: a trigger pointing aria-controls at an element that is no longer in the
+                // document is a dangling reference, so the attribute has to go with the menu
+                const trigger = await open();
+                expect(trigger).toHaveAttribute('aria-controls');
+
+                // when
+                await userEvent.keyboard('{Escape}');
+
+                // then
+                expect(trigger).not.toHaveAttribute('aria-controls');
+            });
+
+        it.each([
+            ['the vote menu', openVoteMenu, 'Approved'],
+            ['the reviewer picker', openPicker, 'Filter by name'],
+            ['the decision menu', openDecisionMenu, 'Approve this item']
+        ] as Array<[string, () => Promise<HTMLElement>, string]>)(
+            'should move focus to the first control in %s when it opens',
+            async (_name, open, expectedFocusName) => {
+                // given, when
+                await open();
+
+                // then: WHICH element, not merely "something inside". Asserting containment let a
+                // hook focusing the LAST control pass — landing the picker on its final candidate
+                // row instead of the filter box somebody opened it to type in.
+                expect(screen.getByRole(
+                    expectedFocusName === 'Filter by name' ? 'textbox' : 'button',
+                    { name: new RegExp(expectedFocusName) })).toHaveFocus();
+            });
+
+        it('should hand focus back to the trigger after a vote is cast', async () => {
+            // given
+            const trigger = await openVoteMenu();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Approved/ }));
+
+            // then: choosing is not leaving, so focus stays on the control
+            expect(trigger).toHaveFocus();
+        });
+
+        it('should hand focus back to the trigger after a decision is chosen', async () => {
+            // given
+            const trigger = await openDecisionMenu();
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /^Approve this item/ }));
+
+            // then
+            expect(trigger).toHaveFocus();
+        });
+
+        // The picker deliberately stays open after each pick — assigning several reviewers is one
+        // task — so its dismissal must not have quietly turned that into one round trip per name.
+        it('should keep the picker open after a candidate is requested', async () => {
+            // given
+            signInAs(authState, ['Reviewer']);
+            const onReviewRequested = vi.fn();
+
+            renderWithAuth(
+                <ReviewPanel
+                    entityType="ContentItem"
+                    approvalStatus={ApprovalStatus.Submitted}
+                    reviewerCandidateCollection={[mary, paul]}
+                    onReviewRequested={onReviewRequested} />);
+
+            await userEvent.click(screen.getByRole('button', { name: 'Request a review' }));
+
+            // when
+            await userEvent.click(screen.getByRole('button', { name: /Mary/ }));
+
+            // then
+            expect(onReviewRequested).toHaveBeenCalledWith(mary);
+            expect(screen.getByRole('button', { name: /Paul/ })).toBeInTheDocument();
         });
     });
 });
